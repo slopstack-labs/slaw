@@ -11,7 +11,8 @@ namespace SlopstackLabs.Slaw.Desktop;
 internal sealed record StudioLaunchParameters(
     SlawProject Project,
     string? ProjectFilePath,
-    StudioPreferences Preferences);
+    StudioPreferences Preferences,
+    bool OpenInArrangementView = false);
 
 /// <summary>
 /// The Avalonia application host. The interface is composed entirely in C#:

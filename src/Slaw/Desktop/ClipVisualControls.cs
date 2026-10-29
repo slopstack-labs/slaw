@@ -223,8 +223,16 @@ internal sealed class ArrangementLaneControl : Control
         this.trackIndex = trackIndex;
         this.sceneIndex = sceneIndex;
         this.repeats = repeats;
-        Height = 34;
+        Height = 52;
+        Cursor = new Cursor(StandardCursorType.Hand);
     }
+
+    public int TrackIndex => trackIndex;
+
+    public int SceneIndex => sceneIndex;
+
+    /// <summary>Drawn with an outline when its clip is the one open in the detail view.</summary>
+    public bool IsSelected { get; set; }
 
     public double? PlayheadFraction
     {
@@ -252,6 +260,18 @@ internal sealed class ArrangementLaneControl : Control
             drawingContext.DrawRectangle(StudioTheme.TrackBrushDimmed(trackIndex), null, laneBounds, 2, 2);
             ClipMiniatureRenderer.Draw(drawingContext, clip, InstrumentVoiceSynthesizer.IsPercussive(track.Instrument),
                 laneBounds.Deflate(new Thickness(2, 4, 2, 4)), StudioTheme.TrackBrush(trackIndex), clipRepetitions);
+        }
+        else
+        {
+            drawingContext.DrawRectangle(null, new Pen(StudioTheme.Border, 1, new DashStyle(new double[] { 3, 3 }, 0)), laneBounds.Deflate(2), 2, 2);
+        }
+        if (track.Muted)
+        {
+            drawingContext.DrawRectangle(new SolidColorBrush(StudioTheme.BackgroundColor, 0.55), null, laneBounds, 2, 2);
+        }
+        if (IsSelected)
+        {
+            drawingContext.DrawRectangle(null, new Pen(StudioTheme.Text, 1.5), laneBounds, 2, 2);
         }
         if (playheadFraction is { } currentFraction)
         {

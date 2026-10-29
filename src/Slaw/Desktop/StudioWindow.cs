@@ -163,7 +163,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         unsolicitedAdviceToggle.IsChecked = preferences.CopilotInterjectionsEnabled;
         MaterializeInferenceProvider(announce: false);
         ApplyAiFeatureVisibility();
-        SelectMainView(arrangementView: false);
+        SelectMainView(arrangementView: launchParameters.OpenInArrangementView);
         SynchronizeTransportControls();
         RefreshChrome();
         liveAudioSession.Engine.PublishProject(document.Project.DeepClone());
@@ -446,6 +446,7 @@ internal sealed class StudioWindow : Window, IStudioHost
             else
             {
                 sessionView.RefreshContent();
+                arrangementView.RefreshContent();
                 detailView.RefreshContent();
             }
             SynchronizeTransportControls();
@@ -454,6 +455,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         document.SelectionChanged += () =>
         {
             sessionView.RefreshSelection();
+            arrangementView.RefreshSelection();
             detailView.Rebuild();
         };
         document.Edited += RegisterEditForCopilot;
