@@ -13,7 +13,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// publishes it through <see cref="Result"/> when the user commits to Save, which
 /// is more commitment than most roadmaps get.
 /// </summary>
-internal sealed class SettingsWindow : Window
+internal sealed partial class SettingsWindow : Window
 {
     private readonly StudioPreferences workingPreferences;
 
@@ -139,6 +139,7 @@ internal sealed class SettingsWindow : Window
                 new TabItem { Header = "AI", Content = WrapInScrollViewer(BuildAiTab()) },
                 new TabItem { Header = "Audio", Content = WrapInScrollViewer(BuildAudioTab()) },
                 new TabItem { Header = "Samples", Content = WrapInScrollViewer(BuildSamplesTab()) },
+                new TabItem { Header = "Plugins", Content = WrapInScrollViewer(BuildPluginsTab()) },
                 new TabItem { Header = "Integrations", Content = WrapInScrollViewer(BuildIntegrationsTab()) },
                 new TabItem { Header = "About", Content = WrapInScrollViewer(BuildAboutTab()) },
             },
@@ -357,7 +358,7 @@ internal sealed class SettingsWindow : Window
                 WrappedCaption("No window needed: slaw can also serve a project file over stdio, autosaving every edit."),
                 CommandLine("claude mcp add slaw -- slaw mcp /path/to/song.slaw"),
                 WrappedCaption("Tools: get_project, get_catalog, apply_patch, set_clip, add_track, update_track, add_effect, set_tempo, transport, " +
-                               "render, save_project, undo, redo, list_samples, ask_copilot. Tracks locked with 🔒 stay off-limits."),
+                               "render, save_project, undo, redo, list_samples, list_plugins, describe_plugin, ask_copilot. Tracks locked with 🔒 stay off-limits."),
             },
         };
     }
@@ -482,6 +483,7 @@ internal sealed class SettingsWindow : Window
         workingPreferences.AudioSubstrate = audioSubstrateComboBox.SelectedItem as string ?? "auto";
         workingPreferences.AudioLatencyMilliseconds = ReadWholeNumber(audioLatencyNumericUpDown, workingPreferences.AudioLatencyMilliseconds);
         workingPreferences.SampleFolders = new List<string>(workingSampleFolders);
+        ApplyPluginFoldersToWorkingPreferences();
         workingPreferences.McpServerEnabled = mcpServerCheckBox?.IsChecked == true;
         workingPreferences.MidiInputEnabled = midiInputCheckBox?.IsChecked != false;
         workingPreferences.McpServerPort = mcpPortNumericUpDown is null

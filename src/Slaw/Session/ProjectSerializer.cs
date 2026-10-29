@@ -50,6 +50,7 @@ internal static class ProjectSerializer
     {
         var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath)) ?? Directory.GetCurrentDirectory();
         var persistedProject = project.DeepClone();
+        Plugins.PluginInstancePool.CaptureStates(persistedProject);
         foreach (var track in persistedProject.Tracks.Where(track => !string.IsNullOrEmpty(track.Sample) && Path.IsPathRooted(track.Sample)))
         {
             var relativeSamplePath = Path.GetRelativePath(projectDirectory, track.Sample!);

@@ -33,6 +33,9 @@ internal sealed class StudioPreferences
     /// <summary>Folders scanned for user samples (WAV files), shown in the browser.</summary>
     public List<string> SampleFolders { get; set; } = new();
 
+    /// <summary>Extra folders scanned for VST3 plugins, on top of the system folders and VST3_PATH.</summary>
+    public List<string> PluginFolders { get; set; } = new();
+
     /// <summary>
     /// Exposes the open project to MCP clients (Claude Code, etc.) over HTTP on
     /// 127.0.0.1. Off by default: an open port is a commitment.
@@ -83,6 +86,7 @@ internal sealed class StudioPreferences
     {
         var clonedPreferences = (StudioPreferences)MemberwiseClone();
         clonedPreferences.SampleFolders = SampleFolders.ToList();
+        clonedPreferences.PluginFolders = PluginFolders.ToList();
         return clonedPreferences;
     }
 

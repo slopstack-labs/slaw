@@ -234,15 +234,19 @@ internal static class PromptLibrary
             {
                 projectListing.Append(CultureInfo.InvariantCulture, $" sample \"{Path.GetFileName(track.Sample)}\"");
             }
+            if (track.Plugin is { } instrumentPlugin)
+            {
+                projectListing.Append(CultureInfo.InvariantCulture, $" plugin \"{instrumentPlugin.Name}\"");
+            }
             if (track.InstrumentParameters.Count > 0)
             {
                 projectListing.Append(CultureInfo.InvariantCulture,
-                    $" params {{{string.Join(", ", track.InstrumentParameters.Select(pair => $"{pair.Key}: {pair.Value:0.###}"))}}}");
+                    $" params {{{DescribeParameterValues(track.InstrumentParameters, track.Plugin)}}}");
             }
             if (track.Effects.Count > 0)
             {
                 projectListing.Append(CultureInfo.InvariantCulture,
-                    $" effects [{string.Join(", ", track.Effects.Select(effect => effect.Parameters.Count == 0 ? effect.Type : $"{effect.Type} {{{string.Join(", ", effect.Parameters.Select(pair => $"{pair.Key}: {pair.Value:0.###}"))}}}"))}]");
+                    $" effects [{string.Join(", ", track.Effects.Select(DescribeEffect))}]");
             }
             projectListing.Append('\n');
             for (var sceneIndex = 0; sceneIndex < track.Clips.Count; sceneIndex++)
@@ -257,6 +261,22 @@ internal static class PromptLibrary
         projectListing.Append(CultureInfo.InvariantCulture,
             $"master: gain {masterChain.Gain:0.00}, drive {masterChain.Drive:0.0}, lowpassHz {masterChain.LowpassHz:0}, delayMix {masterChain.DelayMix:0.00}");
         return projectListing.ToString();
+    }
+
+    private static string DescribeEffect(EffectDevice effect)
+    {
+        var effectLabel = effect.Plugin is { } effectPlugin ? $"{effect.Type} \"{effectPlugin.Name}\"" : effect.Type;
+        return effect.Parameters.Count == 0 ? effectLabel : $"{effectLabel} {{{DescribeParameterValues(effect.Parameters, effect.Plugin)}}}";
+    }
+
+    /// <summary>key: value pairs; VST3 parameters carry their plugin's title when it is known ("p12 Cutoff: 0.5").</summary>
+    private static string DescribeParameterValues(Dictionary<string, double> parameterValues, PluginReference? plugin)
+    {
+        var parameterTitles = plugin is null ? null : Plugins.Vst3ParameterDirectory.TryGet(plugin)?.ToDictionary(parameter => parameter.Key, parameter => parameter.Title);
+        return string.Join(", ", parameterValues.Select(pair =>
+            parameterTitles is not null && parameterTitles.TryGetValue(pair.Key, out var parameterTitle)
+                ? FormattableString.Invariant($"{pair.Key} {parameterTitle}: {pair.Value:0.###}")
+                : FormattableString.Invariant($"{pair.Key}: {pair.Value:0.###}")));
     }
 
     public static string DeviceTweak(SlawProject project, SlawTrack targetTrack, string deviceName, IReadOnlyList<ParameterSpecification> parameterSpecifications, IReadOnlyDictionary<string, double> currentValues, string instruction) => $$"""

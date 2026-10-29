@@ -12,7 +12,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// melodic tracks, a step row for drums) and the selected track's device chain
 /// on the right — instrument, effects, and the master bus, all as knobs.
 /// </summary>
-internal sealed class DetailView : UserControl
+internal sealed partial class DetailView : UserControl
 {
     private static readonly int[] ClipLengthChoices = { 4, 8, 12, 16, 24, 32, 48, 64 };
 
@@ -52,6 +52,7 @@ internal sealed class DetailView : UserControl
         detailLayout.Children.Add(splitter);
         detailLayout.Children.Add(deviceChainHost);
         Content = detailLayout;
+        WarmUpPluginCatalog();
         Rebuild();
     }
 
@@ -375,8 +376,13 @@ internal sealed class DetailView : UserControl
             () => track.InstrumentParameters,
             $"{track.Id}/instrument/{parameterSpecification.Key}",
             $"{track.Name} {parameterSpecification.Label}")).ToList();
+        if (track.Instrument == Plugins.DeviceTypes.Vst3 && track.Plugin is { } instrumentPlugin)
+        {
+            knobs = new List<Control> { ComposePluginParameterPanel(instrumentPlugin, () => track.InstrumentParameters,
+                $"{track.Id}/instrument", Plugins.PluginInstancePool.InstrumentSlot(track.Id)) };
+        }
 
-        var titleRow = StudioUi.Row(6, instrumentSelector);
+        var titleRow = StudioUi.Row(6, instrumentSelector, ComposeInstrumentPluginPicker(track));
         if (host.AiFeaturesEnabled)
         {
             titleRow.Children.Add(StudioUi.AiButton("✨", () => host.TuneDeviceWithAi(trackIndex, -1), "Let the AI design this sound"));
@@ -386,7 +392,7 @@ internal sealed class DetailView : UserControl
         {
             titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeSamplerSection(track, trackIndex) } };
         }
-        return ComposeDevicePanel(DeviceCatalog.InstrumentDisplayName(track.Instrument), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
+        return ComposeDevicePanel(PluginDeviceOperations.DeviceName(track), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
     }
 
     private Control ComposeSamplerSection(SlawTrack track, int trackIndex)
@@ -467,8 +473,13 @@ internal sealed class DetailView : UserControl
             () => effectDevice.Parameters,
             $"{track.Id}/fx{effectIndex}/{parameterSpecification.Key}",
             $"{DeviceCatalog.EffectDisplayName(effectDevice.Type)} {parameterSpecification.Label}")).ToList();
+        if (effectDevice.Type == Plugins.DeviceTypes.Vst3 && effectDevice.Plugin is { } effectPlugin)
+        {
+            knobs = new List<Control> { ComposePluginParameterPanel(effectPlugin, () => effectDevice.Parameters,
+                $"{track.Id}/fx{effectIndex}", Plugins.PluginInstancePool.EffectSlot(track.Id, effectIndex)) };
+        }
 
-        var devicePanel = ComposeDevicePanel(DeviceCatalog.EffectDisplayName(effectDevice.Type), titleRow, knobs, StudioTheme.Violet);
+        var devicePanel = ComposeDevicePanel(PluginDeviceOperations.DeviceName(effectDevice), titleRow, knobs, StudioTheme.Violet);
         var effectDescription = DeviceCatalog.EffectDescription(effectDevice.Type);
         if (!string.IsNullOrEmpty(effectDescription))
         {
@@ -510,6 +521,7 @@ internal sealed class DetailView : UserControl
             effectMenuItem.Click += (_, _) => AddEffect(track, effectType);
             effectMenu.Items.Add(effectMenuItem);
         }
+        effectMenu.Items.Add(ComposeEffectPluginSubmenu(track));
         addEffectButton.Flyout = effectMenu;
         addEffectButton.IsEnabled = track.Effects.Count < ProjectAlignmentRemediator.MaximumEffectsPerTrack;
         return addEffectButton;

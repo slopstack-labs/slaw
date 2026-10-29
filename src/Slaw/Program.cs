@@ -153,9 +153,17 @@ internal static class Program
                 --view NAME         open the studio in the session, arrangement, or sample view
                 --mcp               studio: expose the open project over MCP (HTTP on 127.0.0.1)
                 --mcp-port N        studio: MCP port (default 47115)
+                --plugin-folder DIR studio, mcp: also scan DIR for VST3 plugins (repeatable; or set {Plugins.Vst3PluginCatalog.PluginPathEnvironmentVariable})
 
             """);
         return 0;
+    }
+
+    /// <summary>Settings → Plugins folders, plus any --plugin-folder for this session only.</summary>
+    private static void ConfigurePluginFolders(StudioPreferences studioPreferences, CommandLineIntent commandLineIntent)
+    {
+        Plugins.Vst3PluginCatalog.ConfigureUserFolders(studioPreferences.PluginFolders);
+        Plugins.Vst3PluginCatalog.ConfigureSessionFolders(commandLineIntent.Options("plugin-folder"));
     }
 
     // ── Inference routing ─────────────────────────────────────────────────────
@@ -257,6 +265,7 @@ internal static class Program
             studioPreferences.McpServerEnabled = true;
         }
         studioPreferences.McpServerPort = commandLineIntent.IntegerOption("mcp-port", studioPreferences.McpServerPort);
+        ConfigurePluginFolders(studioPreferences, commandLineIntent);
 
         return SlawDesktopApplication.Launch(
             new StudioLaunchParameters(studioProject, requestedProjectPath, studioPreferences,
@@ -486,6 +495,8 @@ internal static class Program
         }
         studioPreferences.ModelIdentifier = commandLineIntent.Option("model") ?? studioPreferences.ModelIdentifier;
         studioPreferences.ApiKey = commandLineIntent.Option("api-key") ?? studioPreferences.ApiKey;
+
+        ConfigurePluginFolders(studioPreferences, commandLineIntent);
 
         var servedDocument = new StudioDocument(servedProject, requestedProjectPath is null ? null : Path.GetFullPath(requestedProjectPath));
         var mcpHost = new Mcp.HeadlessMcpHost(servedDocument, studioPreferences);

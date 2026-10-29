@@ -15,7 +15,7 @@ internal static class McpStdioTransport
     {
         var utf8WithoutPreamble = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         using var standardInput = new StreamReader(Console.OpenStandardInput(), utf8WithoutPreamble);
-        await using var standardOutput = new StreamWriter(Console.OpenStandardOutput(), utf8WithoutPreamble) { AutoFlush = true, NewLine = "\n" };
+        await using var standardOutput = new StreamWriter(ProtocolStandardOutput.Claim(), utf8WithoutPreamble) { AutoFlush = true, NewLine = "\n" };
 
         while (!cancellationToken.IsCancellationRequested && await standardInput.ReadLineAsync(cancellationToken) is { } incomingLine)
         {
