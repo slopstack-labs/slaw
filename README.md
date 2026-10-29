@@ -374,10 +374,23 @@ Moving, removing or inserting devices takes their envelopes along. Agents write 
 
 ### Keyboard
 
+Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) shows the whole list in the studio.
+
 | Shortcut | Action |
 |----------|--------|
-| Space | Play / stop (when not typing) |
+| Space | Play / stop. Session view launches the selected scene, Arrangement view plays the song |
+| Shift+Space | Play from the selected scene (Arrangement: its first section) |
 | Tab | Toggle Session / Arrangement |
+| Enter / Shift+Enter | Launch the selected clip / scene |
+| ↑ ↓ ← → | Move the clip selection |
+| Ctrl+D / Ctrl+Shift+D | Duplicate the selected clip into the next scene / duplicate the scene |
+| Delete / Backspace | Delete the selected clip |
+| Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste a clip into the selected slot |
+| Ctrl+Shift+M | Create an empty clip in the selected slot |
+| Ctrl+T / Ctrl+I | Add a track / a scene |
+| M | Computer MIDI keyboard on / off |
+| F9 | Arm / disarm MIDI record |
+| Esc | Stop held notes and hand the keyboard back from a text field |
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save as |
 | Ctrl+B | Bounce the arrangement to the WAV next to the project |
@@ -387,6 +400,14 @@ Moving, removing or inserting devices takes their envelopes along. Agents write 
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z / Ctrl+Y | Redo |
 | Ctrl+, | Settings |
+
+**Text fields** keep their letters, arrows and Space while you type. Enter, Esc, or a click anywhere else hands the keyboard back to the transport. Buttons never take keyboard focus, so Space and Enter cannot re-press the last one you clicked.
+
+**Computer MIDI keyboard.** Press **M** (or **⌨ Keys** in the toolbar) and your keyboard plays the selected track, through the same path as a hardware keyboard, so **● Rec** records it too:
+
+- **Notes:** `A S D F G H J K L ;` are the white keys from C, `W E T Y U O P` the black ones. Keys are matched by position, so QWERTZ and AZERTY play the same shape.
+- **Octave / velocity:** Z / X and C / V. The toolbar shows the current octave and velocity.
+- **Auto-repeat** is ignored: a held key is one held note.
 
 **Undo/redo** covers everything, including AI edits. Especially AI edits.
 

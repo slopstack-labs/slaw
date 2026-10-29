@@ -152,7 +152,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         WireControls();
 
         transportTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => AdvanceTransportDisplay());
-        AddHandler(KeyDownEvent, HandleWindowKeyDown, RoutingStrategies.Tunnel);
+        WireKeyboard();
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, HandleDragOver);
         AddHandler(DragDrop.DropEvent, HandleDrop);
@@ -297,6 +297,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         AddTransportControl(playButton);
         AddTransportControl(StudioUi.Button("■", StopPlayback, "Stop", compact: false));
         AddTransportControl(ComposeRecordControls());
+        AddTransportControl(ComposeComputerKeyboardControls());
         AddTransportControl(StudioUi.Row(6, StudioUi.Caption("BPM", 12), tempoInput));
         ToolTip.SetTip(projectNameInput, "Song title");
         AddTransportControl(projectNameInput);
@@ -742,7 +743,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         arrangementView.UpdateTransport(transportSnapshot);
         detailView.UpdateTransport(transportSnapshot);
         waveformScope.PlayheadFraction = transportSnapshot.PreviewProgress >= 0 ? transportSnapshot.PreviewProgress : null;
-        var nowPlaying = transportSnapshot.Mode != TransportMode.Stopped;
+        var nowPlaying = PlaybackToggle.IsAudiblyPlaying(transportSnapshot);
         var playCaption = nowPlaying ? "■  Stop" : "▶  Play";
         if (playButton.Content as string != playCaption)
         {
@@ -752,10 +753,17 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private void TogglePlayback()
     {
-        if (liveAudioSession.Engine.Transport.Mode != TransportMode.Stopped)
+        var transportSnapshot = liveAudioSession.Engine.Transport;
+        if (PlaybackToggle.IsAudiblyPlaying(transportSnapshot) || transportSnapshot.PreviewProgress >= 0)
         {
             StopPlayback();
             return;
+        }
+        if (transportSnapshot.Mode != TransportMode.Stopped)
+        {
+            // A session clock still ticking over silent tracks would hold the launch
+            // until its next bar; stop it so the scene starts on this press.
+            liveAudioSession.Engine.Stop();
         }
         if (arrangementViewActive)
         {
@@ -2197,52 +2205,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                     }, EditScope.Structure);
                     break;
                 }
-        }
-    }
-
-    // ── Window-level input ────────────────────────────────────────────────────
-
-    private void HandleWindowKeyDown(object? sender, KeyEventArgs keyEvent)
-    {
-        var commandModifierHeld = keyEvent.KeyModifiers.HasFlag(KeyModifiers.Control) || keyEvent.KeyModifiers.HasFlag(KeyModifiers.Meta);
-        var shiftHeld = keyEvent.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        if (commandModifierHeld)
-        {
-            Action? shortcutAction = keyEvent.Key switch
-            {
-                Key.S => () => _ = SaveProjectAsync(saveAs: shiftHeld),
-                Key.B when shiftHeld => () => _ = BounceAsAsync(),
-                Key.B => () => _ = BounceProjectAsync(),
-                Key.O => () => _ = OpenProjectAsync(),
-                Key.N => () => _ = NewProjectAsync(),
-                Key.Z when shiftHeld => PerformRedo,
-                Key.Z => PerformUndo,
-                Key.Y => PerformRedo,
-                Key.OemComma => () => _ = OpenSettingsAsync(),
-                _ => null,
-            };
-            if (shortcutAction is not null)
-            {
-                shortcutAction();
-                keyEvent.Handled = true;
-            }
-            return;
-        }
-
-        if (FocusManager?.GetFocusedElement() is TextBox)
-        {
-            return;
-        }
-        switch (keyEvent.Key)
-        {
-            case Key.Space:
-                TogglePlayback();
-                keyEvent.Handled = true;
-                break;
-            case Key.Tab:
-                SelectMainView(!arrangementViewActive);
-                keyEvent.Handled = true;
-                break;
         }
     }
 
