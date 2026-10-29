@@ -11,7 +11,7 @@ Traditional DAWs are slow, opinionated, and constrained by decades of musical th
 **Key differentiators:**
 - Zero determinism — every bounce is a unique stakeholder experience
 - Multi-provider intelligence substrate — route your production intent through Ollama, OpenAI, Google Gemini, Anthropic Claude, or any OpenAI-compatible server
-- Zero samples shipped — everything is synthesized, because samples would imply someone recorded something on purpose
+- Zero samples shipped — everything is synthesized, because samples would imply someone recorded something on purpose. (Bring your own WAVs via the `sampler`. They are yours, and therefore your responsibility.)
 - Blazing-fast time-to-tinnitus
 - Clipping-as-a-feature architecture, responsibly neutralized by the hearing protection substrate
 - Model-native waveform synthesis unconstrained by legacy notions of "audio format"
@@ -100,7 +100,7 @@ slaw <command> [options]    # headless production pipeline
 
 | Command | Description |
 |---------|-------------|
-| `slaw` / `slaw studio [project.slaw]` | Opens the desktop session-view studio window. Opens or creates the project. |
+| `slaw` / `slaw studio [project.slaw]` | Opens the desktop session-view studio window. Opens or creates the project. Add `--view arrangement` (or `session`) to choose the starting view. |
 | `slaw compose "<vibe>" [-o out]` | Ask the model to produce audio from a vibe. Default mode writes `slop.wav`. |
 | `slaw render <project.slaw> [-o out.wav]` | Deterministic offline bounce to 16-bit 44.1 kHz stereo WAV. |
 | `slaw play <project.slaw\|file.wav>` | Render (if needed) and audition through the host player. |
@@ -119,6 +119,7 @@ slaw <command> [options]    # headless production pipeline
 | `--optimistic` | false | `compose`: engage agentic arrangement co-pilot |
 | `--loop N` | 0 | `compose`: re-align LLM outputs with ground truth up to N times on JSON parse failure |
 | `--force-iterate N` | 0 | `compose`: proactively enhance output quality for N cycles even on success |
+| `--view` | `session` | `studio`: starting view, `session` or `arrangement` |
 | `--no-copilot` | false | `studio`: disable the unsolicited AI co-pilot (why would you). Flags override saved Settings for one session |
 | `--timeout N` | 300 | HTTP request timeout in seconds per LLM call (`0` = no timeout) |
 | `--verbose` | false | Verbose debug output |
@@ -201,12 +202,29 @@ A real-time, sample-accurate sequencer runs in-process and streams audio continu
 
 - **Toolbar** (top): New / Open… / Save / Bounce, Play/Stop, BPM, project title, the **Session / Arrangement** switch, a master **AI** switch, Settings (⚙), and a status chip showing the inference substrate ("● llama3 via Ollama" or "○ AI offline").
 - **Session view**: tracks are columns, scenes are rows. Each cell is a clip slot with a ▶ launch triangle; empty slots show a stop square, and double-clicking one creates a clip. Launches are **quantized to the next bar**, like a real DAW. The right-most column launches whole scenes (▶ per scene, editable scene names; right-click for *append to arrangement*, *duplicate*, *delete*) and holds the master fader and **Stop all clips**. Every track column ends in a **mixer strip**: stop button, pan knob, vertical volume fader with dB readout, Mute / Solo, a 🔒 **Protect from AI** lock, delete, and "✨ Name" (AI rename).
-- **Arrangement view**: the song as an ordered list of scene sections on a timeline with a lane per track. Each section has a scene dropdown, a repeat count, ▶ play-from-here, move earlier/later, and remove. **+ Section** adds one; double-click a lane to play from there. A green playhead sweeps the timeline.
-- **Detail view** (bottom): the clip editor. Melodic tracks get a polyphonic **piano roll** (click to add notes or chords, drag right to hold, click a note to delete, wheel or ▲▼ to scroll octaves); drums get a step row. Clip name, clip length (4-64 steps), Clear, ▶ Clip, and "✨ Rewrite" sit alongside. Next to the editor is the **device chain**: the instrument device with knobs (oscillators: Attack, Decay, Sustain, Release, Filter, Octave, Detune, AI Humanize; pluck: Length, Brightness, …; drums: Pitch, Decay, Tone, AI Humanize), then audio effects with knobs, on/off, reorder, remove, and **+ Effect**, and finally the **Master Bus** device (Drive, Lowpass, Delay time/feedback/mix, "✨ AI master"). Knobs the AI changed glow violet until you touch them.
-- **Browser** (left, AI on): lists instruments (click to add a track) and effects (click to add to the selected track), plus the AI actions.
+- **Arrangement view**: the song as an ordered list of scene sections on a timeline with a lane per track. Each track has an editable header (name, M, S, 🔒 AI lock, volume slider). Each section header has a scene dropdown, −/+ repeats, ▶ play-from-here, move earlier/later, and remove. **+ Section** adds one. Click any block to open that track's clip for that scene in the piano roll and device chain below (the open clip is outlined wherever it appears in the timeline). Right-click a block for *Create clip*, *Edit clip*, *Delete clip*, or ✨ *Generate/Rewrite clip* with AI. Double-click a block to play from there. A green playhead sweeps the timeline.
+- **Detail view** (bottom): the clip editor. Melodic tracks get a polyphonic **piano roll** (click to add notes or chords, drag right to hold, click a note to delete, wheel or ▲▼ to scroll octaves); drums get a step row. The keyboard strip along the left edge is playable: see **Note audition** below. Clip name, clip length (4-64 steps), Clear, ▶ Clip, and "✨ Rewrite" sit alongside. Next to the editor is the **device chain**: the instrument device with knobs (oscillators: Attack, Decay, Sustain, Release, Filter, Octave, Detune, AI Humanize; pluck: Length, Brightness, …; drums: Pitch, Decay, Tone, AI Humanize), then audio effects with knobs, on/off, reorder, remove, and **+ Effect**, and finally the **Master Bus** device (Drive, Lowpass, Delay time/feedback/mix, "✨ AI master"). Knobs the AI changed glow violet until you touch them.
+- **Browser** (left, AI on): lists instruments (click to add a track) and effects (click to add to the selected track), plus the AI actions. A **Samples** section lists your own WAVs (see **Your own samples**).
 - **AI panel** (right, AI on): the co-pilot transcript and the Autopilot chat box. See below.
 
 Closing the window with unsaved changes is intercepted by the co-pilot on the first attempt ("close again to abandon your artistic vision").
+
+### Note audition
+
+On the piano roll's keyboard strip, click and hold a key to hear that note on the track's instrument, through its effects. Drag along the keyboard to glide between notes. Releasing fades the note over the instrument's release time (drums and plucks ring out). Placing a note in the grid also previews it for as long as the mouse is held.
+
+### Your own samples
+
+The `sampler` instrument ("Sampler") plays your own WAV files, pitched across the piano roll. C4 is the root note by default, i.e. original pitch. Knobs: Root Note, Transpose, Start, End (trim), Note Length (off = one-shot, on = follows the note length), Reverse, Attack, Release, Gain, Filter, AI Humanize.
+
+- **Format**: uncompressed WAV only. 8/16/24/32-bit PCM and 32/64-bit float, any channel count (mixed to mono), any sample rate. An MP3 in a WAV container is rejected with "format tag 0x55 looks like MP3 wearing a WAV costume".
+- **Browser → Samples**: **+ Folder…** adds a sample folder, ⟳ rescans, and a filter box narrows the list. Click a sample to preview it; double-click to add it as a new sampler track (with a starter note so it is audible). Right-click for *add as new track*, *load into selected track*, or *preview*. Sample folders are also managed in Settings → Samples.
+- **Drag and drop**: drop WAV files onto the window to create sampler tracks. One WAV dropped while an empty sampler track is selected loads into that track. Drop a folder to add it to the sample library.
+- **Sampler device**: shows the sample's waveform, with **Load…**, ▶ preview, and **✨ Pick**, where an AI "sample curator" picks a sample from your folders for the track.
+- **Autopilot**: is shown your sample library and may build sampler tracks from it. Hallucinated paths are matched by file name, or reverted.
+- **Portability**: samples stored next to (or below) the project file are saved as relative paths, so project folders can be moved. Others stay absolute.
+
+slaw itself still ships zero samples. These are yours, and therefore your responsibility.
 
 ### Effects
 
@@ -230,11 +248,18 @@ Pattern steps can also be chords, written `"A3+C4+E4"`.
 | Click a clip slot's ▶ | Launch the clip on the next bar |
 | Double-click an empty slot | Create a clip |
 | Right-click a scene | Append to arrangement / duplicate / delete |
-| Click in the piano roll | Add a note or chord |
+| Click and hold a piano roll key | Audition the note on the track's instrument |
+| Drag along the piano roll keys | Glide between notes |
+| Click in the piano roll | Add a note or chord (previews while the mouse is held) |
 | Drag right in the piano roll | Hold the note |
 | Click a note | Delete it |
 | Mouse wheel (piano roll) | Scroll octaves |
-| Double-click an arrangement lane | Play from there |
+| Click an arrangement block | Open that track's clip for that scene in the editor below |
+| Right-click an arrangement block | Create / Edit / Delete clip, or ✨ Generate/Rewrite clip with AI |
+| Double-click an arrangement block | Play from there |
+| Double-click a sample in the browser | Add it as a new sampler track |
+| Right-click a sample in the browser | Add as new track / load into selected track / preview |
+| Drop WAV files or a folder on the window | Create sampler tracks / add folder to the sample library |
 | Drag a knob vertically | Change the value (Shift = fine) |
 | Mouse wheel over a knob | Change the value |
 | Double-click a knob | Reset to default |
@@ -276,6 +301,7 @@ The toolbar has a master **AI** switch (also in Settings). With it off, slaw is 
 | Tab | Contents |
 |-----|----------|
 | AI | Provider, model, API key (with optional "remember"), base URL, Ollama endpoint, timeout, co-pilot on/off and interjection interval, Autopilot remediation cycles, and a **Test connection** button |
+| Samples | Sample folders: add, remove, rescan |
 | Audio | Live audio substrate, latency |
 | About | Provenance |
 
@@ -302,13 +328,18 @@ A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `track
         { "name": "Onboarding", "pattern": ["A1", "_", ".", "A1", ".", ".", "A2", ".", "F1", "_", ".", "F1", ".", ".", "G1", "G2"] },
         null
       ]
+    },
+    {
+      "id": "c0ffee01", "name": "Kick (BYO)", "instrument": "sampler",
+      "sample": "samples/kick.wav",
+      "clips": [{ "name": "Onboarding", "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", "."] }, null]
     }
   ],
   "arrangement": [{ "scene": 0, "repeats": 2 }, { "scene": 1, "repeats": 4 }]
 }
 ```
 
-Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck` (Karplus-Strong), and `noise`. Pattern steps are pitches (`"C4"`, `"D#3"`, `"Bb2"`), chords (`"A3+C4+E4"`), `"x"` to trigger, `"_"` to sustain the previous note, or `"."` for silence. `clips` holds one entry per scene (`null` is an empty slot); effect `type`s are `lowpass`, `highpass`, `delay`, `reverb`, `drive`, `bitcrush` and `vibe`.
+Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck` (Karplus-Strong), `noise`, and `sampler` (plays the WAV named by the track's `sample` field; paths next to or below the project are stored relative). Pattern steps are pitches (`"C4"`, `"D#3"`, `"Bb2"`), chords (`"A3+C4+E4"`), `"x"` to trigger, `"_"` to sustain the previous note, or `"."` for silence. `clips` holds one entry per scene (`null` is an empty slot); effect `type`s are `lowpass`, `highpass`, `delay`, `reverb`, `drive`, `bitcrush` and `vibe`.
 
 The headless CLI commands (`compose`, `compose --optimistic`, `render`, `play`, `master`, `vibe`, `new`) are unchanged.
 
