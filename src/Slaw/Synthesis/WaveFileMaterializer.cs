@@ -2,22 +2,28 @@ using System.Text;
 
 namespace SlopstackLabs.Slaw.Synthesis;
 
-/// <summary>Writes 16-bit PCM stereo RIFF/WAVE files.</summary>
+/// <summary>Writes 16- or 24-bit PCM stereo RIFF/WAVE files.</summary>
 internal static class WaveFileMaterializer
 {
-    private const short BitsPerSample = 16;
+    public static readonly IReadOnlyList<int> SupportedBitDepths = new[] { 16, 24 };
+
     private const short ChannelCount = 2;
     private const short PcmFormatTag = 1;
 
-    public static void Write(string outputPath, StereoBuffer arrangementBuffer)
+    public static void Write(string outputPath, StereoBuffer arrangementBuffer, int bitsPerSample = 16)
     {
         using var outputFileStream = File.Create(outputPath);
-        Write(outputFileStream, arrangementBuffer);
+        Write(outputFileStream, arrangementBuffer, bitsPerSample);
     }
 
-    public static void Write(Stream outputStream, StereoBuffer arrangementBuffer)
+    public static void Write(Stream outputStream, StereoBuffer arrangementBuffer, int bitsPerSample = 16)
     {
-        const short blockAlignBytes = ChannelCount * BitsPerSample / 8;
+        if (!SupportedBitDepths.Contains(bitsPerSample))
+        {
+            throw new ArgumentOutOfRangeException(nameof(bitsPerSample), bitsPerSample, "slaw bounces 16- or 24-bit PCM");
+        }
+        var bytesPerSample = bitsPerSample / 8;
+        var blockAlignBytes = (short)(ChannelCount * bytesPerSample);
         var dataChunkByteLength = arrangementBuffer.SampleFrameCount * blockAlignBytes;
 
         using var riffWriter = new BinaryWriter(outputStream, Encoding.ASCII, leaveOpen: true);
@@ -32,17 +38,29 @@ internal static class WaveFileMaterializer
         riffWriter.Write(arrangementBuffer.SampleRate);
         riffWriter.Write(arrangementBuffer.SampleRate * blockAlignBytes);
         riffWriter.Write(blockAlignBytes);
-        riffWriter.Write(BitsPerSample);
+        riffWriter.Write((short)bitsPerSample);
 
         riffWriter.Write("data"u8);
         riffWriter.Write(dataChunkByteLength);
         for (var frameIndex = 0; frameIndex < arrangementBuffer.SampleFrameCount; frameIndex++)
         {
-            riffWriter.Write(QuantizeToPcm16(arrangementBuffer.Left[frameIndex]));
-            riffWriter.Write(QuantizeToPcm16(arrangementBuffer.Right[frameIndex]));
+            WriteSample(riffWriter, arrangementBuffer.Left[frameIndex], bitsPerSample);
+            WriteSample(riffWriter, arrangementBuffer.Right[frameIndex], bitsPerSample);
         }
     }
 
-    private static short QuantizeToPcm16(float floatingPointSample) =>
-        (short)Math.Round(Math.Clamp(floatingPointSample, -1f, 1f) * short.MaxValue);
+    private static void WriteSample(BinaryWriter riffWriter, float floatingPointSample, int bitsPerSample)
+    {
+        var clampedSample = Math.Clamp(floatingPointSample, -1f, 1f);
+        if (bitsPerSample == 16)
+        {
+            riffWriter.Write((short)Math.Round(clampedSample * short.MaxValue));
+            return;
+        }
+        // 24-bit little-endian, for stakeholders who can hear the difference.
+        var quantizedSample = (int)Math.Round(clampedSample * 8388607.0);
+        riffWriter.Write((byte)quantizedSample);
+        riffWriter.Write((byte)(quantizedSample >> 8));
+        riffWriter.Write((byte)(quantizedSample >> 16));
+    }
 }

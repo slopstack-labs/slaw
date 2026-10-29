@@ -49,4 +49,36 @@ internal static class OfflineArrangementRenderer
         MasterChainProcessor.ApplyHearingProtection(arrangementBuffer);
         return arrangementBuffer;
     }
+
+    /// <summary>Renders one scene looped <paramref name="loopCount"/> times, as if it were the whole song.</summary>
+    public static StereoBuffer RenderScene(SlawProject project, int sceneIndex, int loopCount, int sampleRate = DefaultSampleRate)
+    {
+        var sceneProject = project.DeepClone();
+        sceneProject.Arrangement = new List<ArrangementSection> { new() { Scene = sceneIndex, Repeats = Math.Max(1, loopCount) } };
+        return Render(sceneProject, sampleRate);
+    }
+
+    /// <summary>
+    /// Renders one stem per track (each track soloed, through the master bus),
+    /// skipping tracks that never play a note. Returns (track, buffer) pairs.
+    /// </summary>
+    public static IEnumerable<(SlawTrack Track, StereoBuffer Stem)> RenderStems(SlawProject project, Func<SlawProject, StereoBuffer> renderVariant)
+    {
+        foreach (var track in project.Tracks)
+        {
+            var playsAnything = track.Clips.OfType<SlawClip>().Any(clip =>
+                clip.Pattern.Any(step => NotationResolver.ResolveOrRest(step).Kind == StepEventKind.Trigger));
+            if (!playsAnything)
+            {
+                continue;
+            }
+            var stemProject = project.DeepClone();
+            foreach (var stemTrack in stemProject.Tracks)
+            {
+                stemTrack.Solo = stemTrack.Id == track.Id;
+                stemTrack.Muted = stemTrack.Id != track.Id;
+            }
+            yield return (track, renderVariant(stemProject));
+        }
+    }
 }

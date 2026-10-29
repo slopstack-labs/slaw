@@ -335,6 +335,8 @@ Pattern steps can also be chords, written `"A3+C4+E4"`.
 | Tab | Toggle Session / Arrangement |
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save as |
+| Ctrl+B | Bounce the arrangement to the WAV next to the project |
+| Ctrl+Shift+B | Bounce As…: the full arrangement, one scene looped N times, or stems (one WAV per track), at 44.1/48/96 kHz and 16/24-bit, to a path of your choosing |
 | Ctrl+O | Open |
 | Ctrl+N | New |
 | Ctrl+Z | Undo |

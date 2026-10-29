@@ -74,7 +74,7 @@ internal sealed class StudioWindow : Window, IStudioHost
     private readonly ToggleButton arrangementViewToggle = new() { Content = "Arrangement", Padding = new Thickness(12, 5) };
     private readonly Button playButton;
     private readonly NumericUpDown tempoInput = new() { Minimum = 40, Maximum = 300, Increment = 1, FormatString = "0", Width = 112, FontSize = 13 };
-    private readonly TextBox projectNameInput = new() { Width = 170, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBox projectNameInput = new() { Width = 150, Watermark = "song title", VerticalAlignment = VerticalAlignment.Center };
     private readonly ToggleSwitch aiFeaturesSwitch = new() { OnContent = "AI", OffContent = "AI off", VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock routingChip = new() { VerticalAlignment = VerticalAlignment.Center, FontSize = 11 };
     private readonly Border routingChipContainer;
@@ -279,8 +279,12 @@ internal sealed class StudioWindow : Window, IStudioHost
         AddTransportControl(brandMark);
         AddTransportControl(StudioUi.Button("New", () => _ = NewProjectAsync(), "New project (Ctrl+N)", compact: true));
         AddTransportControl(StudioUi.Button("Open…", () => _ = OpenProjectAsync(), "Open (Ctrl+O)", compact: true));
-        AddTransportControl(StudioUi.Button("Save", () => _ = SaveProjectAsync(saveAs: false), "Save (Ctrl+S)", compact: true));
-        AddTransportControl(StudioUi.Button("Bounce", () => _ = BounceProjectAsync(), "Render the arrangement to WAV", compact: true));
+        AddTransportControl(StudioUi.Row(2,
+            StudioUi.Button("Save", () => _ = SaveProjectAsync(saveAs: false), "Save (Ctrl+S)", compact: true),
+            StudioUi.Button("Save As…", () => _ = SaveProjectAsync(saveAs: true), "Save under a new name (Ctrl+Shift+S)", compact: true)));
+        AddTransportControl(StudioUi.Row(2,
+            StudioUi.Button("Bounce", () => _ = BounceProjectAsync(), "Render the arrangement to the WAV next to the project (Ctrl+B)", compact: true),
+            StudioUi.Button("Bounce As…", () => _ = BounceAsAsync(), "Choose what to render (arrangement, a scene, or stems), the format, and where (Ctrl+Shift+B)", compact: true)));
         AddTransportControl(StudioUi.VerticalSeparator());
         AddTransportControl(StudioUi.Button("↶", PerformUndo, "Undo (Ctrl+Z)", compact: true));
         AddTransportControl(StudioUi.Button("↷", PerformRedo, "Redo (Ctrl+Shift+Z)", compact: true));
@@ -290,7 +294,8 @@ internal sealed class StudioWindow : Window, IStudioHost
         AddTransportControl(playButton);
         AddTransportControl(StudioUi.Button("■", StopPlayback, "Stop", compact: false));
         AddTransportControl(StudioUi.Row(6, StudioUi.Caption("BPM", 12), tempoInput));
-        AddTransportControl(StudioUi.Row(6, StudioUi.Caption("Title", 12), projectNameInput));
+        ToolTip.SetTip(projectNameInput, "Song title");
+        AddTransportControl(projectNameInput);
 
         var rightControls = StudioUi.Row(8,
             aiFeaturesSwitch,
@@ -928,6 +933,82 @@ internal sealed class StudioWindow : Window, IStudioHost
             SetStatus(StatusSeverity.Failure, $"bounce failed: {bounceRemediationOpportunity.Message}");
         }
     }
+
+    private BounceRequest? lastBounceRequest;
+
+    private async Task BounceAsAsync()
+    {
+        var suggestedOutputPath = document.FilePath is { } projectPath
+            ? Path.ChangeExtension(projectPath, ".wav")
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic, Environment.SpecialFolderOption.DoNotVerify) is { Length: > 0 } musicFolder
+                ? musicFolder
+                : Environment.CurrentDirectory, SuggestedFileStem() + ".wav");
+        var bounceWindow = new BounceOptionsWindow(document.Project, suggestedOutputPath, lastBounceRequest);
+        await bounceWindow.ShowDialog(this);
+        if (bounceWindow.Result is not { } bounceRequest)
+        {
+            return;
+        }
+        lastBounceRequest = bounceRequest;
+
+        var projectSnapshot = document.Project.DeepClone();
+        SetStatus(StatusSeverity.Informational, $"bouncing {DescribeBounce(bounceRequest)}…");
+        try
+        {
+            var writtenFiles = await Task.Run(() =>
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(bounceRequest.OutputPath)!);
+                var producedFiles = new List<(string Path, StereoBuffer Buffer)>();
+                switch (bounceRequest.Scope)
+                {
+                    case BounceScope.Scene:
+                        producedFiles.Add((bounceRequest.OutputPath,
+                            OfflineArrangementRenderer.RenderScene(projectSnapshot, bounceRequest.SceneIndex, bounceRequest.LoopCount, bounceRequest.SampleRate)));
+                        break;
+                    case BounceScope.Stems:
+                        var stemDirectory = Path.GetDirectoryName(bounceRequest.OutputPath)!;
+                        var stemPrefix = Path.GetFileNameWithoutExtension(bounceRequest.OutputPath);
+                        var invalidCharacters = Path.GetInvalidFileNameChars();
+                        foreach (var (stemTrack, stemBuffer) in OfflineArrangementRenderer.RenderStems(
+                                     projectSnapshot, stemProject => OfflineArrangementRenderer.Render(stemProject, bounceRequest.SampleRate)))
+                        {
+                            var safeTrackName = new string(stemTrack.Name.Select(nameCharacter => invalidCharacters.Contains(nameCharacter) ? '-' : nameCharacter).ToArray());
+                            producedFiles.Add((Path.Combine(stemDirectory, $"{stemPrefix} - {safeTrackName}.wav"), stemBuffer));
+                        }
+                        break;
+                    default:
+                        producedFiles.Add((bounceRequest.OutputPath, OfflineArrangementRenderer.Render(projectSnapshot, bounceRequest.SampleRate)));
+                        break;
+                }
+                foreach (var (producedPath, producedBuffer) in producedFiles)
+                {
+                    WaveFileMaterializer.Write(producedPath, producedBuffer, bounceRequest.BitDepth);
+                }
+                return producedFiles;
+            });
+            if (writtenFiles.Count == 0)
+            {
+                SetStatus(StatusSeverity.Warning, "nothing to bounce: no track plays a single note");
+                return;
+            }
+            var (firstPath, firstBuffer) = writtenFiles[0];
+            waveformScope.Present(firstBuffer, $"{Path.GetFileName(firstPath)} · {firstBuffer.DurationSeconds:0.0} s", hallucinatedDeliverable: false);
+            SetStatus(StatusSeverity.Success, writtenFiles.Count == 1
+                ? $"bounced to {firstPath} — radio-ready deliverable shipped to production"
+                : $"bounced {writtenFiles.Count} stems to {Path.GetDirectoryName(firstPath)} — a whole deliverable portfolio");
+        }
+        catch (Exception bounceRemediationOpportunity) when (bounceRemediationOpportunity is IOException or UnauthorizedAccessException)
+        {
+            SetStatus(StatusSeverity.Failure, $"bounce failed: {bounceRemediationOpportunity.Message}");
+        }
+    }
+
+    private string DescribeBounce(BounceRequest bounceRequest) => bounceRequest.Scope switch
+    {
+        BounceScope.Scene => $"scene \"{document.Project.Scenes.ElementAtOrDefault(bounceRequest.SceneIndex)}\" ×{bounceRequest.LoopCount}",
+        BounceScope.Stems => "stems",
+        _ => "the arrangement",
+    } + FormattableString.Invariant($" at {bounceRequest.SampleRate / 1000.0:0.#} kHz / {bounceRequest.BitDepth}-bit");
 
     private string SuggestedFileStem()
     {
@@ -2013,6 +2094,8 @@ internal sealed class StudioWindow : Window, IStudioHost
             Action? shortcutAction = keyEvent.Key switch
             {
                 Key.S => () => _ = SaveProjectAsync(saveAs: shiftHeld),
+                Key.B when shiftHeld => () => _ = BounceAsAsync(),
+                Key.B => () => _ = BounceProjectAsync(),
                 Key.O => () => _ = OpenProjectAsync(),
                 Key.N => () => _ = NewProjectAsync(),
                 Key.Z when shiftHeld => PerformRedo,
