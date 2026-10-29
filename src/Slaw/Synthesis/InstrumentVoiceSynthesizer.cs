@@ -1,3 +1,5 @@
+using SlopstackLabs.Slaw.Session;
+
 namespace SlopstackLabs.Slaw.Synthesis;
 
 /// <summary>
@@ -32,7 +34,8 @@ internal static class InstrumentVoiceSynthesizer
         int sampleRate,
         Random noiseEntropySource,
         IReadOnlyDictionary<string, double>? instrumentParameters = null,
-        SampleData? samplerSource = null)
+        SampleData? samplerSource = null,
+        SampleEditSettings? sampleEditing = null)
     {
         var parameterSpecifications = DeviceCatalog.InstrumentParametersFor(instrumentName);
         double Parameter(string parameterKey) => DeviceCatalog.Resolve(instrumentParameters, parameterSpecifications, parameterKey);
@@ -42,7 +45,7 @@ internal static class InstrumentVoiceSynthesizer
         {
             var chordNotes = midiNotes.Count > 0 ? midiNotes : new[] { (int)Parameter("root") };
             renderedVoice = SumChordVoices(chordNotes
-                .Select(midiNote => RenderSamplerVoice(samplerSource, midiNote, gateDurationSeconds, sampleRate, Parameter))
+                .Select(midiNote => RenderSamplerVoice(samplerSource, midiNote, gateDurationSeconds, sampleRate, Parameter, sampleEditing))
                 .ToList());
         }
         else if (IsPercussive(instrumentName))
@@ -119,24 +122,47 @@ internal static class InstrumentVoiceSynthesizer
     /// root note. One-shot by default; with "Note Length" on it follows the
     /// note's gate and fades over the release time.
     /// </summary>
-    private static float[] RenderSamplerVoice(SampleData? samplerSource, int midiNote, double gateDurationSeconds, int sampleRate, Func<string, double> parameter)
+    private static float[] RenderSamplerVoice(
+        SampleData? samplerSource,
+        int midiNote,
+        double gateDurationSeconds,
+        int sampleRate,
+        Func<string, double> parameter,
+        SampleEditSettings? sampleEditing)
     {
         if (samplerSource is null || samplerSource.Samples.Length < 2)
         {
             return Array.Empty<float>();
         }
         var sourceSamples = samplerSource.Samples;
-        var regionStart = (int)(parameter("start") * sourceSamples.Length);
-        var regionEnd = Math.Max(regionStart + 2, (int)(parameter("end") * sourceSamples.Length));
-        regionEnd = Math.Min(regionEnd, sourceSamples.Length);
-        var regionLength = regionEnd - regionStart;
-        if (regionLength < 2)
+        var sourceRate = samplerSource.SampleRate;
+        var rootNote = (int)parameter("root");
+
+        int regionStart;
+        int regionEnd;
+        double semitoneOffset;
+        if (sampleEditing is { PlaybackMode: SampleEditSettings.SliceMode, SlicePointsSeconds.Count: > 0 })
+        {
+            // Slice mode: each note owns a slice and plays it at its original pitch.
+            if (SampleEditProcessor.SliceRegionFor(sampleEditing, sourceSamples.Length, sourceRate, midiNote, rootNote) is not { } sliceRegion)
+            {
+                return Array.Empty<float>();
+            }
+            (regionStart, regionEnd) = sliceRegion;
+            semitoneOffset = parameter("transpose");
+        }
+        else
+        {
+            regionStart = (int)(parameter("start") * sourceSamples.Length);
+            regionEnd = Math.Min(sourceSamples.Length, Math.Max(regionStart + 2, (int)(parameter("end") * sourceSamples.Length)));
+            semitoneOffset = midiNote - rootNote + parameter("transpose");
+        }
+        if (regionEnd - regionStart < 2)
         {
             return Array.Empty<float>();
         }
 
-        var playbackRatio = Math.Pow(2, (midiNote - parameter("root") + parameter("transpose")) / 12.0)
-                            * samplerSource.SampleRate / sampleRate;
+        var playbackRatio = Math.Pow(2, semitoneOffset / 12.0) * sourceRate / sampleRate;
         var followsNoteLength = parameter("hold") >= 0.5;
         var playsReversed = parameter("reverse") >= 0.5;
         var attackFrameCount = Math.Max(1, (int)(parameter("attack") / 1000 * sampleRate));
@@ -144,21 +170,49 @@ internal static class InstrumentVoiceSynthesizer
         var gateFrameCount = (int)(gateDurationSeconds * sampleRate);
         var sampleGain = parameter("gain");
 
-        var outputLength = (int)Math.Min((regionLength - 1) / playbackRatio, MaximumSamplerVoiceSeconds * sampleRate);
-        if (followsNoteLength)
+        // The sustain loop only makes sense while a note is being held.
+        var loopsWhileHeld = sampleEditing is { LoopEnabled: true } && followsNoteLength && !playsReversed;
+        var loopStartFrame = 0.0;
+        var loopEndFrame = 0.0;
+        if (loopsWhileHeld)
         {
-            outputLength = Math.Min(outputLength, gateFrameCount + releaseFrameCount);
+            loopStartFrame = Math.Clamp(sampleEditing!.LoopStartSeconds * sourceRate, regionStart, regionEnd - 2);
+            loopEndFrame = Math.Clamp(sampleEditing.LoopEndSeconds * sourceRate, loopStartFrame + 2, regionEnd);
+            loopsWhileHeld = loopEndFrame - loopStartFrame >= 2;
         }
-        var renderedVoice = new float[Math.Max(0, outputLength)];
-        var declickFrameCount = Math.Min(outputLength / 2, sampleRate / 200);
 
+        int outputLength;
+        if (loopsWhileHeld)
+        {
+            outputLength = gateFrameCount + releaseFrameCount;
+        }
+        else
+        {
+            outputLength = (int)((regionEnd - regionStart - 1) / playbackRatio);
+            if (followsNoteLength)
+            {
+                outputLength = Math.Min(outputLength, gateFrameCount + releaseFrameCount);
+            }
+        }
+        outputLength = (int)Math.Clamp(outputLength, 0, MaximumSamplerVoiceSeconds * sampleRate);
+        var renderedVoice = new float[outputLength];
+        var declickFrameCount = Math.Max(1, Math.Min(outputLength / 2, sampleRate / 200));
+
+        var sourcePosition = (double)(playsReversed ? regionEnd - 1 : regionStart);
         for (var frameIndex = 0; frameIndex < renderedVoice.Length; frameIndex++)
         {
-            var sourcePosition = frameIndex * playbackRatio;
-            var lowerOffset = (int)sourcePosition;
-            var interpolationWeight = sourcePosition - lowerOffset;
-            var lowerIndex = playsReversed ? regionEnd - 1 - lowerOffset : regionStart + lowerOffset;
-            var upperIndex = playsReversed ? Math.Max(regionStart, lowerIndex - 1) : Math.Min(regionEnd - 1, lowerIndex + 1);
+            if (loopsWhileHeld && frameIndex < gateFrameCount && sourcePosition >= loopEndFrame)
+            {
+                sourcePosition -= loopEndFrame - loopStartFrame;
+            }
+            if (playsReversed ? sourcePosition <= regionStart : sourcePosition >= regionEnd - 1)
+            {
+                break;
+            }
+
+            var lowerIndex = (int)sourcePosition;
+            var interpolationWeight = sourcePosition - lowerIndex;
+            var upperIndex = Math.Min(regionEnd - 1, lowerIndex + 1);
             var interpolatedSample = sourceSamples[lowerIndex] * (1 - interpolationWeight) + sourceSamples[upperIndex] * interpolationWeight;
 
             var envelopeLevel = Math.Min(1.0, (double)frameIndex / attackFrameCount);
@@ -172,6 +226,7 @@ internal static class InstrumentVoiceSynthesizer
                 envelopeLevel *= (double)framesFromEnd / declickFrameCount;
             }
             renderedVoice[frameIndex] = (float)(interpolatedSample * envelopeLevel * sampleGain);
+            sourcePosition += playsReversed ? -playbackRatio : playbackRatio;
         }
         return renderedVoice;
     }

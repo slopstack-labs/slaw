@@ -34,6 +34,18 @@ internal interface IStudioHost
     /// <summary>Lets the model choose a sample for the track from the user's sample folders.</summary>
     void PickSampleWithAi(int trackIndex);
 
+    /// <summary>Plays an arbitrary buffer (e.g. a selection of an edited sample) once through the live engine.</summary>
+    void PreviewSampleBuffer(StereoBuffer previewBuffer);
+
+    /// <summary>Progress of the current preview in [0, 1], or null when nothing is previewing.</summary>
+    double? PreviewProgress { get; }
+
+    /// <summary>Lets the model choose slice points from detected transients.</summary>
+    void AutoChopWithAi(int trackIndex);
+
+    /// <summary>Opens (or focuses) the large sample editor window for a sampler track.</summary>
+    void OpenSampleEditorWindow(string trackIdentifier);
+
     void GenerateClipWithAi(int trackIndex, int sceneIndex);
     void RenameTrackWithAi(int trackIndex);
 

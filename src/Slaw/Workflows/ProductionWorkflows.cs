@@ -345,6 +345,40 @@ internal static class ProductionWorkflows
                ?? throw new ArrangementMisalignmentException("the curator chose a sample that does not exist");
     }
 
+    /// <summary>Lets the model choose slice points, guided by detected transients. Returns ascending seconds.</summary>
+    public static async Task<List<double>> AutoChopAsync(
+        IInferenceSubstrateProvider inferenceProvider,
+        SlawProject project,
+        SlawTrack targetTrack,
+        double sampleDurationSeconds,
+        IReadOnlyList<double> transientCandidates,
+        CancellationToken cancellationToken = default)
+    {
+        var modelOutput = await inferenceProvider.StreamCompletionAsync(
+            PromptLibrary.AutoChop(project, targetTrack, sampleDurationSeconds, transientCandidates.Take(64).ToList()),
+            Array.Empty<string>(), cancellationToken);
+        var extractedArrayPayload = LanguageModelPayloadExtractor.ExtractJsonArray(modelOutput)
+            ?? throw new ArrangementMisalignmentException("the chopping specialist replied without slice points");
+        List<double>? proposedSlicePoints;
+        try
+        {
+            proposedSlicePoints = JsonSerializer.Deserialize<List<double>>(extractedArrayPayload, ProjectSerializer.LenientSerializationOptions);
+        }
+        catch (JsonException deserializationRemediationOpportunity)
+        {
+            throw new ArrangementMisalignmentException($"slice points were not valid JSON: {deserializationRemediationOpportunity.Message}");
+        }
+        var validSlicePoints = (proposedSlicePoints ?? new List<double>())
+            .Where(sliceSeconds => sliceSeconds > 0.005 && sliceSeconds < sampleDurationSeconds - 0.005)
+            .Distinct()
+            .Order()
+            .Take(64)
+            .ToList();
+        return validSlicePoints.Count > 0
+            ? validSlicePoints
+            : throw new ArrangementMisalignmentException("every proposed slice point fell outside the sample");
+    }
+
     private static int EnforceAiLocks(SlawProject originalProject, SlawProject revisedProject)
     {
         var lockEnforcementCount = 0;

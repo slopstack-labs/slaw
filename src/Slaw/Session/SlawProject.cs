@@ -77,6 +77,10 @@ internal sealed class SlawTrack
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Sample { get; set; }
+
+    /// <summary>Non-destructive edits, loop and slice points for the sampler's sample.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SampleEditSettings? SampleEditing { get; set; }
     public List<EffectDevice> Effects { get; set; } = new();
     public double Gain { get; set; } = 0.8;
     public double Pan { get; set; }
@@ -116,6 +120,44 @@ internal sealed class SlawClip
         Name = clipName,
         Pattern = Enumerable.Repeat(NotationResolver.RestSymbol, stepCount).ToList(),
     };
+}
+
+/// <summary>
+/// Everything the sample editor does to a sampler's source file, stored as data
+/// so the original WAV is never touched. Positions are in seconds of the
+/// edited sample (the result of applying <see cref="Operations"/> in order).
+/// </summary>
+internal sealed class SampleEditSettings
+{
+    public const string PitchedMode = "pitched";
+    public const string SliceMode = "slice";
+
+    /// <summary>"pitched": the sample is repitched across the keyboard. "slice": each note plays its own slice.</summary>
+    public string PlaybackMode { get; set; } = PitchedMode;
+
+    /// <summary>Applied in order to the source sample; each operation's times refer to the buffer as it was at that point.</summary>
+    public List<SampleEditOperation> Operations { get; set; } = new();
+
+    /// <summary>Slice boundaries (excluding 0 and the end), ascending.</summary>
+    public List<double> SlicePointsSeconds { get; set; } = new();
+
+    /// <summary>Sustain loop, used while a note is held in Note Length mode.</summary>
+    public bool LoopEnabled { get; set; }
+    public double LoopStartSeconds { get; set; }
+    public double LoopEndSeconds { get; set; }
+
+    public bool IsNeutral => Operations.Count == 0 && SlicePointsSeconds.Count == 0 && !LoopEnabled && PlaybackMode == PitchedMode;
+}
+
+/// <summary>One non-destructive edit: trim, delete, silence, reverse, gain, normalize, fadeIn, fadeOut, or duplicate.</summary>
+internal sealed class SampleEditOperation
+{
+    public string Type { get; set; } = "gain";
+    public double StartSeconds { get; set; }
+    public double EndSeconds { get; set; }
+
+    /// <summary>Gain in dB for "gain"; target peak in dBFS for "normalize"; unused otherwise.</summary>
+    public double Amount { get; set; }
 }
 
 /// <summary>An audio effect in a track's device chain.</summary>

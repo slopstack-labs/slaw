@@ -179,7 +179,7 @@ internal sealed class SequencerEngine
         {
             try
             {
-                samplerSource = SampleLibrary.LoadResampled(auditionedTrack.Sample, sampleRate);
+                samplerSource = SampleEditProcessor.LoadProcessed(auditionedTrack.Sample, auditionedTrack.SampleEditing, sampleRate);
             }
             catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
             {
@@ -193,7 +193,8 @@ internal sealed class SequencerEngine
             sampleRate,
             auditionEntropySource,
             auditionedTrack.InstrumentParameters,
-            samplerSource);
+            samplerSource,
+            auditionedTrack.SampleEditing);
         if (renderedVoice.Length == 0)
         {
             return;
@@ -443,7 +444,7 @@ internal sealed class SequencerEngine
     private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, StepEvent stepEvent, int heldStepCount)
     {
         var parameterFingerprint = string.Join(',', track.InstrumentParameters.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value:R}"));
-        var voiceCacheKey = $"{track.Instrument}|{track.Sample}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}";
+        var voiceCacheKey = $"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}";
         if (renderedVoiceCache.TryGetValue(voiceCacheKey, out var cachedVoice))
         {
             return cachedVoice;
@@ -453,7 +454,7 @@ internal sealed class SequencerEngine
         {
             // Never touch the disk from the audio thread: a sample that is not
             // decoded yet is requested in the background and skipped this time.
-            samplerSource = string.IsNullOrEmpty(track.Sample) ? null : SampleLibrary.TryGetResampled(track.Sample, sampleRate);
+            samplerSource = string.IsNullOrEmpty(track.Sample) ? null : SampleEditProcessor.TryGetProcessed(track.Sample, track.SampleEditing, sampleRate);
             if (samplerSource is null)
             {
                 return Array.Empty<float>();
@@ -470,10 +471,17 @@ internal sealed class SequencerEngine
             sampleRate,
             noiseEntropySource,
             track.InstrumentParameters,
-            samplerSource);
+            samplerSource,
+            track.SampleEditing);
         renderedVoiceCache[voiceCacheKey] = renderedVoice;
         return renderedVoice;
     }
+
+    private static string SampleEditingFingerprint(SampleEditSettings? sampleEditing) =>
+        sampleEditing is null
+            ? "-"
+            : FormattableString.Invariant(
+                $"{SampleEditProcessor.Fingerprint(sampleEditing)}|{sampleEditing.PlaybackMode}|{string.Join(',', sampleEditing.SlicePointsSeconds)}|{sampleEditing.LoopEnabled}|{sampleEditing.LoopStartSeconds:R}|{sampleEditing.LoopEndSeconds:R}");
 
     // ── Mixing ────────────────────────────────────────────────────────────────
 

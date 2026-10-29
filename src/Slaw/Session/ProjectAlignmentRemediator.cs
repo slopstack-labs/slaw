@@ -213,6 +213,30 @@ internal static class ProjectAlignmentRemediator
         {
             remediationLedger.Add($"{track.Name}: sampler has no sample loaded yet");
         }
+        if (track.SampleEditing is { } sampleEditing)
+        {
+            sampleEditing.Operations ??= new List<SampleEditOperation>();
+            sampleEditing.SlicePointsSeconds ??= new List<double>();
+            var hallucinatedOperationCount = sampleEditing.Operations.RemoveAll(operation =>
+                operation is null || !SampleEditProcessor.OperationTypes.Contains(operation.Type) ||
+                double.IsNaN(operation.StartSeconds) || double.IsNaN(operation.EndSeconds));
+            if (hallucinatedOperationCount > 0)
+            {
+                remediationLedger.Add($"{track.Name}: {hallucinatedOperationCount} unknown sample edit(s) discarded");
+            }
+            if (sampleEditing.PlaybackMode is not (SampleEditSettings.PitchedMode or SampleEditSettings.SliceMode))
+            {
+                sampleEditing.PlaybackMode = SampleEditSettings.PitchedMode;
+            }
+            sampleEditing.SlicePointsSeconds = sampleEditing.SlicePointsSeconds
+                .Where(sliceSeconds => sliceSeconds > 0 && !double.IsNaN(sliceSeconds))
+                .Distinct()
+                .Order()
+                .Take(128)
+                .ToList();
+            sampleEditing.LoopStartSeconds = Math.Max(0, sampleEditing.LoopStartSeconds);
+            sampleEditing.LoopEndSeconds = Math.Max(sampleEditing.LoopStartSeconds, sampleEditing.LoopEndSeconds);
+        }
 
         var resolvedInstrumentName = ResolveInstrument(track.Instrument);
         if (!string.Equals(resolvedInstrumentName, track.Instrument, StringComparison.Ordinal))

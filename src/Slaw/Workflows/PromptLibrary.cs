@@ -229,6 +229,14 @@ internal static class PromptLibrary
         Respond with ONLY the number of the chosen sample.
         """;
 
+    public static string AutoChop(SlawProject project, SlawTrack targetTrack, double sampleDurationSeconds, IReadOnlyList<double> transientCandidates) => $"""
+        You are a sample-chopping specialist. The sampler track "{targetTrack.Name}" in the project "{project.Name}" ({project.Bpm:0} BPM) plays a {sampleDurationSeconds.ToString("0.000", CultureInfo.InvariantCulture)} s sample.
+        Detected transient candidates (seconds): {string.Join(", ", transientCandidates.Select(candidateSeconds => candidateSeconds.ToString("0.000", CultureInfo.InvariantCulture)))}
+
+        Choose between 2 and 16 slice points that split the sample into musically useful hits. Prefer the candidates; you may also use beat-grid positions at {project.Bpm:0} BPM.
+        Output ONLY a JSON array of numbers in seconds, ascending, e.g. [0.25, 0.5, 0.75]. No explanation.
+        """;
+
     private static string DescribeAvailableSamples(IReadOnlyList<string> availableSamplePaths)
     {
         if (availableSamplePaths.Count == 0)

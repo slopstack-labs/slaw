@@ -12,7 +12,8 @@ internal sealed record StudioLaunchParameters(
     SlawProject Project,
     string? ProjectFilePath,
     StudioPreferences Preferences,
-    bool OpenInArrangementView = false);
+    bool OpenInArrangementView = false,
+    bool OpenSampleEditor = false);
 
 /// <summary>
 /// The Avalonia application host. The interface is composed entirely in C#:

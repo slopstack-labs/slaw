@@ -22,7 +22,7 @@ internal static class OfflineArrangementRenderer
         {
             try
             {
-                SampleLibrary.LoadResampled(samplerTrack.Sample!, sampleRate);
+                SampleEditProcessor.LoadProcessed(samplerTrack.Sample!, samplerTrack.SampleEditing, sampleRate);
             }
             catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
             {

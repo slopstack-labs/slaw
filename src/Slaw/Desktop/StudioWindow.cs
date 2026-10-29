@@ -91,6 +91,7 @@ internal sealed class StudioWindow : Window, IStudioHost
     private readonly StackPanel sampleEntriesPanel = new() { Spacing = 1 };
     private readonly TextBox sampleFilterInput = new() { Watermark = "filter samples…", FontSize = 11, MinHeight = 24, Padding = new Thickness(6, 2) };
     private IReadOnlyList<string> sampleLibraryFiles = Array.Empty<string>();
+    private readonly Dictionary<string, SampleEditorWindow> openSampleEditorWindows = new();
 
     public StudioWindow(StudioLaunchParameters launchParameters)
     {
@@ -156,6 +157,10 @@ internal sealed class StudioWindow : Window, IStudioHost
         {
             sessionLifetimeCancellation.Cancel();
             transportTimer.Stop();
+            foreach (var sampleEditorWindow in openSampleEditorWindows.Values.ToList())
+            {
+                sampleEditorWindow.Close();
+            }
             liveAudioSession.Dispose();
         };
 
@@ -164,6 +169,15 @@ internal sealed class StudioWindow : Window, IStudioHost
         MaterializeInferenceProvider(announce: false);
         ApplyAiFeatureVisibility();
         SelectMainView(arrangementView: launchParameters.OpenInArrangementView);
+        if (launchParameters.OpenSampleEditor)
+        {
+            var firstSamplerIndex = document.Project.Tracks.FindIndex(track => track.Instrument == "sampler");
+            if (firstSamplerIndex >= 0)
+            {
+                document.Select(firstSamplerIndex, document.SelectedSceneIndex);
+                detailView.ShowSampleTab();
+            }
+        }
         SynchronizeTransportControls();
         RefreshChrome();
         liveAudioSession.Engine.PublishProject(document.Project.DeepClone());
@@ -213,6 +227,19 @@ internal sealed class StudioWindow : Window, IStudioHost
         rootLayout.Children.Add(aiPanelHost);
 
         var workspaceLayout = new Grid { RowDefinitions = new RowDefinitions("*,5,330") };
+        var detailRowDefinition = workspaceLayout.RowDefinitions[2];
+        detailView.MinimumHeightRequested += requestedHeight =>
+        {
+            // Grow for the sample editor, but never shrink below what the user dragged it to,
+            // and always leave the session/arrangement view some room.
+            var workspaceHeight = workspaceLayout.Bounds.Height > 0 ? workspaceLayout.Bounds.Height : Height - 140;
+            var availableHeight = Math.Max(200, workspaceHeight - 180);
+            var targetHeight = Math.Min(requestedHeight, availableHeight);
+            if (detailRowDefinition.Height.Value < targetHeight)
+            {
+                detailRowDefinition.Height = new GridLength(targetHeight, GridUnitType.Pixel);
+            }
+        };
         var horizontalSplitter = new GridSplitter { Background = StudioTheme.Border, ResizeDirection = GridResizeDirection.Rows };
         var detailContainer = new Border { Background = StudioTheme.Background, Child = detailView };
         Grid.SetRow(horizontalSplitter, 1);
@@ -434,7 +461,16 @@ internal sealed class StudioWindow : Window, IStudioHost
 
     private void WireDocument()
     {
-        document.PublishRequested += projectSnapshot => liveAudioSession.Engine.PublishProject(projectSnapshot);
+        document.PublishRequested += projectSnapshot =>
+        {
+            // Warm the edited-sample cache off the audio thread, so the engine
+            // finds freshly edited samples ready on the next trigger.
+            foreach (var samplerTrack in projectSnapshot.Tracks.Where(track => track.Instrument == "sampler" && track.Sample is not null))
+            {
+                SampleEditProcessor.TryGetProcessed(samplerTrack.Sample!, samplerTrack.SampleEditing, LiveAudioSession.LiveSampleRate);
+            }
+            liveAudioSession.Engine.PublishProject(projectSnapshot);
+        };
         document.Changed += editScope =>
         {
             if (editScope == EditScope.Structure)
@@ -1415,6 +1451,77 @@ internal sealed class StudioWindow : Window, IStudioHost
     }
 
     public void ChooseSampleFileForTrack(int trackIndex) => _ = ChooseSampleFileForTrackAsync(trackIndex);
+
+    public void PreviewSampleBuffer(StereoBuffer previewBuffer) => liveAudioSession.Engine.PreviewBuffer(previewBuffer);
+
+    public double? PreviewProgress =>
+        liveAudioSession.Engine.Transport.PreviewProgress is var previewProgress and >= 0 ? previewProgress : null;
+
+    public void AutoChopWithAi(int trackIndex)
+    {
+        if (trackIndex < 0 || trackIndex >= document.Project.Tracks.Count)
+        {
+            return;
+        }
+        var targetTrack = document.Project.Tracks[trackIndex];
+        if (targetTrack.AiLocked)
+        {
+            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is protected from AI edits (🔒).");
+            return;
+        }
+        if (targetTrack.Sample is null)
+        {
+            SetStatus(StatusSeverity.Warning, "load a sample first. even the AI cannot chop silence.");
+            return;
+        }
+        SampleData editedSample;
+        try
+        {
+            editedSample = SampleEditProcessor.LoadProcessedNative(targetTrack.Sample, targetTrack.SampleEditing);
+        }
+        catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            SetStatus(StatusSeverity.Failure, sampleRemediationOpportunity.Message);
+            return;
+        }
+        var transientCandidates = SampleEditProcessor.DetectTransients(editedSample.Samples, editedSample.SampleRate, sensitivity: 0.65);
+        LaunchInference($"chopping {targetTrack.Name}", async (projectSnapshot, cancellationToken) =>
+        {
+            var chosenSlicePoints = await ProductionWorkflows.AutoChopAsync(
+                inferenceProvider!, projectSnapshot, projectSnapshot.Tracks[trackIndex], editedSample.DurationSeconds, transientCandidates, cancellationToken);
+            return () =>
+            {
+                if (!document.Project.Tracks.Contains(targetTrack))
+                {
+                    return;
+                }
+                document.Edit($"let the AI chop {targetTrack.Name}", _ =>
+                {
+                    targetTrack.SampleEditing ??= new SampleEditSettings();
+                    targetTrack.SampleEditing.PlaybackMode = SampleEditSettings.SliceMode;
+                    targetTrack.SampleEditing.SlicePointsSeconds = chosenSlicePoints;
+                }, EditScope.Structure);
+                var rootNote = (int)DeviceCatalog.Resolve(targetTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor("sampler"), "root");
+                AppendCopilotMessage("chopping specialist",
+                    $"Chopped {targetTrack.Name} into {chosenSlicePoints.Count + 1} slices, starting on {NotationResolver.FormatMidiNote(rootNote)}. " +
+                    $"{transientCandidates.Count} transient(s) were considered; my instincts did the rest.");
+                SetStatus(StatusSeverity.Success, $"AI chopped {targetTrack.Name} into {chosenSlicePoints.Count + 1} slices");
+            };
+        });
+    }
+
+    public void OpenSampleEditorWindow(string trackIdentifier)
+    {
+        if (openSampleEditorWindows.TryGetValue(trackIdentifier, out var existingEditorWindow))
+        {
+            existingEditorWindow.Activate();
+            return;
+        }
+        var sampleEditorWindow = new SampleEditorWindow(document, this, trackIdentifier);
+        openSampleEditorWindows[trackIdentifier] = sampleEditorWindow;
+        sampleEditorWindow.Closed += (_, _) => openSampleEditorWindows.Remove(trackIdentifier);
+        sampleEditorWindow.Show(this);
+    }
 
     private async Task ChooseSampleFileForTrackAsync(int trackIndex)
     {

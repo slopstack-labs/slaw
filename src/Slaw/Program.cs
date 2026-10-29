@@ -144,7 +144,7 @@ internal static class Program
                 --loop N            feed parse errors back to the model up to N times
                 --force-iterate N   force N improvement cycles even on success
                 --no-copilot        silence the studio co-pilot (not recommended by the co-pilot)
-                --view NAME         open the studio in the session or arrangement view
+                --view NAME         open the studio in the session, arrangement, or sample view
 
             """);
         return 0;
@@ -247,7 +247,8 @@ internal static class Program
 
         return SlawDesktopApplication.Launch(
             new StudioLaunchParameters(studioProject, requestedProjectPath, studioPreferences,
-                OpenInArrangementView: string.Equals(commandLineIntent.Option("view"), "arrangement", StringComparison.OrdinalIgnoreCase)),
+                OpenInArrangementView: string.Equals(commandLineIntent.Option("view"), "arrangement", StringComparison.OrdinalIgnoreCase),
+                OpenSampleEditor: string.Equals(commandLineIntent.Option("view"), "sample", StringComparison.OrdinalIgnoreCase)),
             rawArguments);
     }
 

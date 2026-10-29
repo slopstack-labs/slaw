@@ -24,6 +24,17 @@ internal sealed class DetailView : UserControl
     private StepRowControl? activeStepRow;
     private int pianoRollLowestNote = 48;
 
+    // Sampler tracks get a Clip / Sample tab pair; the sample editor is kept
+    // alive per track so zoom and selection survive rebuilds.
+    private bool sampleTabActive;
+    private SampleEditorView? activeSampleEditor;
+    private string? activeSampleEditorKey;
+
+    /// <summary>Raised when a tab needs more vertical room than the panel currently has.</summary>
+    public event Action<double>? MinimumHeightRequested;
+
+    private const double SampleEditorPreferredHeight = 500;
+
     public DetailView(StudioDocument document, IStudioHost host)
     {
         this.document = document;
@@ -44,18 +55,20 @@ internal sealed class DetailView : UserControl
 
     public void Rebuild()
     {
-        clipEditorHost.Content = ComposeClipEditor();
+        clipEditorHost.Content = ComposeLeftPanel();
         deviceChainHost.Content = ComposeDeviceChain();
     }
 
     public void RefreshContent()
     {
+        activeSampleEditor?.Refresh();
         activePianoRoll?.InvalidateVisual();
         activeStepRow?.InvalidateVisual();
     }
 
     public void UpdateTransport(TransportSnapshot transportSnapshot)
     {
+        activeSampleEditor?.UpdatePreviewPlayhead();
         int? playheadStep = null;
         if (document.SelectedTrack is { } selectedTrack &&
             transportSnapshot.Mode != TransportMode.Stopped &&
@@ -75,6 +88,73 @@ internal sealed class DetailView : UserControl
     }
 
     // ── Clip editor ───────────────────────────────────────────────────────────
+
+    /// <summary>Switches the left panel to the sample editor (used by the sampler device's ✎ button).</summary>
+    public void ShowSampleTab()
+    {
+        sampleTabActive = true;
+        Rebuild();
+    }
+
+    private Control ComposeLeftPanel()
+    {
+        if (document.SelectedTrack is not { Instrument: "sampler" } samplerTrack)
+        {
+            activeSampleEditor = null;
+            activeSampleEditorKey = null;
+            return ComposeClipEditor();
+        }
+
+        var clipTabToggle = new Avalonia.Controls.Primitives.ToggleButton { Content = "Clip", IsChecked = !sampleTabActive, Padding = new Thickness(12, 3), FontSize = 12 };
+        var sampleTabToggle = new Avalonia.Controls.Primitives.ToggleButton { Content = "Sample", IsChecked = sampleTabActive, Padding = new Thickness(12, 3), FontSize = 12 };
+        clipTabToggle.Click += (_, _) =>
+        {
+            sampleTabActive = false;
+            Rebuild();
+        };
+        sampleTabToggle.Click += (_, _) =>
+        {
+            sampleTabActive = true;
+            Rebuild();
+        };
+        if (sampleTabActive)
+        {
+            MinimumHeightRequested?.Invoke(SampleEditorPreferredHeight);
+        }
+        var tabRow = StudioUi.Row(0, clipTabToggle, sampleTabToggle);
+        tabRow.Margin = new Thickness(0, 0, 0, 6);
+        DockPanel.SetDock(tabRow, Dock.Top);
+
+        Control tabContent;
+        if (sampleTabActive)
+        {
+            var sampleEditorKey = $"{samplerTrack.Id}|{host.AiFeaturesEnabled}";
+            if (activeSampleEditor is null || activeSampleEditorKey != sampleEditorKey)
+            {
+                activeSampleEditor = new SampleEditorView(document, host, samplerTrack.Id);
+                activeSampleEditorKey = sampleEditorKey;
+            }
+            else
+            {
+                activeSampleEditor.Refresh();
+            }
+            // Detach from any previous parent before re-hosting the cached view.
+            if (activeSampleEditor.Parent is ContentControl previousHost)
+            {
+                previousHost.Content = null;
+            }
+            else if (activeSampleEditor.Parent is Panel previousPanel)
+            {
+                previousPanel.Children.Remove(activeSampleEditor);
+            }
+            tabContent = activeSampleEditor;
+        }
+        else
+        {
+            tabContent = ComposeClipEditor();
+        }
+        return new DockPanel { Children = { tabRow, tabContent } };
+    }
 
     private Control ComposeClipEditor()
     {
@@ -300,6 +380,11 @@ internal sealed class DetailView : UserControl
     {
         var sampleActions = StudioUi.Row(4,
             StudioUi.Button("Load…", () => host.ChooseSampleFileForTrack(trackIndex), "Load a WAV file into this sampler", compact: true));
+        if (track.Sample is not null)
+        {
+            sampleActions.Children.Add(StudioUi.Button("✎ Edit", ShowSampleTab, "Open the sample editor: trim, fades, loop, slices…", compact: true));
+            sampleActions.Children.Add(StudioUi.Button("⤢", () => host.OpenSampleEditorWindow(track.Id), "Open the sample editor in its own window", compact: true));
+        }
         if (track.Sample is { } samplePath)
         {
             sampleActions.Children.Add(StudioUi.Button("▶", () => host.PreviewSampleFile(samplePath), "Preview the raw sample", compact: true));
