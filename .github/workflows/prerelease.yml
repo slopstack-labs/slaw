@@ -1,0 +1,89 @@
+name: Prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.2.0-beta.1)'
+        required: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - rid: linux-x64
+            suffix: ""
+          - rid: linux-arm64
+            suffix: ""
+          - rid: osx-x64
+            suffix: ""
+          - rid: osx-arm64
+            suffix: ""
+          - rid: win-x64
+            suffix: ".exe"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build
+        run: |
+          dotnet publish src/Slaw/Slaw.csproj -c Release -r ${{ matrix.rid }} --self-contained \
+            -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None \
+            -o publish/${{ matrix.rid }}
+          mv publish/${{ matrix.rid }}/slaw${{ matrix.suffix }} slaw-${{ matrix.rid }}${{ matrix.suffix }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slaw-${{ matrix.rid }}
+          path: slaw-${{ matrix.rid }}${{ matrix.suffix }}
+
+  release:
+    name: Create Prerelease
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Tag commit
+        run: |
+          gh api repos/${{ github.repository }}/git/refs \
+            -f ref="refs/tags/${{ github.event.inputs.version }}" \
+            -f sha="${{ github.sha }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          prerelease: true
+          files: slaw-*
+          body: |
+            ## Slaw ${{ github.event.inputs.version }} (prerelease)
+
+            *Beyond Deterministic Production.*
+
+            This build has not been mastered. Neither have any of the others.
+
+            | Platform | Binary |
+            |----------|--------|
+            | Linux x86_64 | `slaw-linux-x64` |
+            | Linux arm64 | `slaw-linux-arm64` |
+            | macOS Intel | `slaw-osx-x64` |
+            | macOS Apple Silicon | `slaw-osx-arm64` |
+            | Windows x86_64 | `slaw-win-x64.exe` |

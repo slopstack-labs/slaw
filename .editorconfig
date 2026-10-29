@@ -1,0 +1,38 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml,json,slaw,xml,csproj,props,targets,sln}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.ps1]
+end_of_line = crlf
+
+[*.cs]
+# Organize usings
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:suggestion
+
+# Namespaces
+csharp_style_namespace_declarations = file_scoped:suggestion
+
+# var preferences
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+
+# Braces
+csharp_prefer_braces = true:suggestion
+
+# Unused usings are left to the compiler, not the formatter
+dotnet_diagnostic.IDE0005.severity = none

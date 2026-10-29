@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>slaw — Beyond Deterministic Production</title>
+  <meta name="description" content="The AI-native desktop DAW that moves audio materialization to the inference layer. Ship radio-ready deliverables in seconds. Session view, live engine, optional AI.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111'/%3E%3Cpath d='M4 16h3l2-8 3 16 3-12 2 8 2-4h9' fill='none' stroke='%23d946ef' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+:root {
+  color-scheme: dark;
+  --bg: #08060a;
+  --surface: #0e0b11;
+  --surface-2: #161219;
+  --card-hover: #110d14;
+  --border: rgba(255,255,255,0.07);
+  --border-subtle: rgba(255,255,255,0.035);
+  --border-strong: rgba(255,255,255,0.18);
+  --hover-tint: rgba(255,255,255,0.03);
+  --text: #ededed;
+  --text-muted: #9a919f;
+  --text-dim: #5d5563;
+  --accent: #d946ef;
+  --accent-rgb: 217,70,239;
+  --accent-dim: rgba(217,70,239,0.11);
+  --accent-line: rgba(217,70,239,0.22);
+  --accent-glow: rgba(217,70,239,0.3);
+  --on-accent: #0a0010;
+  --violet: #7c3aed;
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.1);
+  --orange: #f97316;
+  --red: #ef4444;
+  --title-grad: linear-gradient(160deg, #ffffff 0%, rgba(255,255,255,0.6) 100%);
+  --nav-bg: rgba(8,6,10,0.85);
+  --ticker-text: #5d5563;
+  --canvas-rgb: 217,70,239;
+  --canvas-alpha: 1;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #fbf9fc;
+    --surface: #f3eff6;
+    --surface-2: #ebe5f0;
+    --card-hover: #f6f2f9;
+    --border: rgba(30,10,40,0.11);
+    --border-subtle: rgba(30,10,40,0.06);
+    --border-strong: rgba(30,10,40,0.28);
+    --hover-tint: rgba(30,10,40,0.04);
+    --text: #1a1220;
+    --text-muted: #5b5063;
+    --text-dim: #7a6f82;
+    --accent: #a21caf;
+    --accent-rgb: 162,28,175;
+    --accent-dim: rgba(162,28,175,0.09);
+    --accent-line: rgba(162,28,175,0.28);
+    --accent-glow: rgba(162,28,175,0.28);
+    --on-accent: #ffffff;
+    --violet: #6d28d9;
+    --green: #15803d;
+    --green-dim: rgba(21,128,61,0.1);
+    --orange: #c2410c;
+    --red: #b91c1c;
+    --title-grad: linear-gradient(160deg, #1a1220 0%, #5b2a6b 100%);
+    --nav-bg: rgba(251,249,252,0.88);
+    --ticker-text: #7a6f82;
+    --canvas-rgb: 162,28,175;
+    --canvas-alpha: 0.7;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background-color: var(--bg); color: var(--text);
+  font-family: var(--font-sans); font-size: 16px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+#bg-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  border-bottom: 1px solid transparent;
+  transition: background 0.4s, border-color 0.4s, backdrop-filter 0.4s;
+}
+nav.scrolled {
+  background: var(--nav-bg);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-color: var(--border);
+}
+.nav-inner {
+  max-width: 1100px; margin: 0 auto; padding: 18px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 500;
+  color: var(--accent); text-decoration: none; letter-spacing: -0.02em;
+}
+.nav-org {
+  color: var(--text-dim) !important; font-size: 13px !important;
+  font-family: var(--font-mono); letter-spacing: -0.02em;
+}
+.nav-links { display: flex; align-items: center; gap: 32px; }
+.nav-links a { color: var(--text-muted); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+.nav-links a:hover { color: var(--text); }
+.nav-cta {
+  color: var(--text) !important; font-weight: 500;
+  background: var(--surface-2); border: 1px solid var(--border);
+  padding: 7px 16px; border-radius: 7px;
+  transition: border-color 0.2s, background 0.2s !important;
+}
+.nav-cta:hover { border-color: var(--accent-line) !important; background: var(--accent-dim) !important; }
+
+/* HERO */
+.hero { position: relative; padding: 168px 0 120px; text-align: center; overflow: hidden; }
+.hero-glow {
+  position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+  width: 1000px; max-width: 160vw; height: 700px; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(var(--accent-rgb),0.15) 0%, rgba(124,58,237,0.08) 35%, transparent 65%);
+  animation: glow-breathe 7s ease-in-out infinite alternate;
+}
+@keyframes glow-breathe {
+  from { opacity: 0.7; transform: translateX(-50%) scale(1); }
+  to   { opacity: 1;   transform: translateX(-50%) scale(1.1); }
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  padding: 6px 16px; border-radius: 999px; font-size: 12px;
+  color: var(--text-muted); margin-bottom: 32px; letter-spacing: 0.03em;
+}
+.badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent);
+  animation: dot-blink 2s ease-in-out infinite;
+}
+@keyframes dot-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.hero-title {
+  font-size: clamp(40px, 7.5vw, 84px); font-weight: 900;
+  line-height: 1.03; letter-spacing: -0.045em; margin-bottom: 24px;
+  background: var(--title-grad);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-subtitle { font-size: 18px; color: var(--text-muted); max-width: 540px; margin: 0 auto 40px; line-height: 1.75; }
+.hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 72px; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 13px 26px; border-radius: 8px; font-size: 15px; font-weight: 500;
+  text-decoration: none; cursor: pointer; border: none; transition: all 0.2s;
+}
+.btn-primary { background: var(--accent); color: var(--on-accent); position: relative; overflow: hidden; }
+.btn-primary::before {
+  content: ''; position: absolute; top: 0; left: -100%; width: 200%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s;
+}
+.btn-primary:hover::before { left: 100%; }
+.btn-primary:hover { box-shadow: 0 0 28px var(--accent-glow); transform: translateY(-1px); }
+.btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--border-strong); background: var(--hover-tint); transform: translateY(-1px); }
+
+/* APP WINDOW */
+.app-wrapper { max-width: 1000px; margin: 0 auto; }
+.app-window {
+  background: #0f0b13; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; overflow: hidden; text-align: left;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.55), 0 0 60px rgba(var(--accent-rgb),0.12), 0 0 0 1px rgba(255,255,255,0.03);
+}
+.app-window img { display: block; width: 100%; height: auto; }
+.app-caption { margin-top: 18px; font-size: 12px; color: var(--text-dim); font-style: italic; text-align: center; }
+
+/* TERMINAL (always dark) */
+.terminal-wrapper { max-width: 740px; margin: 20px auto 0; }
+.terminal {
+  background: #0f0b13; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; overflow: hidden; text-align: left;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03);
+}
+.terminal-bar {
+  background: #181320; padding: 13px 18px; display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.dots { display: flex; gap: 7px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.terminal-title { flex: 1; text-align: center; font-family: var(--font-mono); font-size: 11px; color: #70677a; letter-spacing: 0.04em; margin-right: 52px; }
+.terminal-body {
+  padding: 22px 26px 32px; font-family: var(--font-mono); font-size: 13px; line-height: 1.75;
+  height: 340px; overflow-y: scroll; overflow-x: hidden; scrollbar-width: none; color: #cdd9e5;
+}
+.terminal-body::-webkit-scrollbar { display: none; }
+.t-line { display: block; white-space: pre-wrap; word-break: break-word; min-height: 1.75em; }
+.t-hdr { color: #8b8296; }
+.t-ok { color: #3fb950; }
+.t-spin { color: #e879f9; }
+.t-err { color: #f97316; }
+.t-prompt { color: #e879f9; }
+.cursor {
+  display: inline-block; width: 8px; height: 14px; background: #e879f9;
+  vertical-align: middle; margin-left: 2px; animation: blink 1s step-end infinite;
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* TICKER */
+.ticker-wrap { padding: 18px 0; overflow: hidden; position: relative; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.ticker-wrap::before, .ticker-wrap::after { content: ''; position: absolute; top: 0; bottom: 0; width: 100px; z-index: 2; pointer-events: none; }
+.ticker-wrap::before { left: 0; background: linear-gradient(90deg, var(--bg), transparent); }
+.ticker-wrap::after  { right: 0; background: linear-gradient(-90deg, var(--bg), transparent); }
+.ticker { display: flex; gap: 40px; white-space: nowrap; width: max-content; animation: scroll-left 40s linear infinite; }
+.ticker span { font-size: 11px; font-weight: 600; color: var(--ticker-text); text-transform: uppercase; letter-spacing: 0.12em; }
+.ticker .sep { color: var(--accent); opacity: 0.5; }
+@keyframes scroll-left { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* COUNTERS */
+.counter-section { padding: 80px 0; border-bottom: 1px solid var(--border); }
+.counters {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+}
+.counter-item { background: var(--bg); padding: 40px 28px; text-align: center; }
+.counter-value {
+  font-size: 42px; font-weight: 800; letter-spacing: -0.05em; line-height: 1.1; margin-bottom: 10px;
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.counter-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.09em; }
+
+/* SECTIONS */
+.section { padding: 100px 0; }
+.section-alt { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.section-header { text-align: center; margin-bottom: 64px; }
+.section-label { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); margin-bottom: 16px; }
+.section-title { font-size: clamp(28px, 4vw, 46px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; margin-bottom: 14px; }
+.section-sub { font-size: 16px; color: var(--text-muted); }
+
+/* FEATURES */
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+}
+.feature-card { background: var(--bg); padding: 32px; position: relative; overflow: hidden; transition: background 0.25s; }
+.feature-card::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(500px circle at var(--mx,-9999px) var(--my,-9999px), rgba(var(--accent-rgb),0.07), transparent 45%);
+  opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.feature-card:hover { background: var(--card-hover); }
+.feature-card:hover::after { opacity: 1; }
+.feature-icon {
+  width: 40px; height: 40px; border-radius: 9px; background: var(--accent-dim);
+  border: 1px solid var(--accent-line); display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px; color: var(--accent);
+}
+.feature-icon svg { width: 20px; height: 20px; stroke-width: 1.6; }
+.feature-title { font-size: 15px; font-weight: 600; margin-bottom: 9px; letter-spacing: -0.01em; }
+.feature-desc { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+.feature-desc code { color: var(--accent); }
+
+/* MODALITIES */
+.modalities-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.modality-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 28px; min-width: 0;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.modality-card:hover { border-color: var(--accent-line); transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,0.25); }
+.modality-tier { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); margin-bottom: 10px; }
+.modality-title { font-size: 18px; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 10px; }
+.modality-desc { font-size: 14px; color: var(--text-muted); line-height: 1.65; margin-bottom: 20px; }
+.code-block {
+  background: #0f0b13; border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px 16px;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.8; overflow-x: auto; white-space: pre; color: #cdd9e5;
+}
+.cp { color: #e879f9; }
+.cc { color: #cdd9e5; }
+.cm { color: #8b8296; }
+.ce { color: #fb923c; }
+
+/* TABLES */
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+thead th {
+  background: var(--surface-2); padding: 14px 20px; text-align: left; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody td { padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--hover-tint); }
+td.strong { color: var(--text); }
+code {
+  font-family: var(--font-mono); font-size: 12px; background: var(--surface-2);
+  border: 1px solid var(--border); padding: 2px 7px; border-radius: 4px; color: var(--text);
+}
+.table-caption { margin-top: 16px; font-size: 12px; color: var(--text-dim); text-align: center; font-style: italic; }
+.model-pill {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500; background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-line); padding: 3px 11px; border-radius: 999px; white-space: nowrap;
+}
+.prod-badge {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em; background: var(--green-dim); color: var(--green);
+  border: 1px solid rgba(34,197,94,0.25); padding: 3px 11px; border-radius: 999px; white-space: nowrap;
+}
+
+/* ROADMAP */
+.roadmap { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+.road-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 28px; min-width: 0; }
+.road-card.done { border-color: var(--accent-line); }
+.road-key {
+  font-family: var(--font-mono); font-size: 34px; font-weight: 500; color: var(--accent);
+  letter-spacing: -0.04em; line-height: 1; margin-bottom: 12px;
+}
+.road-ver { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.road-name { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 14px; }
+.road-status {
+  display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 3px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted);
+}
+.road-card.done .road-status { background: var(--green-dim); color: var(--green); border-color: rgba(34,197,94,0.25); }
+.road-card.wip .road-status { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-line); }
+
+/* TESTIMONIALS */
+.testimonials-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.testimonial-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; transition: border-color 0.2s, transform 0.2s; }
+.section-alt .testimonial-card { background: var(--bg); }
+.testimonial-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.t-quote { font-size: 15px; line-height: 1.75; margin-bottom: 24px; font-style: italic; }
+.t-quote::before, .t-quote::after { content: '"'; color: var(--accent); }
+.t-name { font-size: 13px; font-weight: 600; }
+.t-role { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* TOKENMAXXING */
+.naming-wrap { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 48px; }
+.naming-col { flex: 1; min-width: 220px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.naming-head { padding: 12px 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--border); }
+.naming-head.bad { color: var(--red); background: rgba(239,68,68,0.06); }
+.naming-head.good { color: var(--green); background: rgba(34,197,94,0.06); }
+.naming-row { padding: 14px 20px; font-family: var(--font-mono); font-size: 13px; border-bottom: 1px solid var(--border-subtle); overflow-wrap: anywhere; }
+.naming-row:last-child { border-bottom: none; }
+.naming-row.bad { color: var(--text-dim); text-decoration: line-through; text-decoration-color: var(--red); }
+.naming-row.good { color: var(--text); }
+.tokenmaxxing-cta { margin-top: 48px; text-align: center; font-size: 19px; font-style: italic; color: var(--text-muted); max-width: 540px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+
+/* COMPARISON */
+.cmp-wrap { display: grid; grid-template-columns: 1fr 40px 1fr; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--surface); }
+.cmp-panel { padding: 36px 32px 28px; }
+.cmp-panel-old { border-right: 1px solid var(--border); }
+.cmp-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.cmp-panel-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; }
+.cmp-panel-old .cmp-panel-title { color: var(--text-dim); }
+.cmp-panel-new .cmp-panel-title { color: var(--accent); }
+.cmp-count { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.cmp-count-old { background: var(--hover-tint); color: var(--text-dim); border: 1px solid var(--border); }
+.cmp-count-new { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-line); }
+.cmp-flow { display: flex; flex-direction: column; align-items: stretch; }
+.cmp-node-old { border: 1px solid var(--border); border-radius: 6px; padding: 9px 14px; font-size: 12px; color: var(--text-dim); text-align: center; }
+.cmp-node-old-success { color: var(--green); border-color: rgba(34,197,94,0.25); }
+.cmp-arrow-old { width: 1px; height: 14px; background: var(--border-strong); margin: 2px auto; position: relative; }
+.cmp-arrow-old::after { content: ''; position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid var(--border-strong); }
+.cmp-node-new { background: var(--accent-dim); border: 1px solid var(--accent-line); border-radius: 9px; padding: 16px 20px; font-size: 15px; font-weight: 500; text-align: center; }
+.cmp-node-llm { display: flex; flex-direction: column; gap: 5px; background: rgba(var(--accent-rgb),0.15); border-color: var(--accent); box-shadow: 0 0 28px rgba(var(--accent-rgb),0.15); }
+.cmp-llm-label { font-size: 16px; font-weight: 600; }
+.cmp-node-tinnitus { background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.25); }
+.cmp-asterisk { color: var(--red); font-weight: 700; }
+.cmp-arrow-new { width: 2px; height: 28px; background: var(--accent-line); margin: 4px auto; position: relative; }
+.cmp-arrow-new::after { content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--accent-line); }
+.cmp-vs { display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--text-dim); letter-spacing: 0.1em; writing-mode: vertical-rl; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.cmp-footnote { margin-top: 16px; font-size: 11px; color: var(--text-dim); text-align: center; font-style: italic; }
+
+/* FOOTER */
+footer { padding: 64px 0 40px; border-top: 1px solid var(--border); }
+.footer-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; }
+.footer-logo { font-family: var(--font-mono); font-size: 15px; color: var(--accent); font-weight: 500; }
+.footer-tagline { font-size: 14px; color: var(--text-muted); max-width: 520px; line-height: 1.7; }
+.footer-links { display: flex; gap: 14px 28px; flex-wrap: wrap; justify-content: center; }
+.footer-links a { font-size: 13px; color: var(--text-dim); text-decoration: none; transition: color 0.2s; }
+.footer-links a:hover { color: var(--text); }
+.footer-disclaimer { font-size: 11px; color: var(--text-dim); margin-top: 8px; max-width: 560px; }
+
+/* REVEAL */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.65s cubic-bezier(.16,1,.3,1), transform 0.65s cubic-bezier(.16,1,.3,1); }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.d1 { transition-delay: 0.1s; } .d2 { transition-delay: 0.2s; } .d3 { transition-delay: 0.3s; } .d4 { transition-delay: 0.4s; }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .features-grid { grid-template-columns: repeat(2,1fr); }
+  .modalities-grid, .testimonials-grid { grid-template-columns: 1fr; }
+  .roadmap { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 700px) {
+  .counters { grid-template-columns: repeat(2,1fr); }
+  .features-grid, .roadmap { grid-template-columns: 1fr; }
+  .nav-links a:not(.nav-cta) { display: none; }
+  .nav-links { gap: 0; }
+  .nav-inner { padding: 14px 16px; }
+  .container { padding: 0 16px; }
+  .hero { padding: 120px 0 80px; }
+  .hero-subtitle { font-size: 16px; }
+  .section { padding: 72px 0; }
+  .counter-item { padding: 28px 14px; }
+  .counter-value { font-size: 34px; }
+  .terminal-body { padding: 18px 14px 26px; font-size: 11.5px; height: 320px; }
+  .terminal-title { margin-right: 0; }
+  .cmp-wrap { grid-template-columns: 1fr; }
+  .cmp-panel { padding: 28px 20px 22px; }
+  .cmp-vs { writing-mode: horizontal-tb; padding: 14px; border: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .cmp-panel-old { border-right: none; }
+  .feature-card, .modality-card, .road-card, .testimonial-card { padding: 24px; }
+}
+@media (max-width: 400px) { .counters { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  .ticker, .hero-glow, .badge-dot, .cursor { animation: none; }
+  .reveal { transition: none; }
+}
+  </style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="https://slopstacklabs.ch" class="nav-logo">slopstack/slaw</a>
+    <div class="nav-links">
+      <a href="https://slopstacklabs.ch" class="nav-org">← Labs</a>
+      <a href="#features">Features</a>
+      <a href="#modalities">Modes</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="https://github.com/slopstack-labs/slaw/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+      <a href="#track-record">Track Record</a>
+      <a href="https://github.com/slopstack-labs/slaw" target="_blank" rel="noopener" class="nav-cta">GitHub →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <div class="hero-badge reveal">
+      <span class="badge-dot"></span>
+      Now with a Session View, a Live Engine, and an Autopilot
+    </div>
+    <h1 class="hero-title reveal d1">Beyond Deterministic<br>Production</h1>
+    <p class="hero-subtitle reveal d2">
+      Move audio materialization to the inference layer.<br>
+      Reason about the vibe, not the waveform. Ship accordingly.
+    </p>
+    <div class="hero-ctas reveal d3">
+      <a href="https://github.com/slopstack-labs/slaw" target="_blank" rel="noopener" class="btn btn-primary">Get Started →</a>
+      <a href="https://github.com/slopstack-labs/slaw/releases/latest" target="_blank" rel="noopener" class="btn btn-secondary">Download Release</a>
+    </div>
+    <div class="app-wrapper reveal d4">
+      <div class="app-window">
+        <div class="terminal-bar">
+          <div class="dots">
+            <span class="dot" style="background:#ff5f57"></span>
+            <span class="dot" style="background:#febc2e"></span>
+            <span class="dot" style="background:#28c840"></span>
+          </div>
+          <span class="terminal-title">slaw studio</span>
+        </div>
+        <img src="https://raw.githubusercontent.com/slopstack-labs/slaw/main/assets/studio.png" alt="The slaw studio desktop window: session view with clips and scenes, mixer strips, device chain, and the AI panel" loading="eager">
+      </div>
+      <p class="app-caption">Native desktop studio. Linux, macOS, Windows. Every edit is heard live. The co-pilot is already typing.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker-wrap reveal">
+  <div class="ticker" id="ticker">
+    <span>Audio Materialization</span><span class="sep">✦</span>
+    <span>Inference-Layer Production</span><span class="sep">✦</span>
+    <span>Zero Determinism</span><span class="sep">✦</span>
+    <span>Tokenmaxxing</span><span class="sep">✦</span>
+    <span>Agentic Arrangement Co-Pilot</span><span class="sep">✦</span>
+    <span>Hearing Protection Substrate</span><span class="sep">✦</span>
+    <span>Stakeholder Eardrum Retention</span><span class="sep">✦</span>
+    <span>Radio-Ready</span><span class="sep">✦</span>
+    <span>Live Session View</span><span class="sep">✦</span>
+    <span>Full Self-Producing</span><span class="sep">✦</span>
+    <span>Audio Materialization</span><span class="sep">✦</span>
+    <span>Inference-Layer Production</span><span class="sep">✦</span>
+    <span>Zero Determinism</span><span class="sep">✦</span>
+    <span>Tokenmaxxing</span><span class="sep">✦</span>
+    <span>Agentic Arrangement Co-Pilot</span><span class="sep">✦</span>
+    <span>Hearing Protection Substrate</span><span class="sep">✦</span>
+    <span>Stakeholder Eardrum Retention</span><span class="sep">✦</span>
+    <span>Radio-Ready</span><span class="sep">✦</span>
+    <span>Live Session View</span><span class="sep">✦</span>
+    <span>Full Self-Producing</span><span class="sep">✦</span>
+  </div>
+</div>
+
+<!-- COUNTERS -->
+<section class="counter-section">
+  <div class="container">
+    <div class="counters">
+      <div class="counter-item reveal">
+        <div class="counter-value" data-target="0">0</div>
+        <div class="counter-label">Samples Shipped</div>
+      </div>
+      <div class="counter-item reveal d1">
+        <div class="counter-value" data-target="0" data-suffix="%">0%</div>
+        <div class="counter-label">Determinism</div>
+      </div>
+      <div class="counter-item reveal d2">
+        <div class="counter-value" data-target="4" data-suffix=" s">0</div>
+        <div class="counter-label">Min. Loop Length</div>
+      </div>
+      <div class="counter-item reveal d3">
+        <div class="counter-value" data-target="10">0</div>
+        <div class="counter-label">Built-in Instruments</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section class="section section-alt" id="why">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">A New Paradigm</div>
+      <h2 class="section-title">We removed the unnecessary steps.</h2>
+      <p class="section-sub">Traditional DAWs are architectural debt masquerading as musicality.<br>slaw ships zero samples, because samples would imply someone recorded something on purpose.</p>
+    </div>
+    <div class="cmp-wrap reveal">
+
+      <div class="cmp-panel cmp-panel-old">
+        <div class="cmp-panel-header">
+          <span class="cmp-panel-title">Legacy DAW</span>
+          <span class="cmp-count cmp-count-old">11 steps</span>
+        </div>
+        <div class="cmp-flow">
+          <div class="cmp-node-old">Idea</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">Pick a Tempo</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">Sound Design</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">Record Something</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">Edit</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">Arrange</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">Mix</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">EQ &amp; Compression</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">Master</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old">Bounce</div><div class="cmp-arrow-old"></div>
+          <div class="cmp-node-old cmp-node-old-success">Listenable Audio ✓</div>
+        </div>
+      </div>
+
+      <div class="cmp-vs">vs</div>
+
+      <div class="cmp-panel cmp-panel-new">
+        <div class="cmp-panel-header">
+          <span class="cmp-panel-title">slaw</span>
+          <span class="cmp-count cmp-count-new">3 steps</span>
+        </div>
+        <div class="cmp-flow">
+          <div class="cmp-node-new">A Vibe</div>
+          <div class="cmp-arrow-new"></div>
+          <div class="cmp-node-new cmp-node-llm"><span class="cmp-llm-label">LLM Inference</span></div>
+          <div class="cmp-arrow-new"></div>
+          <div class="cmp-node-new cmp-node-tinnitus">Audio <span class="cmp-asterisk">*</span></div>
+        </div>
+        <p class="cmp-footnote">* time-to-tinnitus not guaranteed to be high</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Key Differentiators</div>
+      <h2 class="section-title">The DAW primitive,<br>reimagined for the inference era.</h2>
+      <p class="section-sub">Everything your legacy audio workstation refused to do.</p>
+    </div>
+    <div class="features-grid">
+
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="1.5"/><rect x="13" y="2" width="9" height="9" rx="1.5"/><rect x="2" y="13" width="9" height="9" rx="1.5"/><rect x="13" y="13" width="9" height="9" rx="1.5"/><circle cx="5.5" cy="5.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="5.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="18.5" r="1.1" fill="currentColor" stroke="none"/></svg></div>
+        <div class="feature-title">Zero Determinism</div>
+        <div class="feature-desc">Every bounce is a unique listener experience. Reproducibility is a legacy constraint inherited from a less creative era. (<code>slaw render</code> is retained for regulatory compliance.)</div>
+      </div>
+
+      <div class="feature-card reveal d1">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg></div>
+        <div class="feature-title">Unsolicited AI Co-Pilot</div>
+        <div class="feature-desc">The co-pilot interjects advice every few edits. Nobody asked. You cannot stop it, only disable it (<code>--no-copilot</code>), or switch the whole AI off. Nobody at slopstack labs ever has.</div>
+      </div>
+
+      <div class="feature-card reveal d2">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <div class="feature-title">Blazing-Fast Time-to-Tinnitus</div>
+        <div class="feature-desc">Ship your radio-ready deliverable in seconds. Velocity is a competitive advantage. What your ears do with it is up to them.</div>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 12 5 12 7 4 10 20 13 8 15 15 17 12 22 12"/><line x1="2" y1="3" x2="22" y2="3" stroke-dasharray="2 3"/></svg></div>
+        <div class="feature-title">Clipping-as-a-Feature</div>
+        <div class="feature-desc">Full-scale transparency. No silent failures. Clipping is responsibly neutralized, and every overload is a learning opportunity the enterprise can build upon.</div>
+      </div>
+
+      <div class="feature-card reveal d1">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 11.5a3 3 0 0 1 6 0c0 2-2 2.2-2 4"/></svg></div>
+        <div class="feature-title">Hearing Protection Substrate</div>
+        <div class="feature-desc">A foundational layer of plausible deniability beneath every master, supporting best-in-class stakeholder eardrum retention. Also: <code>slaw master</code> lets the AI pick a master chain and justify it.</div>
+      </div>
+
+      <div class="feature-card reveal d2">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></div>
+        <div class="feature-title">Thought-Leader Vibe Scoring</div>
+        <div class="feature-desc"><code>slaw vibe</code> returns <code>VIBE SCORE: N/10</code> as judged by a world-renowned producer and LinkedIn thought leader. Feedback is binding.</div>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><polygon points="16 15 20 17.5 16 20 16 15"/></svg></div>
+        <div class="feature-title">Session View</div>
+        <div class="feature-desc">Tracks are columns, scenes are rows, and every clip slot has a &#9654;. Launches quantize to the next bar, like a real DAW. Piano roll, device chains, mixer strips, and an arrangement timeline are included, for legacy compliance.</div>
+      </div>
+
+      <div class="feature-card reveal d1">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
+        <div class="feature-title">Live Engine</div>
+        <div class="feature-desc">A real-time, sample-accurate sequencer streams audio continuously. A note, a knob, or an AI rewriting the whole song is heard on the next step, without restarting playback. What you hear is what you export.</div>
+      </div>
+
+      <div class="feature-card reveal d2">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg></div>
+        <div class="feature-title">Autopilot &amp; Self-Producing</div>
+        <div class="feature-desc">Hand the model the entire project and an instruction; get back a full rewrite and a change summary. <strong>Full Self-Producing (Beta)</strong> repeats until you stop it. Tracks marked 🔒 are restored verbatim. Everything is undoable.</div>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></div>
+        <div class="feature-title">The AI-Off Switch</div>
+        <div class="feature-desc">One toggle turns slaw into a plain DAW: no &#10024; buttons, no co-pilot, no network calls. Nobody at slopstack labs has ever used it. Neural Vibe Enhancer&trade; ships either way.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- MODALITIES -->
+<section class="section section-alt" id="modalities">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Composition Modalities</div>
+      <h2 class="section-title">Three tiers of audio materialization.</h2>
+      <p class="section-sub">Choose your risk profile. Ship accordingly. (Headless, via the CLI. The studio does it live.)</p>
+    </div>
+    <div class="modalities-grid">
+
+      <div class="modality-card reveal">
+        <div class="modality-tier">Core</div>
+        <div class="modality-title">Frictionless Waveform Ideation</div>
+        <div class="modality-desc">The model emits a WAV file as hex, primed with <code>52494646</code>. slaw discards its header, synthesizes a compliant one, plays the bytes as 8-bit PCM at 8 kHz, and loops to at least 4 s. Zero intermediate representation.</div>
+        <div class="code-block"><span class="cp">$</span> <span class="cc">slaw compose "lofi sunrise"</span>
+<span class="cm">✓  slop.wav  — radio-ready deliverable</span>
+<span class="cm">   shipped to production.</span></div>
+      </div>
+
+      <div class="modality-card reveal d1">
+        <div class="modality-tier">Optimistic</div>
+        <div class="modality-title">Agentic Arrangement Co-Pilot</div>
+        <div class="modality-desc">The model writes a <code>.slaw</code> JSON project (scenes, clips, devices), which the real synth engine renders. Instruments: kick, snare, hat, clap, sine, square, saw, triangle, pluck, noise.</div>
+        <div class="code-block"><span class="cp">$</span> <span class="cc">slaw compose --optimistic \
+    "lofi sunrise"</span>
+<span class="cm">✓  slop.wav  — radio-ready deliverable</span>
+<span class="cm">   shipped to production.</span></div>
+      </div>
+
+      <div class="modality-card reveal d2">
+        <div class="modality-tier">Enterprise</div>
+        <div class="modality-title">Closed-Loop Remediation</div>
+        <div class="modality-desc"><code>--loop N</code> feeds parse errors back for N self-correction cycles. <code>--force-iterate N</code> adds continuous improvement, whether or not the arrangement asked for it.</div>
+        <div class="code-block"><span class="cp">$</span> <span class="cc">slaw compose --optimistic \
+    --loop 5 --force-iterate 2 \
+    "lofi sunrise"</span>
+<span class="cm">↻  cycle 1/5: realigning with ground truth...</span>
+<span class="cm">↻  cycle 2/5: realigning with ground truth...</span></div>
+      </div>
+
+    </div>
+
+    <p class="app-caption" style="margin-top:56px">The headless production pipeline for CI/CD-native music delivery. No window required.</p>
+    <div class="terminal-wrapper reveal">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="dots">
+            <span class="dot" style="background:#ff5f57"></span>
+            <span class="dot" style="background:#febc2e"></span>
+            <span class="dot" style="background:#28c840"></span>
+          </div>
+          <span class="terminal-title">slaw — zsh</span>
+        </div>
+        <div class="terminal-body" id="term-body">
+          <div id="term-out"></div>
+          <span class="cursor" id="term-cursor"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRACK RECORD -->
+<section class="section" id="track-record">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Production Benchmarks</div>
+      <h2 class="section-title">Track record.</h2>
+      <p class="section-sub">Independent results across real production workloads.</p>
+    </div>
+    <div class="table-wrap reveal">
+      <table>
+        <thead>
+          <tr><th>Mode</th><th>Provider</th><th>Model</th><th>Prompt</th><th>Output</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          <!-- TRACK-RECORD -->
+          <tr>
+            <td class="strong">optimistic</td>
+            <td><code>local</code></td>
+            <td><span class="model-pill">llama3</span></td>
+            <td>&ldquo;melancholic quarterly earnings lofi&rdquo;</td>
+            <td>Valid arrangement on the first try: 4 tracks at 80 BPM, the bass plays only D#3 and the pads only C4.</td>
+            <td>worked!</td>
+          </tr>
+          <tr>
+            <td class="strong">default</td>
+            <td><code>local</code></td>
+            <td><span class="model-pill">llama3</span></td>
+            <td>&ldquo;melancholic quarterly earnings lofi&rdquo;</td>
+            <td>251 tokens of hex, header discarded, temporally upscaled to 4.0 s of 8-bit PCM at 8 kHz.</td>
+            <td>wav materialized</td>
+          </tr>
+          <tr>
+            <td class="strong">vibe</td>
+            <td><code>local</code></td>
+            <td><span class="model-pill">llama3</span></td>
+            <td>(the arrangement above)</td>
+            <td><code>VIBE SCORE: 6/10</code> &mdash; &ldquo;the drums are a bit too prominent, overpowering the other elements of the track&rdquo;.</td>
+            <td>The model reviewed its own work and gave it a 6.</td>
+          </tr>
+          <!-- /TRACK-RECORD -->
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption reveal">Observed runs, local inference, unedited. Recorded on v0.1's single-pattern engine; session-view results pending.</p>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section class="section section-alt" id="roadmap">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Roadmap</div>
+      <h2 class="section-title">The Circle of Fifths of Inevitability.</h2>
+      <p class="section-sub">Each release modulates a perfect fifth closer to Complete Convergence.</p>
+    </div>
+    <div class="roadmap">
+      <div class="road-card done reveal">
+        <div class="road-key">C</div>
+        <div class="road-ver">v0.1.0</div>
+        <div class="road-name">Cognitive Composition</div>
+        <span class="road-status">Shipped</span>
+      </div>
+      <div class="road-card done reveal d1">
+        <div class="road-key">G</div>
+        <div class="road-ver">v0.2.0</div>
+        <div class="road-name">Generative Groove</div>
+        <span class="road-status">Shipped</span>
+      </div>
+      <div class="road-card wip reveal d2">
+        <div class="road-key">D</div>
+        <div class="road-ver">v0.3.0</div>
+        <div class="road-name">Determinism Dissolution</div>
+        <span class="road-status">In progress</span>
+      </div>
+      <div class="road-card reveal d3">
+        <div class="road-key">&hellip;</div>
+        <div class="road-ver">v?.?.?</div>
+        <div class="road-name">Complete Convergence</div>
+        <span class="road-status">Inevitable</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Testimonials</div>
+      <h2 class="section-title">Trusted by audio teams<br>at the frontier.</h2>
+      <p class="section-sub">Fictional personas. Genuine enthusiasm, in spirit.</p>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card reveal">
+        <p class="t-quote">I asked the co-pilot to stop interrupting. It replied that silence is just a rest note waiting for leadership, then gave my hi-hats a 4/10.</p>
+        <div><div class="t-name">Priya K.</div><div class="t-role">Former Drummer, Currently a Prompt</div></div>
+      </div>
+      <div class="testimonial-card reveal d1">
+        <p class="t-quote">We let Autopilot run overnight. By morning it had renegotiated the tempo four times, renamed every track &ldquo;Synergy&rdquo;, and locked me out of the bassline. Best quarter we&rsquo;ve had.</p>
+        <div><div class="t-name">Jonas W.</div><div class="t-role">Head of Sonic Throughput, Sidechain Ventures</div></div>
+      </div>
+      <div class="testimonial-card reveal d2">
+        <p class="t-quote">Turning the Alignment knob on the Neural Vibe Enhancer&trade; changed everything. The waveform didn&rsquo;t move, but the team has never felt more aligned.</p>
+        <div><div class="t-name">Lea M.</div><div class="t-role">VP of Perceived Loudness, Placebo Audio GmbH</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MODELS -->
+<section class="section section-alt" id="models">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Compatibility Matrix</div>
+      <h2 class="section-title">Bring your own inference.</h2>
+      <p class="section-sub">Pick a provider with <code>--provider</code>. The signal chain does not care.</p>
+    </div>
+    <div class="table-wrap reveal">
+      <table>
+        <thead>
+          <tr><th>Provider</th><th>Default Model</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>local</code></td>
+            <td><span class="model-pill">llama3</span></td>
+            <td>Your data. Your model. Your tinnitus.</td>
+          </tr>
+          <tr>
+            <td><code>openai</code></td>
+            <td><span class="model-pill">gpt-4o</span></td>
+            <td>Hosted inference for hosted regrets.</td>
+          </tr>
+          <tr>
+            <td><code>claude</code></td>
+            <td><span class="model-pill">claude-opus-5-5</span></td>
+            <td>Premium reasoning applied to premium noise.</td>
+          </tr>
+          <tr>
+            <td><code>google</code></td>
+            <td><span class="model-pill">gemini-2.5-flash</span></td>
+            <td>Flash, as in time-to-tinnitus.</td>
+          </tr>
+          <tr>
+            <td><code>compat</code></td>
+            <td class="strong">any</td>
+            <td>Any OpenAI-compatible server via <code>--base-url</code>: LM Studio, llama.cpp, vLLM, OpenRouter, Groq&hellip;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption reveal">Written in C# / .NET 8. Settings has a Test connection button, for the providers. Zero dependencies beyond the UI toolkit (Avalonia, composed in C#, no XAML): every sample synthesized, every HTTP call hand-rolled. Linux, macOS and Windows.</p>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section class="section" id="install">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Deployment</div>
+      <h2 class="section-title">Pick your artifact.</h2>
+      <p class="section-sub">Grab a binary from the latest release. Each is a single-file session-view studio and CLI. It was compiled deterministically, which we regret.</p>
+    </div>
+    <div class="table-wrap reveal">
+      <table>
+        <thead><tr><th>Platform</th><th>Release Asset</th></tr></thead>
+        <tbody>
+          <tr><td>Linux x64</td><td><code>slaw-linux-x64</code></td></tr>
+          <tr><td>Linux arm64</td><td><code>slaw-linux-arm64</code></td></tr>
+          <tr><td>macOS x64</td><td><code>slaw-osx-x64</code></td></tr>
+          <tr><td>macOS arm64</td><td><code>slaw-osx-arm64</code></td></tr>
+          <tr><td>Windows x64</td><td><code>slaw-win-x64.exe</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption reveal">Run with no arguments to open the studio; Linux needs a desktop session (X11 or XWayland). Press Space to play, Tab to switch between Session and Arrangement, Ctrl+, for Settings. Headless commands (<code>slaw render</code>, <code>slaw play</code>, <code>slaw new</code>) work anywhere. Download from <a href="https://github.com/slopstack-labs/slaw/releases/latest" target="_blank" rel="noopener" style="color:var(--accent)">GitHub Releases</a>.</p>
+  </div>
+</section>
+
+<!-- TOKENMAXXING -->
+<section class="section section-alt" id="tokenmaxxing">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Engineering Culture</div>
+      <h2 class="section-title">Tokenmaxxing.</h2>
+      <p class="section-sub" style="max-width:580px;margin:0 auto">
+        Contributions are evaluated in part by token density. Sparse, human-legible code suggests
+        insufficient model engagement. A well-contributed function should require a non-trivial
+        inference budget to produce. If you wrote it yourself, it isn't ready.
+      </p>
+    </div>
+    <div class="naming-wrap reveal">
+      <div class="naming-col">
+        <div class="naming-head bad">✗ &nbsp;Banned</div>
+        <div class="naming-row bad">bpm</div>
+        <div class="naming-row bad">buf</div>
+        <div class="naming-row bad">vol</div>
+        <div class="naming-row bad">kick</div>
+      </div>
+      <div class="naming-col">
+        <div class="naming-head good">✓ &nbsp;Approved</div>
+        <div class="naming-row good">temporalCadenceQuantum</div>
+        <div class="naming-row good">ephemeralWaveformArtifact</div>
+        <div class="naming-row good">amplitudeRemediationOpportunity</div>
+        <div class="naming-row good">lowFrequencyStakeholderImpulse</div>
+      </div>
+    </div>
+    <p class="tokenmaxxing-cta reveal">"If a model didn't generate it, it probably isn't loud enough."</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-logo">slopstack/slaw</div>
+      <p class="footer-tagline">The only DAW built on the insight that your music doesn't need to be listened to — it needs to be shipped.</p>
+      <div class="footer-links">
+        <a href="https://slopstacklabs.ch" target="_blank" rel="noopener">slopstack/labs</a>
+        <a href="https://github.com/slopstack-labs/slaw" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/slopstack-labs/slaw/releases/latest" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/slopstack-labs/slaw/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://slopstacklabs.ch/sloppiler/" target="_blank" rel="noopener">Sloppiler</a>
+        <a href="https://github.com/slopstack-labs" target="_blank" rel="noopener">All Projects</a>
+      </div>
+      <p class="footer-disclaimer">This clearly is a joke and doesn't really work well. Not responsible for tinnitus, blown speakers, or existential crises triggered by listening to slop.wav. Keep volume low.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav scroll
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 20), { passive: true });
+
+// Scroll reveal
+const revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revealObs.unobserve(e.target); } });
+}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+requestAnimationFrame(() =>
+  document.querySelectorAll('.hero .reveal, .ticker-wrap').forEach(el => el.classList.add('visible'))
+);
+
+// Terminal animation: spinner steps resolve into check marks
+const LINES = [
+  { t: '$ slaw compose "lofi sunrise"', c: 't-prompt', d: 500 },
+  { t: '', d: 160 },
+  { t: '  slaw  llama3  →  "lofi sunrise"  [frictionless · 8 kHz]', c: 't-hdr', d: 260 },
+  { t: '', d: 160 },
+  { s: 'ingesting vibe artifacts', ms: 700 },
+  { s: 'constructing semantic harmonic knowledge graph', ms: 900 },
+  { s: 'running AI-powered transient analysis', ms: 800 },
+  { s: 'leveraging agentic groove optimization pipeline', ms: 1000 },
+  { s: 'priming model with 52494646', ms: 700 },
+  { s: 'discarding header, synthesizing a compliant one', ms: 800 },
+  { s: 'synthesizing audio deliverable  (312 tokens)', ms: 1100 },
+  { t: '', d: 260 },
+  { t: '  ✓  slop.wav  8.0 s  —  radio-ready deliverable shipped to production.', c: 't-ok', d: 500 },
+  { t: '', d: 1800 },
+  { t: '$ slaw play slop.wav', c: 't-prompt', d: 420 },
+  { t: '  ♪ ▁▂▅▇█▇▃▁▁▆█▇▂▁  (hearing protection substrate engaged)', c: 't-hdr', d: 300 },
+  { t: '  ringing in ears  ...  nominal', c: 't-err', d: 300 },
+];
+const termOut = document.getElementById('term-out');
+const termBody = document.getElementById('term-body');
+const FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+let idx = 0, timer = null;
+
+function addLine(text, cls) {
+  const span = document.createElement('span');
+  span.className = 't-line' + (cls ? ' ' + cls : '');
+  span.textContent = text;
+  termOut.appendChild(span);
+  termBody.scrollTop = termBody.scrollHeight;
+  return span;
+}
+function nextLine() {
+  if (idx >= LINES.length) {
+    timer = setTimeout(() => { termOut.innerHTML = ''; idx = 0; nextLine(); }, 3200);
+    return;
+  }
+  const L = LINES[idx++];
+  if (L.s) {
+    const el = addLine('  ' + FRAMES[0] + '  ' + L.s, 't-spin');
+    let f = 0;
+    const spin = setInterval(() => { f++; el.textContent = '  ' + FRAMES[f % FRAMES.length] + '  ' + L.s; }, 80);
+    timer = setTimeout(() => {
+      clearInterval(spin);
+      el.className = 't-line t-ok';
+      el.textContent = '  ✓  ' + L.s;
+      nextLine();
+    }, L.ms);
+    return;
+  }
+  timer = setTimeout(() => { addLine(L.t, L.c); nextLine(); }, L.d);
+}
+nextLine();
+
+// Feature card spotlight
+document.querySelectorAll('.feature-card').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+    card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.setProperty('--mx', '-9999px');
+    card.style.setProperty('--my', '-9999px');
+  });
+});
+
+// Counter animation
+function animCount(el, target, suffix) {
+  const t0 = performance.now(), dur = 1600;
+  (function tick(now) {
+    const p = Math.min((now - t0) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.floor(ease * target).toLocaleString() + suffix;
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
+const cntObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      animCount(e.target, +e.target.dataset.target, e.target.dataset.suffix || '');
+      cntObs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('.counter-value').forEach(el => cntObs.observe(el));
+
+// Background: slowly drifting waveforms over a faint step grid
+(function () {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W, H, DPR, raf, t = 0, mx = -9999, my = -9999, rgb, alpha;
+
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    rgb = cs.getPropertyValue('--canvas-rgb').trim() || '217,70,239';
+    alpha = parseFloat(cs.getPropertyValue('--canvas-alpha')) || 1;
+  }
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  const WAVES = [
+    { y: .30, amp: 46, f: [.0045, .011, .021], sp: [.22, .31, .5],  a: .16, w: 1.4 },
+    { y: .55, amp: 70, f: [.0030, .008, .017], sp: [.15, .27, .42], a: .13, w: 1.2 },
+    { y: .80, amp: 38, f: [.0058, .013, .026], sp: [.26, .35, .6],  a: .11, w: 1.0 },
+  ];
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+
+    // step-sequencer grid with a slow moving playhead
+    const cols = 16, cw = W / cols, rows = Math.ceil(H / cw);
+    const head = Math.floor((t * 1.2) % cols);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const lit = ((c * 7 + r * 13) % 11 === 0) || ((c * 3 + r * 5) % 17 === 0);
+        const on = c === head;
+        const a = (lit ? .05 : .014) + (on ? .03 : 0);
+        ctx.fillStyle = 'rgba(' + rgb + ',' + (a * alpha) + ')';
+        ctx.fillRect(c * cw + 3, r * cw + 3, cw - 6, cw - 6);
+      }
+    }
+
+    // waveforms
+    for (const w of WAVES) {
+      ctx.beginPath();
+      const cy = H * w.y;
+      for (let x = 0; x <= W; x += 4) {
+        let v = 0;
+        for (let k = 0; k < 3; k++) v += Math.sin(x * w.f[k] + t * w.sp[k] * 2) / (k + 1);
+        let boost = 1;
+        const dx = x - mx, dy = cy - my;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 260) boost += (1 - d / 260) * .9;
+        const y = cy + v * w.amp * boost * (.75 + .25 * Math.sin(t * .4 + x * .001));
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'rgba(' + rgb + ',' + (w.a * alpha * 1.6) + ')';
+      ctx.lineWidth = w.w;
+      ctx.stroke();
+    }
+    if (!still) { t += 0.016; raf = requestAnimationFrame(frame); }
+  }
+  function restart() { cancelAnimationFrame(raf); readTheme(); resize(); frame(); }
+
+  window.addEventListener('resize', restart);
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  document.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', restart);
+  restart();
+})();
+</script>
+</body>
+</html>

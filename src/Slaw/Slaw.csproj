@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>slaw</AssemblyName>
+    <RootNamespace>SlopstackLabs.Slaw</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Avalonia ships native Skia/HarfBuzz libraries; fold them into single-file publishes. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <Version>0.1.0</Version>
+    <Product>slaw</Product>
+    <Company>slopstack labs</Company>
+    <Description>The AI-native digital audio workstation. Beyond deterministic production.</Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Slaw.Tests" />
+  </ItemGroup>
+
+</Project>

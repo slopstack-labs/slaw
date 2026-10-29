@@ -1,0 +1,34 @@
+# Normalize line endings so a Windows checkout stays toolchain-clean.
+#
+# With core.autocrlf=true — the Git for Windows default — a checkout rewrites
+# every tracked file to CRLF. `dotnet format --verify-no-changes` then flags
+# every C# source file the way gofmt did in sibling projects, so the
+# repository's own CI command fails locally on Windows while passing on the
+# Linux runner. Pinning LF in the working tree keeps the .NET toolchain, bash,
+# and CI in agreement on every host.
+
+* text=auto eol=lf
+
+*.cs           text eol=lf
+*.csproj       text eol=lf
+*.sln          text eol=lf
+*.props        text eol=lf
+*.targets      text eol=lf
+*.slaw         text eol=lf
+*.json         text eol=lf
+*.editorconfig text eol=lf
+.editorconfig  text eol=lf
+*.sh           text eol=lf
+*.yml          text eol=lf
+*.yaml         text eol=lf
+*.md           text eol=lf
+
+# PowerShell is happiest with CRLF, and nothing else reads these files.
+*.ps1 text eol=crlf
+
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.ico  binary
+*.zip  binary
+*.wav  binary
