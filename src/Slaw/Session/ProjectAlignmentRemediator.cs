@@ -160,6 +160,7 @@ internal static class ProjectAlignmentRemediator
         }
 
         RemediateArrangement(project, sceneCount, remediationLedger);
+        remediationLedger.AddRange(FreeTimeline.Remediate(project));
 
         var masterChain = project.Master;
         masterChain.Gain = ClampWithLedger(masterChain.Gain, 0, 2, "master.gain", remediationLedger);

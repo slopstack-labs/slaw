@@ -44,7 +44,17 @@ internal sealed class StudioDocument
     public SlawTrack? SelectedTrack =>
         SelectedTrackIndex >= 0 && SelectedTrackIndex < Project.Tracks.Count ? Project.Tracks[SelectedTrackIndex] : null;
 
-    public SlawClip? SelectedClip => SelectedTrack?.ClipAt(SelectedSceneIndex);
+    /// <summary>
+    /// The free-timeline clip being edited, if any. While set, <see cref="SelectedClip"/>
+    /// is that clip and <see cref="SelectedTrackIndex"/> its track, so every clip editor
+    /// works on it unchanged; selecting a scene slot clears it.
+    /// </summary>
+    public string? SelectedTimelineClipId { get; private set; }
+
+    public TimelineClip? SelectedTimelineClip =>
+        SelectedTimelineClipId is { } timelineClipId ? Project.Timeline.FirstOrDefault(timelineClip => timelineClip.Id == timelineClipId) : null;
+
+    public SlawClip? SelectedClip => SelectedTimelineClip?.Clip ?? SelectedTrack?.ClipAt(SelectedSceneIndex);
 
     /// <summary>Raised after every committed edit, undo, redo, or project replacement.</summary>
     public event Action<EditScope>? Changed;
@@ -143,18 +153,43 @@ internal sealed class StudioDocument
 
     public void Select(int trackIndex, int sceneIndex)
     {
-        if (trackIndex == SelectedTrackIndex && sceneIndex == SelectedSceneIndex)
+        if (trackIndex == SelectedTrackIndex && sceneIndex == SelectedSceneIndex && SelectedTimelineClipId is null)
         {
             return;
         }
+        SelectedTimelineClipId = null;
         SelectedTrackIndex = trackIndex;
         SelectedSceneIndex = sceneIndex;
         ClampSelection();
         SelectionChanged?.Invoke();
     }
 
+    /// <summary>Selects a free-timeline clip (and its track) for editing; null clears the timeline selection.</summary>
+    public void SelectTimelineClip(string? timelineClipId)
+    {
+        var timelineClip = timelineClipId is null ? null : Project.Timeline.FirstOrDefault(candidate => candidate.Id == timelineClipId);
+        var trackIndex = timelineClip is null ? SelectedTrackIndex : Project.Tracks.FindIndex(track => track.Id == timelineClip.TrackId);
+        if (timelineClip?.Id == SelectedTimelineClipId && trackIndex == SelectedTrackIndex)
+        {
+            return;
+        }
+        SelectedTimelineClipId = timelineClip?.Id;
+        SelectedTrackIndex = Math.Max(0, trackIndex);
+        ClampSelection();
+        SelectionChanged?.Invoke();
+    }
+
     private void ClampSelection()
     {
+        if (SelectedTimelineClip is { } selectedTimelineClip)
+        {
+            // The clip may have moved to another track (or the tracks were reordered).
+            SelectedTrackIndex = Math.Max(0, Project.Tracks.FindIndex(track => track.Id == selectedTimelineClip.TrackId));
+        }
+        else
+        {
+            SelectedTimelineClipId = null;
+        }
         SelectedTrackIndex = Math.Clamp(SelectedTrackIndex, 0, Math.Max(0, Project.Tracks.Count - 1));
         SelectedSceneIndex = Math.Clamp(SelectedSceneIndex, 0, Math.Max(0, Project.Scenes.Count - 1));
     }
@@ -297,6 +332,7 @@ internal sealed class StudioDocument
         var removedTrack = Project.Tracks[trackIndex];
         BeginEdit("delete track");
         Project.Tracks.RemoveAt(trackIndex);
+        Project.Timeline.RemoveAll(timelineClip => timelineClip.TrackId == removedTrack.Id);
         CommitEdit($"removed the track {removedTrack.Name}", EditScope.Structure);
         SelectionChanged?.Invoke();
     }

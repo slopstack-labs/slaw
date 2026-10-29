@@ -124,7 +124,7 @@ slaw <command> [options]    # headless production pipeline
 | `--force-iterate N` | 0 | `compose`: proactively enhance output quality for N cycles even on success |
 | `--mcp` / `--mcp-port N` | off / `47115` | `studio`: expose the open project over MCP (HTTP on 127.0.0.1) |
 | `--plugin-folder DIR` | — | `studio`, `mcp`: also scan `DIR` for VST3 plugins this session (repeatable; or set `VST3_PATH`) |
-| `--view` | `session` | `studio`: starting view, `session`, `arrangement`, or `sample` (the first sampler's editor) |
+| `--view` | `session` | `studio`: starting view, `session`, `arrangement`, `free` (the free timeline), or `sample` (the first sampler's editor) |
 | `--no-copilot` | false | `studio`: disable the unsolicited AI co-pilot (why would you). Flags override saved Settings for one session |
 | `--timeout N` | 300 | HTTP request timeout in seconds per LLM call (`0` = no timeout) |
 | `--verbose` | false | Verbose debug output |
@@ -372,19 +372,19 @@ Every clip can carry envelopes: parameters that change while the clip plays, in 
 Moving, removing or inserting devices takes their envelopes along. Agents write envelopes with the `set_automation` MCP tool or `"automation"` in a patch.
 
 ### VST3 plugins: third-party synergy
+### Free timeline
 
-For when in-house synthesis has been deemed insufficiently enterprise. slaw hosts VST3 instruments and effects in-process, from C#, by hand-transcribing the VST3 binary interface. Steinberg was not consulted. Neither was common sense.
+Scenes and sections are a governance framework. Some stakeholders prefer to work outside the framework. The **Free** view (next to Session and Arrangement; Tab cycles through all three, or start with `--view free`) is a plain timeline: put any clip at any step on any track, at any length, with no scenes and no sections.
 
-- **Where slaw looks:** the system folders (`~/.vst3`, `/usr/lib/vst3` and `/usr/local/lib/vst3` on Linux, `Common Files\VST3` on Windows), every folder in `VST3_PATH`, any `--plugin-folder`, and your own folders under *Settings → Plugins* (with **Rescan**). Folders are scanned recursively, so bridged plugins anywhere under `~/.vst3` turn up on their own. Bundles that ship a `moduleinfo.json` are read without being loaded.
-- **Instruments:** **VST3…** on the instrument device lists every scanned synth, grouped by vendor. Steps and chords become note-on/note-off events, and held notes (`_`) last as long as you hold them.
-- **Effects:** *+ Effect → VST3*, anywhere in the chain. Audio enters the plugin's stereo bus in mono and leaves as the average of both channels: stereo collapsed, as the org chart intended.
-- **Drag and drop:** drop a `.vst3` from your file manager onto a track (instruments) or the device chain (effects).
-- **Knobs:** each plugin gets a generic panel built from the parameters it declares, with a filter box once there are more than 24. Values are stored as `p<id>` = 0…1 next to the built-in knobs, so undo, AI tuning, automation and MCP all treat them like any other parameter. Plugin editor windows are on the roadmap, behind profitability.
-- **State:** each plugin's own state is saved into the `.slaw` on save, and handed back when the project opens.
-- **Bounces** wait for every plugin to load, then render in offline mode. Live playback never waits: a plugin that is still loading stays silent for a moment instead of glitching the audio.
-- **Agents:** `list_plugins` (with the folder each plugin came from) and `describe_plugin` over MCP. `add_track` with `"instrument": "vst3"` and `add_effect` with `"type": "vst3"` take a `plugin` (`{"path", "classId"}` or just its name).
+- **Make clips:** double-click a lane to create a one-bar clip, drag a session clip in to place a copy (drag a whole scene in to place its whole row), or press **⇣ Import arrangement** to flatten the scene-based song onto the timeline as a starting point.
+- **Edit them:** drag to move, even onto another track. Moves snap to beats; hold Shift for bars or Alt for single steps. Drag a clip's right edge to make it longer: the pattern loops to fill the length, and dashed lines mark each pass. Ctrl+drag copies. Right-click to duplicate, rename, loop or delete.
+- **Same editor:** a selected clip opens in the detail view like any other clip, with the piano roll, step row and envelopes.
+- **Overlaps:** where two clips overlap on a track, the one that starts later plays. Nothing is trimmed, so moving it away reveals the clip underneath, intact. The later clip is also the one drawn on top.
+- **Ruler:** click to set the cursor, double-click to play from there, and drag to set the loop brace (**⟲ Loop** toggles it; right-click the ruler to clear it).
+- **Keys:** Space plays and stops from the cursor. Enter plays from the selected clip. Del, Ctrl+D (duplicate right after itself), Ctrl+C/X/V (paste at the cursor) act on timeline clips. Ctrl+wheel zooms; Shift+wheel scrolls.
+- **Bounce:** Bounce As… gains *Free timeline*. Agents use `"timeline"` in `apply_patch`, `transport` `play_timeline`, and `render` with `source: "timeline"`.
 
-Plugins run inside slaw's process with slaw's privileges. A plugin that crashes takes the studio with it; slopstack labs calls this *shared accountability*. Windows `.vst3` files cannot load on Linux, so slaw lists them as unavailable instead of dlopen-ing a DLL out of optimism.
+The timeline lives in the project file under `timeline` (and `timelineLoop`), and only once you use it. Scene-only projects stay byte-for-byte compliant.
 
 ### Mouse and knobs
 

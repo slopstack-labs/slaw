@@ -114,13 +114,17 @@ internal sealed class SlawMcpToolset
                 "fx.<effectIndex>.<param> (an effect parameter, continuous), inst.<param> (an instrument parameter, sampled as each note starts). Values use the catalog's units; plugin instruments follow inst.<param> continuously." +
                 "\nVST3 plugins: instrument \"vst3\" and effect type \"vst3\" host the user's installed plugins (see list_plugins). " +
                 "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
-                "with normalized values 0..1; describe_plugin lists them with titles."));
+                "with normalized values 0..1; describe_plugin lists them with titles." +
+                "\nFree timeline (apply_patch \"timeline\"): clips placed at any step on any track, independent of scenes and the arrangement. Play it with transport play_timeline, bounce it with render source \"timeline\"."));
 
         Register("apply_patch",
             "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], arrangement [{scene, repeats}], " +
             "tracks [{id (existing id or \"new\"), name, instrument, sample, gain, pan, muted, solo, instrumentParameters {key: number}, " +
             "effects [{type, enabled, parameters}] (replaces the list), clips {\"<sceneIndex>\": \"x . . . x . . .\" or null}, " +
             "automation {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}} (merged into that clip's envelopes, see get_catalog), remove: true}], " +
+            "timeline [{id (existing timeline clip id or \"new\"), track (id, name or index), start (steps, 16 per bar), length (steps; the pattern loops to fill it), " +
+            "pattern, name, automation {\"<target>\": [[step, value], ...]}, remove: true}] (the free timeline: clips anywhere in time, independent of scenes; " +
+            "where clips overlap on a track the later-starting one plays), " +
             "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix}. Undoable in the studio.",
             Schema(new JsonObject { ["patch"] = Property("object", "The patch object.") }, "patch"),
             async (toolArguments, clientName, _) =>
@@ -376,12 +380,13 @@ internal sealed class SlawMcpToolset
             });
 
         Register("transport",
-            "Control playback in the running studio: play_scene (launch a scene), play_arrangement (from a section), or stop. Live studio only.",
+            "Control playback in the running studio: play_scene (launch a scene), play_arrangement (from a section), play_timeline (the free timeline, from a bar), or stop. Live studio only.",
             Schema(new JsonObject
             {
-                ["action"] = EnumProperty("What to do.", "play_scene", "play_arrangement", "stop"),
+                ["action"] = EnumProperty("What to do.", "play_scene", "play_arrangement", "play_timeline", "stop"),
                 ["scene"] = Property("integer", "Scene index for play_scene."),
                 ["section"] = Property("integer", "Arrangement section index for play_arrangement (default 0)."),
+                ["bar"] = Property("integer", "0-based bar for play_timeline (default 0)."),
             }, "action"),
             async (toolArguments, _, _) =>
             {
@@ -391,13 +396,19 @@ internal sealed class SlawMcpToolset
                 }
                 var transportAction = ReadString(toolArguments["action"]) ?? "stop";
                 var sceneIndex = (int)(ReadDouble(toolArguments["scene"]) ?? 0);
-                var sectionIndex = (int)(ReadDouble(toolArguments["section"]) ?? 0);
+                var sectionIndex = transportAction == "play_timeline"
+                    ? (int)(ReadDouble(toolArguments["bar"]) ?? 0)
+                    : (int)(ReadDouble(toolArguments["section"]) ?? 0);
                 return await host.InvokeAsync(() => host.ControlTransport(transportAction, sceneIndex, sectionIndex));
             });
 
         Register("render",
-            "Bounce the arrangement to a 16-bit WAV file and report its duration and peak level.",
-            Schema(new JsonObject { ["path"] = Property("string", "Output .wav path (default: next to the project, or a temp file).") }),
+            "Bounce the arrangement (or the free timeline) to a 16-bit WAV file and report its duration and peak level.",
+            Schema(new JsonObject
+            {
+                ["path"] = Property("string", "Output .wav path (default: next to the project, or a temp file)."),
+                ["source"] = EnumProperty("What to render (default arrangement).", "arrangement", "timeline"),
+            }),
             async (toolArguments, _, cancellationToken) =>
             {
                 var (projectSnapshot, defaultOutputPath) = await host.InvokeAsync(() => (
@@ -406,9 +417,14 @@ internal sealed class SlawMcpToolset
                         ? Path.ChangeExtension(projectPath, ".wav")
                         : Path.Combine(Path.GetTempPath(), $"slaw-mcp-{Environment.ProcessId}.wav")));
                 var outputPath = Path.GetFullPath(ReadString(toolArguments["path"]) ?? defaultOutputPath);
+                var rendersTimeline = ReadString(toolArguments["source"]) == "timeline";
+                if (rendersTimeline && projectSnapshot.Timeline.Count == 0)
+                {
+                    throw new McpInvalidParamsException("the free timeline is empty; add clips with apply_patch {\"timeline\": [...]} first");
+                }
                 var renderedArrangement = await Task.Run(() =>
                 {
-                    var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot);
+                    var arrangementBuffer = rendersTimeline ? OfflineArrangementRenderer.RenderTimeline(projectSnapshot) : OfflineArrangementRenderer.Render(projectSnapshot);
                     WaveFileMaterializer.Write(outputPath, arrangementBuffer);
                     return arrangementBuffer;
                 }, cancellationToken);

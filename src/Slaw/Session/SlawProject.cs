@@ -31,6 +31,23 @@ internal sealed class SlawProject
     public List<ArrangementSection> Arrangement { get; set; } = new();
     public MasterChainParameters Master { get; set; } = new();
 
+    /// <summary>Clips placed freely in time, independent of scenes (see <see cref="FreeTimeline"/>).</summary>
+    [JsonIgnore]
+    public List<TimelineClip> Timeline { get; set; } = new();
+
+    /// <summary>The timeline as written to disk: omitted while empty, so scene-only projects stay unchanged.</summary>
+    [JsonPropertyName("timeline")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<TimelineClip>? SerializedTimeline
+    {
+        get => Timeline.Count > 0 ? Timeline : null;
+        set => Timeline = value ?? new List<TimelineClip>();
+    }
+
+    /// <summary>The free timeline's loop brace; null plays the whole timeline.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TimelineLoopRegion? TimelineLoop { get; set; }
+
     /// <summary>
     /// Which model touched this project last. Disclosed for transparency and to
     /// give stakeholders someone to blame.

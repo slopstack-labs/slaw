@@ -21,6 +21,9 @@ internal interface IStudioHost
     void StopAll();
     void PlayArrangementFrom(int sectionIndex);
 
+    /// <summary>Plays the free timeline from <paramref name="startStep"/>.</summary>
+    void PlayTimelineFrom(long startStep);
+
     /// <summary>Sounds a note on a track's instrument until <see cref="StopNoteAudition"/>.</summary>
     void StartNoteAudition(string trackIdentifier, int midiNote);
     void StopNoteAudition();
