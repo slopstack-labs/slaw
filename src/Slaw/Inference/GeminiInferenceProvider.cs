@@ -20,15 +20,21 @@ internal sealed class GeminiInferenceProvider : StreamingInferenceProviderBase
 
     public override string ProviderDisplayName => "Google Gemini";
 
-    protected override HttpRequestMessage ComposeInferenceRequest(string prompt)
+    protected override HttpRequestMessage ComposeInferenceRequest(string prompt, InferenceRequestOptions requestOptions)
     {
+        var generationConfiguration = new JsonObject { ["maxOutputTokens"] = Math.Max(8192, requestOptions.MaximumOutputTokens) };
+        if (requestOptions.ExpectJsonObject)
+        {
+            generationConfiguration["responseMimeType"] = "application/json";
+        }
         var inferenceRequestArtifact = new HttpRequestMessage(
             HttpMethod.Post,
             $"{GeminiModelsBaseUrl}/{Uri.EscapeDataString(ModelIdentifier)}:streamGenerateContent?alt=sse")
         {
-            Content = JsonContent.Create(new
+            Content = JsonContent.Create(new JsonObject
             {
-                contents = new[] { new { parts = new[] { new { text = prompt } } } },
+                ["contents"] = new JsonArray(new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = prompt }) }),
+                ["generationConfig"] = generationConfiguration,
             }),
         };
         // Header rather than ?key= so the credential never lands in a URL.

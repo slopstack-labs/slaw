@@ -64,7 +64,8 @@ internal static class ProductionWorkflows
             var modelOutput = await inferenceProvider.StreamCompletionAsync(
                 currentPrompt,
                 progressStepsFor(remediationCycleIndex == 0 ? "composing arrangement" : $"remediation cycle {remediationCycleIndex}/{maximumRemediationCycles}"),
-                cancellationToken);
+                cancellationToken,
+                InferenceRequestOptions.JsonObject);
             try
             {
                 currentDeliverable = ParseArrangement(modelOutput, inferenceProvider);
@@ -89,7 +90,8 @@ internal static class ProductionWorkflows
             var modelOutput = await inferenceProvider.StreamCompletionAsync(
                 PromptLibrary.ArrangementImprovement(currentDeliverable.Project),
                 progressStepsFor($"continuous improvement cycle {improvementCycleIndex}/{forcedImprovementCycles}"),
-                cancellationToken);
+                cancellationToken,
+                InferenceRequestOptions.JsonObject);
             try
             {
                 currentDeliverable = ParseArrangement(modelOutput, inferenceProvider);
@@ -142,7 +144,7 @@ internal static class ProductionWorkflows
         IReadOnlyList<string> progressSteps,
         CancellationToken cancellationToken = default)
     {
-        var modelOutput = await inferenceProvider.StreamCompletionAsync(PromptLibrary.AiMastering(project), progressSteps, cancellationToken);
+        var modelOutput = await inferenceProvider.StreamCompletionAsync(PromptLibrary.AiMastering(project), progressSteps, cancellationToken, InferenceRequestOptions.JsonObject);
         var extractedJsonPayload = LanguageModelPayloadExtractor.ExtractJsonObject(modelOutput)
             ?? throw new ArrangementMisalignmentException("the mastering engineer replied without any settings");
         MasterChainParameters proposedMasterChain;
@@ -217,7 +219,7 @@ internal static class ProductionWorkflows
     {
         var modelOutput = await inferenceProvider.StreamCompletionAsync(
             PromptLibrary.DeviceTweak(project, targetTrack, deviceName, parameterSpecifications, currentValues, instruction),
-            Array.Empty<string>(), cancellationToken);
+            Array.Empty<string>(), cancellationToken, InferenceRequestOptions.JsonObject);
         var extractedJsonPayload = LanguageModelPayloadExtractor.ExtractJsonObject(modelOutput)
             ?? throw new ArrangementMisalignmentException("the sound designer replied without any settings");
         Dictionary<string, JsonElement>? proposedValues;
@@ -256,36 +258,49 @@ internal static class ProductionWorkflows
         string instruction,
         int maximumRemediationCycles,
         CancellationToken cancellationToken = default,
-        IReadOnlyList<string>? availableSamplePaths = null)
+        IReadOnlyList<string>? availableSamplePaths = null,
+        Func<string, IReadOnlyList<string>>? progressStepsFor = null)
     {
         availableSamplePaths ??= Array.Empty<string>();
+        progressStepsFor ??= _ => Array.Empty<string>();
         var currentPrompt = PromptLibrary.Autopilot(currentProject, instruction, availableSamplePaths);
         for (var remediationCycleIndex = 0; ; remediationCycleIndex++)
         {
-            var modelOutput = await inferenceProvider.StreamCompletionAsync(currentPrompt, Array.Empty<string>(), cancellationToken);
+            var modelOutput = await inferenceProvider.StreamCompletionAsync(
+                currentPrompt,
+                progressStepsFor(remediationCycleIndex == 0 ? "autopiloting" : $"remediation cycle {remediationCycleIndex}/{maximumRemediationCycles}"),
+                cancellationToken,
+                InferenceRequestOptions.JsonObject with { MaximumOutputTokens = 3072 });
             try
             {
                 var extractedJsonPayload = LanguageModelPayloadExtractor.ExtractJsonObject(modelOutput)
-                    ?? throw new ArrangementMisalignmentException("no JSON object found in model output");
-                SlawProject revisedProject;
+                    ?? throw new ArrangementMisalignmentException(
+                        $"no JSON object found in model output (it said: \"{Abbreviate(modelOutput)}\")");
+                System.Text.Json.Nodes.JsonObject projectPatch;
                 try
                 {
-                    revisedProject = ProjectSerializer.Deserialize(extractedJsonPayload);
+                    projectPatch = ProjectPatchApplier.ParsePatch(extractedJsonPayload);
                 }
-                catch (JsonException deserializationRemediationOpportunity)
+                catch (FormatException parseRemediationOpportunity)
                 {
-                    throw new ArrangementMisalignmentException($"invalid JSON: {deserializationRemediationOpportunity.Message}");
+                    throw new ArrangementMisalignmentException(parseRemediationOpportunity.Message);
                 }
-                if (revisedProject.Tracks is null || revisedProject.Tracks.Count == 0)
+                var patchOutcome = ProjectPatchApplier.Apply(currentProject, projectPatch);
+                var revisedProject = patchOutcome.Project;
+                if (revisedProject.Tracks.Count == 0)
                 {
                     throw new ArrangementMisalignmentException("the autopilot deleted every track");
                 }
 
-                var lockEnforcementCount = EnforceAiLocks(currentProject, revisedProject);
+                var lockEnforcementCount = EnforceAiLocks(currentProject, revisedProject) + patchOutcome.LockedTrackEditsIgnored;
                 RealignHallucinatedSamples(currentProject, revisedProject, availableSamplePaths);
                 var remediationLedger = ProjectAlignmentRemediator.Remediate(revisedProject);
                 revisedProject.AiProvenance = $"{inferenceProvider.ModelIdentifier} via {inferenceProvider.ProviderDisplayName} (autopilot)";
                 var changeSummary = ProjectChangeSummarizer.Summarize(currentProject, revisedProject);
+                if (!string.IsNullOrWhiteSpace(patchOutcome.ModelSummary))
+                {
+                    changeSummary.Insert(0, $"“{patchOutcome.ModelSummary.Trim()}”");
+                }
                 if (lockEnforcementCount > 0)
                 {
                     changeSummary.Add($"restored {lockEnforcementCount} AI-locked track(s) the autopilot tried to touch");
@@ -294,8 +309,11 @@ internal static class ProductionWorkflows
             }
             catch (ArrangementMisalignmentException parseRemediationOpportunity) when (remediationCycleIndex < maximumRemediationCycles)
             {
-                currentPrompt = PromptLibrary.ArrangementRemediation(parseRemediationOpportunity.Message, modelOutput) +
-                    "\nReturn the COMPLETE project in the same schema as before (scenes, tracks with clips, arrangement, master).";
+                // Re-ask from the original prompt rather than pasting the broken
+                // answer back in: that would double the prompt and invite the
+                // model to continue its own mistake.
+                currentPrompt = PromptLibrary.Autopilot(currentProject, instruction, availableSamplePaths) +
+                    $"\n\nYour previous answer could not be used ({parseRemediationOpportunity.Message}). Reply again with ONLY the complete project JSON object.";
             }
         }
     }
@@ -310,6 +328,14 @@ internal static class ProductionWorkflows
         {
             if (File.Exists(revisedTrack.Sample))
             {
+                continue;
+            }
+            // The prompt lists samples by short id ("s3") to save tokens.
+            if (revisedTrack.Sample!.Length > 1 && revisedTrack.Sample[0] is 's' or 'S' &&
+                int.TryParse(revisedTrack.Sample[1..], out var sampleNumber) &&
+                sampleNumber >= 1 && sampleNumber <= Math.Min(availableSamplePaths.Count, PromptLibrary.MaximumListedSamples))
+            {
+                revisedTrack.Sample = availableSamplePaths[sampleNumber - 1];
                 continue;
             }
             var requestedFileName = Path.GetFileName(revisedTrack.Sample);
@@ -378,6 +404,9 @@ internal static class ProductionWorkflows
             ? validSlicePoints
             : throw new ArrangementMisalignmentException("every proposed slice point fell outside the sample");
     }
+
+    private static string Abbreviate(string modelOutput) =>
+        modelOutput.Length <= 160 ? modelOutput.Trim() : modelOutput[..160].Trim() + "…";
 
     private static int EnforceAiLocks(SlawProject originalProject, SlawProject revisedProject)
     {

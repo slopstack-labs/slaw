@@ -11,6 +11,11 @@ internal sealed class CompactPatternJsonConverter : JsonConverter<List<string>>
 {
     public override List<string>? Read(ref Utf8JsonReader jsonReader, Type typeToConvert, JsonSerializerOptions serializerOptions)
     {
+        // Token-frugal form: one string of space-separated steps, "x . . . x . . .".
+        if (jsonReader.TokenType == JsonTokenType.String)
+        {
+            return SplitStepString(jsonReader.GetString());
+        }
         var deserializedSteps = JsonSerializer.Deserialize<List<JsonElement>>(ref jsonReader, serializerOptions);
         // Models occasionally emit bare numbers or nulls for steps; stringify them
         // and let the remediator decide what they mean.
@@ -23,6 +28,12 @@ internal sealed class CompactPatternJsonConverter : JsonConverter<List<string>>
             })
             .ToList();
     }
+
+    /// <summary>Splits "x . . . C4+E4 _" into steps; commas and line breaks also separate.</summary>
+    public static List<string> SplitStepString(string? stepString) =>
+        (stepString ?? string.Empty)
+            .Split(new[] { ' ', ',', '\t', '\n', '\r', '|' }, StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
 
     public override void Write(Utf8JsonWriter jsonWriter, List<string> pattern, JsonSerializerOptions serializerOptions) =>
         jsonWriter.WriteRawValue("[" + string.Join(", ", pattern.Select(step => JsonSerializer.Serialize(step))) + "]");

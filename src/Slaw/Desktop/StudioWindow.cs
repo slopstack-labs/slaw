@@ -92,6 +92,11 @@ internal sealed class StudioWindow : Window, IStudioHost
     private readonly TextBox sampleFilterInput = new() { Watermark = "filter samples…", FontSize = 11, MinHeight = 24, Padding = new Thickness(6, 2) };
     private IReadOnlyList<string> sampleLibraryFiles = Array.Empty<string>();
     private readonly Dictionary<string, SampleEditorWindow> openSampleEditorWindows = new();
+    private readonly DispatcherTimer inferenceProgressTimer;
+    private readonly Button cancelInferenceButton;
+    private CancellationTokenSource? activeInferenceCancellation;
+    private int activeInferenceReceivedCharacters;
+    private System.Diagnostics.Stopwatch activeInferenceStopwatch = new();
 
     public StudioWindow(StudioLaunchParameters launchParameters)
     {
@@ -107,6 +112,9 @@ internal sealed class StudioWindow : Window, IStudioHost
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
         playButton = StudioUi.AccentButton("▶  Play", TogglePlayback, "Play / stop (Space)");
+        cancelInferenceButton = StudioUi.Button("✕ Cancel", CancelActiveInference, "Stop waiting for the model", compact: true);
+        cancelInferenceButton.IsVisible = false;
+        inferenceProgressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => RefreshInferenceProgress());
         routingChipContainer = new Border
         {
             Background = StudioTheme.SurfaceRaised,
@@ -303,7 +311,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         var rightGroup = StudioUi.Row(10, audioStatusText, waveformScope);
         DockPanel.SetDock(rightGroup, Dock.Right);
         statusLayout.Children.Add(rightGroup);
-        statusLayout.Children.Add(StudioUi.Row(10, inferenceActivityIndicator, statusText));
+        statusLayout.Children.Add(StudioUi.Row(10, inferenceActivityIndicator, cancelInferenceButton, statusText));
         return new Border
         {
             Background = StudioTheme.Surface,
@@ -984,6 +992,7 @@ internal sealed class StudioWindow : Window, IStudioHost
             inferenceDependentControl.IsEnabled = inferenceAvailable;
         }
         inferenceActivityIndicator.IsVisible = pendingInferenceOperationLabel is not null;
+        cancelInferenceButton.IsVisible = pendingInferenceOperationLabel is not null;
     }
 
     // ── AI operations ─────────────────────────────────────────────────────────
@@ -997,7 +1006,7 @@ internal sealed class StudioWindow : Window, IStudioHost
     /// snapshot of the project, then applies the continuation it returns on the
     /// UI thread. One operation at a time; the co-pilot runs separately.
     /// </summary>
-    private void LaunchInference(string operationLabel, Func<SlawProject, CancellationToken, Task<Action>> inferenceOperation)
+    private void LaunchInference(string operationLabel, Func<IInferenceSubstrateProvider, SlawProject, CancellationToken, Task<Action>> inferenceOperation)
     {
         if (!AiFeaturesEnabled)
         {
@@ -1015,21 +1024,37 @@ internal sealed class StudioWindow : Window, IStudioHost
         }
 
         pendingInferenceOperationLabel = operationLabel;
+        var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(sessionLifetimeCancellation.Token);
+        activeInferenceCancellation = operationCancellation;
+        Interlocked.Exchange(ref activeInferenceReceivedCharacters, 0);
+        activeInferenceStopwatch = System.Diagnostics.Stopwatch.StartNew();
         UpdateInferenceAvailability();
-        SetStatus(StatusSeverity.Informational, $"{operationLabel} — querying foundational intelligence layer…");
+        RefreshInferenceProgress();
+        inferenceProgressTimer.Start();
         var projectSnapshot = document.Project.DeepClone();
         var sessionToken = sessionLifetimeCancellation.Token;
+        var operationToken = operationCancellation.Token;
+        var reportingProvider = new ProgressReportingInferenceProvider(
+            inferenceProvider, receivedCharacterCount => Interlocked.Exchange(ref activeInferenceReceivedCharacters, receivedCharacterCount));
 
         _ = Task.Run(async () =>
         {
             Action uiContinuation;
             try
             {
-                uiContinuation = await inferenceOperation(projectSnapshot, sessionToken);
+                uiContinuation = await inferenceOperation(reportingProvider, projectSnapshot, operationToken);
             }
             catch (OperationCanceledException) when (sessionToken.IsCancellationRequested)
             {
                 return;
+            }
+            catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
+            {
+                uiContinuation = () =>
+                {
+                    SetStatus(StatusSeverity.Warning, $"{operationLabel} cancelled. the model has been told to stand down.");
+                    fullSelfProducingSwitch.IsChecked = false;
+                };
             }
             catch (Exception inferenceRemediationOpportunity)
             {
@@ -1044,10 +1069,35 @@ internal sealed class StudioWindow : Window, IStudioHost
             Dispatcher.UIThread.Post(() =>
             {
                 pendingInferenceOperationLabel = null;
+                activeInferenceCancellation = null;
+                operationCancellation.Dispose();
+                inferenceProgressTimer.Stop();
                 UpdateInferenceAvailability();
                 uiContinuation();
             });
         });
+    }
+
+    private void CancelActiveInference()
+    {
+        activeInferenceCancellation?.Cancel();
+        SetStatus(StatusSeverity.Warning, $"cancelling {pendingInferenceOperationLabel}…");
+    }
+
+    /// <summary>Shows the model is alive: characters streamed so far and elapsed time.</summary>
+    private void RefreshInferenceProgress()
+    {
+        if (pendingInferenceOperationLabel is null)
+        {
+            return;
+        }
+        var receivedCharacters = Interlocked.CompareExchange(ref activeInferenceReceivedCharacters, 0, 0);
+        var elapsedSeconds = activeInferenceStopwatch.Elapsed.TotalSeconds;
+        var progressDescription = receivedCharacters == 0
+            ? elapsedSeconds < 3 ? "querying foundational intelligence layer…" : "the model is reading the project…"
+            : $"receiving · {receivedCharacters:N0} characters";
+        SetStatus(StatusSeverity.Informational,
+            FormattableString.Invariant($"{pendingInferenceOperationLabel} — {progressDescription} · {elapsedSeconds:0} s · {inferenceProvider?.ModelIdentifier}"));
     }
 
     public void GenerateClipWithAi(int trackIndex, int sceneIndex)
@@ -1063,10 +1113,10 @@ internal sealed class StudioWindow : Window, IStudioHost
             return;
         }
         var targetIdentifier = targetTrack.Id;
-        LaunchInference($"writing a clip for {targetTrack.Name}", async (projectSnapshot, cancellationToken) =>
+        LaunchInference($"writing a clip for {targetTrack.Name}", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
             var generatedPattern = await ProductionWorkflows.AutocompletePatternAsync(
-                inferenceProvider!, projectSnapshot, projectSnapshot.Tracks[trackIndex], sceneIndex, cancellationToken);
+                operationProvider, projectSnapshot, projectSnapshot.Tracks[trackIndex], sceneIndex, cancellationToken);
             return () =>
             {
                 var liveTrack = document.Project.Tracks.FirstOrDefault(track => track.Id == targetIdentifier);
@@ -1101,9 +1151,9 @@ internal sealed class StudioWindow : Window, IStudioHost
             SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is protected from AI edits (🔒).");
             return;
         }
-        LaunchInference($"rebranding {targetTrack.Name}", async (projectSnapshot, cancellationToken) =>
+        LaunchInference($"rebranding {targetTrack.Name}", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
-            var proposedName = await ProductionWorkflows.NameTrackAsync(inferenceProvider!, projectSnapshot, projectSnapshot.Tracks[trackIndex], cancellationToken);
+            var proposedName = await ProductionWorkflows.NameTrackAsync(operationProvider, projectSnapshot, projectSnapshot.Tracks[trackIndex], cancellationToken);
             return () =>
             {
                 var previousName = targetTrack.Name;
@@ -1146,10 +1196,10 @@ internal sealed class StudioWindow : Window, IStudioHost
             ? "make it sound great in this arrangement"
             : aiInstructionInput.Text.Trim();
 
-        LaunchInference($"designing {deviceName}", async (projectSnapshot, cancellationToken) =>
+        LaunchInference($"designing {deviceName}", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
             var tunedValues = await ProductionWorkflows.TweakDeviceAsync(
-                inferenceProvider!, projectSnapshot, projectSnapshot.Tracks[trackIndex], deviceName, parameterSpecifications, currentValues, designGoal, cancellationToken);
+                operationProvider, projectSnapshot, projectSnapshot.Tracks[trackIndex], deviceName, parameterSpecifications, currentValues, designGoal, cancellationToken);
             return () =>
             {
                 Dictionary<string, double>? liveParameterTable = targetingInstrument
@@ -1179,9 +1229,9 @@ internal sealed class StudioWindow : Window, IStudioHost
     }
 
     private void LaunchAiMastering() =>
-        LaunchInference("AI mastering", async (projectSnapshot, cancellationToken) =>
+        LaunchInference("AI mastering", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
-            await ProductionWorkflows.MasterAsync(inferenceProvider!, projectSnapshot, Array.Empty<string>(), cancellationToken);
+            await ProductionWorkflows.MasterAsync(operationProvider, projectSnapshot, Array.Empty<string>(), cancellationToken);
             return () =>
             {
                 document.Edit("let the AI master the track", project =>
@@ -1200,9 +1250,9 @@ internal sealed class StudioWindow : Window, IStudioHost
         });
 
     private void LaunchVibeCheck() =>
-        LaunchInference("vibe check", async (projectSnapshot, cancellationToken) =>
+        LaunchInference("vibe check", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
-            var vibeAssessment = await ProductionWorkflows.VibeCheckAsync(inferenceProvider!, projectSnapshot, Array.Empty<string>(), cancellationToken);
+            var vibeAssessment = await ProductionWorkflows.VibeCheckAsync(operationProvider, projectSnapshot, Array.Empty<string>(), cancellationToken);
             return () =>
             {
                 AppendCopilotMessage("vibe check", vibeAssessment);
@@ -1211,9 +1261,9 @@ internal sealed class StudioWindow : Window, IStudioHost
         });
 
     private void LaunchTempoNegotiation() =>
-        LaunchInference("tempo negotiation", async (projectSnapshot, cancellationToken) =>
+        LaunchInference("tempo negotiation", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
-            var negotiatedTempo = await ProductionWorkflows.NegotiateTempoAsync(inferenceProvider!, projectSnapshot, cancellationToken);
+            var negotiatedTempo = await ProductionWorkflows.NegotiateTempoAsync(operationProvider, projectSnapshot, cancellationToken);
             return () =>
             {
                 var previousTempo = document.Project.Bpm;
@@ -1232,10 +1282,10 @@ internal sealed class StudioWindow : Window, IStudioHost
             AppendCopilotMessage("you", resolvedInstruction);
         }
         var availableSamplePaths = sampleLibraryFiles;
-        LaunchInference("autopilot", async (projectSnapshot, cancellationToken) =>
+        LaunchInference("autopilot", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
             var autopilotDeliverable = await ProductionWorkflows.AutopilotAsync(
-                inferenceProvider!, projectSnapshot, resolvedInstruction, preferences.AutopilotRemediationCycles, cancellationToken, availableSamplePaths);
+                operationProvider, projectSnapshot, resolvedInstruction, preferences.AutopilotRemediationCycles, cancellationToken, availableSamplePaths);
             return () =>
             {
                 document.ReplaceProject(autopilotDeliverable.Project, "autopilot", undoable: true);
@@ -1275,10 +1325,10 @@ internal sealed class StudioWindow : Window, IStudioHost
             return;
         }
         AppendCopilotMessage("you", $"(compose) {creativeIntent.Trim()}");
-        LaunchInference("composing", async (_, cancellationToken) =>
+        LaunchInference("composing", async (operationProvider, _, cancellationToken) =>
         {
             var composedDeliverable = await ProductionWorkflows.ComposeArrangementAsync(
-                inferenceProvider!, creativeIntent.Trim(), preferences.AutopilotRemediationCycles, forcedImprovementCycles: 0,
+                operationProvider, creativeIntent.Trim(), preferences.AutopilotRemediationCycles, forcedImprovementCycles: 0,
                 progressStepsFor: _ => Array.Empty<string>(), cycleAnnouncer: null, cancellationToken);
             return () =>
             {
@@ -1297,9 +1347,9 @@ internal sealed class StudioWindow : Window, IStudioHost
     {
         var resolvedIntent = string.IsNullOrWhiteSpace(creativeIntent) ? document.Project.Name : creativeIntent.Trim();
         AppendCopilotMessage("you", $"(hallucinate) {resolvedIntent}");
-        LaunchInference("frictionless waveform ideation", async (_, cancellationToken) =>
+        LaunchInference("frictionless waveform ideation", async (operationProvider, _, cancellationToken) =>
         {
-            var hallucinatedWaveform = await ProductionWorkflows.IdeateWaveformAsync(inferenceProvider!, resolvedIntent, Array.Empty<string>(), cancellationToken);
+            var hallucinatedWaveform = await ProductionWorkflows.IdeateWaveformAsync(operationProvider, resolvedIntent, Array.Empty<string>(), cancellationToken);
             return () =>
             {
                 waveformScope.Present(hallucinatedWaveform, FormattableString.Invariant($"hallucination · {hallucinatedWaveform.DurationSeconds:0.0} s · 8-bit"), hallucinatedDeliverable: true);
@@ -1492,10 +1542,10 @@ internal sealed class StudioWindow : Window, IStudioHost
             return;
         }
         var transientCandidates = SampleEditProcessor.DetectTransients(editedSample.Samples, editedSample.SampleRate, sensitivity: 0.65);
-        LaunchInference($"chopping {targetTrack.Name}", async (projectSnapshot, cancellationToken) =>
+        LaunchInference($"chopping {targetTrack.Name}", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
             var chosenSlicePoints = await ProductionWorkflows.AutoChopAsync(
-                inferenceProvider!, projectSnapshot, projectSnapshot.Tracks[trackIndex], editedSample.DurationSeconds, transientCandidates, cancellationToken);
+                operationProvider, projectSnapshot, projectSnapshot.Tracks[trackIndex], editedSample.DurationSeconds, transientCandidates, cancellationToken);
             return () =>
             {
                 if (!document.Project.Tracks.Contains(targetTrack))
@@ -1560,10 +1610,10 @@ internal sealed class StudioWindow : Window, IStudioHost
         }
         var candidateSamplePaths = sampleLibraryFiles.Take(150).ToList();
         var selectionGoal = string.IsNullOrWhiteSpace(aiInstructionInput.Text) ? "fit the song and the track's role" : aiInstructionInput.Text.Trim();
-        LaunchInference($"curating a sample for {targetTrack.Name}", async (projectSnapshot, cancellationToken) =>
+        LaunchInference($"curating a sample for {targetTrack.Name}", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
             var chosenSamplePath = await ProductionWorkflows.ChooseSampleAsync(
-                inferenceProvider!, projectSnapshot, projectSnapshot.Tracks[trackIndex], candidateSamplePaths, selectionGoal, cancellationToken);
+                operationProvider, projectSnapshot, projectSnapshot.Tracks[trackIndex], candidateSamplePaths, selectionGoal, cancellationToken);
             return () =>
             {
                 var liveTrackIndex = document.Project.Tracks.IndexOf(targetTrack);

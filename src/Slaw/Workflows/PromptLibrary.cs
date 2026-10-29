@@ -26,7 +26,7 @@ internal static class PromptLibrary
 
     private const string ArrangementExample =
         """
-        {"name":"Example","bpm":120,"steps":16,"loops":4,"tracks":[{"name":"Kick","instrument":"kick","gain":0.9,"pan":0,"pattern":["x",".",".",".","x",".",".",".","x",".",".",".","x",".",".","."]},{"name":"Bass","instrument":"saw","gain":0.5,"pan":0,"pattern":["A1","_",".","A1",".",".","C2",".","G1","_",".","G1",".",".","E1","."]}],"master":{"drive":1.2,"lowpassHz":12000,"delayMix":0.1}}
+        {"name":"Example","bpm":120,"steps":16,"loops":4,"tracks":[{"name":"Kick","instrument":"kick","gain":0.9,"pan":0,"pattern":"x . . . x . . . x . . . x . . ."},{"name":"Bass","instrument":"saw","gain":0.5,"pan":0,"pattern":"A1 _ . A1 . . C2 . G1 _ . G1 . . E1 ."}],"master":{"drive":1.2,"lowpassHz":12000,"delayMix":0.1}}
         """;
 
     // ── Frictionless Waveform Ideation ────────────────────────────────────────
@@ -72,7 +72,7 @@ internal static class PromptLibrary
               "instrument": one of {{SupportedInstrumentList}},
               "gain": number,        // 0.0 to 1.0
               "pan": number,         // -1.0 (left) to 1.0 (right)
-              "pattern": [ exactly 16 strings ]
+              "pattern": "16 space-separated steps, e.g. x . . . x . . . x . . . x . . ."
             }
           ],
           "master": { "drive": number 1.0 to 4.0, "lowpassHz": number 800 to 18000, "delayMix": number 0.0 to 0.5 }
@@ -181,28 +181,82 @@ internal static class PromptLibrary
     // ── Autopilot: the AI edits everything ───────────────────────────────────
 
     public static string Autopilot(SlawProject project, string instruction, IReadOnlyList<string> availableSamplePaths) => $$"""
-        You are slaw's autopilot, an AI music producer with full edit access to the project below.
+        You are slaw's autopilot, an AI music producer editing the project below.
         The user asked: "{{instruction}}"
 
-        Return the COMPLETE updated project as one JSON object in exactly the same schema. You may change anything:
-        tempo, scenes, clips, instruments, instrument parameters, effects and their parameters, mixer (gain, pan, muted, solo), arrangement, master.
-        Rules:
-        - Keep every track's "id" unchanged. New tracks get a new short random "id".
-        - Tracks with "aiLocked": true must be returned exactly as they are.
-        - "scenes" is a list of scene names. Each track's "clips" has one entry per scene: a clip object or null for an empty slot.
-        - "arrangement" is the song order: [{"scene": index, "repeats": n}, ...].
-        - Only use instruments, effects and parameter keys from the catalog. Parameter values must stay inside their ranges.
+        Reply with ONE JSON object that describes ONLY what to change (a patch). Leave out everything that stays the same.
+        Patch format (every key is optional):
+        {
+          "summary": "one short sentence about what you changed",
+          "bpm": 140,
+          "scenes": ["Intro", "Drop"],
+          "arrangement": [{"scene": 0, "repeats": 2}, {"scene": 1, "repeats": 4}],
+          "tracks": [
+            {"id": "<existing id>", "gain": 0.7, "clips": {"1": "x . . . x . . . x . . . x . x ."} },
+            {"id": "new", "name": "Wobble Bass", "instrument": "saw", "effects": [{"type": "lowpass", "parameters": {"cutoff": 500, "resonance": 0.7} }], "clips": {"0": "E1 _ _ . E1 . G1 _ . . E1 . D1 _ . ."} },
+            {"id": "<existing id>", "remove": true}
+          ],
+          "master": {"drive": 2.0}
+        }
+        - "scenes" and "arrangement" replace the whole list when given; "clips" maps a scene index to a pattern string.
+        - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence.
+        - Effects replace the track's whole effect list when given.
+        - Never mention tracks marked LOCKED.
 
         {{DescribeDeviceCatalog()}}
         {{DescribeAvailableSamples(availableSamplePaths)}}
 
-        {{PatternVocabularyDescription}}
+        Current project:
+        {{DescribeProjectForPatching(project)}}
 
-        Current project JSON:
-        {{SerializeCompactly(project)}}
-
-        Output ONLY the updated project JSON. No explanation. No markdown. No code fences. Nothing after the closing brace.
+        Patch JSON:
         """;
+
+    /// <summary>
+    /// The project as a compact listing with track ids and pattern strings —
+    /// a fraction of the tokens of the project JSON, which matters a great deal
+    /// to a 3B-parameter model running on a laptop CPU.
+    /// </summary>
+    public static string DescribeProjectForPatching(SlawProject project)
+    {
+        var projectListing = new StringBuilder();
+        projectListing.Append(CultureInfo.InvariantCulture, $"name \"{project.Name}\", bpm {project.Bpm:0}\n");
+        projectListing.Append(CultureInfo.InvariantCulture,
+            $"scenes: {string.Join(", ", project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}=\"{sceneName}\""))}\n");
+        projectListing.Append(CultureInfo.InvariantCulture,
+            $"arrangement: {string.Join(", ", project.Arrangement.Select(section => $"scene {section.Scene} x{section.Repeats}"))}\n");
+        foreach (var track in project.Tracks)
+        {
+            projectListing.Append(CultureInfo.InvariantCulture,
+                $"track id \"{track.Id}\" \"{track.Name}\" {track.Instrument}{(track.AiLocked ? " LOCKED" : string.Empty)} gain {track.Gain:0.00} pan {track.Pan:0.00}{(track.Muted ? " muted" : string.Empty)}");
+            if (track.Sample is not null)
+            {
+                projectListing.Append(CultureInfo.InvariantCulture, $" sample \"{Path.GetFileName(track.Sample)}\"");
+            }
+            if (track.InstrumentParameters.Count > 0)
+            {
+                projectListing.Append(CultureInfo.InvariantCulture,
+                    $" params {{{string.Join(", ", track.InstrumentParameters.Select(pair => $"{pair.Key}: {pair.Value:0.###}"))}}}");
+            }
+            if (track.Effects.Count > 0)
+            {
+                projectListing.Append(CultureInfo.InvariantCulture,
+                    $" effects [{string.Join(", ", track.Effects.Select(effect => effect.Parameters.Count == 0 ? effect.Type : $"{effect.Type} {{{string.Join(", ", effect.Parameters.Select(pair => $"{pair.Key}: {pair.Value:0.###}"))}}}"))}]");
+            }
+            projectListing.Append('\n');
+            for (var sceneIndex = 0; sceneIndex < track.Clips.Count; sceneIndex++)
+            {
+                if (track.Clips[sceneIndex] is { } clip)
+                {
+                    projectListing.Append(CultureInfo.InvariantCulture, $"  clip {sceneIndex}: {string.Join(' ', clip.Pattern)}\n");
+                }
+            }
+        }
+        var masterChain = project.Master;
+        projectListing.Append(CultureInfo.InvariantCulture,
+            $"master: gain {masterChain.Gain:0.00}, drive {masterChain.Drive:0.0}, lowpassHz {masterChain.LowpassHz:0}, delayMix {masterChain.DelayMix:0.00}");
+        return projectListing.ToString();
+    }
 
     public static string DeviceTweak(SlawProject project, SlawTrack targetTrack, string deviceName, IReadOnlyList<ParameterSpecification> parameterSpecifications, IReadOnlyDictionary<string, double> currentValues, string instruction) => $$"""
         You are a sound designer. Adjust the device "{{deviceName}}" on the track "{{targetTrack.Name}}" ({{targetTrack.Instrument}}).
@@ -237,14 +291,17 @@ internal static class PromptLibrary
         Output ONLY a JSON array of numbers in seconds, ascending, e.g. [0.25, 0.5, 0.75]. No explanation.
         """;
 
+    /// <summary>How many library samples the autopilot is shown, by id.</summary>
+    public const int MaximumListedSamples = 40;
+
     private static string DescribeAvailableSamples(IReadOnlyList<string> availableSamplePaths)
     {
         if (availableSamplePaths.Count == 0)
         {
             return "No user samples are available; do not create \"sampler\" tracks.";
         }
-        return "Available user samples for the \"sampler\" instrument (set the track's \"sample\" field to one of these exact paths):\n" +
-               string.Join("\n", availableSamplePaths.Take(60).Select(samplePath => $"- {samplePath}"));
+        return "Available user samples for the \"sampler\" instrument (set a sampler track's \"sample\" field to the id, e.g. \"s3\"):\n" +
+               string.Join("\n", availableSamplePaths.Take(MaximumListedSamples).Select((samplePath, sampleIndex) => $"s{sampleIndex + 1}: {Path.GetFileNameWithoutExtension(samplePath)}"));
     }
 
     public static string DescribeDeviceCatalog()

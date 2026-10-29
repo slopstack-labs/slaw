@@ -80,6 +80,7 @@ internal static class Program
                 "compose" => ComposeAsync(commandLineIntent).GetAwaiter().GetResult(),
                 "master" => MasterAsync(commandLineIntent).GetAwaiter().GetResult(),
                 "vibe" => VibeCheckAsync(commandLineIntent).GetAwaiter().GetResult(),
+                "autopilot" => AutopilotAsync(commandLineIntent).GetAwaiter().GetResult(),
                 var unknownCommand => throw new CommandLineMisalignmentException($"unknown command \"{unknownCommand}\" — see slaw --help"),
             };
         }
@@ -129,6 +130,7 @@ internal static class Program
                 play <project.slaw|file.wav>   audition through the host audio substrate
                 master <project.slaw>          let the model choose the master chain
                 vibe <project.slaw>            inference-backed vibe check
+                autopilot <project.slaw> "<instruction>"  let the model rewrite the whole project
                 new [project.slaw]             scaffold a starter project
 
               {Dim}Options:{Reset}
@@ -396,6 +398,33 @@ internal static class Program
         var bounceOutputPath = Path.ChangeExtension(projectOutputPath, ".wav");
         WaveFileMaterializer.Write(bounceOutputPath, OfflineArrangementRenderer.Render(loadedProject));
         PrintDeliverable(bounceOutputPath, "mastered for every platform at once, and none in particular.");
+        return 0;
+    }
+
+    private static async Task<int> AutopilotAsync(CommandLineIntent commandLineIntent)
+    {
+        var projectFilePath = RequirePositional(commandLineIntent, "a project file and an instruction");
+        var autopilotInstruction = string.Join(' ', commandLineIntent.PositionalArguments.Skip(1));
+        if (string.IsNullOrWhiteSpace(autopilotInstruction))
+        {
+            autopilotInstruction = "Make it radio-ready.";
+        }
+        var projectOutputPath = commandLineIntent.Option("o") ?? projectFilePath;
+        var inferenceProvider = InferenceProviderFactory.Materialize(ResolveRoutingIntent(commandLineIntent));
+        var loadedProject = ProjectSerializer.Load(projectFilePath);
+
+        PrintBanner(inferenceProvider, projectFilePath, $"autopilot · \"{autopilotInstruction}\"");
+        var autopilotDeliverable = await ProductionWorkflows.AutopilotAsync(
+            inferenceProvider, loadedProject, autopilotInstruction, commandLineIntent.IntegerOption("loop", 2),
+            progressStepsFor: ArrangementStreamStepsFor);
+        PrintRemediationLedger(autopilotDeliverable.RemediationLedger);
+        Console.Error.WriteLine();
+        foreach (var changeLine in autopilotDeliverable.ChangeSummary)
+        {
+            Console.Error.WriteLine($"  {Magenta}•{Reset} {changeLine}");
+        }
+        ProjectSerializer.Save(autopilotDeliverable.Project, projectOutputPath);
+        PrintDeliverable(projectOutputPath, "the autopilot has landed.");
         return 0;
     }
 

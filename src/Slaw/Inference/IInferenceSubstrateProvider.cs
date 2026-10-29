@@ -24,7 +24,23 @@ internal interface IInferenceSubstrateProvider
     Task<string> StreamCompletionAsync(
         string prompt,
         IReadOnlyList<string> progressSteps,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        InferenceRequestOptions? requestOptions = null);
+}
+
+/// <summary>Per-request knobs that not every provider honours, but every provider accepts.</summary>
+internal sealed record InferenceRequestOptions
+{
+    /// <summary>A request whose answer must be a JSON object: providers with a JSON mode switch it on.</summary>
+    public bool ExpectJsonObject { get; init; }
+
+    /// <summary>Upper bound on generated tokens, so a confused model cannot generate forever.</summary>
+    public int MaximumOutputTokens { get; init; } = 4096;
+
+    /// <summary>Called on the streaming thread with the number of characters received so far.</summary>
+    public Action<int>? OnProgress { get; init; }
+
+    public static readonly InferenceRequestOptions JsonObject = new() { ExpectJsonObject = true, MaximumOutputTokens = 6144 };
 }
 
 /// <summary>

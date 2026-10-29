@@ -24,7 +24,73 @@ internal static partial class LanguageModelPayloadExtractor
             : null;
     }
 
-    public static string? ExtractJsonObject(string modelOutput) => ExtractDelimitedPayload(modelOutput, '{', '}');
+    /// <summary>
+    /// Returns the first complete JSON object in the output, found by matching
+    /// braces outside of strings — so prose with braces after the object, or a
+    /// "}" inside a string, cannot derail it. If the model stopped before closing
+    /// everything it opened, the missing brackets are supplied: truncation is a
+    /// misalignment, not a reason to throw the whole answer away.
+    /// </summary>
+    public static string? ExtractJsonObject(string modelOutput)
+    {
+        var objectStart = modelOutput.IndexOf('{');
+        if (objectStart < 0)
+        {
+            return null;
+        }
+        var openBrackets = new Stack<char>();
+        var insideString = false;
+        var escapeNext = false;
+        for (var characterIndex = objectStart; characterIndex < modelOutput.Length; characterIndex++)
+        {
+            var currentCharacter = modelOutput[characterIndex];
+            if (insideString)
+            {
+                if (escapeNext)
+                {
+                    escapeNext = false;
+                }
+                else if (currentCharacter == '\\')
+                {
+                    escapeNext = true;
+                }
+                else if (currentCharacter == '"')
+                {
+                    insideString = false;
+                }
+                continue;
+            }
+            switch (currentCharacter)
+            {
+                case '"':
+                    insideString = true;
+                    break;
+                case '{' or '[':
+                    openBrackets.Push(currentCharacter == '{' ? '}' : ']');
+                    break;
+                case '}' or ']' when openBrackets.Count > 0 && openBrackets.Peek() == currentCharacter:
+                    openBrackets.Pop();
+                    if (openBrackets.Count == 0)
+                    {
+                        return modelOutput[objectStart..(characterIndex + 1)];
+                    }
+                    break;
+            }
+        }
+
+        // Unterminated: close the string, drop a dangling comma or key, then close every bracket.
+        var repairedPayload = new System.Text.StringBuilder(modelOutput[objectStart..].TrimEnd());
+        if (insideString)
+        {
+            repairedPayload.Append('"');
+        }
+        var repairedText = repairedPayload.ToString().TrimEnd();
+        repairedText = DanglingTailPattern().Replace(repairedText, string.Empty);
+        return repairedText + string.Concat(openBrackets);
+    }
+
+    [GeneratedRegex(@"(,\s*""[^""]*""\s*:?\s*|,\s*|:\s*)$")]
+    private static partial Regex DanglingTailPattern();
 
     public static string? ExtractJsonArray(string modelOutput) => ExtractDelimitedPayload(modelOutput, '[', ']');
 

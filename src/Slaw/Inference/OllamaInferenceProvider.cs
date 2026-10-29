@@ -30,11 +30,39 @@ internal sealed class OllamaInferenceProvider : StreamingInferenceProviderBase
 
     public override string ProviderDisplayName => "Ollama";
 
-    protected override HttpRequestMessage ComposeInferenceRequest(string prompt)
+    /// <summary>
+    /// Ollama's default context window is small enough to silently truncate an
+    /// autopilot prompt, which leaves the model without its instructions and
+    /// free to ramble until the timeout. Size the window to the prompt instead.
+    /// </summary>
+    internal static int ContextWindowFor(string prompt, int maximumOutputTokens)
     {
+        var estimatedPromptTokens = prompt.Length / 3 + 256;
+        var requiredContextTokens = estimatedPromptTokens + maximumOutputTokens;
+        var roundedContextTokens = (requiredContextTokens + 2047) / 2048 * 2048;
+        return Math.Clamp(roundedContextTokens, 4096, 32768);
+    }
+
+    protected override HttpRequestMessage ComposeInferenceRequest(string prompt, InferenceRequestOptions requestOptions)
+    {
+        var requestPayload = new JsonObject
+        {
+            ["model"] = ModelIdentifier,
+            ["prompt"] = prompt,
+            ["stream"] = true,
+            ["options"] = new JsonObject
+            {
+                ["num_ctx"] = ContextWindowFor(prompt, requestOptions.MaximumOutputTokens),
+                ["num_predict"] = requestOptions.MaximumOutputTokens,
+            },
+        };
+        if (requestOptions.ExpectJsonObject)
+        {
+            requestPayload["format"] = "json";
+        }
         var inferenceRequestArtifact = new HttpRequestMessage(HttpMethod.Post, ollamaEndpoint)
         {
-            Content = JsonContent.Create(new { model = ModelIdentifier, prompt, stream = true }),
+            Content = JsonContent.Create(requestPayload),
         };
         // Optional bearer token for Ollama instances parked behind an
         // authenticating reverse proxy.

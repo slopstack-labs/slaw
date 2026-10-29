@@ -21,14 +21,14 @@ internal sealed class ClaudeInferenceProvider : StreamingInferenceProviderBase
 
     public override string ProviderDisplayName => "Anthropic";
 
-    protected override HttpRequestMessage ComposeInferenceRequest(string prompt)
+    protected override HttpRequestMessage ComposeInferenceRequest(string prompt, InferenceRequestOptions requestOptions)
     {
         var inferenceRequestArtifact = new HttpRequestMessage(HttpMethod.Post, AnthropicMessagesEndpoint)
         {
             Content = JsonContent.Create(new
             {
                 model = ModelIdentifier,
-                max_tokens = MaximumOutputTokenBudget,
+                max_tokens = Math.Max(MaximumOutputTokenBudget, requestOptions.MaximumOutputTokens),
                 messages = new[] { new { role = "user", content = prompt } },
                 stream = true,
             }),

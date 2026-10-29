@@ -37,15 +37,17 @@ internal abstract class StreamingInferenceProviderBase : IInferenceSubstrateProv
 
     protected InferenceProviderConfiguration ConfigurationParameters { get; }
 
-    protected abstract HttpRequestMessage ComposeInferenceRequest(string prompt);
+    protected abstract HttpRequestMessage ComposeInferenceRequest(string prompt, InferenceRequestOptions requestOptions);
 
     protected abstract StreamFragmentInterpretation InterpretStreamLine(string rawStreamLine);
 
     public async Task<string> StreamCompletionAsync(
         string prompt,
         IReadOnlyList<string> progressSteps,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        InferenceRequestOptions? requestOptions = null)
     {
+        requestOptions ??= new InferenceRequestOptions();
         using var deadlineScopedCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         if (ConfigurationParameters.RequestExecutionTimeout > TimeSpan.Zero)
         {
@@ -55,7 +57,7 @@ internal abstract class StreamingInferenceProviderBase : IInferenceSubstrateProv
         bool DeadlineFired() => deadlineScopedToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
 
         var streamProgressCoordinator = new StreamProgressCoordinator(progressSteps);
-        using var inferenceRequestArtifact = ComposeInferenceRequest(prompt);
+        using var inferenceRequestArtifact = ComposeInferenceRequest(prompt, requestOptions);
         var sanitizedEndpoint = SanitizeEndpointForDebugLogging(inferenceRequestArtifact.RequestUri);
         ConfigurationParameters.DebugLog($"→ {inferenceRequestArtifact.Method} {sanitizedEndpoint}");
 
@@ -117,6 +119,7 @@ internal abstract class StreamingInferenceProviderBase : IInferenceSubstrateProv
                         }
                         streamingResponseAccumulator.Append(interpretedFragment.TextFragment);
                         streamProgressCoordinator.OnTokens(streamingResponseAccumulator.Length);
+                        requestOptions.OnProgress?.Invoke(streamingResponseAccumulator.Length);
                     }
                     if (interpretedFragment.ReportedTokenCount > 0)
                     {

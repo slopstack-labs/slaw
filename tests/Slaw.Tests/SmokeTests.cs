@@ -171,7 +171,7 @@ public class SmokeTests
         public string ModelIdentifier => "fake-1";
 
         public Task<string> StreamCompletionAsync(
-            string prompt, IReadOnlyList<string> progressSteps, CancellationToken cancellationToken = default) =>
+            string prompt, IReadOnlyList<string> progressSteps, CancellationToken cancellationToken = default, InferenceRequestOptions? requestOptions = null) =>
             Task.FromResult(cannedResponse);
     }
 }

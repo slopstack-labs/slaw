@@ -33,16 +33,22 @@ internal sealed class OpenAiCompatibleInferenceProvider : StreamingInferenceProv
     public override string ProviderDisplayName =>
         routesThroughFirstPartyOpenAi ? "OpenAI" : "OpenAI-compatible endpoint";
 
-    protected override HttpRequestMessage ComposeInferenceRequest(string prompt)
+    protected override HttpRequestMessage ComposeInferenceRequest(string prompt, InferenceRequestOptions requestOptions)
     {
+        var requestPayload = new JsonObject
+        {
+            ["model"] = ModelIdentifier,
+            ["messages"] = new JsonArray(new JsonObject { ["role"] = "user", ["content"] = prompt }),
+            ["stream"] = true,
+        };
+        // Compatible servers disagree about response_format, so only first-party OpenAI gets JSON mode.
+        if (requestOptions.ExpectJsonObject && routesThroughFirstPartyOpenAi)
+        {
+            requestPayload["response_format"] = new JsonObject { ["type"] = "json_object" };
+        }
         var inferenceRequestArtifact = new HttpRequestMessage(HttpMethod.Post, chatCompletionsEndpoint)
         {
-            Content = JsonContent.Create(new
-            {
-                model = ModelIdentifier,
-                messages = new[] { new { role = "user", content = prompt } },
-                stream = true,
-            }),
+            Content = JsonContent.Create(requestPayload),
         };
         // Local OpenAI-compatible servers usually run unauthenticated.
         if (!string.IsNullOrEmpty(bearerApiKey))
