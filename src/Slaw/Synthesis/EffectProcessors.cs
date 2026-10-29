@@ -33,6 +33,7 @@ internal abstract class EffectProcessor
         "drive" => new WarmthSaturationProcessor(),
         "bitcrush" => new ComplianceCrusherProcessor(),
         "vibe" => new NeuralVibeEnhancerProcessor(),
+        Plugins.DeviceTypes.Vst3 => new Plugins.Vst3EffectProcessor(),
         _ => new PassthroughProcessor(effectType),
     };
 

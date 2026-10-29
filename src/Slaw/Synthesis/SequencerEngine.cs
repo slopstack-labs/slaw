@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using SlopstackLabs.Slaw.Plugins;
 using SlopstackLabs.Slaw.Session;
 
 namespace SlopstackLabs.Slaw.Synthesis;
@@ -45,6 +46,9 @@ internal sealed class SequencerEngine
     private const int MaximumBlockFrames = 8192;
     private const int AutomationChunkFrames = 64;
 
+    /// <summary>Step notes reach plugins at a polite mezzo-forte (MIDI ~100), humanized downwards from there.</summary>
+    private const float PluginNoteVelocity = 0.8f;
+
     private readonly int sampleRate;
     private readonly ConcurrentQueue<Action> pendingTransportCommands = new();
     private readonly Dictionary<string, TrackRuntimeState> trackRuntimeStates = new();
@@ -53,6 +57,7 @@ internal sealed class SequencerEngine
     private readonly Random humanizationEntropySource;
     private readonly MasterBusProcessor masterBusProcessor;
     private readonly float[] trackScratchBuffer = new float[MaximumBlockFrames];
+    private readonly PluginInstancePool pluginPool;
 
     private SlawProject? publishedProject;
     private TransportSnapshot publishedTransport = TransportSnapshot.Idle;
@@ -72,17 +77,28 @@ internal sealed class SequencerEngine
 
     private readonly Random auditionEntropySource = new(0xA0D1);
     private readonly List<AuditionVoice> activeAuditions = new();
+    private readonly Dictionary<string, HashSet<int>> pluginAuditionNotes = new();
     private const int MaximumAuditionVoices = 32;
 
-    public SequencerEngine(int sampleRate, int noiseSeed = 0x51A7)
+    /// <param name="offlinePluginHosting">
+    /// Bounces: VST3 plugins load synchronously and process in offline mode, so no note is skipped while one loads.
+    /// </param>
+    public SequencerEngine(int sampleRate, int noiseSeed = 0x51A7, bool offlinePluginHosting = false)
     {
         this.sampleRate = sampleRate;
         noiseEntropySource = new Random(noiseSeed);
         humanizationEntropySource = new Random(noiseSeed ^ 0x2A);
         masterBusProcessor = new MasterBusProcessor(sampleRate);
+        pluginPool = new PluginInstancePool(sampleRate, offlinePluginHosting);
     }
 
     public int SampleRate => sampleRate;
+
+    /// <summary>The VST3 instances this engine plays (for the device view's knobs and load errors).</summary>
+    public PluginInstancePool Plugins => pluginPool;
+
+    /// <summary>Tears down every plugin instance. Call once the engine will render no more.</summary>
+    public void ReleasePlugins() => pluginPool.ReleaseAll();
 
     /// <summary>The latest transport state. Safe to read from any thread.</summary>
     public TransportSnapshot Transport => Volatile.Read(ref publishedTransport);
@@ -179,6 +195,24 @@ internal sealed class SequencerEngine
         {
             return;
         }
+        if (auditionedTrack.Instrument == DeviceTypes.Vst3)
+        {
+            var pluginVelocity = (float)Math.Clamp(velocity, 0.05, 1.0);
+            pendingTransportCommands.Enqueue(() =>
+            {
+                if (pluginPool.TryGet(PluginInstancePool.InstrumentSlot(trackIdentifier), auditionedTrack.Plugin) is not { } auditionInstance)
+                {
+                    return;
+                }
+                auditionInstance.NoteOn(midiNote, pluginVelocity);
+                if (!pluginAuditionNotes.TryGetValue(trackIdentifier, out var heldNotes))
+                {
+                    pluginAuditionNotes[trackIdentifier] = heldNotes = new HashSet<int>();
+                }
+                heldNotes.Add(midiNote);
+            });
+            return;
+        }
         var percussiveInstrument = InstrumentVoiceSynthesizer.IsPercussive(auditionedTrack.Instrument);
         SampleData? samplerSource = null;
         if (auditionedTrack.Instrument == "sampler" && !string.IsNullOrEmpty(auditionedTrack.Sample))
@@ -236,6 +270,15 @@ internal sealed class SequencerEngine
         {
             auditionVoice.BeginRelease();
         }
+        foreach (var (trackIdentifier, heldNotes) in pluginAuditionNotes)
+        {
+            var auditionInstance = pluginPool.Current(PluginInstancePool.InstrumentSlot(trackIdentifier));
+            foreach (var heldNote in heldNotes)
+            {
+                auditionInstance?.NoteOff(heldNote);
+            }
+            heldNotes.Clear();
+        }
     });
 
     /// <summary>Releases one note (a MIDI key being let go), leaving the rest of the chord ringing.</summary>
@@ -244,6 +287,13 @@ internal sealed class SequencerEngine
         foreach (var auditionVoice in activeAuditions.Where(voice => voice.MidiNote == midiNote))
         {
             auditionVoice.BeginRelease();
+        }
+        foreach (var (trackIdentifier, heldNotes) in pluginAuditionNotes)
+        {
+            if (heldNotes.Remove(midiNote))
+            {
+                pluginPool.Current(PluginInstancePool.InstrumentSlot(trackIdentifier))?.NoteOff(midiNote);
+            }
         }
     });
 
@@ -353,8 +403,13 @@ internal sealed class SequencerEngine
 
     private void ReleaseAllSessionClips()
     {
-        foreach (var runtimeState in trackRuntimeStates.Values)
+        foreach (var (trackIdentifier, runtimeState) in trackRuntimeStates)
         {
+            if (runtimeState.HostsPluginInstrument)
+            {
+                pluginPool.Current(PluginInstancePool.InstrumentSlot(trackIdentifier))?.AllNotesOff();
+                Array.Clear(runtimeState.PluginNoteCountdowns);
+            }
             runtimeState.PlayingScene = null;
             runtimeState.QueuedScene = null;
             runtimeState.HasQueuedLaunch = false;
@@ -364,6 +419,7 @@ internal sealed class SequencerEngine
 
     private void AdvanceStep(SlawProject project)
     {
+        AdvancePluginNoteCountdowns();
         if (transportMode == TransportMode.Session)
         {
             sessionStep++;
@@ -429,6 +485,42 @@ internal sealed class SequencerEngine
         PublishTransport();
     }
 
+    /// <summary>Plugin instruments hear about note ends as events: one step closer for every held note, note-off at zero.</summary>
+    private void AdvancePluginNoteCountdowns()
+    {
+        foreach (var (trackIdentifier, runtimeState) in trackRuntimeStates)
+        {
+            if (!runtimeState.HostsPluginInstrument)
+            {
+                continue;
+            }
+            Vst3PluginInstance? pluginInstrument = null;
+            var countdowns = runtimeState.PluginNoteCountdowns;
+            for (var midiNote = 0; midiNote < countdowns.Length; midiNote++)
+            {
+                if (countdowns[midiNote] > 0 && --countdowns[midiNote] == 0)
+                {
+                    pluginInstrument ??= pluginPool.Current(PluginInstancePool.InstrumentSlot(trackIdentifier));
+                    pluginInstrument?.NoteOff(midiNote);
+                }
+            }
+        }
+    }
+
+    private void TriggerPluginStep(SlawTrack track, TrackRuntimeState runtimeState, SlawClip clip, int clipStep, float humanizedGain)
+    {
+        runtimeState.HostsPluginInstrument = true;
+        if (pluginPool.TryGet(PluginInstancePool.InstrumentSlot(track.Id), track.Plugin) is not { } pluginInstrument)
+        {
+            return;
+        }
+        foreach (var placedNote in ClipNoteEditor.NotesStartingAt(clip.Pattern, clipStep))
+        {
+            pluginInstrument.NoteOn(placedNote.MidiNote, PluginNoteVelocity * humanizedGain);
+            runtimeState.PluginNoteCountdowns[Math.Clamp(placedNote.MidiNote, 0, 127)] = Math.Max(1, placedNote.Length);
+        }
+    }
+
     internal static (int SectionIndex, long StepInSection) LocateArrangementStep(SlawProject project, long arrangementStep)
     {
         var sectionStartStep = 0L;
@@ -484,6 +576,11 @@ internal sealed class SequencerEngine
         var humanizeAmount = DeviceCatalog.Resolve(
             instrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument), "humanize");
         var humanizedGain = (float)(1 - humanizeAmount * 0.35 * humanizationEntropySource.NextDouble());
+        if (track.Instrument == DeviceTypes.Vst3)
+        {
+            TriggerPluginStep(track, runtimeState, clip, clipStep, humanizedGain);
+            return;
+        }
 
         // Notes struck together may be held for different lengths and struck at
         // different velocities: render one voice per distinct (length, velocity),
@@ -593,6 +690,7 @@ internal sealed class SequencerEngine
                 ? Math.Pow(2, Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, clipPosition), -24, 24) / 12)
                 : 1.0;
 
+            RenderPluginInstrument(project, track, runtimeState, trackBlock, envelopes, clipPosition);
             for (var voiceIndex = runtimeState.ActiveVoices.Count - 1; voiceIndex >= 0; voiceIndex--)
             {
                 var activeVoice = runtimeState.ActiveVoices[voiceIndex];
@@ -619,7 +717,8 @@ internal sealed class SequencerEngine
                 }
             }
 
-            runtimeState.SynchronizeEffectChain(track.Effects, sampleRate);
+            auditionOnThisTrack |= pluginAuditionNotes.TryGetValue(track.Id, out var heldPluginNotes) && heldPluginNotes.Count > 0;
+            runtimeState.SynchronizeEffectChain(track.Id, track.Effects, sampleRate, pluginPool);
             for (var effectIndex = 0; effectIndex < track.Effects.Count; effectIndex++)
             {
                 if (track.Effects[effectIndex].Enabled)
@@ -654,8 +753,35 @@ internal sealed class SequencerEngine
             foreach (var orphanedIdentifier in trackRuntimeStates.Keys.Where(identifier => !survivingIdentifiers.Contains(identifier)).ToList())
             {
                 trackRuntimeStates.Remove(orphanedIdentifier);
+                pluginPool.ReleaseTrack(orphanedIdentifier);
+                pluginAuditionNotes.Remove(orphanedIdentifier);
             }
         }
+    }
+
+    /// <summary>A VST3 instrument's block is its voice: rendered first, then through the track's device chain like any other.</summary>
+    private void RenderPluginInstrument(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, Span<float> trackBlock, CompiledEnvelopes? envelopes, double clipPosition)
+    {
+        if (track.Instrument != DeviceTypes.Vst3)
+        {
+            if (runtimeState.HostsPluginInstrument)
+            {
+                runtimeState.HostsPluginInstrument = false;
+                Array.Clear(runtimeState.PluginNoteCountdowns);
+                pluginPool.Release(PluginInstancePool.InstrumentSlot(track.Id));
+            }
+            return;
+        }
+        runtimeState.HostsPluginInstrument = true;
+        if (pluginPool.TryGet(PluginInstancePool.InstrumentSlot(track.Id), track.Plugin) is not { } pluginInstrument)
+        {
+            return;
+        }
+        pluginInstrument.SetTransport(project.Bpm, transportMode != TransportMode.Stopped);
+        // A plugin plays continuously, so its instrument envelopes move per chunk rather than per note.
+        pluginInstrument.Process(trackBlock, envelopes is { InstrumentEnvelopes.Count: > 0 }
+            ? runtimeState.AutomatedInstrumentParameters(track.InstrumentParameters, envelopes, clipPosition)
+            : track.InstrumentParameters);
     }
 
     private TrackRuntimeState RuntimeStateFor(string trackIdentifier)
@@ -874,6 +1000,23 @@ internal sealed class SequencerEngine
             return envelopes;
         }
 
+        private readonly Dictionary<string, double> automatedInstrumentParameters = new();
+
+        /// <summary>The instrument's knob values with its envelopes applied, in a dictionary reused every block (plugin instruments).</summary>
+        public IReadOnlyDictionary<string, double> AutomatedInstrumentParameters(Dictionary<string, double> knobValues, CompiledEnvelopes envelopes, double clipPosition)
+        {
+            automatedInstrumentParameters.Clear();
+            foreach (var (knobKey, knobValue) in knobValues)
+            {
+                automatedInstrumentParameters[knobKey] = knobValue;
+            }
+            foreach (var (parameterKey, points) in envelopes.InstrumentEnvelopes)
+            {
+                automatedInstrumentParameters[parameterKey] = ClipAutomation.Evaluate(points, clipPosition);
+            }
+            return automatedInstrumentParameters;
+        }
+
         /// <summary>An effect slot's knob values with its envelopes applied, in a dictionary reused every block.</summary>
         public IReadOnlyDictionary<string, double> AutomatedEffectParameters(int effectIndex, Dictionary<string, double> knobValues, CompiledEnvelopes envelopes, double clipPosition)
         {
@@ -902,11 +1045,17 @@ internal sealed class SequencerEngine
             return automatedValues ?? (IReadOnlyDictionary<string, double>)knobValues;
         }
 
+        /// <summary>True while the track's instrument is a VST3 plugin (so its slot is released when that changes).</summary>
+        public bool HostsPluginInstrument { get; set; }
+
+        /// <summary>Steps until each MIDI note's note-off, for plugin instruments; zero is not sounding.</summary>
+        public int[] PluginNoteCountdowns { get; } = new int[128];
+
         /// <summary>
         /// Keeps one processor per effect slot. A slot is only rebuilt when its
         /// type changes, so turning a knob never resets a delay line or a reverb tail.
         /// </summary>
-        public void SynchronizeEffectChain(IReadOnlyList<EffectDevice> effectDevices, int sampleRate)
+        public void SynchronizeEffectChain(string trackIdentifier, IReadOnlyList<EffectDevice> effectDevices, int sampleRate, PluginInstancePool pluginPool)
         {
             for (var effectIndex = 0; effectIndex < effectDevices.Count; effectIndex++)
             {
@@ -917,11 +1066,26 @@ internal sealed class SequencerEngine
                 }
                 else if (EffectChain[effectIndex].EffectType != requestedType)
                 {
+                    if (EffectChain[effectIndex] is Vst3EffectProcessor)
+                    {
+                        pluginPool.Release(PluginInstancePool.EffectSlot(trackIdentifier, effectIndex));
+                    }
                     EffectChain[effectIndex] = EffectProcessor.Create(requestedType, sampleRate);
+                }
+                if (EffectChain[effectIndex] is Vst3EffectProcessor pluginEffect)
+                {
+                    pluginEffect.Bind(pluginPool, PluginInstancePool.EffectSlot(trackIdentifier, effectIndex), effectDevices[effectIndex].Plugin);
                 }
             }
             if (EffectChain.Count > effectDevices.Count)
             {
+                for (var removedIndex = effectDevices.Count; removedIndex < EffectChain.Count; removedIndex++)
+                {
+                    if (EffectChain[removedIndex] is Vst3EffectProcessor)
+                    {
+                        pluginPool.Release(PluginInstancePool.EffectSlot(trackIdentifier, removedIndex));
+                    }
+                }
                 EffectChain.RemoveRange(effectDevices.Count, EffectChain.Count - effectDevices.Count);
             }
         }

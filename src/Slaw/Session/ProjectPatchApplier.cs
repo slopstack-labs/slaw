@@ -115,6 +115,10 @@ internal static class ProjectPatchApplier
         {
             targetTrack.Instrument = ProjectAlignmentRemediator.ResolveInstrument(patchedInstrument);
         }
+        if (PluginDeviceOperations.ParseReference(trackPatch["plugin"]) is { } patchedPlugin)
+        {
+            PluginDeviceOperations.LoadInstrument(targetTrack, patchedPlugin);
+        }
         targetTrack.Sample = ReadString(trackPatch["sample"]) ?? targetTrack.Sample;
         targetTrack.Gain = ReadDouble(trackPatch["gain"]) ?? targetTrack.Gain;
         targetTrack.Pan = ReadDouble(trackPatch["pan"]) ?? targetTrack.Pan;
@@ -135,18 +139,20 @@ internal static class ProjectPatchApplier
 
         if (trackPatch["effects"] is JsonArray effectArray)
         {
-            targetTrack.Effects = effectArray.Select(effectNode => effectNode switch
+            var previousEffects = targetTrack.Effects;
+            targetTrack.Effects = effectArray.Select((effectNode, effectIndex) => effectNode switch
             {
                 JsonObject effectObject => new EffectDevice
                 {
-                    Type = ReadString(effectObject["type"]) ?? "lowpass",
+                    Type = ReadString(effectObject["type"]) ?? (effectObject["plugin"] is null ? "lowpass" : Plugins.DeviceTypes.Vst3),
                     Enabled = ReadBoolean(effectObject["enabled"]) ?? true,
                     Parameters = (effectObject["parameters"] as JsonObject ?? effectObject["params"] as JsonObject)?
                         .Where(parameterPair => ReadDouble(parameterPair.Value) is not null)
                         .ToDictionary(parameterPair => parameterPair.Key, parameterPair => ReadDouble(parameterPair.Value)!.Value)
                         ?? new Dictionary<string, double>(),
+                    Plugin = PluginDeviceOperations.ParseReference(effectObject["plugin"]) ?? PluginInSlot(previousEffects, effectIndex),
                 },
-                _ => new EffectDevice { Type = ReadString(effectNode) ?? "lowpass" },
+                _ => new EffectDevice { Type = ReadString(effectNode) ?? "lowpass", Plugin = PluginInSlot(previousEffects, effectIndex) },
             }).ToList();
         }
 
@@ -224,6 +230,10 @@ internal static class ProjectPatchApplier
             .OfType<AutomationPoint>()
             .ToList()
         : null;
+
+    /// <summary>A model rewriting the chain as [{"type": "vst3"}] keeps the plugin that was already in that slot.</summary>
+    private static PluginReference? PluginInSlot(List<EffectDevice> previousEffects, int effectIndex) =>
+        effectIndex < previousEffects.Count ? previousEffects[effectIndex].Plugin : null;
 
     private static void SetClip(SlawTrack targetTrack, int sceneIndex, JsonNode? clipNode, int defaultStepCount)
     {

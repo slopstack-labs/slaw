@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SlopstackLabs.Slaw.Desktop;
+using SlopstackLabs.Slaw.Plugins;
 using SlopstackLabs.Slaw.Session;
 using SlopstackLabs.Slaw.Synthesis;
 using SlopstackLabs.Slaw.Workflows;
@@ -82,6 +83,16 @@ internal sealed class SlawMcpToolset
             async (toolArguments, _, _) =>
             {
                 var requestedFormat = ReadString(toolArguments["format"]) ?? "listing";
+                if (requestedFormat != "json")
+                {
+                    // Parameter titles come from the plugins themselves; ask them before writing the listing.
+                    var pluginReferences = await host.InvokeAsync(() => host.Document.Project.Tracks
+                        .SelectMany(track => track.Effects.Select(effect => effect.Plugin).Append(track.Plugin))
+                        .OfType<PluginReference>()
+                        .ToList());
+                    await Task.WhenAll(pluginReferences.Select(pluginReference =>
+                        Task.Run(() => Vst3ParameterDirectory.Get(pluginReference, PluginProbeTimeout))));
+                }
                 return await host.InvokeAsync(() =>
                 {
                     var openProject = host.Document.Project;
@@ -100,7 +111,10 @@ internal sealed class SlawMcpToolset
                 "Append \"@<velocity>\" (0..1, default 1) to a note or hit for dynamics: \"x@0.4\" ghost hit, \"C4:8@0.6+E4\" soft root under a full third. Clips are usually 16 steps (one bar of sixteenths)." +
                 "\nClip envelopes (set_automation, or \"automation\" in apply_patch) move a parameter while a clip plays, as [step, value] breakpoints joined linearly. " +
                 "Targets: gain (0..1.5), pan (-1..1), pitch (semitones -24..24; oscillators bend in place, samples/plucks/drums bend tape-style), " +
-                "fx.<effectIndex>.<param> (an effect parameter, continuous), inst.<param> (an instrument parameter, sampled as each note starts). Values use the catalog's units."));
+                "fx.<effectIndex>.<param> (an effect parameter, continuous), inst.<param> (an instrument parameter, sampled as each note starts). Values use the catalog's units; plugin instruments follow inst.<param> continuously." +
+                "\nVST3 plugins: instrument \"vst3\" and effect type \"vst3\" host the user's installed plugins (see list_plugins). " +
+                "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
+                "with normalized values 0..1; describe_plugin lists them with titles."));
 
         Register("apply_patch",
             "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], arrangement [{scene, repeats}], " +
@@ -222,12 +236,14 @@ internal sealed class SlawMcpToolset
             }));
 
         Register("add_track",
-            "Add a track. instrument is one of the catalog instruments (or \"sampler\" with a sample path from list_samples). Returns the new track id.",
+            "Add a track. instrument is one of the catalog instruments (or \"sampler\" with a sample path from list_samples, " +
+            "or \"vst3\" with a plugin from list_plugins). Returns the new track id.",
             Schema(new JsonObject
             {
-                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, sampler."),
+                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, sampler, vst3."),
                 ["name"] = Property("string", "Optional track name."),
                 ["sample"] = Property("string", "WAV path for sampler tracks."),
+                ["plugin"] = AnyProperty("VST3 instrument for vst3 tracks: {\"path\": bundle path, \"classId\": 32 hex chars} from list_plugins, or the plugin's name."),
             }, "instrument"),
             async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
             {
@@ -237,6 +253,18 @@ internal sealed class SlawMcpToolset
                     throw new McpInvalidParamsException($"the project already has {ProjectAlignmentRemediator.MaximumTrackCount} tracks");
                 }
                 var resolvedInstrument = ProjectAlignmentRemediator.ResolveInstrument(ReadString(toolArguments["instrument"]));
+                if (toolArguments["plugin"] is not null || resolvedInstrument == DeviceTypes.Vst3)
+                {
+                    var instrumentPlugin = PluginDeviceOperations.ParseReference(toolArguments["plugin"])
+                        ?? throw new McpInvalidParamsException("vst3 tracks need a plugin: pass {path, classId} or a name from list_plugins");
+                    var pluginTrack = PluginDeviceOperations.CreateInstrumentTrack(document.Project, instrumentPlugin, sceneIndex: -1, ReadString(toolArguments["name"]));
+                    document.BeginEdit($"{clientName}: add track");
+                    document.Project.Tracks.Add(pluginTrack);
+                    document.Project.AiProvenance = $"{clientName} via MCP";
+                    document.CommitEdit($"{clientName} added the track {pluginTrack.Name}", EditScope.Structure);
+                    host.OnAgentEdit(clientName, $"added the track {pluginTrack.Name} ({instrumentPlugin.Name})");
+                    return $"added track id \"{pluginTrack.Id}\" \"{pluginTrack.Name}\" (vst3 \"{instrumentPlugin.Name}\"). Write clips with set_clip; see its knobs with describe_plugin.";
+                }
                 var samplePath = ReadString(toolArguments["sample"]);
                 if (samplePath is not null && !File.Exists(samplePath))
                 {
@@ -293,8 +321,9 @@ internal sealed class SlawMcpToolset
             Schema(new JsonObject
             {
                 ["track"] = AnyProperty(TrackReferenceDescription),
-                ["type"] = EnumProperty("Effect type.", DeviceCatalog.EffectTypes.ToArray()),
-                ["parameters"] = Property("object", "Optional parameter key → number."),
+                ["type"] = EnumProperty("Effect type (\"vst3\" for a plugin from list_plugins).", DeviceCatalog.EffectTypes.Append(DeviceTypes.Vst3).ToArray()),
+                ["parameters"] = Property("object", "Optional parameter key → number (p<id> → 0..1 for vst3)."),
+                ["plugin"] = AnyProperty("VST3 effect for type vst3: {\"path\", \"classId\"} from list_plugins, or the plugin's name."),
             }, "track", "type"),
             async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
             {
@@ -304,6 +333,11 @@ internal sealed class SlawMcpToolset
                 var effectType = ProjectAlignmentRemediator.ResolveEffect(ReadString(toolArguments["type"]))
                     ?? throw new McpInvalidParamsException($"unknown effect; use one of {string.Join(", ", DeviceCatalog.EffectTypes)}");
                 var addedEffect = new EffectDevice { Type = effectType };
+                if (effectType == DeviceTypes.Vst3)
+                {
+                    addedEffect.Plugin = PluginDeviceOperations.ParseReference(toolArguments["plugin"])
+                        ?? throw new McpInvalidParamsException("vst3 effects need a plugin: pass {path, classId} or a name from list_plugins");
+                }
                 if (toolArguments["parameters"] is JsonObject parameterObject)
                 {
                     foreach (var (parameterKey, parameterNode) in parameterObject)
@@ -320,7 +354,7 @@ internal sealed class SlawMcpToolset
                 document.Project.AiProvenance = $"{clientName} via MCP";
                 document.CommitEdit($"{clientName} added {DeviceCatalog.EffectDisplayName(effectType)} to {targetTrack.Name}", EditScope.Structure);
                 host.OnAgentEdit(clientName, $"added {DeviceCatalog.EffectDisplayName(effectType)} to {targetTrack.Name}");
-                return $"{targetTrack.Name} chain: {string.Join(" → ", targetTrack.Effects.Select(effect => effect.Type))}";
+                return $"{targetTrack.Name} chain: {string.Join(" → ", targetTrack.Effects.Select(PluginDeviceOperations.DeviceName))}";
             }));
 
         Register("set_tempo",
@@ -440,6 +474,99 @@ internal sealed class SlawMcpToolset
                       string.Join("\n", matchingSamples.Take(resultLimit)));
             });
 
+        Register("list_plugins",
+            "List the VST3 plugins slaw can host: each with its kind (instrument/effect), bundle path, class id, and the folder it was found in. " +
+            "Folders: Settings → Plugins, --plugin-folder, the VST3_PATH environment variable, and the system VST3 folders.",
+            Schema(new JsonObject
+            {
+                ["filter"] = Property("string", "Optional case-insensitive substring of the name or vendor."),
+                ["kind"] = EnumProperty("Optional: only instruments or only effects.", "instrument", "effect"),
+                ["rescan"] = Property("boolean", "Rescan the plugin folders first."),
+            }),
+            (toolArguments, _, _) => Task.Run(() =>
+            {
+                var filterText = ReadString(toolArguments["filter"]) ?? string.Empty;
+                var requestedKind = ReadString(toolArguments["kind"]);
+                var scannedPlugins = toolArguments["rescan"] is JsonValue rescanValue && rescanValue.TryGetValue<bool>(out var rescanRequested) && rescanRequested
+                    ? Vst3PluginCatalog.Rescan()
+                    : Vst3PluginCatalog.Plugins();
+                var matchingPlugins = scannedPlugins
+                    .Where(plugin => requestedKind is null || plugin.KindLabel == requestedKind)
+                    .Where(plugin => plugin.Name.Contains(filterText, StringComparison.OrdinalIgnoreCase) || plugin.Vendor.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                var pluginListing = new StringBuilder();
+                pluginListing.Append(CultureInfo.InvariantCulture, $"scanned folders: {string.Join(", ", Vst3PluginCatalog.AllFolders())}\n");
+                if (matchingPlugins.Count == 0)
+                {
+                    pluginListing.Append("no VST3 plugins found — the user can add plugin folders in slaw's Settings → Plugins");
+                }
+                foreach (var plugin in matchingPlugins)
+                {
+                    pluginListing.Append(CultureInfo.InvariantCulture,
+                        $"{plugin.KindLabel} \"{plugin.Name}\" by {(plugin.Vendor.Length > 0 ? plugin.Vendor : "unknown")} · path \"{plugin.BundlePath}\" · classId {plugin.ClassId} · folder \"{plugin.SourceFolder}\"\n");
+                }
+                foreach (var scanProblem in Vst3PluginCatalog.LastScanProblems)
+                {
+                    pluginListing.Append(CultureInfo.InvariantCulture, $"could not scan: {scanProblem}\n");
+                }
+                return pluginListing.ToString().TrimEnd();
+            }));
+
+        Register("describe_plugin",
+            "List a VST3 plugin's parameters: key (p<id>), title, unit, default and current value (normalized 0..1). " +
+            "Name a track (its vst3 instrument, or effect index) or pass a plugin directly.",
+            Schema(new JsonObject
+            {
+                ["track"] = AnyProperty(TrackReferenceDescription),
+                ["effect"] = Property("integer", "0-based index in the track's device chain; omit for the track's instrument."),
+                ["plugin"] = AnyProperty("Alternatively {\"path\", \"classId\"} or a plugin name from list_plugins."),
+                ["filter"] = Property("string", "Optional case-insensitive substring of the parameter title."),
+            }),
+            async (toolArguments, _, _) =>
+            {
+                var (pluginReference, currentValues) = await host.InvokeAsync(() =>
+                {
+                    if (toolArguments["track"] is null)
+                    {
+                        return (PluginDeviceOperations.ParseReference(toolArguments["plugin"])
+                                ?? throw new McpInvalidParamsException("pass a track, or a plugin from list_plugins"),
+                            new Dictionary<string, double>());
+                    }
+                    var (_, targetTrack) = ResolveTrack(toolArguments["track"]);
+                    if (ReadDouble(toolArguments["effect"]) is { } effectNumber)
+                    {
+                        var effectIndex = (int)effectNumber;
+                        if (effectIndex < 0 || effectIndex >= targetTrack.Effects.Count || targetTrack.Effects[effectIndex].Plugin is not { } effectPlugin)
+                        {
+                            throw new McpInvalidParamsException($"{targetTrack.Name} has no vst3 effect at index {effectIndex}");
+                        }
+                        return (effectPlugin, new Dictionary<string, double>(targetTrack.Effects[effectIndex].Parameters));
+                    }
+                    return (targetTrack.Plugin ?? throw new McpInvalidParamsException($"{targetTrack.Name} does not play a VST3 instrument"),
+                        new Dictionary<string, double>(targetTrack.InstrumentParameters));
+                });
+                var pluginParameters = await Task.Run(() => Vst3ParameterDirectory.Get(pluginReference, PluginProbeTimeout));
+                if (pluginParameters.Count == 0)
+                {
+                    return Vst3ParameterDirectory.ProbeProblem(pluginReference) is { } probeProblem
+                        ? $"{pluginReference.Name} could not be loaded: {probeProblem}"
+                        : $"{pluginReference.Name} exposes no parameters";
+                }
+                var titleFilter = ReadString(toolArguments["filter"]) ?? string.Empty;
+                var listedParameters = pluginParameters
+                    .Where(parameter => parameter.IsUserFacing && parameter.Title.Contains(titleFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                var parameterListing = new StringBuilder(FormattableString.Invariant($"{pluginReference.Name}: {listedParameters.Count} parameter(s)\n"));
+                foreach (var parameter in listedParameters)
+                {
+                    var currentValue = currentValues.TryGetValue(parameter.Key, out var storedValue) ? storedValue : parameter.DefaultValue;
+                    parameterListing.Append(CultureInfo.InvariantCulture,
+                        $"{parameter.Key} \"{parameter.Title}\"{(parameter.Units.Length > 0 ? $" [{parameter.Units}]" : string.Empty)}" +
+                        $"{(parameter.StepCount > 0 ? $" ({parameter.StepCount + 1} steps)" : string.Empty)} default {parameter.DefaultValue:0.###} current {currentValue:0.###}\n");
+                }
+                return parameterListing.ToString().TrimEnd();
+            });
+
         Register("ask_copilot",
             "Ask slaw's own built-in AI co-pilot (whatever model the user configured) for its opinion of the project. " +
             "Yes, this is an AI asking another AI about music. It is exactly as useful as it sounds.",
@@ -464,6 +591,9 @@ internal sealed class SlawMcpToolset
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>How long a tool waits for a plugin to load before answering without its parameter titles.</summary>
+    private static readonly TimeSpan PluginProbeTimeout = TimeSpan.FromSeconds(20);
 
     private (int TrackIndex, SlawTrack Track) ResolveTrack(JsonNode? trackReference)
     {

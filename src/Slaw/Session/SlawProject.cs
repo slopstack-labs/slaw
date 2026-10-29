@@ -81,6 +81,10 @@ internal sealed class SlawTrack
     /// <summary>Non-destructive edits, loop and slice points for the sampler's sample.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SampleEditSettings? SampleEditing { get; set; }
+
+    /// <summary>The VST3 plugin a "vst3" track plays. Its knobs live in <see cref="InstrumentParameters"/> as p&lt;id&gt;.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PluginReference? Plugin { get; set; }
     public List<EffectDevice> Effects { get; set; } = new();
     public double Gain { get; set; } = 0.8;
     public double Pan { get; set; }
@@ -170,6 +174,33 @@ internal sealed class EffectDevice
     public string Type { get; set; } = "lowpass";
     public bool Enabled { get; set; } = true;
     public Dictionary<string, double> Parameters { get; set; } = new();
+
+    /// <summary>The VST3 plugin a "vst3" effect runs. Its knobs live in <see cref="Parameters"/> as p&lt;id&gt;.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PluginReference? Plugin { get; set; }
+}
+
+/// <summary>
+/// Which VST3 plugin a device hosts: the bundle, the factory class, a name for
+/// humans, and the plugin's own opaque state (base64), captured on save.
+/// </summary>
+internal sealed class PluginReference
+{
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>The factory class id, 32 hex characters.</summary>
+    public string ClassId { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? State { get; set; }
+
+    /// <summary>Same bundle and class: the same plugin, whatever its state.</summary>
+    public bool IsSamePlugin(PluginReference? otherReference) =>
+        otherReference is not null &&
+        string.Equals(Path, otherReference.Path, StringComparison.Ordinal) &&
+        string.Equals(ClassId, otherReference.ClassId, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>One entry of the arrangement: play this scene this many times.</summary>

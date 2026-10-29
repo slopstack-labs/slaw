@@ -1348,10 +1348,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         {
             return;
         }
-        var deviceName = targetingInstrument ? DeviceCatalog.InstrumentDisplayName(targetTrack.Instrument) : DeviceCatalog.EffectDisplayName(targetTrack.Effects[effectIndex].Type);
-        var parameterSpecifications = targetingInstrument
-            ? DeviceCatalog.InstrumentParametersFor(targetTrack.Instrument)
-            : DeviceCatalog.EffectParametersFor(targetTrack.Effects[effectIndex].Type);
+        var deviceName = targetingInstrument ? PluginDeviceOperations.DeviceName(targetTrack) : PluginDeviceOperations.DeviceName(targetTrack.Effects[effectIndex]);
+        var parameterSpecifications = PluginParameterSpecifications(targetingInstrument ? targetTrack.Plugin : targetTrack.Effects[effectIndex].Plugin)
+            ?? (targetingInstrument
+                ? DeviceCatalog.InstrumentParametersFor(targetTrack.Instrument)
+                : DeviceCatalog.EffectParametersFor(targetTrack.Effects[effectIndex].Type));
         var currentValues = parameterSpecifications.ToDictionary(
             specification => specification.Key,
             specification => DeviceCatalog.Resolve(targetingInstrument ? targetTrack.InstrumentParameters : targetTrack.Effects[effectIndex].Parameters, specification));
@@ -1964,7 +1965,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     };
 
     private static List<string> DroppedFolders(DragPayload dragPayload) =>
-        dragPayload.Kind == DragPayloadKind.Files ? dragPayload.FilePaths!.Where(Directory.Exists).ToList() : new List<string>();
+        dragPayload.Kind == DragPayloadKind.Files ? dragPayload.FilePaths!.Where(droppedPath => Directory.Exists(droppedPath) && !IsPluginBundle(droppedPath)).ToList() : new List<string>();
 
     private static List<string> DroppedMidiFiles(DragPayload dragPayload) =>
         dragPayload.Kind == DragPayloadKind.Files
@@ -1985,6 +1986,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             DragPayloadKind.Instrument => dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Effect => dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EffectDevice
                                       || (dropTarget.Kind is DropTargetKind.DeviceChain or DropTargetKind.EmptyArea && document.SelectedTrack is not null),
+            DragPayloadKind.Files when DroppedPluginBundles(dragPayload).Count > 0 =>
+                dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain or DropTargetKind.EffectDevice,
             DragPayloadKind.Files when DroppedMidiFiles(dragPayload).Count > 0 =>
                 dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Sample or DragPayloadKind.Files =>
@@ -2012,6 +2015,12 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var targetTrackIndex = dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.SampleEditor or DropTargetKind.EffectDevice
             ? dropTarget.TrackIndex
             : document.SelectedTrackIndex;
+
+        if (DroppedPluginBundles(dragPayload) is { Count: > 0 } droppedPluginBundles)
+        {
+            _ = LoadDroppedPluginsAsync(droppedPluginBundles, dropTarget, targetTrackIndex);
+            return;
+        }
 
         if (DroppedMidiFiles(dragPayload) is { Count: > 0 } droppedMidiFiles)
         {

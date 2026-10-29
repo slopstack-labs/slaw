@@ -174,11 +174,22 @@ internal static class ProjectAlignmentRemediator
 
     /// <summary>Maps any instrument name a model might emit onto a supported one.</summary>
     public static string ResolveInstrument(string? requestedInstrumentName) =>
-        ResolveFromVocabulary(requestedInstrumentName, InstrumentVoiceSynthesizer.SupportedInstruments, InstrumentSynonymResolutionTable) ?? "sine";
+        IsPluginDeviceName(requestedInstrumentName)
+            ? Plugins.DeviceTypes.Vst3
+            : ResolveFromVocabulary(requestedInstrumentName, InstrumentVoiceSynthesizer.SupportedInstruments, InstrumentSynonymResolutionTable) ?? "sine";
 
     /// <summary>Maps any effect name a model might emit onto a supported one, or null if hopeless.</summary>
     public static string? ResolveEffect(string? requestedEffectType) =>
-        ResolveFromVocabulary(requestedEffectType, DeviceCatalog.EffectTypes, EffectSynonymResolutionTable);
+        IsPluginDeviceName(requestedEffectType)
+            ? Plugins.DeviceTypes.Vst3
+            : ResolveFromVocabulary(requestedEffectType, DeviceCatalog.EffectTypes, EffectSynonymResolutionTable);
+
+    private static bool IsPluginDeviceName(string? requestedName) =>
+        string.Equals(requestedName?.Trim(), Plugins.DeviceTypes.Vst3, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A plugin reference good enough to try loading: a path and a 32-hex-digit class id.</summary>
+    private static bool IsUsablePluginReference(PluginReference? pluginReference) =>
+        pluginReference is not null && !string.IsNullOrWhiteSpace(pluginReference.Path) && Plugins.Vst3Abi.ParseUid(pluginReference.ClassId) is not null;
 
     private static string? ResolveFromVocabulary(string? requestedName, IReadOnlyList<string> supportedNames, Dictionary<string, string> synonymTable)
     {
@@ -244,12 +255,23 @@ internal static class ProjectAlignmentRemediator
             remediationLedger.Add($"{track.Name}: instrument \"{track.Instrument}\" realigned to \"{resolvedInstrumentName}\"");
             track.Instrument = resolvedInstrumentName;
         }
+        if (track.Instrument == Plugins.DeviceTypes.Vst3 && !IsUsablePluginReference(track.Plugin))
+        {
+            remediationLedger.Add($"{track.Name}: VST3 instrument without a plugin realigned to \"saw\"");
+            track.Instrument = "saw";
+        }
+        if (track.Instrument != Plugins.DeviceTypes.Vst3)
+        {
+            track.Plugin = null;
+        }
 
         track.Gain = ClampWithLedger(track.Gain, 0, 1.5, $"{track.Name}.gain", remediationLedger);
         track.Pan = ClampWithLedger(track.Pan, -1, 1, $"{track.Name}.pan", remediationLedger);
 
         track.InstrumentParameters ??= new Dictionary<string, double>();
-        var realignedInstrumentParameters = DeviceCatalog.Remediate(track.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument));
+        var realignedInstrumentParameters = track.Instrument == Plugins.DeviceTypes.Vst3
+            ? DeviceCatalog.RemediatePluginParameters(track.InstrumentParameters)
+            : DeviceCatalog.Remediate(track.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument));
         if (realignedInstrumentParameters > 0)
         {
             remediationLedger.Add($"{track.Name}: {realignedInstrumentParameters} instrument parameter(s) realigned");
@@ -279,6 +301,18 @@ internal static class ProjectAlignmentRemediator
                 effectDevice.Type = resolvedEffectType;
             }
             effectDevice.Parameters ??= new Dictionary<string, double>();
+            if (effectDevice.Type == Plugins.DeviceTypes.Vst3)
+            {
+                if (!IsUsablePluginReference(effectDevice.Plugin))
+                {
+                    remediationLedger.Add($"{track.Name}: VST3 effect without a plugin removed");
+                    track.Effects.RemoveAt(effectIndex);
+                    continue;
+                }
+                DeviceCatalog.RemediatePluginParameters(effectDevice.Parameters);
+                continue;
+            }
+            effectDevice.Plugin = null;
             DeviceCatalog.Remediate(effectDevice.Parameters, DeviceCatalog.EffectParametersFor(effectDevice.Type));
         }
 

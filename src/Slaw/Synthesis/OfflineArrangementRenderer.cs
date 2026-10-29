@@ -30,7 +30,8 @@ internal static class OfflineArrangementRenderer
             }
         }
 
-        var bounceEngine = new SequencerEngine(sampleRate);
+        // VST3 plugins load synchronously in a bounce: the first note waits for the synth rather than skipping it.
+        var bounceEngine = new SequencerEngine(sampleRate, offlinePluginHosting: true);
         bounceEngine.PublishProject(project.DeepClone());
         bounceEngine.PlayArrangement(loop: false);
 
@@ -38,12 +39,19 @@ internal static class OfflineArrangementRenderer
         var totalFrameCount = (int)Math.Min(int.MaxValue / 2, arrangementFrameCount + (long)(ReleaseTailSeconds * sampleRate));
         var arrangementBuffer = new StereoBuffer(totalFrameCount, sampleRate);
 
-        for (var blockStartFrame = 0; blockStartFrame < totalFrameCount; blockStartFrame += RenderBlockFrames)
+        try
         {
-            var blockFrameCount = Math.Min(RenderBlockFrames, totalFrameCount - blockStartFrame);
-            bounceEngine.RenderBlock(
-                arrangementBuffer.Left.AsSpan(blockStartFrame, blockFrameCount),
-                arrangementBuffer.Right.AsSpan(blockStartFrame, blockFrameCount));
+            for (var blockStartFrame = 0; blockStartFrame < totalFrameCount; blockStartFrame += RenderBlockFrames)
+            {
+                var blockFrameCount = Math.Min(RenderBlockFrames, totalFrameCount - blockStartFrame);
+                bounceEngine.RenderBlock(
+                    arrangementBuffer.Left.AsSpan(blockStartFrame, blockFrameCount),
+                    arrangementBuffer.Right.AsSpan(blockStartFrame, blockFrameCount));
+            }
+        }
+        finally
+        {
+            bounceEngine.ReleasePlugins();
         }
 
         MasterChainProcessor.ApplyHearingProtection(arrangementBuffer);

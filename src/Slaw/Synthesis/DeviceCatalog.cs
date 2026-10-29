@@ -101,6 +101,7 @@ internal static class DeviceCatalog
 
     public static IReadOnlyList<ParameterSpecification> InstrumentParametersFor(string instrumentName) => instrumentName switch
     {
+        Plugins.DeviceTypes.Vst3 => Array.Empty<ParameterSpecification>(),
         "sampler" => SamplerParameters,
         "kick" or "snare" or "hat" or "clap" => DrumParameters,
         "pluck" => PluckParameters,
@@ -116,6 +117,7 @@ internal static class DeviceCatalog
         "pluck" => "Karplus–Strong Pluck",
         "noise" => "Generative Noise Engine",
         "sampler" => "Sampler",
+        Plugins.DeviceTypes.Vst3 => "VST3 Instrument",
         var oscillatorName => $"{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(oscillatorName)} Oscillator",
     };
 
@@ -181,6 +183,7 @@ internal static class DeviceCatalog
         "drive" => "Warmth Saturator",
         "bitcrush" => "Lo-Fi Compliance Crusher",
         "vibe" => "Neural Vibe Enhancer™",
+        Plugins.DeviceTypes.Vst3 => "VST3 Effect",
         _ => effectType,
     };
 
@@ -203,6 +206,30 @@ internal static class DeviceCatalog
     {
         var parameterSpecification = parameterSpecifications.FirstOrDefault(candidate => candidate.Key == parameterKey);
         return parameterSpecification is null ? 0 : Resolve(parameterValues, parameterSpecification);
+    }
+
+    /// <summary>
+    /// VST3 devices store normalized plugin parameters as p&lt;id&gt; = 0..1. Drops any
+    /// other key and clamps the rest. Returns how many values had to be realigned.
+    /// </summary>
+    public static int RemediatePluginParameters(Dictionary<string, double> parameterValues)
+    {
+        var realignedValueCount = 0;
+        foreach (var storedKey in parameterValues.Keys.ToList())
+        {
+            var storedValue = parameterValues[storedKey];
+            if (!Plugins.Vst3ParameterDescription.TryParseKey(storedKey, out _) || !double.IsFinite(storedValue))
+            {
+                parameterValues.Remove(storedKey);
+                realignedValueCount++;
+            }
+            else if (storedValue is < 0 or > 1)
+            {
+                parameterValues[storedKey] = Math.Clamp(storedValue, 0, 1);
+                realignedValueCount++;
+            }
+        }
+        return realignedValueCount;
     }
 
     /// <summary>

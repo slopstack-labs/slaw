@@ -1,4 +1,5 @@
 using System.Globalization;
+using SlopstackLabs.Slaw.Plugins;
 using SlopstackLabs.Slaw.Synthesis;
 
 namespace SlopstackLabs.Slaw.Session;
@@ -49,19 +50,32 @@ internal static class ClipAutomation
             new(PanTarget, "Mixer · Pan", PanSpecification, false),
             new(PitchTarget, "Track · Pitch bend", PitchSpecification, false),
         };
-        var instrumentName = DeviceCatalog.InstrumentDisplayName(track.Instrument);
-        foreach (var parameterSpecification in DeviceCatalog.InstrumentParametersFor(track.Instrument))
+        if (track.Instrument == DeviceTypes.Vst3 && track.Plugin is { } instrumentPlugin)
         {
-            availableTargets.Add(new(InstrumentTargetPrefix + parameterSpecification.Key, $"{instrumentName} · {parameterSpecification.Label} (per note)", parameterSpecification, true));
+            // A plugin instrument plays continuously, so its envelopes move continuously too.
+            foreach (var parameterSpecification in PluginParameterSpecifications(instrumentPlugin, track.InstrumentParameters))
+            {
+                availableTargets.Add(new(InstrumentTargetPrefix + parameterSpecification.Key, $"{instrumentPlugin.Name} · {parameterSpecification.Label}", parameterSpecification, false));
+            }
+        }
+        else
+        {
+            var instrumentName = DeviceCatalog.InstrumentDisplayName(track.Instrument);
+            foreach (var parameterSpecification in DeviceCatalog.InstrumentParametersFor(track.Instrument))
+            {
+                availableTargets.Add(new(InstrumentTargetPrefix + parameterSpecification.Key, $"{instrumentName} · {parameterSpecification.Label} (per note)", parameterSpecification, true));
+            }
         }
         for (var effectIndex = 0; effectIndex < track.Effects.Count; effectIndex++)
         {
             var effectDevice = track.Effects[effectIndex];
-            var effectName = DeviceCatalog.EffectDisplayName(effectDevice.Type);
+            var effectName = effectDevice.Plugin?.Name is { Length: > 0 } pluginName ? pluginName : DeviceCatalog.EffectDisplayName(effectDevice.Type);
             var catalogParameters = DeviceCatalog.EffectParametersFor(effectDevice.Type);
             var parameterSpecifications = catalogParameters.Count > 0
                 ? catalogParameters
-                : effectDevice.Parameters.Keys.Order(StringComparer.Ordinal).Select(NormalizedSpecification).ToList();
+                : effectDevice.Plugin is { } effectPlugin
+                    ? PluginParameterSpecifications(effectPlugin, effectDevice.Parameters)
+                    : effectDevice.Parameters.Keys.Order(StringComparer.Ordinal).Select(NormalizedSpecification).ToList();
             foreach (var parameterSpecification in parameterSpecifications)
             {
                 availableTargets.Add(new(
@@ -74,13 +88,30 @@ internal static class ClipAutomation
         return availableTargets;
     }
 
+    /// <summary>
+    /// A plugin's user-facing knobs (normalized 0..1) from the parameter cache, without
+    /// loading anything; plus any stored p&lt;id&gt; keys the cache has not seen yet.
+    /// </summary>
+    private static List<ParameterSpecification> PluginParameterSpecifications(PluginReference pluginReference, Dictionary<string, double> storedValues)
+    {
+        var parameterSpecifications = (Vst3ParameterDirectory.TryGet(pluginReference) ?? Array.Empty<Vst3ParameterDescription>())
+            .Where(parameter => parameter.IsUserFacing)
+            .Select(parameter => new ParameterSpecification(parameter.Key, parameter.Title, 0, 1, parameter.DefaultValue, ""))
+            .ToList();
+        parameterSpecifications.AddRange(storedValues.Keys
+            .Where(storedKey => parameterSpecifications.All(parameterSpecification => parameterSpecification.Key != storedKey))
+            .Order(StringComparer.Ordinal)
+            .Select(NormalizedSpecification));
+        return parameterSpecifications;
+    }
+
     /// <summary>Resolves a target key against a track, or null if it addresses nothing that exists.</summary>
     public static AutomationTarget? ResolveTarget(SlawTrack track, string targetKey) =>
         TargetsFor(track).FirstOrDefault(target => target.Key == targetKey) ??
         (TryParseEffectTarget(targetKey, out var effectIndex, out var parameterKey) && effectIndex < track.Effects.Count
             ? new AutomationTarget(targetKey, targetKey, NormalizedSpecification(parameterKey), false)
             : targetKey.StartsWith(InstrumentTargetPrefix, StringComparison.Ordinal) && targetKey.Length > InstrumentTargetPrefix.Length
-                ? new AutomationTarget(targetKey, targetKey, NormalizedSpecification(targetKey[InstrumentTargetPrefix.Length..]), true)
+                ? new AutomationTarget(targetKey, targetKey, NormalizedSpecification(targetKey[InstrumentTargetPrefix.Length..]), track.Instrument != DeviceTypes.Vst3)
                 : null);
 
     public static bool TryParseEffectTarget(string targetKey, out int effectIndex, out string parameterKey)

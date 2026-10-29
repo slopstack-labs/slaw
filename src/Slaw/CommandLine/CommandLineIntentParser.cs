@@ -10,7 +10,13 @@ internal sealed class CommandLineIntent
     public Dictionary<string, string> ValuedOptions { get; } = new(StringComparer.Ordinal);
     public HashSet<string> BooleanFlags { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Options that may be given more than once, every value in order.</summary>
+    public Dictionary<string, List<string>> RepeatedOptions { get; } = new(StringComparer.Ordinal);
+
     public string? Option(string optionName) => ValuedOptions.GetValueOrDefault(optionName);
+
+    public IReadOnlyList<string> Options(string optionName) =>
+        RepeatedOptions.TryGetValue(optionName, out var optionValues) ? optionValues : Array.Empty<string>();
 
     public bool Flag(string flagName) => BooleanFlags.Contains(flagName);
 
@@ -44,7 +50,13 @@ internal static class CommandLineIntentParser
 {
     public static readonly IReadOnlySet<string> ValuedOptionNames = new HashSet<string>(StringComparer.Ordinal)
     {
-        "provider", "api-key", "model", "ollama", "base-url", "timeout", "o", "loop", "force-iterate", "view", "mcp-port",
+        "provider", "api-key", "model", "ollama", "base-url", "timeout", "o", "loop", "force-iterate", "view", "mcp-port", "plugin-folder",
+    };
+
+    /// <summary>Valued options that accumulate instead of overwriting (e.g. several --plugin-folder).</summary>
+    public static readonly IReadOnlySet<string> RepeatableOptionNames = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "plugin-folder",
     };
 
     public static readonly IReadOnlySet<string> BooleanFlagNames = new HashSet<string>(StringComparer.Ordinal)
@@ -89,6 +101,14 @@ internal static class CommandLineIntentParser
                     inlineOptionValue = rawArguments[++argumentIndex];
                 }
                 parsedIntent.ValuedOptions[optionBody] = inlineOptionValue;
+                if (RepeatableOptionNames.Contains(optionBody))
+                {
+                    if (!parsedIntent.RepeatedOptions.TryGetValue(optionBody, out var repeatedValues))
+                    {
+                        parsedIntent.RepeatedOptions[optionBody] = repeatedValues = new List<string>();
+                    }
+                    repeatedValues.Add(inlineOptionValue);
+                }
             }
             else if (BooleanFlagNames.Contains(optionBody))
             {
