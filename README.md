@@ -258,6 +258,25 @@ slaw itself still ships zero samples. These are yours, and therefore your respon
 
 slaw's notation is monophonic per step and polyphonic per chord, so imports are lossy by design. Velocities, pitch bends and that one grace note are remediated away.
 
+### Recording
+
+After years of generating vocals, slaw now also accepts them from humans. A pilot programme.
+
+1. **Arm a track.** Click **🎙 Audio Track** in the browser, which adds an empty track and arms it, or press **●** on any sampler track's mixer strip. One track can be armed at a time, because there is one microphone. While a track is armed, the 🎙 meter next to **● Rec** shows the input level, and it turns red when you clip.
+2. **Press ● Rec (F9).**
+   - If the transport is stopped, slaw launches the scene (or the arrangement, if you're in that view) and the take starts with it.
+   - If the transport is already playing, the take punches in on the next step. A clip that wasn't playing yet joins on the next bar.
+3. **Stop the transport, or press ● Rec again,** to end the take.
+
+The take is saved as a 24-bit WAV in `recordings/` next to the project (or next to `settings.json` if the project hasn't been saved yet). It's loaded into the armed track with a sampler that plays it unaltered, triggered on the step it was sung on. The clip grows in whole bars, up to 64 steps, so the take fits before the loop comes around. Ctrl+Z removes the whole take.
+
+- **Takes don't overwrite each other.** A track holds one sample. If other scenes still play the old take, the new one goes on a fresh track (*Vocal Stakeholder 1 · take 2*) with the same effects and mix.
+- **Rec stays engaged after you stop,** so pressing play again records the next take. Disengage it when the session wraps.
+- **Latency.** slaw places each take where you *heard* the beat, so output latency is already compensated. **Settings → Audio → Input latency** (default 20 ms) is trimmed from the head of every take to cover the microphone and driver. If takes land late, raise it.
+- **Recording tools.** On Linux, slaw records through `pw-record`, then `parec`, then `arecord`, whichever is installed, and Settings picks the input device. On Windows it uses waveIn.
+- **No input monitoring.** slaw's output runs through a pipe with tens of milliseconds of buffering, so hearing yourself through it would be a slapback delay with a feedback roadmap. Use your interface's direct monitoring, or PipeWire's.
+- **Agents can't record.** They can't sing either. They see takes like any other sample in `get_project`.
+
 ### MCP: let other AIs produce your song
 
 An AI-native DAW that only one AI can use would be a silo. slaw speaks the [Model Context Protocol](https://modelcontextprotocol.io), so agents such as Claude Code can read and edit your project directly.
@@ -439,7 +458,7 @@ The toolbar has a master **AI** switch (also in Settings). With it off, slaw is 
 |-----|----------|
 | AI | Provider, model, API key (with optional "remember"), base URL, Ollama endpoint, timeout, co-pilot on/off and interjection interval, Autopilot remediation cycles, and a **Test connection** button |
 | Samples | Sample folders: add, remove, rescan |
-| Audio | Live audio substrate, latency |
+| Audio | Live audio substrate, latency; recording tool, input device, input latency |
 | About | Provenance |
 
 Settings persist in the per-user config folder (`~/.config/slaw/settings.json` on Linux). CLI flags override them for one session.

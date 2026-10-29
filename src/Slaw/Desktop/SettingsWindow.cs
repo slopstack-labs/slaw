@@ -38,6 +38,7 @@ internal sealed class SettingsWindow : Window
 
     private readonly ComboBox audioSubstrateComboBox;
     private readonly NumericUpDown audioLatencyNumericUpDown;
+    private readonly RecordingSettingsForm recordingSettingsForm;
 
     private readonly List<string> workingSampleFolders;
     private readonly ListBox sampleFoldersListBox;
@@ -127,6 +128,7 @@ internal sealed class SettingsWindow : Window
         audioSubstrateComboBox.SelectedItem = (audioSubstrateComboBox.ItemsSource as string[])!
             .Contains(workingPreferences.AudioSubstrate) ? workingPreferences.AudioSubstrate : "auto";
         audioLatencyNumericUpDown = BuildNumericUpDown(workingPreferences.AudioLatencyMilliseconds, 20, 500);
+        recordingSettingsForm = new RecordingSettingsForm(workingPreferences);
 
         providerComboBox.SelectionChanged += (_, _) => RefreshDefaultModelCaption();
         aiFeaturesToggle.IsCheckedChanged += (_, _) => RefreshAiDependentEnablement();
@@ -295,6 +297,7 @@ internal sealed class SettingsWindow : Window
         restartCaption.TextWrapping = TextWrapping.Wrap;
         restartCaption.TextTrimming = TextTrimming.None;
         tabPanel.Children.Add(restartCaption);
+        tabPanel.Children.Add(recordingSettingsForm.Compose());
         return tabPanel;
     }
 
@@ -481,6 +484,7 @@ internal sealed class SettingsWindow : Window
         workingPreferences.AutopilotRemediationCycles = ReadWholeNumber(remediationCyclesNumericUpDown, workingPreferences.AutopilotRemediationCycles);
         workingPreferences.AudioSubstrate = audioSubstrateComboBox.SelectedItem as string ?? "auto";
         workingPreferences.AudioLatencyMilliseconds = ReadWholeNumber(audioLatencyNumericUpDown, workingPreferences.AudioLatencyMilliseconds);
+        recordingSettingsForm.ApplyTo(workingPreferences);
         workingPreferences.SampleFolders = new List<string>(workingSampleFolders);
         workingPreferences.McpServerEnabled = mcpServerCheckBox?.IsChecked == true;
         workingPreferences.MidiInputEnabled = midiInputCheckBox?.IsChecked != false;
