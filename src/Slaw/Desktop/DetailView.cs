@@ -293,7 +293,7 @@ internal sealed class DetailView : UserControl
         Control editorBody;
         if (InstrumentVoiceSynthesizer.IsPercussive(track.Instrument))
         {
-            activeStepRow = new StepRowControl(track, clip, clip.Pattern.Count) { Height = 64, VerticalAlignment = VerticalAlignment.Top };
+            activeStepRow = new StepRowControl(track, clip, clip.Pattern.Count) { Height = 64, VerticalAlignment = VerticalAlignment.Top, SelectsHits = true };
             activeStepRow.EditStarted += () => document.BeginEdit("drum step");
             activeStepRow.PatternEdited += description => document.CommitEdit(description);
             var drumEditor = new StackPanel
@@ -346,6 +346,7 @@ internal sealed class DetailView : UserControl
             melodicEditor.Children.Add(activePianoRoll);
             editorBody = melodicEditor;
         }
+        clipHeader.Children.Add(new NoteVelocityPanel(document, track, clip, activePianoRoll, activeStepRow));
 
         return new DockPanel
         {

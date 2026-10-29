@@ -211,7 +211,8 @@ internal sealed class SequencerEngine
                              (auditionedTrack.Instrument == "sampler" && DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor("sampler"), "hold") < 0.5)
             ? 0
             : DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(auditionedTrack.Instrument), "release") / 1000.0;
-        var auditionVoice = new AuditionVoice(trackIdentifier, midiNote, (float)Math.Clamp(velocity, 0.05, 1.0),
+        // Same curve as recorded notes, so a take plays back as loud as it was played.
+        var auditionVoice = new AuditionVoice(trackIdentifier, midiNote, (float)NotationResolver.VelocityToGain(Math.Max(0.05, velocity)),
             renderedVoice, Math.Max(1, (int)(releaseSeconds * sampleRate)), releaseSeconds > 0);
         pendingTransportCommands.Enqueue(() =>
         {
@@ -484,15 +485,17 @@ internal sealed class SequencerEngine
             instrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument), "humanize");
         var humanizedGain = (float)(1 - humanizeAmount * 0.35 * humanizationEntropySource.NextDouble());
 
-        // Notes struck together may be held for different lengths: render one
-        // voice per distinct length, each with its share of the chord.
-        var notesByLength = percussiveInstrument
-            ? new[] { (Length: 1, Notes: stepEvent.MidiNotes.ToArray()) }
+        // Notes struck together may be held for different lengths and struck at
+        // different velocities: render one voice per distinct (length, velocity),
+        // each with its share of the chord. Velocity is only a gain, so it never splits the
+        // voice cache.
+        var noteGroups = percussiveInstrument
+            ? new[] { (Length: 1, Velocity: stepEvent.PeakVelocity, Notes: stepEvent.MidiNotes.ToArray()) }
             : ClipNoteEditor.NotesStartingAt(clip.Pattern, clipStep)
-                .GroupBy(placedNote => placedNote.Length)
-                .Select(lengthGroup => (Length: lengthGroup.Key, Notes: lengthGroup.Select(placedNote => placedNote.MidiNote).ToArray()))
+                .GroupBy(placedNote => (placedNote.Length, placedNote.Velocity))
+                .Select(noteGroup => (noteGroup.Key.Length, noteGroup.Key.Velocity, Notes: noteGroup.Select(placedNote => placedNote.MidiNote).ToArray()))
                 .ToArray();
-        foreach (var (heldStepCount, chordNotes) in notesByLength)
+        foreach (var (heldStepCount, noteVelocity, chordNotes) in noteGroups)
         {
             var renderedVoice = RenderOrRecallVoice(project, track, instrumentParameters, pitchBend, StepEvent.Trigger(chordNotes), heldStepCount);
             if (renderedVoice.Length == 0)
@@ -505,7 +508,8 @@ internal sealed class SequencerEngine
             }
             // Each voice normalizes its own notes by 1/sqrt(k); rescale so every
             // note in the full chord sits at 1/sqrt(n), as if rendered together.
-            runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, humanizedGain * (float)Math.Sqrt(chordNotes.Length / (double)Math.Max(1, stepEvent.MidiNotes.Count)), followsPitchEnvelope: !bendsAtRender));
+            var velocityGain = (float)NotationResolver.VelocityToGain(noteVelocity);
+            runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, velocityGain * humanizedGain * (float)Math.Sqrt(chordNotes.Length / (double)Math.Max(1, stepEvent.MidiNotes.Count)), followsPitchEnvelope: !bendsAtRender));
         }
     }
 

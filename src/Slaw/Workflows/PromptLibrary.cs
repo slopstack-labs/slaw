@@ -21,6 +21,7 @@ internal static class PromptLibrary
         - "C4", "D#3", "A2"    play that pitch (use for melodic instruments)
         - "A3+C4+E4"           play a chord (melodic instruments only)
         - "C4:8+E4:2"          notes with their own lengths in steps (here C4 rings 8 steps, E4 only 2)
+        - "C4@0.5", "x@0.4"    optional velocity 0..1 after "@" (default 1): ghost notes, accents ("C4:8@0.6+E4" also works)
         - "_"                  sustain the previous note through this step
         - "."                  silence
         """;
@@ -200,7 +201,7 @@ internal static class PromptLibrary
           "master": {"drive": 2.0}
         }
         - "scenes" and "arrangement" replace the whole list when given; "clips" maps a scene index to a pattern string.
-        - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence.
+        - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence; "@0.5" after a note or "x" sets its velocity (0..1, default 1).
         - Effects replace the track's whole effect list when given.
         - Optional clip envelopes: "automation": {"<scene>": {"fx.0.cutoff": [[0, 300], [16, 6000]]} } on a track sweeps effect 0's cutoff over the clip ([step, value] pairs). Targets: gain, pan, pitch (semitones), fx.<effectIndex>.<param>, inst.<param>.
         - Never mention tracks marked LOCKED.

@@ -1,7 +1,7 @@
 namespace SlopstackLabs.Slaw.Session;
 
-/// <summary>A note as it actually sounds: where it starts and for how many steps.</summary>
-internal readonly record struct PlacedNote(int StartStep, int MidiNote, int Length);
+/// <summary>A note as it actually sounds: where it starts, for how many steps, and how hard (0..1).</summary>
+internal readonly record struct PlacedNote(int StartStep, int MidiNote, int Length, double Velocity = 1);
 
 /// <summary>
 /// Per-note editing of step patterns. Steps can say "this chord, held by the
@@ -36,7 +36,8 @@ internal static class ClipNoteEditor
         var implicitLength = ImplicitLength(pattern, startStep);
         return stepEvent.MidiNotes
             .Select((midiNote, noteIndex) => new PlacedNote(startStep, midiNote,
-                stepEvent.NoteLengths[noteIndex] > 0 ? stepEvent.NoteLengths[noteIndex] : implicitLength))
+                stepEvent.NoteLengths[noteIndex] > 0 ? stepEvent.NoteLengths[noteIndex] : implicitLength,
+                stepEvent.NoteVelocities[noteIndex]))
             .ToList();
     }
 
@@ -60,13 +61,17 @@ internal static class ClipNoteEditor
         return null;
     }
 
+    /// <summary>Rewrites one step's chord at full velocity. See the velocity-aware overload.</summary>
+    public static void WriteChord(List<string> pattern, int startStep, IReadOnlyCollection<(int MidiNote, int Length)> notes) =>
+        WriteChord(pattern, startStep, notes.Select(note => (note.MidiNote, note.Length, Velocity: 1.0)).ToList());
+
     /// <summary>
     /// Rewrites one step's chord. The step's old sustain run is cleared first;
     /// then, if every note shares one length and the steps it needs are free,
     /// the classic "chord + _ _ _" form is used, otherwise each note gets an
-    /// explicit ":length".
+    /// explicit ":length". Velocities below 1 ride along as "@0.6" either way.
     /// </summary>
-    public static void WriteChord(List<string> pattern, int startStep, IReadOnlyCollection<(int MidiNote, int Length)> notes)
+    public static void WriteChord(List<string> pattern, int startStep, IReadOnlyCollection<(int MidiNote, int Length, double Velocity)> notes)
     {
         var previousImplicitLength = NotationResolver.ResolveOrRest(pattern[startStep]).Kind == StepEventKind.Trigger
             ? ImplicitLength(pattern, startStep)
@@ -77,7 +82,7 @@ internal static class ClipNoteEditor
         }
 
         var clampedNotes = notes
-            .Select(note => (note.MidiNote, Length: Math.Clamp(note.Length, 1, pattern.Count - startStep)))
+            .Select(note => (note.MidiNote, Length: Math.Clamp(note.Length, 1, pattern.Count - startStep), note.Velocity))
             .ToList();
         if (clampedNotes.Count == 0)
         {
@@ -91,7 +96,7 @@ internal static class ClipNoteEditor
                                   .All(step => NotationResolver.ResolveOrRest(pattern[step]).Kind == StepEventKind.Rest);
         if (classicFormFits)
         {
-            pattern[startStep] = NotationResolver.FormatChord(clampedNotes.Select(note => note.MidiNote));
+            pattern[startStep] = NotationResolver.FormatChord(clampedNotes.Select(note => (note.MidiNote, note.Velocity)));
             for (var sustainStep = startStep + 1; sustainStep < startStep + sharedLength!.Value; sustainStep++)
             {
                 pattern[sustainStep] = NotationResolver.SustainSymbol;
@@ -101,13 +106,13 @@ internal static class ClipNoteEditor
         pattern[startStep] = NotationResolver.FormatChord(clampedNotes);
     }
 
-    /// <summary>Adds a note (or replaces the same pitch) at a step, keeping the other chord notes' lengths.</summary>
-    public static void AddNote(List<string> pattern, int startStep, int midiNote, int length = 1)
+    /// <summary>Adds a note (or replaces the same pitch) at a step, keeping the other chord notes' lengths and velocities.</summary>
+    public static void AddNote(List<string> pattern, int startStep, int midiNote, int length = 1, double velocity = 1)
     {
         var chordNotes = NotesStartingAt(pattern, startStep)
             .Where(placedNote => placedNote.MidiNote != midiNote)
-            .Select(placedNote => (placedNote.MidiNote, placedNote.Length))
-            .Append((midiNote, length))
+            .Select(placedNote => (placedNote.MidiNote, placedNote.Length, placedNote.Velocity))
+            .Append((midiNote, length, NotationResolver.ClampVelocity(velocity)))
             .ToList();
         WriteChord(pattern, startStep, chordNotes);
     }
@@ -116,7 +121,7 @@ internal static class ClipNoteEditor
     {
         var chordNotes = NotesStartingAt(pattern, startStep)
             .Where(placedNote => placedNote.MidiNote != midiNote)
-            .Select(placedNote => (placedNote.MidiNote, placedNote.Length))
+            .Select(placedNote => (placedNote.MidiNote, placedNote.Length, placedNote.Velocity))
             .ToList();
         WriteChord(pattern, startStep, chordNotes);
     }
@@ -125,8 +130,26 @@ internal static class ClipNoteEditor
     public static void SetNoteLength(List<string> pattern, int startStep, int midiNote, int length)
     {
         var chordNotes = NotesStartingAt(pattern, startStep)
-            .Select(placedNote => (placedNote.MidiNote, placedNote.MidiNote == midiNote ? length : placedNote.Length))
+            .Select(placedNote => (placedNote.MidiNote, placedNote.MidiNote == midiNote ? length : placedNote.Length, placedNote.Velocity))
             .ToList();
         WriteChord(pattern, startStep, chordNotes);
+    }
+
+    /// <summary>Changes how hard one note is struck, leaving the rest of its chord alone.</summary>
+    public static void SetNoteVelocity(List<string> pattern, int startStep, int midiNote, double velocity)
+    {
+        var chordNotes = NotesStartingAt(pattern, startStep)
+            .Select(placedNote => (placedNote.MidiNote, placedNote.Length, placedNote.MidiNote == midiNote ? NotationResolver.ClampVelocity(velocity) : placedNote.Velocity))
+            .ToList();
+        WriteChord(pattern, startStep, chordNotes);
+    }
+
+    /// <summary>Re-strikes a drum hit at a velocity. Does nothing on a step without a hit.</summary>
+    public static void SetDrumHitVelocity(List<string> pattern, int step, double velocity)
+    {
+        if (NotationResolver.ResolveOrRest(pattern[step]).Kind == StepEventKind.Trigger)
+        {
+            pattern[step] = NotationResolver.FormatTrigger(velocity);
+        }
     }
 }
