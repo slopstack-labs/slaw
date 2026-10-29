@@ -100,7 +100,7 @@ slaw <command> [options]    # headless production pipeline
 
 | Command | Description |
 |---------|-------------|
-| `slaw` / `slaw studio [project.slaw]` | Opens the desktop session-view studio window. Opens or creates the project. Add `--view arrangement` (or `session`) to choose the starting view. |
+| `slaw` / `slaw studio [project.slaw]` | Opens the desktop session-view studio window. Opens or creates the project. Add `--view arrangement`, `session`, or `sample` to choose the starting view. |
 | `slaw compose "<vibe>" [-o out]` | Ask the model to produce audio from a vibe. Default mode writes `slop.wav`. |
 | `slaw render <project.slaw> [-o out.wav]` | Deterministic offline bounce to 16-bit 44.1 kHz stereo WAV. |
 | `slaw play <project.slaw\|file.wav>` | Render (if needed) and audition through the host player. |
@@ -119,7 +119,7 @@ slaw <command> [options]    # headless production pipeline
 | `--optimistic` | false | `compose`: engage agentic arrangement co-pilot |
 | `--loop N` | 0 | `compose`: re-align LLM outputs with ground truth up to N times on JSON parse failure |
 | `--force-iterate N` | 0 | `compose`: proactively enhance output quality for N cycles even on success |
-| `--view` | `session` | `studio`: starting view, `session` or `arrangement` |
+| `--view` | `session` | `studio`: starting view, `session`, `arrangement`, or `sample` (the first sampler's editor) |
 | `--no-copilot` | false | `studio`: disable the unsolicited AI co-pilot (why would you). Flags override saved Settings for one session |
 | `--timeout N` | 300 | HTTP request timeout in seconds per LLM call (`0` = no timeout) |
 | `--verbose` | false | Verbose debug output |
@@ -225,6 +225,16 @@ The `sampler` instrument ("Sampler") plays your own WAV files, pitched across th
 - **Portability**: samples stored next to (or below) the project file are saved as relative paths, so project folders can be moved. Others stay absolute.
 
 slaw itself still ships zero samples. These are yours, and therefore your responsibility.
+
+### Sample editor
+
+Open it from the sampler device (**✎ Edit**, or **⤢** for its own resizable window), from the **Sample** tab next to **Clip** in the detail panel, or with `slaw studio --view sample`. Every edit is non-destructive: it is stored in the project as data, undoable with Ctrl+Z, and the source WAV is never touched.
+
+- **Waveform**: zoom with Ctrl+wheel, `+` / `−`, **Fit** or **Zoom to selection**, and scroll with the wheel or the overview strip. Drag to select. The green **S** and red **E** markers set the playable region.
+- **Edits**: **Trim**, **Delete**, **Silence**, **Reverse**, **Normalize**, **−3 dB / +3 dB**, **Fade in / Fade out** and **Duplicate** apply to the selection (some apply to the whole sample if nothing is selected). **Revert to original** discards them.
+- **Pitched mode**: the sample is repitched across the keyboard. Tick **Sustain loop** and drag the amber **L** markers: while a note is held (Note Length on), the loop repeats, then the release plays out.
+- **Slice mode**: chop the sample into slices. Slice 1 plays on the root note (C4), slice 2 on C#4, and so on. Use **÷ 4 / ÷ 8 / ÷ 16**, **Detect transients** (with a sensitivity slider), double-click the waveform to add a slice, drag slices to move them, and right-click a slice to remove it. **✨ Auto-chop** lets the model choose slice points from the detected transients. It considers them carefully, then chops on the beat anyway.
+- **Preview / export**: **▶ Selection** and **▶ All** play through the live engine with a playhead. **Save as WAV…** exports the edited sample. **Bake…** saves it and swaps it in as the track's sample.
 
 ### Effects
 
