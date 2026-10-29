@@ -355,8 +355,8 @@ internal sealed class StudioWindow : Window, IStudioHost
         browserContent.Children.Add(StudioUi.Row(4,
             StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV files to the browser", compact: true),
             StudioUi.Button("⟳", () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true)));
-        browserContent.Children.Add(sampleFilterInput);
-        browserContent.Children.Add(sampleEntriesPanel);
+        browserContent.Children.Add(Detached(sampleFilterInput));
+        browserContent.Children.Add(Detached(sampleEntriesPanel));
         PopulateSampleEntries();
 
         if (AiFeaturesEnabled)
@@ -400,7 +400,7 @@ internal sealed class StudioWindow : Window, IStudioHost
             {
                 StudioUi.Caption("◆ AI Co-Pilot", 15, StudioTheme.Accent, FontWeight.Bold),
                 StudioUi.Caption($"Interjects every {preferences.EditsBetweenCopilotInterjections} edits. You cannot stop it, only disable it.", 10),
-                unsolicitedAdviceToggle,
+                Detached(unsolicitedAdviceToggle),
             },
         };
 
@@ -429,13 +429,13 @@ internal sealed class StudioWindow : Window, IStudioHost
             Children =
             {
                 quickActions,
-                aiInstructionInput,
+                Detached(aiInstructionInput),
                 new Grid
                 {
                     ColumnDefinitions = new ColumnDefinitions("*,6,*"),
                     Children = { autopilotButton, PlaceInColumn(composeButton, 2) },
                 },
-                fullSelfProducingSwitch,
+                Detached(fullSelfProducingSwitch),
                 StudioUi.Caption("🔒 on a track's mixer strip protects it from every AI edit.", 10),
             },
         };
@@ -445,7 +445,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         DockPanel.SetDock(instructionArea, Dock.Bottom);
         panelLayout.Children.Add(panelHeader);
         panelLayout.Children.Add(instructionArea);
-        panelLayout.Children.Add(copilotTranscriptScroller);
+        panelLayout.Children.Add(Detached(copilotTranscriptScroller));
 
         return new Border
         {
@@ -456,6 +456,29 @@ internal sealed class StudioWindow : Window, IStudioHost
             Padding = new Thickness(12),
             Child = panelLayout,
         };
+    }
+
+    /// <summary>
+    /// Long-lived controls (the transcript, the instruction box, the sample list)
+    /// are re-hosted whenever the browser or AI panel is rebuilt; Avalonia insists
+    /// they leave their old parent first.
+    /// </summary>
+    private static T Detached<T>(T reusedControl)
+        where T : Control
+    {
+        switch (reusedControl.Parent)
+        {
+            case Panel previousPanel:
+                previousPanel.Children.Remove(reusedControl);
+                break;
+            case ContentControl previousContentHost:
+                previousContentHost.Content = null;
+                break;
+            case Decorator previousDecorator:
+                previousDecorator.Child = null;
+                break;
+        }
+        return reusedControl;
     }
 
     private static Control PlaceInColumn(Control placedControl, int columnIndex)
@@ -931,13 +954,13 @@ internal sealed class StudioWindow : Window, IStudioHost
         aiFeaturesSwitch.IsChecked = preferences.AiFeaturesEnabled;
         unsolicitedAdviceToggle.IsChecked = preferences.CopilotInterjectionsEnabled;
         synchronizingControls = false;
+        ApplyMcpServerPreference();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();
         if (audioSettingsChanged)
         {
             RestartLiveAudio();
         }
-        ApplyMcpServerPreference();
         _ = RescanSampleLibraryAsync();
         SetStatus(StatusSeverity.Success, "settings saved");
     }
