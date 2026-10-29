@@ -93,6 +93,11 @@ internal static class ProjectPatchApplier
             }
         }
 
+        if (projectPatch["timeline"] is JsonArray timelinePatchArray)
+        {
+            lockedTrackEditsIgnored += ApplyTimelinePatch(patchedProject, timelinePatchArray);
+        }
+
         if (projectPatch["master"] is JsonObject masterPatch)
         {
             var masterChain = patchedProject.Master;
@@ -256,6 +261,84 @@ internal static class ProjectPatchApplier
         {
             ApplyClipAutomation(targetTrack, patchedClip, automatedClipObject["automation"]);
         }
+    }
+
+    /// <summary>
+    /// Free-timeline edits: <c>[{"id": "new", "track": "Bass", "start": 16, "length": 32, "pattern": "A1 . . .", "automation": {...}}]</c>.
+    /// An existing id updates only the fields given; <c>"remove": true</c> deletes. Start and length are in steps (16 per bar).
+    /// Returns how many edits were refused because they touched a locked track.
+    /// </summary>
+    private static int ApplyTimelinePatch(SlawProject patchedProject, JsonArray timelinePatchArray)
+    {
+        var lockedEditsIgnored = 0;
+        foreach (var clipPatch in timelinePatchArray.OfType<JsonObject>())
+        {
+            var patchedIdentifier = ReadString(clipPatch["id"]);
+            var existingClip = patchedProject.Timeline.FirstOrDefault(timelineClip => timelineClip.Id == patchedIdentifier);
+            var targetTrack = ResolvePatchTrack(patchedProject, clipPatch["track"])
+                ?? patchedProject.Tracks.FirstOrDefault(track => track.Id == existingClip?.TrackId);
+            if (targetTrack is null)
+            {
+                continue;
+            }
+            if (targetTrack.AiLocked || patchedProject.Tracks.FirstOrDefault(track => track.Id == existingClip?.TrackId) is { AiLocked: true })
+            {
+                lockedEditsIgnored++;
+                continue;
+            }
+            if (ReadBoolean(clipPatch["remove"]) == true)
+            {
+                if (existingClip is not null)
+                {
+                    patchedProject.Timeline.Remove(existingClip);
+                }
+                continue;
+            }
+
+            var patchedPattern = clipPatch["pattern"] switch
+            {
+                JsonArray stepArray => stepArray.Select(stepNode => ReadString(stepNode) ?? NotationResolver.RestSymbol).ToList(),
+                JsonValue patternValue => CompactPatternJsonConverter.SplitStepString(ReadString(patternValue)),
+                _ => null,
+            };
+            var timelineClip = existingClip;
+            if (timelineClip is null)
+            {
+                if (patchedPattern is not { Count: > 0 })
+                {
+                    continue;
+                }
+                timelineClip = new TimelineClip { Clip = new SlawClip { Name = targetTrack.Name } };
+                patchedProject.Timeline.Add(timelineClip);
+            }
+            timelineClip.TrackId = targetTrack.Id;
+            if (patchedPattern is { Count: > 0 })
+            {
+                timelineClip.Clip.Pattern = patchedPattern;
+            }
+            timelineClip.Clip.Name = ReadString(clipPatch["name"]) ?? timelineClip.Clip.Name;
+            timelineClip.StartStep = (int)(ReadDouble(clipPatch["start"]) ?? timelineClip.StartStep);
+            timelineClip.LengthSteps = (int)(ReadDouble(clipPatch["length"]) ?? (existingClip is null ? timelineClip.Clip.Pattern.Count : timelineClip.LengthSteps));
+            if (clipPatch.ContainsKey("automation"))
+            {
+                ApplyClipAutomation(targetTrack, timelineClip.Clip, clipPatch["automation"]);
+            }
+        }
+        return lockedEditsIgnored;
+    }
+
+    /// <summary>A track by id, exact name, or index, the way models like to refer to them.</summary>
+    private static SlawTrack? ResolvePatchTrack(SlawProject project, JsonNode? trackNode)
+    {
+        if (ReadString(trackNode) is not { Length: > 0 } trackReference)
+        {
+            return null;
+        }
+        return project.Tracks.FirstOrDefault(track => track.Id == trackReference)
+            ?? project.Tracks.FirstOrDefault(track => string.Equals(track.Name, trackReference, StringComparison.OrdinalIgnoreCase))
+            ?? (int.TryParse(trackReference, NumberStyles.Integer, CultureInfo.InvariantCulture, out var trackIndex) && trackIndex >= 0 && trackIndex < project.Tracks.Count
+                ? project.Tracks[trackIndex]
+                : null);
     }
 
     // ── Lenient readers: models write numbers as strings and booleans as "yes" ──

@@ -8,10 +8,11 @@ internal enum TransportMode
     Stopped,
     Session,
     Arrangement,
+    Timeline,
 }
 
-/// <summary>What one track is doing right now, for the UI to draw.</summary>
-internal readonly record struct TrackTransportState(int? PlayingScene, int? ClipStep, int? QueuedScene);
+/// <summary>What one track is doing right now, for the UI to draw. <paramref name="TimelineClipId"/> is set while a free-timeline clip plays.</summary>
+internal readonly record struct TrackTransportState(int? PlayingScene, int? ClipStep, int? QueuedScene, string? TimelineClipId = null);
 
 /// <summary>An immutable picture of the transport, republished after every step.</summary>
 internal sealed record TransportSnapshot(
@@ -21,7 +22,8 @@ internal sealed record TransportSnapshot(
     IReadOnlyDictionary<string, TrackTransportState> Tracks,
     double PreviewProgress,
     long PublishedTimestamp = 0,
-    double StepDurationSeconds = 0)
+    double StepDurationSeconds = 0,
+    long TimelineStep = -1)
 {
     public static readonly TransportSnapshot Idle = new(
         TransportMode.Stopped, -1, null, new Dictionary<string, TrackTransportState>(), -1);
@@ -65,6 +67,10 @@ internal sealed class SequencerEngine
     private long arrangementStep = -1;
     private int? arrangementSection;
     private bool arrangementLoops = true;
+    private long timelineStep = -1;
+    private bool timelineLoops = true;
+    private SlawProject? timelineIndexedProject;
+    private readonly Dictionary<string, List<TimelineClip>> timelineClipsByTrack = new();
 
     private float[]? previewLeft;
     private float[]? previewRight;
@@ -104,6 +110,20 @@ internal sealed class SequencerEngine
         transportMode = TransportMode.Arrangement;
         arrangementStep = startStep - 1;
         arrangementLoops = loop;
+        ArrangementFinished = false;
+        samplesUntilNextStep = 0;
+    });
+
+    /// <summary>
+    /// Plays the free timeline from <paramref name="startStep"/>. Live playback wraps
+    /// at the loop brace (or the end); bounces pass <paramref name="loop"/> false and stop at the end.
+    /// </summary>
+    public void PlayTimeline(long startStep = 0, bool loop = true) => pendingTransportCommands.Enqueue(() =>
+    {
+        ReleaseAllSessionClips();
+        transportMode = TransportMode.Timeline;
+        timelineStep = Math.Max(0, startStep) - 1;
+        timelineLoops = loop;
         ArrangementFinished = false;
         samplesUntilNextStep = 0;
     });
@@ -330,7 +350,7 @@ internal sealed class SequencerEngine
         {
             // Launching from a stopped transport (or out of the arrangement)
             // starts the session clock immediately.
-            if (transportMode == TransportMode.Arrangement)
+            if (transportMode is TransportMode.Arrangement or TransportMode.Timeline)
             {
                 ReleaseAllSessionClips();
             }
@@ -358,6 +378,8 @@ internal sealed class SequencerEngine
             runtimeState.QueuedScene = null;
             runtimeState.HasQueuedLaunch = false;
             runtimeState.CurrentClipStep = null;
+            runtimeState.PlayingClip = null;
+            runtimeState.PlayingTimelineClipId = null;
         }
     }
 
@@ -378,12 +400,14 @@ internal sealed class SequencerEngine
                     runtimeState.QueuedScene = null;
                 }
                 runtimeState.CurrentClipStep = null;
+                runtimeState.PlayingClip = null;
                 if (runtimeState.PlayingScene is not { } playingScene || track.ClipAt(playingScene) is not { Pattern.Count: > 0 } playingClip)
                 {
                     continue;
                 }
                 var clipStep = (int)((sessionStep - runtimeState.ClipOriginStep) % playingClip.Pattern.Count);
                 runtimeState.CurrentClipStep = clipStep;
+                runtimeState.PlayingClip = playingClip;
                 TriggerStep(project, track, runtimeState, playingClip, clipStep);
             }
         }
@@ -416,16 +440,76 @@ internal sealed class SequencerEngine
                 var runtimeState = RuntimeStateFor(track.Id);
                 runtimeState.PlayingScene = sceneIndex;
                 runtimeState.CurrentClipStep = null;
+                runtimeState.PlayingClip = null;
                 if (track.ClipAt(sceneIndex) is not { Pattern.Count: > 0 } sectionClip)
                 {
                     continue;
                 }
                 var clipStep = (int)(stepInSection % sectionClip.Pattern.Count);
                 runtimeState.CurrentClipStep = clipStep;
+                runtimeState.PlayingClip = sectionClip;
                 TriggerStep(project, track, runtimeState, sectionClip, clipStep);
             }
         }
+        else if (transportMode == TransportMode.Timeline && !AdvanceTimelineStep(project))
+        {
+            return;
+        }
         PublishTransport();
+    }
+
+    /// <summary>Plays one step of the free timeline. Returns false when playback ran off the end and stopped.</summary>
+    private bool AdvanceTimelineStep(SlawProject project)
+    {
+        timelineStep++;
+        if (project.TimelineLoop is { IsValid: true } loopRegion && timelineLoops && timelineStep == loopRegion.EndStep)
+        {
+            timelineStep = loopRegion.StartStep;
+        }
+        var timelineLength = FreeTimeline.LengthInSteps(project);
+        if (timelineStep >= timelineLength && !(project.TimelineLoop is { IsValid: true } && timelineLoops && timelineStep < project.TimelineLoop.EndStep))
+        {
+            if (timelineLength > 0 && timelineLoops)
+            {
+                timelineStep = 0;
+            }
+            else
+            {
+                transportMode = TransportMode.Stopped;
+                ArrangementFinished = true;
+                ReleaseAllSessionClips();
+                PublishTransport();
+                return false;
+            }
+        }
+
+        if (!ReferenceEquals(project, timelineIndexedProject))
+        {
+            timelineIndexedProject = project;
+            timelineClipsByTrack.Clear();
+            foreach (var track in project.Tracks)
+            {
+                timelineClipsByTrack[track.Id] = FreeTimeline.ClipsForTrack(project, track.Id);
+            }
+        }
+        foreach (var track in project.Tracks)
+        {
+            var runtimeState = RuntimeStateFor(track.Id);
+            runtimeState.PlayingScene = null;
+            runtimeState.CurrentClipStep = null;
+            runtimeState.PlayingClip = null;
+            runtimeState.PlayingTimelineClipId = null;
+            if (FreeTimeline.ClipAt(timelineClipsByTrack[track.Id], timelineStep) is not { Clip.Pattern.Count: > 0 } timelineClip)
+            {
+                continue;
+            }
+            var clipStep = FreeTimeline.PatternStepAt(timelineClip, timelineStep);
+            runtimeState.CurrentClipStep = clipStep;
+            runtimeState.PlayingClip = timelineClip.Clip;
+            runtimeState.PlayingTimelineClipId = timelineClip.Id;
+            TriggerStep(project, track, runtimeState, timelineClip.Clip, clipStep);
+        }
+        return true;
     }
 
     internal static (int SectionIndex, long StepInSection) LocateArrangementStep(SlawProject project, long arrangementStep)
@@ -578,9 +662,8 @@ internal sealed class SequencerEngine
             CompiledEnvelopes? envelopes = null;
             var clipPosition = 0.0;
             if (transportMode != TransportMode.Stopped &&
-                runtimeState.PlayingScene is { } playingScene &&
                 runtimeState.CurrentClipStep is { } currentClipStep &&
-                track.ClipAt(playingScene) is { Automation.Count: > 0 } automatedClip)
+                runtimeState.PlayingClip is { Automation.Count: > 0 } automatedClip)
             {
                 envelopes = runtimeState.EnvelopesFor(automatedClip);
                 clipPosition = currentClipStep + stepProgress;
@@ -668,12 +751,13 @@ internal sealed class SequencerEngine
     {
         var trackStates = trackRuntimeStates.ToDictionary(
             pair => pair.Key,
-            pair => new TrackTransportState(pair.Value.PlayingScene, pair.Value.CurrentClipStep, pair.Value.HasQueuedLaunch ? pair.Value.QueuedScene ?? -1 : null));
+            pair => new TrackTransportState(pair.Value.PlayingScene, pair.Value.CurrentClipStep, pair.Value.HasQueuedLaunch ? pair.Value.QueuedScene ?? -1 : null, pair.Value.PlayingTimelineClipId));
         var previewProgress = previewLeft is null ? -1 : (double)previewPosition / previewLeft.Length;
         var project = Volatile.Read(ref publishedProject);
         Volatile.Write(ref publishedTransport, new TransportSnapshot(
             transportMode, arrangementStep, arrangementSection, trackStates, previewProgress,
-            System.Diagnostics.Stopwatch.GetTimestamp(), project?.StepDurationSeconds ?? 0));
+            System.Diagnostics.Stopwatch.GetTimestamp(), project?.StepDurationSeconds ?? 0,
+            transportMode == TransportMode.Timeline ? timelineStep : -1));
     }
 
     // ── Runtime state ─────────────────────────────────────────────────────────
@@ -783,7 +867,8 @@ internal sealed class SequencerEngine
         if (!ReferenceEquals(project, automationScannedProject))
         {
             automationScannedProject = project;
-            automationScanResult = project.Tracks.Any(track => track.Clips.Any(clip => clip?.Automation is { Count: > 0 }));
+            automationScanResult = project.Tracks.Any(track => track.Clips.Any(clip => clip?.Automation is { Count: > 0 })) ||
+                                   project.Timeline.Any(timelineClip => timelineClip.Clip.Automation is { Count: > 0 });
         }
         return automationScanResult;
     }
@@ -850,6 +935,12 @@ internal sealed class SequencerEngine
         public bool HasQueuedLaunch { get; set; }
         public long ClipOriginStep { get; set; }
         public int? CurrentClipStep { get; set; }
+
+        /// <summary>The clip whose step <see cref="CurrentClipStep"/> is, in any transport mode; envelopes follow it.</summary>
+        public SlawClip? PlayingClip { get; set; }
+
+        /// <summary>The free-timeline clip playing on this track, for the UI.</summary>
+        public string? PlayingTimelineClipId { get; set; }
 
         private readonly Dictionary<SlawClip, CompiledEnvelopes> compiledEnvelopes = new(ReferenceEqualityComparer.Instance);
         private readonly List<Dictionary<string, double>> automatedEffectParameters = new();

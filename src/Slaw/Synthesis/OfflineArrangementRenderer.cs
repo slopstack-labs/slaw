@@ -15,7 +15,14 @@ internal static class OfflineArrangementRenderer
     private const double ReleaseTailSeconds = 1.5;
     private const int RenderBlockFrames = 4096;
 
-    public static StereoBuffer Render(SlawProject project, int sampleRate = DefaultSampleRate)
+    public static StereoBuffer Render(SlawProject project, int sampleRate = DefaultSampleRate) =>
+        RenderWith(project, sampleRate, project.ArrangementLengthInSteps(), bounceEngine => bounceEngine.PlayArrangement(loop: false));
+
+    /// <summary>Renders the free timeline from its first step to the end of its last clip.</summary>
+    public static StereoBuffer RenderTimeline(SlawProject project, int sampleRate = DefaultSampleRate) =>
+        RenderWith(project, sampleRate, FreeTimeline.LengthInSteps(project), bounceEngine => bounceEngine.PlayTimeline(loop: false));
+
+    private static StereoBuffer RenderWith(SlawProject project, int sampleRate, long lengthInSteps, Action<SequencerEngine> startTransport)
     {
         // Bounces must not skip a sample just because it was still decoding.
         foreach (var samplerTrack in project.Tracks.Where(track => track.Instrument == "sampler" && !string.IsNullOrEmpty(track.Sample)))
@@ -32,22 +39,22 @@ internal static class OfflineArrangementRenderer
 
         var bounceEngine = new SequencerEngine(sampleRate);
         bounceEngine.PublishProject(project.DeepClone());
-        bounceEngine.PlayArrangement(loop: false);
+        startTransport(bounceEngine);
 
-        var arrangementFrameCount = (long)Math.Ceiling(project.ArrangementLengthInSteps() * project.StepDurationSeconds * sampleRate);
-        var totalFrameCount = (int)Math.Min(int.MaxValue / 2, arrangementFrameCount + (long)(ReleaseTailSeconds * sampleRate));
-        var arrangementBuffer = new StereoBuffer(totalFrameCount, sampleRate);
+        var transportFrameCount = (long)Math.Ceiling(lengthInSteps * project.StepDurationSeconds * sampleRate);
+        var totalFrameCount = (int)Math.Min(int.MaxValue / 2, transportFrameCount + (long)(ReleaseTailSeconds * sampleRate));
+        var renderedBuffer = new StereoBuffer(totalFrameCount, sampleRate);
 
         for (var blockStartFrame = 0; blockStartFrame < totalFrameCount; blockStartFrame += RenderBlockFrames)
         {
             var blockFrameCount = Math.Min(RenderBlockFrames, totalFrameCount - blockStartFrame);
             bounceEngine.RenderBlock(
-                arrangementBuffer.Left.AsSpan(blockStartFrame, blockFrameCount),
-                arrangementBuffer.Right.AsSpan(blockStartFrame, blockFrameCount));
+                renderedBuffer.Left.AsSpan(blockStartFrame, blockFrameCount),
+                renderedBuffer.Right.AsSpan(blockStartFrame, blockFrameCount));
         }
 
-        MasterChainProcessor.ApplyHearingProtection(arrangementBuffer);
-        return arrangementBuffer;
+        MasterChainProcessor.ApplyHearingProtection(renderedBuffer);
+        return renderedBuffer;
     }
 
     /// <summary>Renders one scene looped <paramref name="loopCount"/> times, as if it were the whole song.</summary>
