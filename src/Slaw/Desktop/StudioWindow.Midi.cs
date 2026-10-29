@@ -54,11 +54,13 @@ internal sealed partial class StudioWindow
         };
         ToolTip.SetTip(recordToggle,
             "Record MIDI into the selected clip. While playing: notes land on the playhead (quantized to sixteenths). " +
-            "While stopped: step input — each note (or chord) fills the next step.");
+            "While stopped: step input — each note (or chord) fills the next step.\n" +
+            "With a track armed for audio (● on its mixer strip): records a take from the microphone until the transport stops.");
         recordToggle.IsCheckedChanged += (_, _) =>
         {
             var armed = recordToggle.IsChecked == true;
             recordToggle.Foreground = armed ? StudioTheme.Failure : StudioTheme.Text;
+            HandleAudioRecordToggle(armed);
             if (!armed)
             {
                 CloseRecordingTake();
@@ -76,7 +78,7 @@ internal sealed partial class StudioWindow
             midiStatusText.Foreground = StudioTheme.TextMuted;
             midiActivityTimer!.Stop();
         });
-        return StudioUi.Row(6, recordToggle, midiStatusText);
+        return StudioUi.Row(6, recordToggle, ComposeInputMeter(), midiStatusText);
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────

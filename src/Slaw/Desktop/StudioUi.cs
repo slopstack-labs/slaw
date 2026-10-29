@@ -25,6 +25,12 @@ internal interface IStudioHost
     void StartNoteAudition(string trackIdentifier, int midiNote);
     void StopNoteAudition();
 
+    /// <summary>Whether a track is armed to record audio from the microphone.</summary>
+    bool IsArmedForRecording(string trackIdentifier);
+
+    /// <summary>Arms (or disarms) a sampler track for audio recording; one track at a time.</summary>
+    void ToggleRecordArm(string trackIdentifier);
+
     /// <summary>Plays a sample file once through the live engine.</summary>
     void PreviewSampleFile(string samplePath);
 

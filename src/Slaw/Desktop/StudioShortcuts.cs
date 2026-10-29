@@ -78,7 +78,7 @@ internal static class StudioShortcutMap
         new(StudioCommand.LaunchSelection, Key.Enter, KeyModifiers.None, "Launch the selected clip (Arrangement: play from it)"),
         new(StudioCommand.LaunchSelectedScene, Key.Enter, KeyModifiers.Shift, "Launch the selected scene"),
         new(StudioCommand.Dismiss, Key.Escape, KeyModifiers.None, "Stop notes, leave text fields, close overlays", ShortcutReach.Everywhere),
-        new(StudioCommand.ToggleRecord, Key.F9, KeyModifiers.None, "Arm / disarm MIDI record", ShortcutReach.Global),
+        new(StudioCommand.ToggleRecord, Key.F9, KeyModifiers.None, "Arm / disarm record (MIDI, and audio on an armed track)", ShortcutReach.Global),
         new(StudioCommand.ToggleComputerKeyboard, Key.M, KeyModifiers.None, "Computer MIDI keyboard on / off"),
         new(StudioCommand.SelectPreviousScene, Key.Up, KeyModifiers.None, "Move the selection up", Repeats: true),
         new(StudioCommand.SelectNextScene, Key.Down, KeyModifiers.None, "Move the selection down", Repeats: true),

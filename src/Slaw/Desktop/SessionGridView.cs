@@ -320,6 +320,15 @@ internal sealed class SessionGridView : UserControl
             }
         };
         var toggleRow = StudioUi.Row(4, muteToggle, soloToggle);
+        if (track.Instrument == "sampler")
+        {
+            // Audio-capable tracks can be armed; the arm is a session state, not part of the song.
+            var recordArmToggle = new ToggleButton { Content = "●", IsChecked = host.IsArmedForRecording(track.Id), Padding = new Thickness(7, 3), FontSize = 12 };
+            recordArmToggle.Foreground = recordArmToggle.IsChecked == true ? StudioTheme.Failure : StudioTheme.TextMuted;
+            ToolTip.SetTip(recordArmToggle, "Arm for audio recording: ● Rec (F9) then records the microphone into this track");
+            recordArmToggle.Click += (_, _) => host.ToggleRecordArm(track.Id);
+            toggleRow.Children.Add(recordArmToggle);
+        }
 
         if (host.AiFeaturesEnabled)
         {

@@ -47,6 +47,19 @@ internal sealed class StudioPreferences
     public string AudioSubstrate { get; set; } = "auto";
     public int AudioLatencyMilliseconds { get; set; } = 60;
 
+    /// <summary>Preferred recording tool ("auto", "pw-record", "parec", "arecord"); Windows always uses waveIn.</summary>
+    public string RecordingSubstrate { get; set; } = "auto";
+
+    /// <summary>PipeWire/PulseAudio source to record from; null records the system default.</summary>
+    public string? RecordingInputDevice { get; set; }
+
+    /// <summary>
+    /// Device and driver delay between a sound reaching the microphone and slaw
+    /// receiving it, trimmed from the head of every take. Output latency is
+    /// compensated separately: takes are placed where the performer heard the beat.
+    /// </summary>
+    public int RecordingInputLatencyMilliseconds { get; set; } = 20;
+
     public static string PreferencesFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create),
         "slaw", "settings.json");

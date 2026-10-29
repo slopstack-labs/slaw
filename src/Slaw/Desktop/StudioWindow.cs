@@ -171,6 +171,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             transportTimer.Stop();
             mcpHttpTransport?.Dispose();
             midiInputSource?.Dispose();
+            CloseAudioInput();
             foreach (var sampleEditorWindow in openSampleEditorWindows.Values.ToList())
             {
                 sampleEditorWindow.Close();
@@ -346,6 +347,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             StudioDragDrop.MakeDragSource(instrumentEntry, () => new DragPayload(DragPayloadKind.Instrument, instrumentName));
             browserContent.Children.Add(instrumentEntry);
         }
+        browserContent.Children.Add(BrowserEntry("🎙 Audio Track", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
         browserContent.Children.Add(new Border { Height = 10 });
         browserContent.Children.Add(StudioUi.SectionHeading("Audio Effects"));
         foreach (var effectType in DeviceCatalog.EffectTypes)
@@ -749,6 +751,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         {
             playButton.Content = playCaption;
         }
+        AdvanceRecordingDisplay();
     }
 
     private void TogglePlayback()
@@ -1113,6 +1116,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         synchronizingControls = false;
         ApplyMcpServerPreference();
         ApplyMidiInputPreference();
+        ApplyRecordingPreference();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();
         if (audioSettingsChanged)
