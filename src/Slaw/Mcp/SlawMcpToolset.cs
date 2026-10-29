@@ -448,14 +448,15 @@ internal sealed class SlawMcpToolset
             {
                 var inferenceProvider = host.InferenceProvider
                     ?? throw new McpInvalidParamsException("slaw's AI features are switched off (or misconfigured) in Settings");
-                var projectSnapshot = await host.InvokeAsync(() => host.Document.Project.DeepClone());
+                var (projectSnapshot, recentConversation) = await host.InvokeAsync(() => (host.Document.Project.DeepClone(), host.RecentConversation));
                 var question = ReadString(toolArguments["question"]);
                 if (question is null)
                 {
-                    return await ProductionWorkflows.VibeCheckAsync(inferenceProvider, projectSnapshot, Array.Empty<string>(), cancellationToken);
+                    return await ProductionWorkflows.VibeCheckAsync(inferenceProvider, projectSnapshot, Array.Empty<string>(), cancellationToken, recentConversation);
                 }
                 var copilotAnswer = await inferenceProvider.StreamCompletionAsync(
-                    $"You are slaw's AI co-pilot. Another AI agent is producing this song and asks: \"{question}\"\n\n" +
+                    $"You are slaw's AI co-pilot. Another AI agent is producing this song and asks: \"{question}\"\n" +
+                    $"{PromptLibrary.ConversationMemory(recentConversation)}\n" +
                     $"{PromptLibrary.DescribeArrangement(projectSnapshot)}\n\nAnswer in at most five sentences.",
                     Array.Empty<string>(), cancellationToken);
                 return $"{inferenceProvider.ModelIdentifier} says: {copilotAnswer.Trim()}";

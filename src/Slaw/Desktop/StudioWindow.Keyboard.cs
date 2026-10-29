@@ -316,6 +316,9 @@ internal sealed partial class StudioWindow
             case StudioCommand.New:
                 _ = NewProjectAsync();
                 break;
+            case StudioCommand.NewChat:
+                StartNewChat();
+                break;
             case StudioCommand.Open:
                 _ = OpenProjectAsync();
                 break;

@@ -31,6 +31,9 @@ internal interface ISlawMcpHost
     /// <summary>slaw's own configured model, for agents that want a second opinion. Null when AI is off.</summary>
     IInferenceSubstrateProvider? InferenceProvider { get; }
 
+    /// <summary>The studio's active AI chat, so a consulted co-pilot remembers what it was told. Headless hosts have none.</summary>
+    string? RecentConversation => null;
+
     /// <summary>Transport control; only meaningful when <see cref="IsLive"/>. Returns a status line.</summary>
     string ControlTransport(string transportAction, int sceneIndex, int sectionIndex);
 }
