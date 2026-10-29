@@ -313,6 +313,19 @@ internal static class ProjectAlignmentRemediator
                 remediationLedger.Add($"{track.Name}: clip \"{clip.Name}\" truncated to {MaximumStepCount} steps");
                 clip.Pattern.RemoveRange(MaximumStepCount, clip.Pattern.Count - MaximumStepCount);
             }
+            if (clip.Automation is not null)
+            {
+                // Envelopes on targets that do not exist are offboarded; out-of-range ones are clamped, not argued with.
+                clip.Automation = clip.Automation
+                    .Where(envelope => envelope.Value is { Count: > 0 })
+                    .Select(envelope => (envelope.Key, Target: ClipAutomation.ResolveTarget(track, envelope.Key), Points: envelope.Value))
+                    .Where(envelope => envelope.Target is not null)
+                    .ToDictionary(envelope => envelope.Key, envelope => ClipAutomation.Tidy(envelope.Points, clip.Pattern.Count, envelope.Target!.Specification));
+                if (clip.Automation.Count == 0)
+                {
+                    clip.Automation = null;
+                }
+            }
             for (var stepIndex = 0; stepIndex < clip.Pattern.Count; stepIndex++)
             {
                 if (NotationResolver.TryResolve(clip.Pattern[stepIndex]) is null)

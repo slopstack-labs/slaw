@@ -43,6 +43,7 @@ internal sealed class SequencerEngine
     private const int MaximumVoicesPerTrack = 48;
     private const int MaximumCachedVoices = 768;
     private const int MaximumBlockFrames = 8192;
+    private const int AutomationChunkFrames = 64;
 
     private readonly int sampleRate;
     private readonly ConcurrentQueue<Action> pendingTransportCommands = new();
@@ -55,6 +56,8 @@ internal sealed class SequencerEngine
 
     private SlawProject? publishedProject;
     private TransportSnapshot publishedTransport = TransportSnapshot.Idle;
+    private SlawProject? automationScannedProject;
+    private bool automationScanResult;
 
     private TransportMode transportMode = TransportMode.Stopped;
     private double samplesUntilNextStep;
@@ -280,6 +283,11 @@ internal sealed class SequencerEngine
             if (transportMode != TransportMode.Stopped)
             {
                 chunkFrameCount = Math.Clamp((int)Math.Ceiling(samplesUntilNextStep), 1, chunkFrameCount);
+                // Envelopes are re-evaluated per chunk; short chunks keep sweeps free of zipper noise.
+                if (ProjectHasAutomation(project))
+                {
+                    chunkFrameCount = Math.Min(chunkFrameCount, AutomationChunkFrames);
+                }
             }
             MixTracks(project,
                 leftChannel.Slice(renderedFrameCount, chunkFrameCount),
@@ -444,9 +452,36 @@ internal sealed class SequencerEngine
             return;
         }
 
+        // Voices are rendered whole, so instrument envelopes are sampled as each note
+        // starts and an oscillator's pitch envelope is baked into the note itself.
+        IReadOnlyDictionary<string, double> instrumentParameters = track.InstrumentParameters;
+        var bendsAtRender = InstrumentVoiceSynthesizer.BendsAtRender(track.Instrument);
+        RenderedPitchBend? pitchBend = null;
+        if (clip.Automation is { Count: > 0 })
+        {
+            var envelopes = runtimeState.EnvelopesFor(clip);
+            if (envelopes.InstrumentEnvelopes.Count > 0)
+            {
+                var automatedParameters = new Dictionary<string, double>(track.InstrumentParameters);
+                foreach (var (parameterKey, points) in envelopes.InstrumentEnvelopes)
+                {
+                    automatedParameters[parameterKey] = ClipAutomation.Evaluate(points, clipStep);
+                }
+                instrumentParameters = automatedParameters;
+            }
+            if (bendsAtRender && envelopes.Pitch is { } pitchEnvelope)
+            {
+                var clipLength = clip.Pattern.Count;
+                var stepSeconds = project.StepDurationSeconds;
+                pitchBend = new RenderedPitchBend(
+                    elapsedSeconds => Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, (clipStep + elapsedSeconds / stepSeconds) % clipLength), -24, 24),
+                    FormattableString.Invariant($"{clipStep}@{envelopes.PitchFingerprint}"));
+            }
+        }
+
         var percussiveInstrument = InstrumentVoiceSynthesizer.IsPercussive(track.Instrument);
         var humanizeAmount = DeviceCatalog.Resolve(
-            track.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument), "humanize");
+            instrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument), "humanize");
         var humanizedGain = (float)(1 - humanizeAmount * 0.35 * humanizationEntropySource.NextDouble());
 
         // Notes struck together may be held for different lengths: render one
@@ -459,7 +494,7 @@ internal sealed class SequencerEngine
                 .ToArray();
         foreach (var (heldStepCount, chordNotes) in notesByLength)
         {
-            var renderedVoice = RenderOrRecallVoice(project, track, StepEvent.Trigger(chordNotes), heldStepCount);
+            var renderedVoice = RenderOrRecallVoice(project, track, instrumentParameters, pitchBend, StepEvent.Trigger(chordNotes), heldStepCount);
             if (renderedVoice.Length == 0)
             {
                 continue;
@@ -470,14 +505,17 @@ internal sealed class SequencerEngine
             }
             // Each voice normalizes its own notes by 1/sqrt(k); rescale so every
             // note in the full chord sits at 1/sqrt(n), as if rendered together.
-            runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, humanizedGain * (float)Math.Sqrt(chordNotes.Length / (double)Math.Max(1, stepEvent.MidiNotes.Count))));
+            runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, humanizedGain * (float)Math.Sqrt(chordNotes.Length / (double)Math.Max(1, stepEvent.MidiNotes.Count)), followsPitchEnvelope: !bendsAtRender));
         }
     }
 
-    private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, StepEvent stepEvent, int heldStepCount)
+    /// <summary>A pitch envelope rendered into a voice, with a signature for the voice cache.</summary>
+    private sealed record RenderedPitchBend(Func<double, double> SemitonesAt, string Signature);
+
+    private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, IReadOnlyDictionary<string, double> instrumentParameters, RenderedPitchBend? pitchBend, StepEvent stepEvent, int heldStepCount)
     {
-        var parameterFingerprint = string.Join(',', track.InstrumentParameters.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value:R}"));
-        var voiceCacheKey = $"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}";
+        var parameterFingerprint = string.Join(',', instrumentParameters.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value:R}"));
+        var voiceCacheKey = $"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}";
         if (renderedVoiceCache.TryGetValue(voiceCacheKey, out var cachedVoice))
         {
             return cachedVoice;
@@ -503,9 +541,10 @@ internal sealed class SequencerEngine
             heldStepCount * project.StepDurationSeconds * 0.92,
             sampleRate,
             noiseEntropySource,
-            track.InstrumentParameters,
+            instrumentParameters,
             samplerSource,
-            track.SampleEditing);
+            track.SampleEditing,
+            pitchBend?.SemitonesAt);
         renderedVoiceCache[voiceCacheKey] = renderedVoice;
         return renderedVoice;
     }
@@ -524,22 +563,37 @@ internal sealed class SequencerEngine
         var processingContext = new EffectProcessingContext(sampleRate, project.StepDurationSeconds);
         var trackBlock = trackScratchBuffer.AsSpan(0, leftChannel.Length);
 
+        var stepFrameCount = project.StepDurationSeconds * sampleRate;
+        var stepProgress = transportMode == TransportMode.Stopped || stepFrameCount <= 0
+            ? 0
+            : Math.Clamp(1 - samplesUntilNextStep / stepFrameCount, 0, 1);
+
         foreach (var track in project.Tracks)
         {
             var runtimeState = RuntimeStateFor(track.Id);
             var trackAudible = !track.Muted && (!soloEngaged || track.Solo);
             trackBlock.Clear();
+
+            // Clip envelopes only move while their clip plays; otherwise the knobs rule.
+            CompiledEnvelopes? envelopes = null;
+            var clipPosition = 0.0;
+            if (transportMode != TransportMode.Stopped &&
+                runtimeState.PlayingScene is { } playingScene &&
+                runtimeState.CurrentClipStep is { } currentClipStep &&
+                track.ClipAt(playingScene) is { Automation.Count: > 0 } automatedClip)
+            {
+                envelopes = runtimeState.EnvelopesFor(automatedClip);
+                clipPosition = currentClipStep + stepProgress;
+            }
+            var playbackRate = envelopes?.Pitch is { } pitchEnvelope
+                ? Math.Pow(2, Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, clipPosition), -24, 24) / 12)
+                : 1.0;
+
             for (var voiceIndex = runtimeState.ActiveVoices.Count - 1; voiceIndex >= 0; voiceIndex--)
             {
                 var activeVoice = runtimeState.ActiveVoices[voiceIndex];
-                var mixableFrameCount = Math.Min(trackBlock.Length, activeVoice.Samples.Length - activeVoice.Position);
                 // Muted voices still advance, so unmuting lands mid-note rather than restarting it.
-                for (var frameIndex = 0; trackAudible && frameIndex < mixableFrameCount; frameIndex++)
-                {
-                    trackBlock[frameIndex] += activeVoice.Samples[activeVoice.Position + frameIndex] * activeVoice.Gain;
-                }
-                activeVoice.Position += mixableFrameCount;
-                if (activeVoice.Position >= activeVoice.Samples.Length)
+                if (activeVoice.MixInto(trackBlock, playbackRate, trackAudible))
                 {
                     runtimeState.ActiveVoices.RemoveAt(voiceIndex);
                 }
@@ -566,7 +620,10 @@ internal sealed class SequencerEngine
             {
                 if (track.Effects[effectIndex].Enabled)
                 {
-                    runtimeState.EffectChain[effectIndex].Process(trackBlock, track.Effects[effectIndex].Parameters, processingContext);
+                    var effectParameters = envelopes is null
+                        ? track.Effects[effectIndex].Parameters
+                        : runtimeState.AutomatedEffectParameters(effectIndex, track.Effects[effectIndex].Parameters, envelopes, clipPosition);
+                    runtimeState.EffectChain[effectIndex].Process(trackBlock, effectParameters, processingContext);
                 }
             }
 
@@ -574,9 +631,11 @@ internal sealed class SequencerEngine
             {
                 continue;
             }
-            var panAngle = (Math.Clamp(track.Pan, -1, 1) + 1) * Math.PI / 4;
-            var leftGain = (float)(track.Gain * Math.Cos(panAngle));
-            var rightGain = (float)(track.Gain * Math.Sin(panAngle));
+            var trackGain = envelopes?.Gain is { } gainEnvelope ? Math.Clamp(ClipAutomation.Evaluate(gainEnvelope, clipPosition), 0, 1.5) : track.Gain;
+            var trackPan = envelopes?.Pan is { } panEnvelope ? ClipAutomation.Evaluate(panEnvelope, clipPosition) : track.Pan;
+            var panAngle = (Math.Clamp(trackPan, -1, 1) + 1) * Math.PI / 4;
+            var leftGain = (float)(trackGain * Math.Cos(panAngle));
+            var rightGain = (float)(trackGain * Math.Sin(panAngle));
             for (var frameIndex = 0; frameIndex < trackBlock.Length; frameIndex++)
             {
                 leftChannel[frameIndex] += trackBlock[frameIndex] * leftGain;
@@ -621,15 +680,112 @@ internal sealed class SequencerEngine
 
     private sealed class ActiveVoice
     {
-        public ActiveVoice(float[] samples, float gain)
+        private readonly float[] samples;
+        private readonly float gain;
+        private readonly bool followsPitchEnvelope;
+        private double position;
+
+        public ActiveVoice(float[] samples, float gain, bool followsPitchEnvelope)
         {
-            Samples = samples;
-            Gain = gain;
+            this.samples = samples;
+            this.gain = gain;
+            this.followsPitchEnvelope = followsPitchEnvelope;
         }
 
-        public float[] Samples { get; }
-        public float Gain { get; }
-        public int Position { get; set; }
+        /// <summary>
+        /// Adds the next block. Voices that did not bake the pitch envelope in play at
+        /// <paramref name="playbackRate"/>, tape-style. Returns true once the voice has finished.
+        /// </summary>
+        public bool MixInto(Span<float> trackBlock, double playbackRate, bool audible)
+        {
+            if (!followsPitchEnvelope)
+            {
+                playbackRate = 1.0;
+            }
+            if (playbackRate == 1.0 && position == Math.Floor(position))
+            {
+                var integerPosition = (int)position;
+                var mixableFrameCount = Math.Min(trackBlock.Length, samples.Length - integerPosition);
+                for (var frameIndex = 0; audible && frameIndex < mixableFrameCount; frameIndex++)
+                {
+                    trackBlock[frameIndex] += samples[integerPosition + frameIndex] * gain;
+                }
+                position += mixableFrameCount;
+                return position >= samples.Length;
+            }
+            for (var frameIndex = 0; frameIndex < trackBlock.Length; frameIndex++)
+            {
+                var lowerFrame = (int)position;
+                if (lowerFrame >= samples.Length - 1)
+                {
+                    position = samples.Length;
+                    return true;
+                }
+                if (audible)
+                {
+                    var interpolationWeight = (float)(position - lowerFrame);
+                    trackBlock[frameIndex] += (samples[lowerFrame] + (samples[lowerFrame + 1] - samples[lowerFrame]) * interpolationWeight) * gain;
+                }
+                position += playbackRate;
+            }
+            return position >= samples.Length;
+        }
+    }
+
+    /// <summary>A clip's envelopes, parsed once per project snapshot so the audio thread never parses target keys.</summary>
+    private sealed class CompiledEnvelopes
+    {
+        public CompiledEnvelopes(SlawClip clip)
+        {
+            foreach (var (targetKey, points) in clip.Automation ?? new Dictionary<string, List<AutomationPoint>>())
+            {
+                if (points.Count == 0)
+                {
+                    continue;
+                }
+                var sortedPoints = points.OrderBy(point => point.Step).ToList();
+                switch (targetKey)
+                {
+                    case ClipAutomation.GainTarget:
+                        Gain = sortedPoints;
+                        break;
+                    case ClipAutomation.PanTarget:
+                        Pan = sortedPoints;
+                        break;
+                    case ClipAutomation.PitchTarget:
+                        Pitch = sortedPoints;
+                        PitchFingerprint = string.Join(';', sortedPoints.Select(point => FormattableString.Invariant($"{point.Step:R}:{point.Value:R}"))) + FormattableString.Invariant($"/{clip.Pattern.Count}");
+                        break;
+                    default:
+                        if (ClipAutomation.TryParseEffectTarget(targetKey, out var effectIndex, out var effectParameterKey))
+                        {
+                            EffectEnvelopes.Add((effectIndex, effectParameterKey, sortedPoints));
+                        }
+                        else if (targetKey.StartsWith(ClipAutomation.InstrumentTargetPrefix, StringComparison.Ordinal))
+                        {
+                            InstrumentEnvelopes.Add((targetKey[ClipAutomation.InstrumentTargetPrefix.Length..], sortedPoints));
+                        }
+                        break;
+                }
+            }
+        }
+
+        public List<AutomationPoint>? Gain { get; }
+        public List<AutomationPoint>? Pan { get; }
+        public List<AutomationPoint>? Pitch { get; }
+        public string PitchFingerprint { get; } = string.Empty;
+        public List<(int EffectIndex, string ParameterKey, List<AutomationPoint> Points)> EffectEnvelopes { get; } = new();
+        public List<(string ParameterKey, List<AutomationPoint> Points)> InstrumentEnvelopes { get; } = new();
+    }
+
+    private bool ProjectHasAutomation(SlawProject project)
+    {
+        if (!ReferenceEquals(project, automationScannedProject))
+        {
+            automationScannedProject = project;
+            automationScanResult = project.Tracks.Any(track => track.Clips.Any(clip => clip?.Automation is { Count: > 0 }));
+        }
+        return automationScanResult;
     }
 
     /// <summary>A held preview note: plays until released, then fades over its release time.</summary>
@@ -694,6 +850,53 @@ internal sealed class SequencerEngine
         public bool HasQueuedLaunch { get; set; }
         public long ClipOriginStep { get; set; }
         public int? CurrentClipStep { get; set; }
+
+        private readonly Dictionary<SlawClip, CompiledEnvelopes> compiledEnvelopes = new(ReferenceEqualityComparer.Instance);
+        private readonly List<Dictionary<string, double>> automatedEffectParameters = new();
+
+        /// <summary>The clip's parsed envelopes. Snapshots are immutable, so a clip object's envelopes never go stale.</summary>
+        public CompiledEnvelopes EnvelopesFor(SlawClip clip)
+        {
+            if (!compiledEnvelopes.TryGetValue(clip, out var envelopes))
+            {
+                // Each edit publishes fresh clip objects; forget the previous snapshot's.
+                if (compiledEnvelopes.Count > 64)
+                {
+                    compiledEnvelopes.Clear();
+                }
+                envelopes = new CompiledEnvelopes(clip);
+                compiledEnvelopes[clip] = envelopes;
+            }
+            return envelopes;
+        }
+
+        /// <summary>An effect slot's knob values with its envelopes applied, in a dictionary reused every block.</summary>
+        public IReadOnlyDictionary<string, double> AutomatedEffectParameters(int effectIndex, Dictionary<string, double> knobValues, CompiledEnvelopes envelopes, double clipPosition)
+        {
+            Dictionary<string, double>? automatedValues = null;
+            foreach (var (envelopeEffectIndex, parameterKey, points) in envelopes.EffectEnvelopes)
+            {
+                if (envelopeEffectIndex != effectIndex)
+                {
+                    continue;
+                }
+                if (automatedValues is null)
+                {
+                    while (automatedEffectParameters.Count <= effectIndex)
+                    {
+                        automatedEffectParameters.Add(new Dictionary<string, double>());
+                    }
+                    automatedValues = automatedEffectParameters[effectIndex];
+                    automatedValues.Clear();
+                    foreach (var (knobKey, knobValue) in knobValues)
+                    {
+                        automatedValues[knobKey] = knobValue;
+                    }
+                }
+                automatedValues[parameterKey] = ClipAutomation.Evaluate(points, clipPosition);
+            }
+            return automatedValues ?? (IReadOnlyDictionary<string, double>)knobValues;
+        }
 
         /// <summary>
         /// Keeps one processor per effect slot. A slot is only rebuilt when its

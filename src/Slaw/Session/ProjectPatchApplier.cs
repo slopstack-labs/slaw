@@ -169,9 +169,61 @@ internal static class ProjectPatchApplier
                 break;
         }
 
+        if (trackPatch["automation"] is JsonObject automationBySceneIndex)
+        {
+            foreach (var (sceneKey, sceneEnvelopes) in automationBySceneIndex)
+            {
+                if (int.TryParse(sceneKey, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sceneIndex) &&
+                    targetTrack.ClipAt(sceneIndex) is { } automatedClip)
+                {
+                    ApplyClipAutomation(targetTrack, automatedClip, sceneEnvelopes);
+                }
+            }
+        }
+
         // Drum steps on a melodic instrument (and vice versa) are re-spelled to match.
         PatternEditingOperations.ChangeInstrument(targetTrack, targetTrack.Instrument);
     }
+
+    /// <summary>
+    /// Merges envelopes into a clip: <c>{"fx.0.cutoff": [[0, 200], [16, 8000]], "pan": null}</c>.
+    /// Points may also be <c>{"step": 0, "value": 200}</c>; null removes a lane; null for the whole object removes them all.
+    /// </summary>
+    internal static void ApplyClipAutomation(SlawTrack track, SlawClip clip, JsonNode? envelopesNode)
+    {
+        if (envelopesNode is not JsonObject envelopesByTarget)
+        {
+            clip.Automation = null;
+            return;
+        }
+        var mergedEnvelopes = clip.Automation is null
+            ? new Dictionary<string, List<AutomationPoint>>()
+            : new Dictionary<string, List<AutomationPoint>>(clip.Automation);
+        foreach (var (targetKey, pointsNode) in envelopesByTarget)
+        {
+            var parsedPoints = ReadAutomationPoints(pointsNode);
+            if (parsedPoints is not { Count: > 0 } || ClipAutomation.ResolveTarget(track, targetKey) is not { } automationTarget)
+            {
+                mergedEnvelopes.Remove(targetKey);
+                continue;
+            }
+            mergedEnvelopes[targetKey] = ClipAutomation.Tidy(parsedPoints, clip.Pattern.Count, automationTarget.Specification);
+        }
+        clip.Automation = mergedEnvelopes.Count > 0 ? mergedEnvelopes : null;
+    }
+
+    private static List<AutomationPoint>? ReadAutomationPoints(JsonNode? pointsNode) => pointsNode is JsonArray pointArray
+        ? pointArray.Select(pointNode => pointNode switch
+            {
+                JsonArray { Count: >= 2 } pair when ReadDouble(pair[0]) is { } pairStep && ReadDouble(pair[1]) is { } pairValue =>
+                    new AutomationPoint { Step = pairStep, Value = pairValue },
+                JsonObject pointObject when ReadDouble(pointObject["step"]) is { } objectStep && ReadDouble(pointObject["value"]) is { } objectValue =>
+                    new AutomationPoint { Step = objectStep, Value = objectValue },
+                _ => null,
+            })
+            .OfType<AutomationPoint>()
+            .ToList()
+        : null;
 
     private static void SetClip(SlawTrack targetTrack, int sceneIndex, JsonNode? clipNode, int defaultStepCount)
     {
@@ -197,7 +249,13 @@ internal static class ProjectPatchApplier
             return;
         }
         var clipName = ReadString((clipNode as JsonObject)?["name"]) ?? targetTrack.Clips[sceneIndex]?.Name ?? targetTrack.Name;
-        targetTrack.Clips[sceneIndex] = new SlawClip { Name = clipName, Pattern = patchedPattern };
+        // A rewritten pattern keeps its envelopes: models rewrite notes far more often than they mean to delete a filter sweep.
+        var patchedClip = new SlawClip { Name = clipName, Pattern = patchedPattern, Automation = targetTrack.Clips[sceneIndex]?.Automation };
+        targetTrack.Clips[sceneIndex] = patchedClip;
+        if (clipNode is JsonObject automatedClipObject && automatedClipObject.ContainsKey("automation"))
+        {
+            ApplyClipAutomation(targetTrack, patchedClip, automatedClipObject["automation"]);
+        }
     }
 
     // ── Lenient readers: models write numbers as strings and booleans as "yes" ──

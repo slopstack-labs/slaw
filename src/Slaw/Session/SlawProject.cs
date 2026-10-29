@@ -115,6 +115,10 @@ internal sealed class SlawClip
     [JsonConverter(typeof(CompactPatternJsonConverter))]
     public List<string> Pattern { get; set; } = new();
 
+    /// <summary>Clip envelopes by target key (see <see cref="ClipAutomation"/>), each sorted by step. Null when the clip has none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, List<AutomationPoint>>? Automation { get; set; }
+
     public static SlawClip Empty(string clipName, int stepCount) => new()
     {
         Name = clipName,
