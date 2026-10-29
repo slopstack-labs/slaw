@@ -276,7 +276,12 @@ internal sealed class DetailView : UserControl
             activePianoRoll = new PianoRollControl(clip, pianoRollLowestNote, 25);
             activePianoRoll.EditStarted += () => document.BeginEdit("piano roll");
             activePianoRoll.PatternEdited += description => document.CommitEdit($"{description} on {track.Name}");
-            activePianoRoll.NoteAuditionStarted += midiNote => host.StartNoteAudition(track.Id, midiNote);
+            activePianoRoll.NoteAuditionStarted += midiNote =>
+            {
+                // The piano roll previews one note at a time; release the glide's previous key.
+                host.StopNoteAudition();
+                host.StartNoteAudition(track.Id, midiNote);
+            };
             activePianoRoll.NoteAuditionEnded += host.StopNoteAudition;
             var octaveButtons = new StackPanel
             {

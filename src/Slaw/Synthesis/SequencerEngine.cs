@@ -19,7 +19,9 @@ internal sealed record TransportSnapshot(
     long ArrangementStep,
     int? ArrangementSection,
     IReadOnlyDictionary<string, TrackTransportState> Tracks,
-    double PreviewProgress)
+    double PreviewProgress,
+    long PublishedTimestamp = 0,
+    double StepDurationSeconds = 0)
 {
     public static readonly TransportSnapshot Idle = new(
         TransportMode.Stopped, -1, null, new Dictionary<string, TrackTransportState>(), -1);
@@ -66,7 +68,8 @@ internal sealed class SequencerEngine
     private int previewPosition;
 
     private readonly Random auditionEntropySource = new(0xA0D1);
-    private AuditionVoice? activeAudition;
+    private readonly List<AuditionVoice> activeAuditions = new();
+    private const int MaximumAuditionVoices = 32;
 
     public SequencerEngine(int sampleRate, int noiseSeed = 0x51A7)
     {
@@ -165,7 +168,7 @@ internal sealed class SequencerEngine
     /// on the calling thread so the audio thread never waits for synthesis.
     /// Call from one thread only (the UI thread).
     /// </summary>
-    public void StartNoteAudition(string trackIdentifier, int midiNote)
+    public void StartNoteAudition(string trackIdentifier, int midiNote, double velocity = 1.0)
     {
         var project = Volatile.Read(ref publishedProject);
         var auditionedTrack = project?.Tracks.FirstOrDefault(track => track.Id == trackIdentifier);
@@ -205,15 +208,40 @@ internal sealed class SequencerEngine
                              (auditionedTrack.Instrument == "sampler" && DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor("sampler"), "hold") < 0.5)
             ? 0
             : DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(auditionedTrack.Instrument), "release") / 1000.0;
-        var auditionVoice = new AuditionVoice(trackIdentifier, renderedVoice, Math.Max(1, (int)(releaseSeconds * sampleRate)), releaseSeconds > 0);
+        var auditionVoice = new AuditionVoice(trackIdentifier, midiNote, (float)Math.Clamp(velocity, 0.05, 1.0),
+            renderedVoice, Math.Max(1, (int)(releaseSeconds * sampleRate)), releaseSeconds > 0);
         pendingTransportCommands.Enqueue(() =>
         {
-            activeAudition?.BeginRelease();
-            activeAudition = auditionVoice;
+            // Re-striking a held key releases the previous strike rather than stacking it.
+            foreach (var sameNoteVoice in activeAuditions.Where(voice => voice.MidiNote == midiNote))
+            {
+                sameNoteVoice.BeginRelease();
+            }
+            activeAuditions.Add(auditionVoice);
+            if (activeAuditions.Count > MaximumAuditionVoices)
+            {
+                activeAuditions.RemoveAt(0);
+            }
         });
     }
 
-    public void StopNoteAudition() => pendingTransportCommands.Enqueue(() => activeAudition?.BeginRelease());
+    /// <summary>Releases every sounding audition note (the piano roll's mouse-up).</summary>
+    public void StopNoteAudition() => pendingTransportCommands.Enqueue(() =>
+    {
+        foreach (var auditionVoice in activeAuditions)
+        {
+            auditionVoice.BeginRelease();
+        }
+    });
+
+    /// <summary>Releases one note (a MIDI key being let go), leaving the rest of the chord ringing.</summary>
+    public void StopNoteAudition(int midiNote) => pendingTransportCommands.Enqueue(() =>
+    {
+        foreach (var auditionVoice in activeAuditions.Where(voice => voice.MidiNote == midiNote))
+        {
+            auditionVoice.BeginRelease();
+        }
+    });
 
     // ── Rendering (audio thread) ──────────────────────────────────────────────
 
@@ -513,10 +541,19 @@ internal sealed class SequencerEngine
             }
 
             // An auditioned note is heard even on a muted track: you asked for it explicitly.
-            var auditionOnThisTrack = activeAudition is { } audition && audition.TrackIdentifier == track.Id;
-            if (auditionOnThisTrack && activeAudition!.MixInto(trackBlock))
+            var auditionOnThisTrack = false;
+            for (var auditionIndex = activeAuditions.Count - 1; auditionIndex >= 0; auditionIndex--)
             {
-                activeAudition = null;
+                var auditionVoice = activeAuditions[auditionIndex];
+                if (auditionVoice.TrackIdentifier != track.Id)
+                {
+                    continue;
+                }
+                auditionOnThisTrack = true;
+                if (auditionVoice.MixInto(trackBlock))
+                {
+                    activeAuditions.RemoveAt(auditionIndex);
+                }
             }
 
             runtimeState.SynchronizeEffectChain(track.Effects, sampleRate);
@@ -569,7 +606,10 @@ internal sealed class SequencerEngine
             pair => pair.Key,
             pair => new TrackTransportState(pair.Value.PlayingScene, pair.Value.CurrentClipStep, pair.Value.HasQueuedLaunch ? pair.Value.QueuedScene ?? -1 : null));
         var previewProgress = previewLeft is null ? -1 : (double)previewPosition / previewLeft.Length;
-        Volatile.Write(ref publishedTransport, new TransportSnapshot(transportMode, arrangementStep, arrangementSection, trackStates, previewProgress));
+        var project = Volatile.Read(ref publishedProject);
+        Volatile.Write(ref publishedTransport, new TransportSnapshot(
+            transportMode, arrangementStep, arrangementSection, trackStates, previewProgress,
+            System.Diagnostics.Stopwatch.GetTimestamp(), project?.StepDurationSeconds ?? 0));
     }
 
     // ── Runtime state ─────────────────────────────────────────────────────────
@@ -596,15 +636,21 @@ internal sealed class SequencerEngine
         private int position;
         private int releaseFramesRemaining = -1;
 
-        public AuditionVoice(string trackIdentifier, float[] samples, int releaseFrameCount, bool fadesOnRelease)
+        private readonly float velocityGain;
+
+        public AuditionVoice(string trackIdentifier, int midiNote, float velocityGain, float[] samples, int releaseFrameCount, bool fadesOnRelease)
         {
             TrackIdentifier = trackIdentifier;
+            MidiNote = midiNote;
+            this.velocityGain = velocityGain;
             this.samples = samples;
             this.releaseFrameCount = releaseFrameCount;
             this.fadesOnRelease = fadesOnRelease;
         }
 
         public string TrackIdentifier { get; }
+
+        public int MidiNote { get; }
 
         public void BeginRelease()
         {
@@ -624,7 +670,7 @@ internal sealed class SequencerEngine
                     return true;
                 }
                 var releaseGain = releaseFramesRemaining > 0 ? (float)releaseFramesRemaining / releaseFrameCount : 1f;
-                trackBlock[frameIndex] += samples[position++] * releaseGain;
+                trackBlock[frameIndex] += samples[position++] * releaseGain * velocityGain;
                 if (releaseFramesRemaining > 0)
                 {
                     releaseFramesRemaining--;

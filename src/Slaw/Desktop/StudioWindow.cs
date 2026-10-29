@@ -23,7 +23,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// AI operation. With AI features switched off it is an ordinary DAW, which is
 /// a configuration slopstack labs supports but does not endorse.
 /// </summary>
-internal sealed class StudioWindow : Window, IStudioHost
+internal sealed partial class StudioWindow : Window, IStudioHost
 {
     private enum StatusSeverity
     {
@@ -34,6 +34,7 @@ internal sealed class StudioWindow : Window, IStudioHost
     }
 
     private static readonly FilePickerFileType SlawProjectFileType = new("slaw project") { Patterns = new[] { "*.slaw" } };
+    private static readonly FilePickerFileType MidiFileType = new("MIDI file") { Patterns = new[] { "*.mid", "*.midi" } };
     private static readonly FilePickerFileType WaveFileType = new("WAV audio") { Patterns = new[] { "*.wav" } };
 
     private static readonly string[] CopilotGreetings =
@@ -162,12 +163,14 @@ internal sealed class StudioWindow : Window, IStudioHost
             FitToWorkingArea();
             StartLiveAudio();
             ApplyMcpServerPreference();
+            ApplyMidiInputPreference();
         };
         Closed += (_, _) =>
         {
             sessionLifetimeCancellation.Cancel();
             transportTimer.Stop();
             mcpHttpTransport?.Dispose();
+            midiInputSource?.Dispose();
             foreach (var sampleEditorWindow in openSampleEditorWindows.Values.ToList())
             {
                 sampleEditorWindow.Close();
@@ -293,6 +296,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         AddTransportControl(StudioUi.VerticalSeparator());
         AddTransportControl(playButton);
         AddTransportControl(StudioUi.Button("■", StopPlayback, "Stop", compact: false));
+        AddTransportControl(ComposeRecordControls());
         AddTransportControl(StudioUi.Row(6, StudioUi.Caption("BPM", 12), tempoInput));
         ToolTip.SetTip(projectNameInput, "Song title");
         AddTransportControl(projectNameInput);
@@ -844,10 +848,20 @@ internal sealed class StudioWindow : Window, IStudioHost
         {
             Title = "Open slaw project",
             AllowMultiple = false,
-            FileTypeFilter = new[] { SlawProjectFileType },
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("slaw project or MIDI file") { Patterns = new[] { "*.slaw", "*.mid", "*.midi" } },
+                SlawProjectFileType,
+                MidiFileType,
+            },
         });
         if (selectedFiles.Count == 0 || selectedFiles[0].TryGetLocalPath() is not { } selectedPath)
         {
+            return;
+        }
+        if (MidiFileImporter.IsMidiFile(selectedPath))
+        {
+            ImportMidiFile(selectedPath);
             return;
         }
         try
@@ -863,6 +877,60 @@ internal sealed class StudioWindow : Window, IStudioHost
         {
             SetStatus(StatusSeverity.Failure, $"open failed: {loadRemediationOpportunity.Message}");
         }
+    }
+
+    /// <summary>Replaces the project with an imported MIDI file (undoable; Save asks for a new name).</summary>
+    private void ImportMidiFile(string midiFilePath)
+    {
+        MidiImportResult importResult;
+        try
+        {
+            importResult = MidiFileImporter.Import(midiFilePath);
+        }
+        catch (Exception importRemediationOpportunity) when (importRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            SetStatus(StatusSeverity.Failure, $"MIDI import failed: {importRemediationOpportunity.Message}");
+            return;
+        }
+        StopPlayback();
+        document.ReplaceProject(importResult.Project, $"import {Path.GetFileName(midiFilePath)}", undoable: true);
+        document.FilePath = null;
+        RefreshChrome();
+        SetStatus(StatusSeverity.Success,
+            $"imported {Path.GetFileName(midiFilePath)}: {importResult.Project.Tracks.Count} tracks, {importResult.Project.Scenes.Count} scenes — Ctrl+Z restores the previous project");
+        if (AiFeaturesEnabled)
+        {
+            AppendCopilotMessage("co-pilot", $"Imported {Path.GetFileName(midiFilePath)}. Notes:\n" +
+                string.Join("\n", importResult.ImportLedger.Take(8).Select(ledgerLine => $"• {ledgerLine}")));
+        }
+    }
+
+    /// <summary>Fills one clip with a MIDI file's notes (merged across tracks).</summary>
+    private void ImportMidiIntoClip(string midiFilePath, int trackIndex, int sceneIndex)
+    {
+        var targetTrack = document.Project.Tracks[trackIndex];
+        var stepCount = targetTrack.ClipAt(sceneIndex)?.Pattern.Count ?? 64;
+        List<string> importedPattern;
+        try
+        {
+            importedPattern = MidiFileImporter.ImportAsPattern(
+                File.ReadAllBytes(midiFilePath), stepCount, InstrumentVoiceSynthesizer.IsPercussive(targetTrack.Instrument));
+        }
+        catch (Exception importRemediationOpportunity) when (importRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            SetStatus(StatusSeverity.Failure, $"MIDI import failed: {importRemediationOpportunity.Message}");
+            return;
+        }
+        document.Edit($"imported {Path.GetFileName(midiFilePath)} into {targetTrack.Name}", _ =>
+        {
+            while (targetTrack.Clips.Count <= sceneIndex)
+            {
+                targetTrack.Clips.Add(null);
+            }
+            targetTrack.Clips[sceneIndex] = new SlawClip { Name = Path.GetFileNameWithoutExtension(midiFilePath), Pattern = importedPattern };
+        }, EditScope.Structure);
+        document.Select(trackIndex, sceneIndex);
+        SetStatus(StatusSeverity.Success, $"{Path.GetFileName(midiFilePath)} → {targetTrack.Name}, {stepCount} steps");
     }
 
     private async Task<bool> SaveProjectAsync(bool saveAs)
@@ -1036,6 +1104,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         unsolicitedAdviceToggle.IsChecked = preferences.CopilotInterjectionsEnabled;
         synchronizingControls = false;
         ApplyMcpServerPreference();
+        ApplyMidiInputPreference();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();
         if (audioSettingsChanged)
@@ -1752,6 +1821,12 @@ internal sealed class StudioWindow : Window, IStudioHost
             .Select(droppedItem => droppedItem.TryGetLocalPath())
             .OfType<string>()
             .ToList() ?? new List<string>();
+        if (droppedPaths.FirstOrDefault(droppedPath => File.Exists(droppedPath) && MidiFileImporter.IsMidiFile(droppedPath)) is { } droppedMidiFile)
+        {
+            ImportMidiFile(droppedMidiFile);
+            dragEvent.Handled = true;
+            return;
+        }
         var droppedFolders = droppedPaths.Where(Directory.Exists).ToList();
         var droppedSamples = droppedPaths.Where(droppedPath => File.Exists(droppedPath) && SampleLibrary.IsSupportedFile(droppedPath)).ToList();
 
@@ -1890,6 +1965,11 @@ internal sealed class StudioWindow : Window, IStudioHost
     private static List<string> DroppedFolders(DragPayload dragPayload) =>
         dragPayload.Kind == DragPayloadKind.Files ? dragPayload.FilePaths!.Where(Directory.Exists).ToList() : new List<string>();
 
+    private static List<string> DroppedMidiFiles(DragPayload dragPayload) =>
+        dragPayload.Kind == DragPayloadKind.Files
+            ? dragPayload.FilePaths!.Where(droppedPath => File.Exists(droppedPath) && MidiFileImporter.IsMidiFile(droppedPath)).ToList()
+            : new List<string>();
+
     private bool IsValidTrack(int trackIndex) => trackIndex >= 0 && trackIndex < document.Project.Tracks.Count;
 
     public bool CanDrop(DragPayload dragPayload, DropTarget dropTarget)
@@ -1904,6 +1984,8 @@ internal sealed class StudioWindow : Window, IStudioHost
             DragPayloadKind.Instrument => dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Effect => dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EffectDevice
                                       || (dropTarget.Kind is DropTargetKind.DeviceChain or DropTargetKind.EmptyArea && document.SelectedTrack is not null),
+            DragPayloadKind.Files when DroppedMidiFiles(dragPayload).Count > 0 =>
+                dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Sample or DragPayloadKind.Files =>
                 (DroppedSamples(dragPayload).Count > 0 &&
                  dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain or DropTargetKind.SampleEditor)
@@ -1929,6 +2011,19 @@ internal sealed class StudioWindow : Window, IStudioHost
         var targetTrackIndex = dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.SampleEditor or DropTargetKind.EffectDevice
             ? dropTarget.TrackIndex
             : document.SelectedTrackIndex;
+
+        if (DroppedMidiFiles(dragPayload) is { Count: > 0 } droppedMidiFiles)
+        {
+            if (dropTarget.Kind == DropTargetKind.ClipSlot && IsValidTrack(dropTarget.TrackIndex))
+            {
+                ImportMidiIntoClip(droppedMidiFiles[0], dropTarget.TrackIndex, dropTarget.SceneIndex);
+            }
+            else
+            {
+                ImportMidiFile(droppedMidiFiles[0]);
+            }
+            return;
+        }
 
         switch (dragPayload.Kind)
         {

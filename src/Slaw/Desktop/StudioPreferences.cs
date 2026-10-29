@@ -40,6 +40,9 @@ internal sealed class StudioPreferences
     public bool McpServerEnabled { get; set; }
     public int McpServerPort { get; set; } = 47115;
 
+    /// <summary>Listen to every connected MIDI keyboard/controller and play the selected track with it.</summary>
+    public bool MidiInputEnabled { get; set; } = true;
+
     /// <summary>Preferred live audio substrate, or "auto".</summary>
     public string AudioSubstrate { get; set; } = "auto";
     public int AudioLatencyMilliseconds { get; set; } = 60;

@@ -82,6 +82,7 @@ internal static class Program
                 "vibe" => VibeCheckAsync(commandLineIntent).GetAwaiter().GetResult(),
                 "autopilot" => AutopilotAsync(commandLineIntent).GetAwaiter().GetResult(),
                 "mcp" => RunMcpServerAsync(commandLineIntent).GetAwaiter().GetResult(),
+                "import" => ImportMidi(commandLineIntent),
                 var unknownCommand => throw new CommandLineMisalignmentException($"unknown command \"{unknownCommand}\" — see slaw --help"),
             };
         }
@@ -133,6 +134,7 @@ internal static class Program
                 vibe <project.slaw>            inference-backed vibe check
                 autopilot <project.slaw> "<instruction>"  let the model rewrite the whole project
                 mcp [project.slaw]             serve the project to MCP clients over stdio (e.g. Claude Code)
+                import <song.mid>              convert a MIDI file into a slaw project (-o song.slaw)
                 new [project.slaw]             scaffold a starter project
 
               {Dim}Options:{Reset}
@@ -261,6 +263,24 @@ internal static class Program
                 OpenInArrangementView: string.Equals(commandLineIntent.Option("view"), "arrangement", StringComparison.OrdinalIgnoreCase),
                 OpenSampleEditor: string.Equals(commandLineIntent.Option("view"), "sample", StringComparison.OrdinalIgnoreCase)),
             rawArguments);
+    }
+
+    private static int ImportMidi(CommandLineIntent commandLineIntent)
+    {
+        var midiFilePath = RequirePositional(commandLineIntent, "a .mid file");
+        var projectOutputPath = commandLineIntent.Option("o") ?? Path.ChangeExtension(midiFilePath, ProjectSerializer.ProjectFileExtension);
+        Console.Error.WriteLine($"\n  {Bold}slaw{Reset}  {Dim}MIDI ingestion substrate{Reset}  →  {Bold}{midiFilePath}{Reset}\n");
+        var importSpinner = ProgressSpinner.Start("quantizing human timing into sixteenth-note compliance");
+        var importResult = MidiFileImporter.Import(midiFilePath);
+        importSpinner.Succeed();
+        foreach (var ledgerLine in importResult.ImportLedger)
+        {
+            Console.Error.WriteLine($"  {Dim}·{Reset} {ledgerLine}");
+        }
+        ProjectSerializer.Save(importResult.Project, projectOutputPath);
+        PrintDeliverable(projectOutputPath,
+            $"{importResult.Project.Tracks.Count} tracks, {importResult.Project.Scenes.Count} scenes, {importResult.Project.Bpm:0} BPM — ready for AI-assisted remediation.");
+        return 0;
     }
 
     private static int ScaffoldProject(CommandLineIntent commandLineIntent)

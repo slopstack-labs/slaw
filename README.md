@@ -107,6 +107,7 @@ slaw <command> [options]    # headless production pipeline
 | `slaw master <project.slaw> [-o out.slaw]` | AI mastering: the model chooses the master chain, saved into the project and bounced to WAV. |
 | `slaw vibe <project.slaw>` | Vibe check. Returns `VIBE SCORE: N/10` and a short critique. |
 | `slaw autopilot <project.slaw> "<instruction>"` | Headless Autopilot: the model patches the project, and the change summary is printed. Saves in place, or to `-o`. |
+| `slaw import <song.mid> [-o song.slaw]` | Convert a Standard MIDI File into a slaw project. |
 | `slaw mcp [project.slaw]` | Serve the project to MCP clients (Claude Code, …) over stdio, autosaving every edit. |
 | `slaw new [project.slaw]` | Scaffold a starter project (default `untitled.slaw`). |
 
@@ -228,6 +229,33 @@ The `sampler` instrument ("Sampler") plays your own WAV files, pitched across th
 - **Portability**: samples stored next to (or below) the project file are saved as relative paths, so project folders can be moved. Others stay absolute.
 
 slaw itself still ships zero samples. These are yours, and therefore your responsibility.
+
+### MIDI
+
+**MIDI input.** Every connected keyboard or controller plays the selected track:
+
+- **Playing:** polyphonic and velocity-sensitive, through the track's own effects.
+- **Knobs:** the mod wheel sweeps the instrument filter, CC7 sets volume, CC10 sets pan.
+- **Platforms:**
+  - **Linux:** the ALSA sequencer. slaw auto-connects to every MIDI source, including ones plugged in later, and appears as a `slaw` client so other software can play it (`aplaymidi -p slaw:0 song.mid`).
+  - **Windows:** winmm.
+  - **macOS:** not yet.
+- **Turning it off:** Settings → Integrations.
+
+**● Rec** records what you play into the selected clip:
+
+- **While playing:** notes land on the step you hear, latency-compensated and quantized to sixteenths. Takes overdub, and a held key writes sustains.
+- **While stopped:** step input. Each note fills the next step, and notes struck together become a chord.
+- **Undo:** a whole take is one undo step.
+
+**MIDI import.** Open a `.mid` with **Open…**, drop it on the window, or run `slaw import song.mid`:
+
+- **Notes:** quantized to sixteenths. Channel 10 drums are split into kick, snare, clap and hat tracks, and General MIDI programs pick slaw instruments (basses → saw, pads → triangle, pianos and guitars → pluck…).
+- **Song structure:** the song is cut into 4-bar scenes, with repeated sections folded into arrangement repeats.
+- **Single clip:** drop a `.mid` on a clip slot to fill just that clip.
+- **Agents:** the `import_midi` MCP tool does the same for agents.
+
+slaw's notation is monophonic per step and polyphonic per chord, so imports are lossy by design. Velocities, pitch bends and that one grace note are remediated away.
 
 ### MCP: let other AIs produce your song
 

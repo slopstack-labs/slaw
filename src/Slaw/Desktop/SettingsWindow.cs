@@ -24,6 +24,7 @@ internal sealed class SettingsWindow : Window
     private readonly TextBox apiKeyTextBox;
     private readonly CheckBox rememberApiKeyCheckBox;
     private CheckBox? mcpServerCheckBox;
+    private CheckBox? midiInputCheckBox;
     private NumericUpDown? mcpPortNumericUpDown;
     private readonly TextBox baseUrlTextBox;
     private readonly TextBox ollamaEndpointTextBox;
@@ -330,11 +331,21 @@ internal sealed class SettingsWindow : Window
             TextWrapping = TextWrapping.Wrap,
         };
 
+        midiInputCheckBox = new CheckBox
+        {
+            Content = "Listen to MIDI keyboards and controllers",
+            IsChecked = workingPreferences.MidiInputEnabled,
+        };
+
         return new StackPanel
         {
             Spacing = 10,
             Children =
             {
+                StudioUi.SectionHeading("MIDI input"),
+                WrappedCaption("Every connected MIDI device plays the selected track (velocity-sensitive, polyphonic). ● Rec records into the selected clip. " +
+                               "Mod wheel → filter, CC7 → volume, CC10 → pan. Linux: ALSA sequencer (hot-plug); Windows: winmm; macOS: not yet."),
+                midiInputCheckBox,
                 StudioUi.SectionHeading("MCP server (live studio)"),
                 WrappedCaption("Lets AI agents such as Claude Code read and edit the song you have open — while it plays. Their edits are undoable, " +
                                "heard on the next step, and announced by the co-pilot. HTTP on 127.0.0.1 only; requests from web pages are refused."),
@@ -472,6 +483,7 @@ internal sealed class SettingsWindow : Window
         workingPreferences.AudioLatencyMilliseconds = ReadWholeNumber(audioLatencyNumericUpDown, workingPreferences.AudioLatencyMilliseconds);
         workingPreferences.SampleFolders = new List<string>(workingSampleFolders);
         workingPreferences.McpServerEnabled = mcpServerCheckBox?.IsChecked == true;
+        workingPreferences.MidiInputEnabled = midiInputCheckBox?.IsChecked != false;
         workingPreferences.McpServerPort = mcpPortNumericUpDown is null
             ? workingPreferences.McpServerPort
             : ReadWholeNumber(mcpPortNumericUpDown, workingPreferences.McpServerPort);

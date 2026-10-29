@@ -1,67 +1,188 @@
 {
-  "format": "slaw-project/v1",
+  "format": "slaw-project/v2",
   "name": "Quarterly Earnings House",
-  "bpm": 124,
+  "bpm": 140,
   "steps": 16,
-  "loops": 4,
+  "scenes": [
+    "Intro",
+    "Drop",
+    "Outro"
+  ],
   "tracks": [
     {
-      "name": "Synergy Kick",
-      "instrument": "kick",
-      "gain": 0.9,
-      "pan": 0,
-      "muted": false,
-      "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
-    },
-    {
-      "name": "Q3 Hats",
-      "instrument": "hat",
-      "gain": 0.5,
-      "pan": 0.2,
-      "muted": false,
-      "pattern": [".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", "."]
-    },
-    {
-      "name": "Stakeholder Clap",
-      "instrument": "clap",
-      "gain": 0.7,
-      "pan": -0.1,
-      "muted": false,
-      "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
-    },
-    {
-      "name": "Leveraged Bassline",
+      "id": "7eb3120f",
+      "name": "Wobble Bass",
       "instrument": "saw",
-      "gain": 0.65,
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 700,
+            "resonance": 0.8
+          }
+        }
+      ],
+      "gain": 0.7,
       "pan": 0,
       "muted": false,
-      "pattern": ["A1", ".", "A1", ".", ".", "A1", ".", "C2", ".", ".", "A1", ".", ".", "G1", ".", "."]
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Wobble Bass",
+          "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
+        },
+        {
+          "name": "Wobble Bass",
+          "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
+        },
+        {
+          "name": "Outro",
+          "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+        }
+      ]
     },
     {
-      "name": "Deliverable Stabs",
-      "instrument": "square",
-      "gain": 0.4,
-      "pan": -0.3,
+      "id": "c684b5ae",
+      "name": "Wobble Bass",
+      "instrument": "saw",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 700,
+            "resonance": 0.8
+          }
+        }
+      ],
+      "gain": 0.7,
+      "pan": 0,
       "muted": false,
-      "pattern": [".", ".", ".", ".", "D#4", ".", ".", ".", ".", ".", "F4", ".", ".", ".", ".", "."]
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Wobble Bass",
+          "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
+        },
+        {
+          "name": "Wobble Bass",
+          "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
+        },
+        {
+          "name": "Outro",
+          "pattern": ["A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4"]
+        }
+      ]
     },
     {
-      "name": "Roadmap Pad",
-      "instrument": "triangle",
-      "gain": 0.35,
-      "pan": 0.3,
+      "id": "cb5dfb7f",
+      "name": "Wobble Bass",
+      "instrument": "saw",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 700,
+            "resonance": 0.8
+          }
+        }
+      ],
+      "gain": 0.7,
+      "pan": 0,
       "muted": false,
-      "pattern": ["A3", "_", "_", "_", "_", "_", "_", "_", "C4", "_", "_", "_", "_", "_", "_", "_"]
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Wobble Bass",
+          "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
+        },
+        {
+          "name": "Wobble Bass",
+          "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
+        },
+        {
+          "name": "Outro",
+          "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+        }
+      ]
+    },
+    {
+      "id": "ffb4810c",
+      "name": "Casio-CTK-611-Touch-Bass",
+      "instrument": "sampler",
+      "instrumentParameters": {},
+      "sample": "/home/tom/Documents/lmms/samples/custom/Casio-CTK-611-Touch-Bass-C2.wav",
+      "effects": [],
+      "gain": 0.8,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Intro",
+          "pattern": ["C2", "C2", "C2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+        },
+        {
+          "name": "Drop",
+          "pattern": ["C2", "C2", "C2", ".", "C2", "C2", "C2", ".", "C2", "C2", "C2", ".", "C2", "C2", "C2", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "2db2f15c",
+      "name": "Casio-CTK-611-Melodic-To",
+      "instrument": "sampler",
+      "instrumentParameters": {},
+      "sample": "/home/tom/Documents/lmms/samples/custom/Casio-CTK-611-Melodic-Tom-C3.wav",
+      "effects": [],
+      "gain": 0.8,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Outro",
+          "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+        }
+      ]
+    }
+  ],
+  "arrangement": [
+    {
+      "scene": 0,
+      "repeats": 2
+    },
+    {
+      "scene": 1,
+      "repeats": 4
+    },
+    {
+      "scene": 2,
+      "repeats": 2
     }
   ],
   "master": {
     "gain": 0.9,
-    "drive": 1.0,
+    "drive": 2.5,
     "lowpassHz": 18000,
     "delaySteps": 3,
     "delayFeedback": 0.3,
     "delayMix": 0.15,
     "rationale": null
   },
-  "aiProvenance": "Generated by a language model that has never heard a kick drum. Approved by Legal."
+  "aiProvenance": "qwen2.5:3b via Ollama (autopilot)",
+  "stepDurationSeconds": 0.10714285714285714
 }

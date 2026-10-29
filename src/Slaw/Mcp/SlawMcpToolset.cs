@@ -348,6 +348,23 @@ internal sealed class SlawMcpToolset
                 return $"saved to {document.FilePath}";
             }));
 
+        Register("import_midi",
+            "Replace the project with an imported Standard MIDI File (.mid): notes quantized to sixteenths, drums split into kick/snare/clap/hat, " +
+            "General MIDI programs mapped to slaw instruments, the song chunked into 4-bar scenes. Undoable in the studio.",
+            Schema(new JsonObject { ["path"] = Property("string", "Path to a .mid file.") }, "path"),
+            async (toolArguments, clientName, _) =>
+            {
+                var midiFilePath = ReadString(toolArguments["path"]) ?? throw new McpInvalidParamsException("path is required");
+                var importResult = MidiFileImporter.Import(midiFilePath);
+                return await host.InvokeAsync(() =>
+                {
+                    importResult.Project.AiProvenance = $"{clientName} via MCP (MIDI import)";
+                    host.Document.ReplaceProject(importResult.Project, $"{clientName}: import MIDI", undoable: true);
+                    host.OnAgentEdit(clientName, $"imported {Path.GetFileName(midiFilePath)}");
+                    return string.Join("\n", importResult.ImportLedger) + "\n\n" + PromptLibrary.DescribeProjectForPatching(host.Document.Project);
+                });
+            });
+
         Register("undo", "Undo the last edit (by anyone — agent or human).", Schema(new JsonObject()),
             async (_, _, _) => await host.InvokeAsync(() => host.Document.Undo() is { } undoneLabel ? $"undid: {undoneLabel}" : "nothing to undo"));
 
