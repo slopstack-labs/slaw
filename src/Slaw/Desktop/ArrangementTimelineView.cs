@@ -21,6 +21,10 @@ internal sealed class ArrangementTimelineView : UserControl
     private readonly StudioDocument document;
     private readonly IStudioHost host;
     private readonly List<List<ArrangementLaneControl>> lanesBySection = new();
+    private readonly List<Border> sectionHeaders = new();
+
+    // A section is selected by clicking its header; clicking a clip block selects the clip instead.
+    private int? selectedSectionIndex;
 
     public ArrangementTimelineView(StudioDocument document, IStudioHost host)
     {
@@ -32,7 +36,12 @@ internal sealed class ArrangementTimelineView : UserControl
     public void Rebuild()
     {
         lanesBySection.Clear();
+        sectionHeaders.Clear();
         var project = document.Project;
+        if (selectedSectionIndex >= project.Arrangement.Count)
+        {
+            selectedSectionIndex = null;
+        }
         var timelineGrid = new Grid { ColumnSpacing = 3, RowSpacing = 3, Margin = new Thickness(12) };
         timelineGrid.ColumnDefinitions.Add(new ColumnDefinition(TrackLabelWidth, GridUnitType.Pixel));
         for (var sectionIndex = 0; sectionIndex < project.Arrangement.Count; sectionIndex++)
@@ -79,13 +88,14 @@ internal sealed class ArrangementTimelineView : UserControl
                 var capturedSceneIndex = section.Scene;
                 laneControl.PointerPressed += (_, pointerEvent) =>
                 {
+                    SelectSection(null);
                     document.Select(capturedTrackIndex, capturedSceneIndex);
                     if (pointerEvent.ClickCount >= 2)
                     {
                         host.PlayArrangementFrom(capturedSectionIndex);
                     }
                 };
-                laneControl.ContextMenu = ComposeLaneMenu(capturedTrackIndex, capturedSceneIndex);
+                laneControl.ContextMenu = ComposeLaneMenu(capturedTrackIndex, capturedSceneIndex, capturedSectionIndex);
                 StudioDragDrop.MakeDropTarget(laneControl, host, () => new DropTarget(DropTargetKind.ClipSlot, capturedTrackIndex, capturedSceneIndex));
                 ToolTip.SetTip(laneControl, $"{project.Tracks[trackIndex].Name} · {project.Scenes[section.Scene]} — click to edit below, double-click to play from here");
                 sectionLanes.Add(laneControl);
@@ -119,7 +129,7 @@ internal sealed class ArrangementTimelineView : UserControl
                     timelineGrid,
                     new TextBlock
                     {
-                        Text = "Click a block to edit that track's clip below · right-click for clip actions · double-click to play from there · drag ⠿ to reorder sections · drop instruments, effects or samples onto tracks",
+                        Text = "Click a block to edit that track's clip below · right-click for clip and section actions · double-click to play from there · click a section header, then Del to remove it or Ctrl+D to duplicate it · drag ⠿ to reorder sections · drop instruments, effects or samples onto tracks",
                         FontSize = 10,
                         Foreground = StudioTheme.TextMuted,
                         Margin = new Thickness(14, 0, 14, 10),
@@ -213,7 +223,7 @@ internal sealed class ArrangementTimelineView : UserControl
         return trackHeader;
     }
 
-    private ContextMenu ComposeLaneMenu(int trackIndex, int sceneIndex)
+    private ContextMenu ComposeLaneMenu(int trackIndex, int sceneIndex, int sectionIndex)
     {
         var laneMenu = new ContextMenu();
         laneMenu.Opening += (_, _) =>
@@ -238,6 +248,11 @@ internal sealed class ArrangementTimelineView : UserControl
             if (host.AiFeaturesEnabled)
             {
                 AddLaneMenuItem(clipExists ? "✨ Rewrite clip with AI" : "✨ Generate clip with AI", () => host.GenerateClipWithAi(trackIndex, sceneIndex));
+            }
+            laneMenu.Items.Add(new Separator());
+            foreach (var sectionMenuItem in ComposeSectionMenuItems(sectionIndex))
+            {
+                laneMenu.Items.Add(sectionMenuItem);
             }
         };
         return laneMenu;
@@ -310,22 +325,118 @@ internal sealed class ArrangementTimelineView : UserControl
             StudioUi.Button("+", () => ChangeRepeats(1), "More repeats", compact: true));
         var sectionGrip = StudioDragDrop.DragGrip("Drag to reorder this section");
         StudioDragDrop.MakeDragSource(sectionGrip, () => new DragPayload(DragPayloadKind.ArrangementSection, Index: sectionIndex));
+        // The remove button shares the first row with the scene name, so a narrow section can never push it out of view.
+        var removeButton = StudioUi.Button("✕", () => RemoveSection(sectionIndex), "Remove this section (Del)", compact: true);
+        if (project.Arrangement.Count <= 1)
+        {
+            removeButton.IsEnabled = false;
+            ToolTip.SetTip(removeButton, "The arrangement needs at least one section. Add another before removing this one.");
+        }
+        removeButton.VerticalAlignment = VerticalAlignment.Center;
+        sectionGrip.VerticalAlignment = VerticalAlignment.Center;
+        var titleRow = new DockPanel
+        {
+            Children =
+            {
+                Docked(sectionGrip, Dock.Left),
+                Docked(removeButton, Dock.Right),
+                sceneSelector,
+            },
+        };
+        sceneSelector.Margin = new Thickness(2, 0, 4, 0);
         var controlRow = StudioUi.Row(2,
-            sectionGrip,
             repeatsRow,
             new Border { Width = 6 },
             StudioUi.Button("▶", () => host.PlayArrangementFrom(sectionIndex), "Play the arrangement from this section", compact: true),
             StudioUi.Button("◀", () => MoveSection(sectionIndex, -1), "Move earlier", compact: true),
-            StudioUi.Button("▶▶", () => MoveSection(sectionIndex, 1), "Move later", compact: true),
-            StudioUi.Button("✕", () => RemoveSection(sectionIndex), "Remove section", compact: true));
+            StudioUi.Button("▶▶", () => MoveSection(sectionIndex, 1), "Move later", compact: true));
 
         var sectionHeader = StudioUi.Panel(new StackPanel
         {
             Spacing = 4,
-            Children = { sceneSelector, controlRow },
+            Children = { titleRow, controlRow },
         }, new Thickness(6));
+        sectionHeader.BorderThickness = new Thickness(1.5);
+        sectionHeader.BorderBrush = sectionIndex == selectedSectionIndex ? StudioTheme.Accent : Brushes.Transparent;
+        // Tunnel, so a press on the scene picker or a button still selects the section.
+        sectionHeader.AddHandler(PointerPressedEvent, (_, _) => SelectSection(sectionIndex), Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        var sectionMenu = new ContextMenu();
+        sectionMenu.Opening += (_, _) =>
+        {
+            SelectSection(sectionIndex);
+            sectionMenu.Items.Clear();
+            foreach (var sectionMenuItem in ComposeSectionMenuItems(sectionIndex))
+            {
+                sectionMenu.Items.Add(sectionMenuItem);
+            }
+        };
+        sectionHeader.ContextMenu = sectionMenu;
         StudioDragDrop.MakeDropTarget(sectionHeader, host, () => new DropTarget(DropTargetKind.ArrangementSection, Index: sectionIndex));
+        sectionHeaders.Add(sectionHeader);
         return sectionHeader;
+    }
+
+    private static Control Docked(Control dockedControl, Dock dockPosition)
+    {
+        DockPanel.SetDock(dockedControl, dockPosition);
+        return dockedControl;
+    }
+
+    private IEnumerable<MenuItem> ComposeSectionMenuItems(int sectionIndex)
+    {
+        MenuItem SectionMenuItem(string header, Action onClick, bool enabled = true)
+        {
+            var menuItem = new MenuItem { Header = header, IsEnabled = enabled };
+            menuItem.Click += (_, _) => onClick();
+            return menuItem;
+        }
+        var sectionCount = document.Project.Arrangement.Count;
+        yield return SectionMenuItem("Play from this section", () => host.PlayArrangementFrom(sectionIndex));
+        yield return SectionMenuItem("Duplicate section", () => DuplicateSection(sectionIndex));
+        yield return SectionMenuItem("Move section earlier", () => MoveSection(sectionIndex, -1), sectionIndex > 0);
+        yield return SectionMenuItem("Move section later", () => MoveSection(sectionIndex, 1), sectionIndex < sectionCount - 1);
+        yield return SectionMenuItem(sectionCount > 1 ? "Delete section" : "Delete section (the last one stays)", () => RemoveSection(sectionIndex), sectionCount > 1);
+    }
+
+    private void SelectSection(int? sectionIndex)
+    {
+        selectedSectionIndex = sectionIndex;
+        for (var headerIndex = 0; headerIndex < sectionHeaders.Count; headerIndex++)
+        {
+            sectionHeaders[headerIndex].BorderBrush = headerIndex == sectionIndex ? StudioTheme.Accent : Brushes.Transparent;
+        }
+    }
+
+    /// <summary>Deletes the section selected by its header (Del in Arrangement view). False if no section is selected.</summary>
+    public bool RemoveSelectedSection()
+    {
+        if (selectedSectionIndex is not { } sectionIndex || sectionIndex >= document.Project.Arrangement.Count)
+        {
+            return false;
+        }
+        RemoveSection(sectionIndex);
+        return true;
+    }
+
+    /// <summary>Duplicates the selected section right after itself (Ctrl+D in Arrangement view). False if none is selected.</summary>
+    public bool DuplicateSelectedSection()
+    {
+        if (selectedSectionIndex is not { } sectionIndex || sectionIndex >= document.Project.Arrangement.Count)
+        {
+            return false;
+        }
+        DuplicateSection(sectionIndex);
+        return true;
+    }
+
+    private void DuplicateSection(int sectionIndex)
+    {
+        selectedSectionIndex = sectionIndex + 1;
+        document.Edit("duplicated an arrangement section", project =>
+        {
+            var duplicatedSection = project.Arrangement[sectionIndex];
+            project.Arrangement.Insert(sectionIndex + 1, new ArrangementSection { Scene = duplicatedSection.Scene, Repeats = duplicatedSection.Repeats });
+        }, EditScope.Structure);
     }
 
     private void MoveSection(int sectionIndex, int offset)
@@ -335,6 +446,7 @@ internal sealed class ArrangementTimelineView : UserControl
         {
             return;
         }
+        selectedSectionIndex = selectedSectionIndex == sectionIndex ? destinationIndex : selectedSectionIndex;
         document.Edit("reordered the arrangement", project =>
         {
             var movedSection = project.Arrangement[sectionIndex];
@@ -349,6 +461,8 @@ internal sealed class ArrangementTimelineView : UserControl
         {
             return;
         }
+        // Keep a section selected, so Del can clear out a run of them.
+        selectedSectionIndex = Math.Min(sectionIndex, document.Project.Arrangement.Count - 2);
         document.Edit("removed an arrangement section", project => project.Arrangement.RemoveAt(sectionIndex), EditScope.Structure);
     }
 

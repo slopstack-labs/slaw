@@ -264,6 +264,10 @@ internal sealed partial class StudioWindow
                 }
                 break;
             case StudioCommand.DuplicateClip:
+                if (arrangementViewActive && arrangementView.DuplicateSelectedSection())
+                {
+                    break;
+                }
                 if (document.SelectedClip is not null)
                 {
                     document.DuplicateClipDown(document.SelectedTrackIndex, document.SelectedSceneIndex);
@@ -276,6 +280,10 @@ internal sealed partial class StudioWindow
                 }
                 break;
             case StudioCommand.DeleteClip:
+                if (arrangementViewActive && arrangementView.RemoveSelectedSection())
+                {
+                    break;
+                }
                 if (document.SelectedClip is not null)
                 {
                     document.DeleteClip(document.SelectedTrackIndex, document.SelectedSceneIndex);

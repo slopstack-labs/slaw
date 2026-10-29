@@ -39,6 +39,7 @@ internal sealed class DetailView : UserControl
     public event Action<double>? MinimumHeightRequested;
 
     private const double SampleEditorPreferredHeight = 500;
+    private const double EnvelopeLanePreferredHeight = 470;
 
     public DetailView(StudioDocument document, IStudioHost host)
     {
@@ -246,7 +247,10 @@ internal sealed class DetailView : UserControl
             }
         };
 
-        var clipActions = StudioUi.Row(6,
+        // Wraps rather than clipping its last buttons when the panel is narrow.
+        var clipActions = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 6, LineSpacing = 4 };
+        foreach (var clipActionControl in new Control[]
+        {
             clipNameInput,
             lengthSelector,
             StudioUi.Button("Clear", () => document.Edit("cleared a clip", _ =>
@@ -256,7 +260,11 @@ internal sealed class DetailView : UserControl
                     clip.Pattern[stepIndex] = NotationResolver.RestSymbol;
                 }
             }, EditScope.Structure), "Silence every step", compact: true),
-            StudioUi.Button("▶ Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true));
+            StudioUi.Button("▶ Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true),
+        })
+        {
+            clipActions.Children.Add(clipActionControl);
+        }
         var envelopeToggle = new Avalonia.Controls.Primitives.ToggleButton
         {
             Content = clip.Automation is { Count: > 0 } ? $"∿ Envelopes ({clip.Automation.Count})" : "∿ Envelopes",
@@ -268,6 +276,10 @@ internal sealed class DetailView : UserControl
         envelopeToggle.Click += (_, _) =>
         {
             automationLaneVisible = envelopeToggle.IsChecked == true;
+            if (automationLaneVisible)
+            {
+                MinimumHeightRequested?.Invoke(EnvelopeLanePreferredHeight);
+            }
             Rebuild();
         };
         clipActions.Children.Add(envelopeToggle);
