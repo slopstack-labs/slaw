@@ -86,6 +86,7 @@ internal sealed class ArrangementTimelineView : UserControl
                     }
                 };
                 laneControl.ContextMenu = ComposeLaneMenu(capturedTrackIndex, capturedSceneIndex);
+                StudioDragDrop.MakeDropTarget(laneControl, host, () => new DropTarget(DropTargetKind.ClipSlot, capturedTrackIndex, capturedSceneIndex));
                 ToolTip.SetTip(laneControl, $"{project.Tracks[trackIndex].Name} · {project.Scenes[section.Scene]} — click to edit below, double-click to play from here");
                 sectionLanes.Add(laneControl);
                 Place(timelineGrid, laneControl, trackIndex + 1, sectionIndex + 1);
@@ -104,11 +105,13 @@ internal sealed class ArrangementTimelineView : UserControl
             sceneMenu.Items.Add(sceneMenuItem);
         }
         addSectionButton.Flyout = sceneMenu;
+        StudioDragDrop.MakeDropTarget(addSectionButton, host, () => new DropTarget(DropTargetKind.ArrangementEnd));
         Place(timelineGrid, addSectionButton, 0, project.Arrangement.Count + 1);
 
         RefreshSelection();
-        Content = new ScrollViewer
+        var timelineScroller = new ScrollViewer
         {
+            Background = Brushes.Transparent,
             Content = new StackPanel
             {
                 Children =
@@ -116,7 +119,7 @@ internal sealed class ArrangementTimelineView : UserControl
                     timelineGrid,
                     new TextBlock
                     {
-                        Text = "Click a block to edit that track's clip in the panel below · right-click for clip actions · double-click to play from there",
+                        Text = "Click a block to edit that track's clip below · right-click for clip actions · double-click to play from there · drag ⠿ to reorder sections · drop instruments, effects or samples onto tracks",
                         FontSize = 10,
                         Foreground = StudioTheme.TextMuted,
                         Margin = new Thickness(14, 0, 14, 10),
@@ -126,6 +129,8 @@ internal sealed class ArrangementTimelineView : UserControl
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
         };
+        StudioDragDrop.MakeDropTarget(timelineScroller, host, () => new DropTarget(DropTargetKind.EmptyArea));
+        Content = timelineScroller;
     }
 
     private Control ComposeTrackHeader(SlawTrack track, int trackIndex)
@@ -204,6 +209,7 @@ internal sealed class ArrangementTimelineView : UserControl
             Child = new StackPanel { Spacing = 2, Children = { nameInput, controlRow } },
         };
         trackHeader.PointerPressed += (_, _) => document.Select(trackIndex, document.SelectedSceneIndex);
+        StudioDragDrop.MakeDropTarget(trackHeader, host, () => new DropTarget(DropTargetKind.Track, trackIndex));
         return trackHeader;
     }
 
@@ -302,7 +308,10 @@ internal sealed class ArrangementTimelineView : UserControl
             StudioUi.Button("−", () => ChangeRepeats(-1), "Fewer repeats", compact: true),
             StudioUi.Caption($"{section.Repeats}×", 12, StudioTheme.Text, FontWeight.SemiBold),
             StudioUi.Button("+", () => ChangeRepeats(1), "More repeats", compact: true));
+        var sectionGrip = StudioDragDrop.DragGrip("Drag to reorder this section");
+        StudioDragDrop.MakeDragSource(sectionGrip, () => new DragPayload(DragPayloadKind.ArrangementSection, Index: sectionIndex));
         var controlRow = StudioUi.Row(2,
+            sectionGrip,
             repeatsRow,
             new Border { Width = 6 },
             StudioUi.Button("▶", () => host.PlayArrangementFrom(sectionIndex), "Play the arrangement from this section", compact: true),
@@ -310,11 +319,13 @@ internal sealed class ArrangementTimelineView : UserControl
             StudioUi.Button("▶▶", () => MoveSection(sectionIndex, 1), "Move later", compact: true),
             StudioUi.Button("✕", () => RemoveSection(sectionIndex), "Remove section", compact: true));
 
-        return StudioUi.Panel(new StackPanel
+        var sectionHeader = StudioUi.Panel(new StackPanel
         {
             Spacing = 4,
             Children = { sceneSelector, controlRow },
         }, new Thickness(6));
+        StudioDragDrop.MakeDropTarget(sectionHeader, host, () => new DropTarget(DropTargetKind.ArrangementSection, Index: sectionIndex));
+        return sectionHeader;
     }
 
     private void MoveSection(int sectionIndex, int offset)

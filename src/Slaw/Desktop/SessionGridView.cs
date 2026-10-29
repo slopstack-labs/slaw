@@ -80,12 +80,15 @@ internal sealed class SessionGridView : UserControl
         addTrackButton.VerticalAlignment = VerticalAlignment.Top;
         Place(sessionGrid, addTrackButton, 0, trackCount + 1);
 
-        Content = new ScrollViewer
+        var sessionScroller = new ScrollViewer
         {
             Content = sessionGrid,
+            Background = Brushes.Transparent,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
+        StudioDragDrop.MakeDropTarget(sessionScroller, host, () => new DropTarget(DropTargetKind.EmptyArea));
+        Content = sessionScroller;
         RefreshSelection();
     }
 
@@ -129,7 +132,7 @@ internal sealed class SessionGridView : UserControl
                 StudioUi.Caption(DeviceCatalog.InstrumentDisplayName(track.Instrument), 10),
             },
         };
-        return new Border
+        var trackHeader = new Border
         {
             Background = StudioTheme.Surface,
             BorderBrush = StudioTheme.TrackBrush(trackIndex),
@@ -138,6 +141,8 @@ internal sealed class SessionGridView : UserControl
             Padding = new Thickness(6, 4),
             Child = headerContent,
         };
+        StudioDragDrop.MakeDropTarget(trackHeader, host, () => new DropTarget(DropTargetKind.Track, trackIndex));
+        return trackHeader;
     }
 
     private Control ComposeClipSlot(SlawTrack track, int trackIndex, int sceneIndex)
@@ -190,6 +195,11 @@ internal sealed class SessionGridView : UserControl
             }
         };
         clipSlot.ContextMenu = slotMenu;
+        StudioDragDrop.MakeDragSource(clipSlot, () => track.ClipAt(sceneIndex) is null
+            ? null
+            : new DragPayload(DragPayloadKind.Clip, TrackIndex: trackIndex, SceneIndex: sceneIndex));
+        StudioDragDrop.MakeDropTarget(clipSlot, host, () => new DropTarget(DropTargetKind.ClipSlot, trackIndex, sceneIndex));
+        ToolTip.SetTip(clipSlot, "▶ launch · click: select · double-click: create/edit · drag: move (Ctrl: copy) · drop instruments, effects or samples here");
         return clipSlot;
     }
 
@@ -223,8 +233,12 @@ internal sealed class SessionGridView : UserControl
         AddMenuItem(sceneMenu, "Duplicate scene", () => document.DuplicateScene(sceneIndex));
         AddMenuItem(sceneMenu, "Delete scene", () => document.RemoveScene(sceneIndex));
 
-        var launcherLayout = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 6 };
-        Grid.SetColumn(sceneNameInput, 1);
+        var sceneGrip = StudioDragDrop.DragGrip("Drag onto the Arrangement button (or into the arrangement) to add this scene to the song");
+        StudioDragDrop.MakeDragSource(sceneGrip, () => new DragPayload(DragPayloadKind.Scene, SceneIndex: sceneIndex));
+        var launcherLayout = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*"), ColumnSpacing = 4 };
+        Grid.SetColumn(launchButton, 1);
+        Grid.SetColumn(sceneNameInput, 2);
+        launcherLayout.Children.Add(sceneGrip);
         launcherLayout.Children.Add(launchButton);
         launcherLayout.Children.Add(sceneNameInput);
         return new Border
@@ -346,7 +360,7 @@ internal sealed class SessionGridView : UserControl
         {
             stripChild.HorizontalAlignment = HorizontalAlignment.Center;
         }
-        return new Border
+        var mixerStrip = new Border
         {
             Background = StudioTheme.Surface,
             BorderBrush = StudioTheme.TrackBrush(trackIndex),
@@ -355,6 +369,8 @@ internal sealed class SessionGridView : UserControl
             Padding = new Thickness(6, 8),
             Child = stripContent,
         };
+        StudioDragDrop.MakeDropTarget(mixerStrip, host, () => new DropTarget(DropTargetKind.Track, trackIndex));
+        return mixerStrip;
     }
 
     private Control ComposeMasterStrip()

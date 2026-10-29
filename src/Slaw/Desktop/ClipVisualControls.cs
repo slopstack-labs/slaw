@@ -120,6 +120,7 @@ internal sealed class ClipSlotControl : Control
             {
                 drawingContext.DrawRectangle(null, new Pen(StudioTheme.Text, 1), slotBounds, 3, 3);
             }
+            DrawDropHover(drawingContext, slotBounds);
             return;
         }
 
@@ -156,6 +157,15 @@ internal sealed class ClipSlotControl : Control
         else if (IsQueued)
         {
             drawingContext.DrawRectangle(null, new Pen(StudioTheme.Playhead, 1.5), slotBounds, 3, 3);
+        }
+        DrawDropHover(drawingContext, slotBounds);
+    }
+
+    private void DrawDropHover(DrawingContext drawingContext, Rect slotBounds)
+    {
+        if (StudioDragDrop.IsDropHovered(this))
+        {
+            drawingContext.DrawRectangle(null, StudioDragDrop.DropHoverPen, slotBounds.Deflate(1), 3, 3);
         }
     }
 
@@ -272,6 +282,10 @@ internal sealed class ArrangementLaneControl : Control
         if (IsSelected)
         {
             drawingContext.DrawRectangle(null, new Pen(StudioTheme.Text, 1.5), laneBounds, 2, 2);
+        }
+        if (StudioDragDrop.IsDropHovered(this))
+        {
+            drawingContext.DrawRectangle(null, StudioDragDrop.DropHoverPen, laneBounds.Deflate(1), 2, 2);
         }
         if (playheadFraction is { } currentFraction)
         {

@@ -320,20 +320,24 @@ internal sealed class StudioWindow : Window, IStudioHost
         browserContent.Children.Add(StudioUi.SectionHeading("Instruments"));
         foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments)
         {
-            browserContent.Children.Add(BrowserEntry(DeviceCatalog.InstrumentDisplayName(instrumentName), () => document.AddTrack(instrumentName),
-                "Click to add a track with this instrument"));
+            var instrumentEntry = BrowserEntry(DeviceCatalog.InstrumentDisplayName(instrumentName), () => document.AddTrack(instrumentName),
+                "Click to add a track with this instrument, or drag it onto a track to swap its instrument");
+            StudioDragDrop.MakeDragSource(instrumentEntry, () => new DragPayload(DragPayloadKind.Instrument, instrumentName));
+            browserContent.Children.Add(instrumentEntry);
         }
         browserContent.Children.Add(new Border { Height = 10 });
         browserContent.Children.Add(StudioUi.SectionHeading("Audio Effects"));
         foreach (var effectType in DeviceCatalog.EffectTypes)
         {
-            browserContent.Children.Add(BrowserEntry(DeviceCatalog.EffectDisplayName(effectType), () =>
+            var effectEntry = BrowserEntry(DeviceCatalog.EffectDisplayName(effectType), () =>
             {
                 if (document.SelectedTrack is { } selectedTrack)
                 {
                     detailView.AddEffect(selectedTrack, effectType);
                 }
-            }, "Click to add to the selected track"));
+            }, "Click to add to the selected track, or drag it onto any track or into the device chain");
+            StudioDragDrop.MakeDragSource(effectEntry, () => new DragPayload(DragPayloadKind.Effect, effectType));
+            browserContent.Children.Add(effectEntry);
         }
         browserContent.Children.Add(new Border { Height = 10 });
         browserContent.Children.Add(StudioUi.SectionHeading("Samples"));
@@ -500,6 +504,8 @@ internal sealed class StudioWindow : Window, IStudioHost
     private void WireControls()
     {
         sessionViewToggle.Click += (_, _) => SelectMainView(arrangementView: false);
+        StudioDragDrop.MakeDropTarget(arrangementViewToggle, this, () => new DropTarget(DropTargetKind.ArrangementEnd));
+        ToolTip.SetTip(arrangementViewToggle, "Arrangement view (Tab) — drop a scene here to append it to the song");
         arrangementViewToggle.Click += (_, _) => SelectMainView(arrangementView: true);
         tempoInput.ValueChanged += (_, _) =>
         {
@@ -1395,6 +1401,7 @@ internal sealed class StudioWindow : Window, IStudioHost
             FontSize = 11,
         };
         ToolTip.SetTip(sampleEntry, samplePath);
+        StudioDragDrop.MakeDragSource(sampleEntry, () => new DragPayload(DragPayloadKind.Sample, samplePath));
         sampleEntry.Click += (_, _) => PreviewSampleFile(samplePath);
         sampleEntry.DoubleTapped += (_, _) => document.AddSamplerTrack(samplePath);
 
@@ -1518,6 +1525,8 @@ internal sealed class StudioWindow : Window, IStudioHost
             return;
         }
         var sampleEditorWindow = new SampleEditorWindow(document, this, trackIdentifier);
+        StudioDragDrop.MakeDropTarget(sampleEditorWindow.Editor, this,
+            () => new DropTarget(DropTargetKind.SampleEditor, document.Project.Tracks.FindIndex(track => track.Id == trackIdentifier)));
         openSampleEditorWindows[trackIdentifier] = sampleEditorWindow;
         sampleEditorWindow.Closed += (_, _) => openSampleEditorWindows.Remove(trackIdentifier);
         sampleEditorWindow.Show(this);
@@ -1614,6 +1623,211 @@ internal sealed class StudioWindow : Window, IStudioHost
             $"dropped {droppedSamples.Count} sample(s), {droppedFolders.Count} folder(s)" +
             (ignoredCount > 0 ? $"; ignored {ignoredCount} file(s) that are not uncompressed WAV" : string.Empty));
         dragEvent.Handled = true;
+    }
+
+    // ── Drag and drop routing ─────────────────────────────────────────────────
+
+    private static List<string> DroppedSamples(DragPayload dragPayload) => dragPayload.Kind switch
+    {
+        DragPayloadKind.Sample => new List<string> { dragPayload.Value },
+        DragPayloadKind.Files => dragPayload.FilePaths!.Where(droppedPath => File.Exists(droppedPath) && SampleLibrary.IsSupportedFile(droppedPath)).ToList(),
+        _ => new List<string>(),
+    };
+
+    private static List<string> DroppedFolders(DragPayload dragPayload) =>
+        dragPayload.Kind == DragPayloadKind.Files ? dragPayload.FilePaths!.Where(Directory.Exists).ToList() : new List<string>();
+
+    private bool IsValidTrack(int trackIndex) => trackIndex >= 0 && trackIndex < document.Project.Tracks.Count;
+
+    public bool CanDrop(DragPayload dragPayload, DropTarget dropTarget)
+    {
+        var targetsTrack = dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.SampleEditor;
+        if (targetsTrack && !IsValidTrack(dropTarget.TrackIndex))
+        {
+            return false;
+        }
+        return dragPayload.Kind switch
+        {
+            DragPayloadKind.Instrument => dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
+            DragPayloadKind.Effect => dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EffectDevice
+                                      || (dropTarget.Kind is DropTargetKind.DeviceChain or DropTargetKind.EmptyArea && document.SelectedTrack is not null),
+            DragPayloadKind.Sample or DragPayloadKind.Files =>
+                (DroppedSamples(dragPayload).Count > 0 &&
+                 dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain or DropTargetKind.SampleEditor)
+                || (DroppedFolders(dragPayload).Count > 0 && dropTarget.Kind is DropTargetKind.EmptyArea or DropTargetKind.DeviceChain),
+            DragPayloadKind.Clip => dropTarget.Kind == DropTargetKind.ClipSlot &&
+                                    IsValidTrack(dragPayload.TrackIndex) &&
+                                    document.Project.ClipAt(dragPayload.TrackIndex, dragPayload.SceneIndex) is not null &&
+                                    (dropTarget.TrackIndex, dropTarget.SceneIndex) != (dragPayload.TrackIndex, dragPayload.SceneIndex),
+            DragPayloadKind.Scene => dropTarget.Kind is DropTargetKind.ArrangementSection or DropTargetKind.ArrangementEnd,
+            DragPayloadKind.ArrangementSection => dropTarget.Kind is DropTargetKind.ArrangementEnd
+                                                  || (dropTarget.Kind == DropTargetKind.ArrangementSection && dropTarget.Index != dragPayload.Index),
+            DragPayloadKind.EffectDevice => IsValidTrack(dragPayload.TrackIndex) &&
+                                            (dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot && dropTarget.TrackIndex != dragPayload.TrackIndex
+                                             || dropTarget.Kind == DropTargetKind.EffectDevice && !(dropTarget.TrackIndex == dragPayload.TrackIndex && dropTarget.Index == dragPayload.Index)
+                                             || dropTarget.Kind == DropTargetKind.DeviceChain),
+            _ => false,
+        };
+    }
+
+    public void Drop(DragPayload dragPayload, DropTarget dropTarget, bool copyRequested)
+    {
+        var project = document.Project;
+        var targetTrackIndex = dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.SampleEditor or DropTargetKind.EffectDevice
+            ? dropTarget.TrackIndex
+            : document.SelectedTrackIndex;
+
+        switch (dragPayload.Kind)
+        {
+            case DragPayloadKind.Instrument when dropTarget.Kind == DropTargetKind.EmptyArea || !IsValidTrack(targetTrackIndex):
+                document.AddTrack(dragPayload.Value);
+                break;
+
+            case DragPayloadKind.Instrument:
+                {
+                    var targetTrack = project.Tracks[targetTrackIndex];
+                    document.Edit($"switched {targetTrack.Name} to {dragPayload.Value}", _ =>
+                    {
+                        PatternEditingOperations.ChangeInstrument(targetTrack, dragPayload.Value);
+                        targetTrack.InstrumentParameters.Clear();
+                    }, EditScope.Structure);
+                    document.Select(targetTrackIndex, dropTarget.Kind == DropTargetKind.ClipSlot ? dropTarget.SceneIndex : document.SelectedSceneIndex);
+                    break;
+                }
+
+            case DragPayloadKind.Effect:
+                {
+                    if (!IsValidTrack(targetTrackIndex))
+                    {
+                        return;
+                    }
+                    var targetTrack = project.Tracks[targetTrackIndex];
+                    if (targetTrack.Effects.Count >= ProjectAlignmentRemediator.MaximumEffectsPerTrack)
+                    {
+                        SetStatus(StatusSeverity.Warning, $"{targetTrack.Name}'s device chain is full. consolidate your signal flow.");
+                        return;
+                    }
+                    var insertionIndex = dropTarget.Kind == DropTargetKind.EffectDevice ? Math.Clamp(dropTarget.Index, 0, targetTrack.Effects.Count) : targetTrack.Effects.Count;
+                    document.Edit($"added {DeviceCatalog.EffectDisplayName(dragPayload.Value)} to {targetTrack.Name}",
+                        _ => targetTrack.Effects.Insert(insertionIndex, new EffectDevice { Type = dragPayload.Value }), EditScope.Structure);
+                    document.Select(targetTrackIndex, document.SelectedSceneIndex);
+                    break;
+                }
+
+            case DragPayloadKind.Sample or DragPayloadKind.Files:
+                {
+                    foreach (var droppedFolder in DroppedFolders(dragPayload))
+                    {
+                        RegisterSampleFolder(droppedFolder);
+                    }
+                    if (DroppedFolders(dragPayload).Count > 0)
+                    {
+                        _ = RescanSampleLibraryAsync();
+                    }
+                    var droppedSamples = DroppedSamples(dragPayload);
+                    var loadsIntoTarget = droppedSamples.Count == 1 && IsValidTrack(targetTrackIndex) &&
+                                          dropTarget.Kind != DropTargetKind.EmptyArea &&
+                                          (project.Tracks[targetTrackIndex].Instrument == "sampler" || dropTarget.Kind == DropTargetKind.SampleEditor);
+                    if (loadsIntoTarget)
+                    {
+                        document.LoadSampleIntoTrack(targetTrackIndex, droppedSamples[0]);
+                    }
+                    else
+                    {
+                        foreach (var droppedSample in droppedSamples)
+                        {
+                            document.AddSamplerTrack(droppedSample);
+                        }
+                    }
+                    SetStatus(StatusSeverity.Success, $"dropped {droppedSamples.Count} sample(s)" +
+                        (DroppedFolders(dragPayload).Count > 0 ? $" and {DroppedFolders(dragPayload).Count} folder(s)" : string.Empty));
+                    break;
+                }
+
+            case DragPayloadKind.Clip:
+                {
+                    var sourceTrack = project.Tracks[dragPayload.TrackIndex];
+                    var destinationTrack = project.Tracks[dropTarget.TrackIndex];
+                    var sourceClip = sourceTrack.ClipAt(dragPayload.SceneIndex)!;
+                    document.Edit(copyRequested ? "copied a clip" : "moved a clip", _ =>
+                    {
+                        while (destinationTrack.Clips.Count <= dropTarget.SceneIndex)
+                        {
+                            destinationTrack.Clips.Add(null);
+                        }
+                        destinationTrack.Clips[dropTarget.SceneIndex] = copyRequested
+                            ? new SlawClip { Name = sourceClip.Name, Pattern = sourceClip.Pattern.ToList() }
+                            : sourceClip;
+                        if (!copyRequested)
+                        {
+                            sourceTrack.Clips[dragPayload.SceneIndex] = null;
+                        }
+                        // Drum patterns dropped on a melodic track (or the reverse) are re-spelled for their new home.
+                        PatternEditingOperations.ChangeInstrument(destinationTrack, destinationTrack.Instrument);
+                    }, EditScope.Structure);
+                    document.Select(dropTarget.TrackIndex, dropTarget.SceneIndex);
+                    SetStatus(StatusSeverity.Success, copyRequested ? "clip copied" : "clip moved (hold Ctrl while dropping to copy)");
+                    break;
+                }
+
+            case DragPayloadKind.Scene:
+                {
+                    var insertionIndex = dropTarget.Kind == DropTargetKind.ArrangementSection
+                        ? Math.Clamp(dropTarget.Index, 0, project.Arrangement.Count)
+                        : project.Arrangement.Count;
+                    document.Edit($"added the scene {project.Scenes[dragPayload.SceneIndex]} to the arrangement",
+                        editedProject => editedProject.Arrangement.Insert(insertionIndex, new ArrangementSection { Scene = dragPayload.SceneIndex, Repeats = 2 }),
+                        EditScope.Structure);
+                    SetStatus(StatusSeverity.Success, $"\"{project.Scenes[dragPayload.SceneIndex]}\" added to the arrangement");
+                    break;
+                }
+
+            case DragPayloadKind.ArrangementSection:
+                {
+                    document.Edit("reordered the arrangement", editedProject =>
+                    {
+                        var movedSection = editedProject.Arrangement[dragPayload.Index];
+                        editedProject.Arrangement.RemoveAt(dragPayload.Index);
+                        var destinationIndex = dropTarget.Kind == DropTargetKind.ArrangementSection
+                            ? (dropTarget.Index > dragPayload.Index ? dropTarget.Index - 1 : dropTarget.Index)
+                            : editedProject.Arrangement.Count;
+                        editedProject.Arrangement.Insert(Math.Clamp(destinationIndex, 0, editedProject.Arrangement.Count), movedSection);
+                    }, EditScope.Structure);
+                    break;
+                }
+
+            case DragPayloadKind.EffectDevice:
+                {
+                    var sourceTrack = project.Tracks[dragPayload.TrackIndex];
+                    if (!IsValidTrack(targetTrackIndex) || dragPayload.Index >= sourceTrack.Effects.Count)
+                    {
+                        return;
+                    }
+                    var destinationTrack = project.Tracks[targetTrackIndex];
+                    var movedEffect = sourceTrack.Effects[dragPayload.Index];
+                    var effectEditLabel = copyRequested ? "copied an effect" : destinationTrack != sourceTrack ? "moved an effect to another track" : "reordered the device chain";
+                    document.Edit(effectEditLabel, _ =>
+                    {
+                        var transferredEffect = copyRequested
+                            ? new EffectDevice { Type = movedEffect.Type, Enabled = movedEffect.Enabled, Parameters = new Dictionary<string, double>(movedEffect.Parameters) }
+                            : movedEffect;
+                        var insertionIndex = dropTarget.Kind == DropTargetKind.EffectDevice ? dropTarget.Index : destinationTrack.Effects.Count;
+                        if (!copyRequested)
+                        {
+                            sourceTrack.Effects.RemoveAt(dragPayload.Index);
+                            if (destinationTrack == sourceTrack && insertionIndex > dragPayload.Index)
+                            {
+                                insertionIndex--;
+                            }
+                        }
+                        if (destinationTrack.Effects.Count < ProjectAlignmentRemediator.MaximumEffectsPerTrack)
+                        {
+                            destinationTrack.Effects.Insert(Math.Clamp(insertionIndex, 0, destinationTrack.Effects.Count), transferredEffect);
+                        }
+                    }, EditScope.Structure);
+                    break;
+                }
+        }
     }
 
     // ── Window-level input ────────────────────────────────────────────────────

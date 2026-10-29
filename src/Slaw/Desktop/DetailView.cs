@@ -46,6 +46,8 @@ internal sealed class DetailView : UserControl
         Grid.SetColumn(deviceChainHost, 2);
         clipEditorHost.Margin = new Thickness(0, 0, 8, 0);
         deviceChainHost.Margin = new Thickness(8, 0, 0, 0);
+        StudioDragDrop.MakeDropTarget(clipEditorHost, host,
+            () => new DropTarget(DropTargetKind.ClipSlot, document.SelectedTrackIndex, document.SelectedSceneIndex));
         detailLayout.Children.Add(clipEditorHost);
         detailLayout.Children.Add(splitter);
         detailLayout.Children.Add(deviceChainHost);
@@ -133,6 +135,9 @@ internal sealed class DetailView : UserControl
             {
                 activeSampleEditor = new SampleEditorView(document, host, samplerTrack.Id);
                 activeSampleEditorKey = sampleEditorKey;
+                var editedTrackIdentifier = samplerTrack.Id;
+                StudioDragDrop.MakeDropTarget(activeSampleEditor, host,
+                    () => new DropTarget(DropTargetKind.SampleEditor, document.Project.Tracks.FindIndex(track => track.Id == editedTrackIdentifier)));
             }
             else
             {
@@ -331,12 +336,15 @@ internal sealed class DetailView : UserControl
         deviceRow.Children.Add(new Border { Width = 1, Background = StudioTheme.Border, Margin = new Thickness(4, 0) });
         deviceRow.Children.Add(ComposeMasterDevice());
 
-        return new ScrollViewer
+        var deviceChainScroller = new ScrollViewer
         {
             Content = deviceRow,
+            Background = Brushes.Transparent,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
         };
+        StudioDragDrop.MakeDropTarget(deviceChainScroller, host, () => new DropTarget(DropTargetKind.DeviceChain));
+        return deviceChainScroller;
     }
 
     private Control ComposeInstrumentDevice(SlawTrack track, int trackIndex)
@@ -435,7 +443,10 @@ internal sealed class DetailView : UserControl
             }
         };
 
+        var effectGrip = StudioDragDrop.DragGrip("Drag to reorder, or onto another track to move it (Ctrl: copy)");
+        StudioDragDrop.MakeDragSource(effectGrip, () => new DragPayload(DragPayloadKind.EffectDevice, TrackIndex: trackIndex, Index: effectIndex));
         var titleRow = StudioUi.Row(2,
+            effectGrip,
             enabledToggle,
             StudioUi.Button("◀", () => MoveEffect(track, effectIndex, -1), "Move left", compact: true),
             StudioUi.Button("▶", () => MoveEffect(track, effectIndex, 1), "Move right", compact: true),
@@ -459,6 +470,7 @@ internal sealed class DetailView : UserControl
             ToolTip.SetTip(devicePanel, effectDescription);
         }
         devicePanel.Opacity = effectDevice.Enabled ? 1 : 0.55;
+        StudioDragDrop.MakeDropTarget(devicePanel, host, () => new DropTarget(DropTargetKind.EffectDevice, trackIndex, Index: effectIndex));
         return devicePanel;
     }
 

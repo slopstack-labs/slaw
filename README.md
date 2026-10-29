@@ -226,6 +226,25 @@ The `sampler` instrument ("Sampler") plays your own WAV files, pitched across th
 
 slaw itself still ships zero samples. These are yours, and therefore your responsibility.
 
+### Drag and drop
+
+Almost everything can be dragged somewhere it makes sense. Drop targets glow green while they would accept what you're holding.
+
+| Drag | Drop on | Result |
+|------|---------|--------|
+| Instrument (browser) | a track header, mixer strip, clip slot or arrangement lane | swaps that track's instrument |
+| Instrument (browser) | empty space | new track |
+| Effect (browser) | any track, or the device chain | appends the effect (drop on a device to insert before it) |
+| Sample (browser) or WAV file (file manager) | a sampler track, its clip slots, or the sample editor | loads it into that sampler |
+| Sample or WAV file | empty space, or a non-sampler track | new sampler track(s) |
+| Folder (file manager) | anywhere | joins the sample library |
+| Clip | another clip slot | moves it; hold **Ctrl** (or Alt) to copy. Drum ↔ melodic notation is re-spelled for its new track. |
+| Scene ⠿ grip | the **Arrangement** button, a section, or **+ Section** | adds that scene to the song |
+| Arrangement section ⠿ grip | another section, or **+ Section** | reorders the song |
+| Effect device ⠿ grip | another device, or another track | reorders the chain, or moves the effect to that track (**Ctrl** copies) |
+
+Every drop is a single undoable edit.
+
 ### Sample editor
 
 Open it from the sampler device (**✎ Edit**, or **⤢** for its own resizable window), from the **Sample** tab next to **Clip** in the detail panel, or with `slaw studio --view sample`. Every edit is non-destructive: it is stored in the project as data, undoable with Ctrl+Z, and the source WAV is never touched.

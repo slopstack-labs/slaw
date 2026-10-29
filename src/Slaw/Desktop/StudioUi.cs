@@ -46,6 +46,12 @@ internal interface IStudioHost
     /// <summary>Opens (or focuses) the large sample editor window for a sampler track.</summary>
     void OpenSampleEditorWindow(string trackIdentifier);
 
+    /// <summary>Whether <paramref name="dragPayload"/> may be dropped on <paramref name="dropTarget"/>.</summary>
+    bool CanDrop(DragPayload dragPayload, DropTarget dropTarget);
+
+    /// <summary>Performs a drop as a single undoable edit. <paramref name="copyRequested"/> is Ctrl/Alt held.</summary>
+    void Drop(DragPayload dragPayload, DropTarget dropTarget, bool copyRequested);
+
     void GenerateClipWithAi(int trackIndex, int sceneIndex);
     void RenameTrackWithAi(int trackIndex);
 
