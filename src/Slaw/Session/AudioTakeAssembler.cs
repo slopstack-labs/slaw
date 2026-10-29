@@ -115,6 +115,70 @@ internal static class AudioTakeAssembler
         return takeClip;
     }
 
+    /// <summary>Longest timeline clip one slice of a take fills: the longest pattern a clip may have.</summary>
+    public const int TimelineTakeSliceSteps = ProjectAlignmentRemediator.MaximumStepCount;
+
+    /// <summary>A sliced take's first note: low, so a whole song's worth of slices still has notes to spare.</summary>
+    public const int SlicedTakeRootNote = 24;
+
+    /// <summary>
+    /// A track can hold one sample, so a new timeline take goes on a fresh track
+    /// whenever this one already plays a take somewhere (on the timeline or in a scene).
+    /// </summary>
+    public static bool NeedsFreshTimelineTrack(SlawProject project, SlawTrack track) =>
+        track.Sample is not null &&
+        (project.Timeline.Any(timelineClip => timelineClip.TrackId == track.Id) ||
+         track.Clips.OfType<SlawClip>().Any(clip => clip.Pattern.Any(step => NotationResolver.ResolveOrRest(step).Kind == StepEventKind.Trigger)));
+
+    /// <summary>
+    /// Puts a take on the free timeline at <paramref name="startStep"/>. A take
+    /// longer than one clip's pattern is sliced every <see cref="TimelineTakeSliceSteps"/>
+    /// steps, one slice per consecutive timeline clip, so a whole song can be sung
+    /// in one pass. Slices play one-shot: each runs to its end, with no gate
+    /// cutting it short and nothing looping back over it. Returns the new clips.
+    /// </summary>
+    public static List<TimelineClip> ApplyTimelineTake(SlawProject project, SlawTrack track, string samplePath, int startStep, int takeFrameCount, int sampleRate)
+    {
+        var takeSteps = Math.Max(1, (int)Math.Ceiling(takeFrameCount / (double)sampleRate / project.StepDurationSeconds));
+        var sliceCount = Math.Min((takeSteps + TimelineTakeSliceSteps - 1) / TimelineTakeSliceSteps, 127 - SlicedTakeRootNote + 1);
+        var rootNote = sliceCount > 1 ? SlicedTakeRootNote : TakeRootNote;
+
+        track.Instrument = "sampler";
+        track.Sample = Path.GetFullPath(samplePath);
+        foreach (var (parameterKey, parameterValue) in UnalteredPlaybackParameters)
+        {
+            track.InstrumentParameters[parameterKey] = parameterValue;
+        }
+        track.InstrumentParameters["root"] = rootNote;
+        track.InstrumentParameters["hold"] = 0;
+        track.SampleEditing = sliceCount > 1
+            ? new SampleEditSettings
+            {
+                PlaybackMode = SampleEditSettings.SliceMode,
+                SlicePointsSeconds = Enumerable.Range(1, sliceCount - 1)
+                    .Select(sliceIndex => sliceIndex * TimelineTakeSliceSteps * project.StepDurationSeconds)
+                    .ToList(),
+            }
+            : null;
+
+        var takeClips = new List<TimelineClip>();
+        for (var sliceIndex = 0; sliceIndex < sliceCount; sliceIndex++)
+        {
+            var sliceSteps = Math.Min(TimelineTakeSliceSteps, takeSteps - sliceIndex * TimelineTakeSliceSteps);
+            var slicePattern = Enumerable.Repeat(NotationResolver.RestSymbol, sliceSteps).ToList();
+            ClipNoteEditor.AddNote(slicePattern, 0, rootNote + sliceIndex, sliceSteps);
+            takeClips.Add(new TimelineClip
+            {
+                TrackId = track.Id,
+                StartStep = Math.Max(0, startStep) + sliceIndex * TimelineTakeSliceSteps,
+                LengthSteps = sliceSteps,
+                Clip = new SlawClip { Name = sliceCount > 1 ? $"{track.Name} {sliceIndex + 1}/{sliceCount}" : track.Name, Pattern = slicePattern },
+            });
+        }
+        project.Timeline.AddRange(takeClips);
+        return takeClips;
+    }
+
     /// <summary>Sampler settings that play a take exactly as it was recorded, starting the moment its note does.</summary>
     public static IReadOnlyDictionary<string, double> UnalteredPlaybackParameters { get; } = new Dictionary<string, double>
     {

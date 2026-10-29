@@ -198,6 +198,20 @@ internal sealed class FreeTimelineView : UserControl
             return trackToggle;
         }
 
+        var toggleRow = StudioUi.Row(3,
+            TrackToggle("M", "Mute", () => track.Muted, muted => track.Muted = muted, "toggled mute on"),
+            TrackToggle("S", "Solo", () => track.Solo, soloed => track.Solo = soloed, "toggled solo on"));
+        if (track.Instrument == "sampler")
+        {
+            // In the Free view, ● Rec puts the armed track's take straight onto the timeline.
+            var recordArmToggle = new ToggleButton { Content = "●", IsChecked = host.IsArmedForRecording(track.Id), Padding = new Thickness(6, 1), FontSize = 11, MinHeight = 20 };
+            recordArmToggle.Foreground = recordArmToggle.IsChecked == true ? StudioTheme.Failure : StudioTheme.TextMuted;
+            ToolTip.SetTip(recordArmToggle, "Arm for audio recording: ● Rec (F9) then records the microphone onto the timeline from the cursor");
+            recordArmToggle.Click += (_, _) => host.ToggleRecordArm(track.Id);
+            toggleRow.Children.Add(recordArmToggle);
+        }
+        toggleRow.Children.Add(StudioUi.Caption(DeviceCatalog.InstrumentDisplayName(track.Instrument), 10));
+
         var trackHeader = new Border
         {
             Background = StudioTheme.Surface,
@@ -213,10 +227,7 @@ internal sealed class FreeTimelineView : UserControl
                 Children =
                 {
                     StudioUi.Caption(track.Name, 12, StudioTheme.Text, FontWeight.SemiBold),
-                    StudioUi.Row(3,
-                        TrackToggle("M", "Mute", () => track.Muted, muted => track.Muted = muted, "toggled mute on"),
-                        TrackToggle("S", "Solo", () => track.Solo, soloed => track.Solo = soloed, "toggled solo on"),
-                        StudioUi.Caption(DeviceCatalog.InstrumentDisplayName(track.Instrument), 10)),
+                    toggleRow,
                 },
             },
         };

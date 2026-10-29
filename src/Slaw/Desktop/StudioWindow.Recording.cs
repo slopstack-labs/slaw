@@ -18,6 +18,9 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// the take: it becomes a WAV in recordings/, loaded into the armed track and
 /// triggered on the step it was sung on.
 ///
+/// In the Free view (or while the free timeline plays) the take goes on the
+/// timeline instead, at the step it was sung on, with no scene involved.
+///
 /// No input monitoring: slaw's output runs through a pipe with tens of
 /// milliseconds of buffering, so hearing yourself through it would be a slapback
 /// delay with a feedback risk. Use your interface's or PipeWire's direct monitoring.
@@ -39,7 +42,11 @@ internal sealed partial class StudioWindow
     private sealed class AudioTakeInProgress
     {
         public required string TrackId { get; init; }
+
+        /// <summary>The scene recorded into, or -1 for a take on the free timeline.</summary>
         public required int SceneIndex { get; init; }
+
+        public bool OnTimeline => SceneIndex < 0;
         public required double StepSeconds { get; init; }
         public required int ClipLength { get; init; }
 
@@ -85,6 +92,7 @@ internal sealed partial class StudioWindow
         }
         RefreshInputMeterVisibility();
         sessionView.Rebuild();
+        freeTimelineView?.Rebuild();
     }
 
     /// <summary>Adds an empty sampler track to record into, and arms it.</summary>
@@ -161,6 +169,7 @@ internal sealed partial class StudioWindow
         CloseAudioInput();
         RefreshInputMeterVisibility();
         sessionView.Rebuild();
+        freeTimelineView?.Rebuild();
     }
 
     /// <summary>Re-opens the input after Settings changed the tool or device.</summary>
@@ -203,6 +212,11 @@ internal sealed partial class StudioWindow
         var transportPlaying = PlaybackToggle.IsAudiblyPlaying(transportSnapshot);
         if (!transportPlaying && !launchIfStopped)
         {
+            return;
+        }
+        if (transportPlaying ? transportSnapshot.Mode == TransportMode.Timeline : freeViewActive)
+        {
+            BeginTimelineAudioTake(armedTrack, transportPlaying);
             return;
         }
 
@@ -290,7 +304,9 @@ internal sealed partial class StudioWindow
         if (capturedTake is null || takeTrack is null || finishedTake.AnchorPosition is not { } anchorPosition ||
             capturedTake.FirstFrameTimestamp == 0 || capturedTake.Samples.Length < MinimumTakeSeconds * capturedTake.SampleRate)
         {
-            SetStatus(StatusSeverity.Warning, "take discarded: nothing was captured while the clip played");
+            SetStatus(StatusSeverity.Warning, finishedTake.OnTimeline
+                ? "take discarded: nothing was captured while the timeline played"
+                : "take discarded: nothing was captured while the clip played");
             return;
         }
 
@@ -325,20 +341,75 @@ internal sealed partial class StudioWindow
         {
             document.BeginEdit($"record audio into {takeTrack.Name}");
         }
-        AudioTakeAssembler.ApplyTake(project, takeTrack, finishedTake.SceneIndex, takePath, takePlacement.StartStep, takeSamples.Length, capturedTake.SampleRate);
+        if (finishedTake.OnTimeline)
+        {
+            AudioTakeAssembler.ApplyTimelineTake(project, takeTrack, takePath, takePlacement.StartStep, takeSamples.Length, capturedTake.SampleRate);
+        }
+        else
+        {
+            AudioTakeAssembler.ApplyTake(project, takeTrack, finishedTake.SceneIndex, takePath, takePlacement.StartStep, takeSamples.Length, capturedTake.SampleRate);
+        }
         var takeSeconds = takeSamples.Length / (double)capturedTake.SampleRate;
         document.CommitEdit(string.Create(CultureInfo.InvariantCulture, $"recorded a {takeSeconds:0.0} s take on {takeTrack.Name}"), EditScope.Structure);
+        var takePosition = finishedTake.OnTimeline ? $"the timeline at {FreeTimeline.FormatPosition(takePlacement.StartStep)}" : $"step {takePlacement.StartStep + 1}";
         SetStatus(StatusSeverity.Success, string.Create(CultureInfo.InvariantCulture,
-            $"take recorded: {takeSeconds:0.0} s from step {takePlacement.StartStep + 1} → {Path.GetFileName(takePath)} — Ctrl+Z removes it"));
+            $"take recorded: {takeSeconds:0.0} s from {takePosition} → {Path.GetFileName(takePath)} — Ctrl+Z removes it"));
+    }
+
+    /// <summary>
+    /// A take on the free timeline: no clip has to exist first, because the
+    /// timeline position itself says where the take starts.
+    /// </summary>
+    private void BeginTimelineAudioTake(SlawTrack armedTrack, bool transportPlaying)
+    {
+        var project = document.Project;
+        var takeTrack = armedTrack;
+        var undoLabel = $"record audio into {armedTrack.Name} ({Stopwatch.GetTimestamp()})";
+        if (AudioTakeAssembler.NeedsFreshTimelineTrack(project, armedTrack) && project.Tracks.Count < ProjectAlignmentRemediator.MaximumTrackCount)
+        {
+            document.BeginEdit(undoLabel);
+            takeTrack = AudioTakeAssembler.CreateTakeTrack(project, armedTrack);
+            project.Tracks.Insert(project.Tracks.IndexOf(armedTrack) + 1, takeTrack);
+            recordArmedTrackId = takeTrack.Id;
+            document.CommitEdit($"armed a take on {takeTrack.Name}", EditScope.Structure, notifyCopilot: false);
+        }
+
+        audioInputSource!.BeginTake();
+        activeAudioTake = new AudioTakeInProgress
+        {
+            TrackId = takeTrack.Id,
+            SceneIndex = -1,
+            StepSeconds = project.StepDurationSeconds,
+            ClipLength = int.MaxValue,
+            ClipWasRunning = false,
+            UndoLabel = undoLabel,
+            StartedTimestamp = Stopwatch.GetTimestamp(),
+        };
+        if (!transportPlaying)
+        {
+            PlayTimelineFrom(freeTimelineView?.CursorStep ?? 0);
+        }
+        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} onto the free timeline — stop the transport or ● Rec to end the take");
     }
 
     /// <summary>
     /// The armed clip's position as heard right now, without wrapping, or null
     /// until its playhead runs. Same latency model as <see cref="AudiblePlayheadPosition"/>.
+    /// A timeline take (<paramref name="sceneIndex"/> &lt; 0) uses the timeline position instead.
     /// </summary>
     private double? UnwrappedAudibleClipPosition(string trackIdentifier, int sceneIndex)
     {
         var transportSnapshot = liveAudioSession.Engine.Transport;
+        if (sceneIndex < 0)
+        {
+            if (transportSnapshot.Mode != TransportMode.Timeline || transportSnapshot.StepDurationSeconds <= 0 || transportSnapshot.TimelineStep < 0)
+            {
+                return null;
+            }
+            var secondsSinceTimelinePublished = Stopwatch.GetElapsedTime(transportSnapshot.PublishedTimestamp).TotalSeconds;
+            var timelineOutputLatencySeconds = (preferences.AudioLatencyMilliseconds + 30) / 1000.0;
+            return transportSnapshot.TimelineStep + (secondsSinceTimelinePublished - timelineOutputLatencySeconds) / transportSnapshot.StepDurationSeconds;
+        }
         if (transportSnapshot.Mode == TransportMode.Stopped || transportSnapshot.StepDurationSeconds <= 0 ||
             !transportSnapshot.Tracks.TryGetValue(trackIdentifier, out var trackState) ||
             trackState.PlayingScene != sceneIndex || trackState.ClipStep is not { } renderedStep)
@@ -396,7 +467,7 @@ internal sealed partial class StudioWindow
             var elapsed = Stopwatch.GetElapsedTime(takeInProgress.StartedTimestamp);
             var takeTrackName = document.Project.Tracks.FirstOrDefault(track => track.Id == takeInProgress.TrackId)?.Name ?? "track";
             SetStatus(StatusSeverity.Failure, takeInProgress.AnchorPosition is null
-                ? $"● {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · {takeTrackName} · waiting for the clip to come around…"
+                ? $"● {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · {takeTrackName} · waiting for the {(takeInProgress.OnTimeline ? "timeline" : "clip")} to start…"
                 : $"● {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · recording {takeTrackName}");
         }
     }

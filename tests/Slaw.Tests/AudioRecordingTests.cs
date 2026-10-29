@@ -109,6 +109,51 @@ public class AudioRecordingTests
     }
 
     [Fact]
+    public void LongTimelineTakesAreSlicedIntoConsecutiveClipsThatPlayWithoutGaps()
+    {
+        var workingFolder = Directory.CreateTempSubdirectory("slaw-take-").FullName;
+        try
+        {
+            // 18 s of 220 Hz at 120 BPM (0.125 s steps) is 144 steps: slices of 64 + 64 + 16, from bar 2.
+            var takeSamples = Enumerable.Range(0, 18 * TakeSampleRate)
+                .Select(frame => (float)(0.5 * Math.Sin(2 * Math.PI * 220 * frame / TakeSampleRate)))
+                .ToArray();
+            var takePath = Path.Combine(workingFolder, "timeline-take.wav");
+            AudioTakeAssembler.WriteTakeWave(takePath, takeSamples, TakeSampleRate);
+
+            var project = OneSceneProject();
+            var vocalTrack = AudioTakeAssembler.CreateTakeTrack(project, template: null);
+            vocalTrack.Gain = 1;
+            project.Tracks.Add(vocalTrack);
+            var takeClips = AudioTakeAssembler.ApplyTimelineTake(project, vocalTrack, takePath, startStep: 16, takeSamples.Length, TakeSampleRate);
+
+            Assert.Equal(new[] { (16, 64), (80, 64), (144, 16) }, takeClips.Select(clip => (clip.StartStep, clip.LengthSteps)));
+            Assert.Equal(new[] { 24, 25, 26 }, takeClips.Select(clip => ClipNoteEditor.NotesStartingAt(clip.Clip.Pattern, 0).Single().MidiNote));
+            Assert.Equal(SampleEditSettings.SliceMode, vocalTrack.SampleEditing!.PlaybackMode);
+            Assert.Equal(new[] { 8.0, 16.0 }, vocalTrack.SampleEditing.SlicePointsSeconds);
+            Assert.Equal(0, vocalTrack.InstrumentParameters["hold"]);
+            Assert.True(AudioTakeAssembler.NeedsFreshTimelineTrack(project, vocalTrack));
+
+            var render = OfflineArrangementRenderer.RenderTimeline(project, TakeSampleRate).Left;
+            var stepFrames = (int)(project.StepDurationSeconds * TakeSampleRate);
+            Assert.True(render.Take(16 * stepFrames - 10).Max(Math.Abs) < 0.001, "nothing plays before the take's bar");
+            // Around each slice boundary the tone carries on: no gate gap, no declick hole longer than a few milliseconds.
+            foreach (var boundaryStep in new[] { 80, 144 })
+            {
+                var windowStart = boundaryStep * stepFrames - TakeSampleRate / 20;
+                var quietestTenMilliseconds = Enumerable.Range(0, 10)
+                    .Select(windowIndex => render.Skip(windowStart + windowIndex * TakeSampleRate / 100).Take(TakeSampleRate / 100).Max(Math.Abs))
+                    .Min();
+                Assert.True(quietestTenMilliseconds > 0.2, $"gap at step {boundaryStep}: {quietestTenMilliseconds}");
+            }
+        }
+        finally
+        {
+            Directory.Delete(workingFolder, recursive: true);
+        }
+    }
+
+    [Fact]
     public void TakeWavesRoundTripThroughTheSampleLibrary()
     {
         var workingFolder = Directory.CreateTempSubdirectory("slaw-wave-").FullName;
