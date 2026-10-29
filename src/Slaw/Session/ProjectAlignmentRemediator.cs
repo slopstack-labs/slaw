@@ -270,6 +270,7 @@ internal static class ProjectAlignmentRemediator
             {
                 remediationLedger.Add($"{track.Name}: hallucinated effect \"{effectDevice.Type}\" removed");
                 track.Effects.RemoveAt(effectIndex);
+                ClipAutomation.ForgetEffectSlot(track, effectIndex);
                 continue;
             }
             if (resolvedEffectType != effectDevice.Type)

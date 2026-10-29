@@ -142,11 +142,27 @@ internal static class ClipAutomation
             .ToList();
     }
 
+    /// <summary>Removing effect <paramref name="removedEffectIndex"/> drops its lanes and shifts later ones down.</summary>
+    public static void ForgetEffectSlot(SlawTrack track, int removedEffectIndex) =>
+        RemapEffectSlots(track, effectIndex => effectIndex == removedEffectIndex ? null : effectIndex > removedEffectIndex ? effectIndex - 1 : effectIndex);
+
+    /// <summary>Inserting an effect at <paramref name="insertedEffectIndex"/> shifts the lanes at and after it up.</summary>
+    public static void MakeRoomForEffectSlot(SlawTrack track, int insertedEffectIndex) =>
+        RemapEffectSlots(track, effectIndex => effectIndex >= insertedEffectIndex ? effectIndex + 1 : effectIndex);
+
+    /// <summary>Moving an effect within the chain takes its lanes along and shifts the ones in between.</summary>
+    public static void MoveEffectSlot(SlawTrack track, int sourceEffectIndex, int destinationEffectIndex) =>
+        RemapEffectSlots(track, effectIndex =>
+            effectIndex == sourceEffectIndex ? destinationEffectIndex
+            : sourceEffectIndex < destinationEffectIndex && effectIndex > sourceEffectIndex && effectIndex <= destinationEffectIndex ? effectIndex - 1
+            : sourceEffectIndex > destinationEffectIndex && effectIndex >= destinationEffectIndex && effectIndex < sourceEffectIndex ? effectIndex + 1
+            : effectIndex);
+
     /// <summary>
-    /// Keeps envelopes meaningful after the device chain changes shape: removing
-    /// effect <paramref name="removedEffectIndex"/> drops its lanes and shifts later ones down.
+    /// Keeps envelopes attached to their devices when the chain changes shape.
+    /// <paramref name="remapEffectIndex"/> returns a lane's new effect index, or null to drop it.
     /// </summary>
-    public static void ForgetEffectSlot(SlawTrack track, int removedEffectIndex)
+    public static void RemapEffectSlots(SlawTrack track, Func<int, int?> remapEffectIndex)
     {
         foreach (var clip in track.Clips)
         {
@@ -154,20 +170,19 @@ internal static class ClipAutomation
             {
                 continue;
             }
-            var reindexedEnvelopes = new Dictionary<string, List<AutomationPoint>>();
+            var remappedEnvelopes = new Dictionary<string, List<AutomationPoint>>();
             foreach (var (targetKey, points) in envelopes)
             {
                 if (!TryParseEffectTarget(targetKey, out var effectIndex, out var parameterKey))
                 {
-                    reindexedEnvelopes[targetKey] = points;
+                    remappedEnvelopes[targetKey] = points;
                 }
-                else if (effectIndex != removedEffectIndex)
+                else if (remapEffectIndex(effectIndex) is { } remappedIndex)
                 {
-                    var shiftedIndex = effectIndex > removedEffectIndex ? effectIndex - 1 : effectIndex;
-                    reindexedEnvelopes[FormattableString.Invariant($"{EffectTargetPrefix}{shiftedIndex}.{parameterKey}")] = points;
+                    remappedEnvelopes[FormattableString.Invariant($"{EffectTargetPrefix}{remappedIndex}.{parameterKey}")] = points;
                 }
             }
-            clip.Automation = reindexedEnvelopes.Count > 0 ? reindexedEnvelopes : null;
+            clip.Automation = remappedEnvelopes.Count > 0 ? remappedEnvelopes : null;
         }
     }
 

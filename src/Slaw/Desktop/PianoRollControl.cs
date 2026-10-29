@@ -14,7 +14,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// </summary>
 internal sealed class PianoRollControl : Control
 {
-    private const double KeyboardGutterWidth = 44;
+    internal const double KeyboardGutterWidth = 44;
     private const int LowestAllowedMidiNote = 12;
     private const int HighestAllowedMidiNote = 120;
     private const int StepsPerBeat = 4;

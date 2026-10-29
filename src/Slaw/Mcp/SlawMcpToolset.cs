@@ -96,12 +96,16 @@ internal sealed class SlawMcpToolset
             "List every instrument and audio effect with its parameter keys and ranges, plus the pattern step vocabulary.",
             Schema(new JsonObject()),
             (_, _, _) => Task.FromResult(PromptLibrary.DescribeDeviceCatalog() +
-                "\nPattern steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \"_\" hold previous note, \".\" silence. Clips are usually 16 steps (one bar of sixteenths)."));
+                "\nPattern steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \"_\" hold previous note, \".\" silence. Clips are usually 16 steps (one bar of sixteenths)." +
+                "\nClip envelopes (set_automation, or \"automation\" in apply_patch) move a parameter while a clip plays, as [step, value] breakpoints joined linearly. " +
+                "Targets: gain (0..1.5), pan (-1..1), pitch (semitones -24..24; oscillators bend in place, samples/plucks/drums bend tape-style), " +
+                "fx.<effectIndex>.<param> (an effect parameter, continuous), inst.<param> (an instrument parameter, sampled as each note starts). Values use the catalog's units."));
 
         Register("apply_patch",
             "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], arrangement [{scene, repeats}], " +
             "tracks [{id (existing id or \"new\"), name, instrument, sample, gain, pan, muted, solo, instrumentParameters {key: number}, " +
-            "effects [{type, enabled, parameters}] (replaces the list), clips {\"<sceneIndex>\": \"x . . . x . . .\" or null}, remove: true}], " +
+            "effects [{type, enabled, parameters}] (replaces the list), clips {\"<sceneIndex>\": \"x . . . x . . .\" or null}, " +
+            "automation {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}} (merged into that clip's envelopes, see get_catalog), remove: true}], " +
             "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix}. Undoable in the studio.",
             Schema(new JsonObject { ["patch"] = Property("object", "The patch object.") }, "patch"),
             async (toolArguments, clientName, _) =>
@@ -159,8 +163,14 @@ internal sealed class SlawMcpToolset
                 {
                     targetTrack.Clips.Add(null);
                 }
+                // New notes keep the clip's envelopes; clearing the clip clears them too.
                 targetTrack.Clips[sceneIndex] = stepList is { Count: > 0 }
-                    ? new SlawClip { Name = ReadString(toolArguments["name"]) ?? targetTrack.Clips[sceneIndex]?.Name ?? document.Project.Scenes[sceneIndex], Pattern = stepList }
+                    ? new SlawClip
+                    {
+                        Name = ReadString(toolArguments["name"]) ?? targetTrack.Clips[sceneIndex]?.Name ?? document.Project.Scenes[sceneIndex],
+                        Pattern = stepList,
+                        Automation = targetTrack.Clips[sceneIndex]?.Automation,
+                    }
                     : null;
                 ProjectAlignmentRemediator.Remediate(document.Project);
                 document.Project.AiProvenance = $"{clientName} via MCP";
@@ -170,6 +180,44 @@ internal sealed class SlawMcpToolset
                 return writtenClip is null
                     ? $"cleared the clip of {targetTrack.Name} in scene {sceneIndex}"
                     : $"{targetTrack.Name} · scene {sceneIndex} ({document.Project.Scenes[sceneIndex]}): {string.Join(' ', writtenClip.Pattern)}";
+            }));
+
+        Register("set_automation",
+            "Write (or clear) a clip envelope: a parameter that moves while the clip plays. Targets: gain, pan, pitch, " +
+            "fx.<effectIndex>.<param>, inst.<param> (see get_catalog). Points are [step, value] pairs, step 0..clip length, joined linearly; " +
+            "values hold before the first and after the last point. E.g. a dubstep filter wobble: target \"fx.0.cutoff\", " +
+            "points [[0,300],[2,2500],[4,300],[6,2500],[8,300]].",
+            Schema(new JsonObject
+            {
+                ["track"] = AnyProperty(TrackReferenceDescription),
+                ["scene"] = Property("integer", "0-based scene index of an existing clip."),
+                ["target"] = Property("string", "Target key, e.g. \"fx.0.cutoff\", \"pitch\", \"gain\", \"inst.attack\"."),
+                ["points"] = AnyProperty("Array of [step, value] pairs (or {step, value} objects); null or [] removes the envelope."),
+            }, "track", "scene", "target", "points"),
+            async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
+            {
+                var document = host.Document;
+                var (_, targetTrack) = ResolveTrack(toolArguments["track"]);
+                RejectLocked(targetTrack);
+                var sceneIndex = (int)(ReadDouble(toolArguments["scene"]) ?? throw new McpInvalidParamsException("scene is required"));
+                if (targetTrack.ClipAt(sceneIndex) is not { } automatedClip)
+                {
+                    throw new McpInvalidParamsException($"{targetTrack.Name} has no clip in scene {sceneIndex}; write one with set_clip first");
+                }
+                var targetKey = ReadString(toolArguments["target"]) ?? throw new McpInvalidParamsException("target is required");
+                if (ClipAutomation.ResolveTarget(targetTrack, targetKey) is not { } automationTarget)
+                {
+                    var validTargets = string.Join(", ", ClipAutomation.TargetsFor(targetTrack).Select(target => target.Key));
+                    throw new McpInvalidParamsException($"{targetTrack.Name} has no automation target \"{targetKey}\". valid: {validTargets}");
+                }
+                document.BeginEdit($"{clientName}: envelope");
+                ProjectPatchApplier.ApplyClipAutomation(targetTrack, automatedClip, new JsonObject { [targetKey] = toolArguments["points"]?.DeepClone() });
+                document.Project.AiProvenance = $"{clientName} via MCP";
+                document.CommitEdit($"{clientName} automated {automationTarget.Label} on {targetTrack.Name}", EditScope.Structure);
+                host.OnAgentEdit(clientName, $"automated {automationTarget.Label} on {targetTrack.Name}");
+                return automatedClip.Automation?.GetValueOrDefault(targetKey) is { } writtenPoints
+                    ? $"{targetTrack.Name} · scene {sceneIndex}: {ClipAutomation.Describe(targetKey, writtenPoints)} ({automationTarget.Label})"
+                    : $"removed the {automationTarget.Label} envelope from {targetTrack.Name} · scene {sceneIndex}";
             }));
 
         Register("add_track",

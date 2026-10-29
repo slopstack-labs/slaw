@@ -279,8 +279,8 @@ claude mcp add slaw -- slaw mcp /path/to/song.slaw
 | Tool | Does |
 |------|------|
 | `get_project` / `get_catalog` | Describe the project (compact listing or full JSON), and list every instrument, effect and parameter range |
-| `apply_patch` | Apply a patch in the same format the Autopilot uses: tempo, scenes, arrangement, tracks (`"id": "new"` adds one), clips as `"x . . . x"` strings, effects, master |
-| `set_clip`, `add_track`, `update_track`, `add_effect`, `set_tempo` | Focused edits |
+| `apply_patch` | Apply a patch in the same format the Autopilot uses: tempo, scenes, arrangement, tracks (`"id": "new"` adds one), clips as `"x . . . x"` strings, clip envelopes, effects, master |
+| `set_clip`, `set_automation`, `add_track`, `update_track`, `add_effect`, `set_tempo` | Focused edits (`set_automation` writes a clip envelope) |
 | `transport` | `play_scene`, `play_arrangement`, `stop` (live studio only) |
 | `render`, `save_project`, `undo`, `redo` | Bounce to WAV, save, history |
 | `list_samples` | Your sample library, for sampler tracks |
@@ -331,6 +331,23 @@ All synthesized in-house, because a plugin would imply someone wrote it on purpo
 | **Neural Vibe Enhancer™** | Synergy = saturation, Disruption = noise, Alignment = does nothing. A placebo, validated in user studies. |
 
 Pattern steps can also be chords, written `"A3+C4+E4"`.
+
+### Automation (clip envelopes)
+
+Every clip can carry envelopes: parameters that change while the clip plays, in session and arrangement alike. Strategic pivots, on a schedule.
+
+- Open **∿ Envelopes** in the clip editor, pick a target, and draw. Click to add a breakpoint, drag it to move it (it snaps to quarter steps; hold Shift for none), and right-click or double-click to remove it. **Clear lane** hands control back to the knob.
+- Values hold before the first breakpoint and after the last, and move in a straight line between them. Envelopes are evaluated every 64 samples, so a sweep sounds like a sweep, not a staircase.
+- While the clip isn't playing, the knob's own value applies.
+
+| Target | Moves |
+|--------|-------|
+| `gain`, `pan` | The track's mixer, continuously |
+| `pitch` | Semitones (±24). Oscillators bend in place and keep their length; samples, plucks and drums bend tape-style |
+| `fx.<index>.<param>` | One device's parameter, continuously: `fx.0.cutoff` is the classic filter sweep |
+| `inst.<param>` | An instrument parameter, read as each note starts (voices are rendered whole) |
+
+Moving, removing or inserting devices takes their envelopes along. Agents write envelopes with the `set_automation` MCP tool or `"automation"` in a patch.
 
 ### Mouse and knobs
 
@@ -432,7 +449,7 @@ A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `track
 }
 ```
 
-Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck` (Karplus-Strong), `noise`, and `sampler` (plays the WAV named by the track's `sample` field; paths next to or below the project are stored relative). Pattern steps are pitches (`"C4"`, `"D#3"`, `"Bb2"`), chords (`"A3+C4+E4"`), `"x"` to trigger, `"_"` to sustain the previous note, or `"."` for silence. A note can also carry its own length in steps: in `"C4:12+E4:2"`, C4 rings for 12 steps and E4 for 2, so chord notes can end at different times and a long note can ring under later ones. In the piano roll, drag a note to set its length. `clips` holds one entry per scene (`null` is an empty slot); effect `type`s are `lowpass`, `highpass`, `delay`, `reverb`, `drive`, `bitcrush` and `vibe`.
+Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck` (Karplus-Strong), `noise`, and `sampler` (plays the WAV named by the track's `sample` field; paths next to or below the project are stored relative). Pattern steps are pitches (`"C4"`, `"D#3"`, `"Bb2"`), chords (`"A3+C4+E4"`), `"x"` to trigger, `"_"` to sustain the previous note, or `"."` for silence. A note can also carry its own length in steps: in `"C4:12+E4:2"`, C4 rings for 12 steps and E4 for 2, so chord notes can end at different times and a long note can ring under later ones. In the piano roll, drag a note to set its length. A clip may also hold `automation`: envelopes by target, as `{"fx.0.cutoff": [{"step": 0, "value": 300}, {"step": 16, "value": 6000}]}`. `clips` holds one entry per scene (`null` is an empty slot); effect `type`s are `lowpass`, `highpass`, `delay`, `reverb`, `drive`, `bitcrush` and `vibe`.
 
 The headless CLI commands (`compose`, `compose --optimistic`, `render`, `play`, `master`, `vibe`, `new`) are unchanged.
 

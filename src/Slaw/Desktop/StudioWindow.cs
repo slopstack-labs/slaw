@@ -2057,7 +2057,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                     }
                     var insertionIndex = dropTarget.Kind == DropTargetKind.EffectDevice ? Math.Clamp(dropTarget.Index, 0, targetTrack.Effects.Count) : targetTrack.Effects.Count;
                     document.Edit($"added {DeviceCatalog.EffectDisplayName(dragPayload.Value)} to {targetTrack.Name}",
-                        _ => targetTrack.Effects.Insert(insertionIndex, new EffectDevice { Type = dragPayload.Value }), EditScope.Structure);
+                        _ =>
+                        {
+                            targetTrack.Effects.Insert(insertionIndex, new EffectDevice { Type = dragPayload.Value });
+                            ClipAutomation.MakeRoomForEffectSlot(targetTrack, insertionIndex);
+                        }, EditScope.Structure);
                     document.Select(targetTrackIndex, document.SelectedSceneIndex);
                     break;
                 }
@@ -2168,9 +2172,27 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                                 insertionIndex--;
                             }
                         }
-                        if (destinationTrack.Effects.Count < ProjectAlignmentRemediator.MaximumEffectsPerTrack)
+                        var effectInserted = destinationTrack.Effects.Count < ProjectAlignmentRemediator.MaximumEffectsPerTrack;
+                        if (effectInserted)
                         {
-                            destinationTrack.Effects.Insert(Math.Clamp(insertionIndex, 0, destinationTrack.Effects.Count), transferredEffect);
+                            insertionIndex = Math.Clamp(insertionIndex, 0, destinationTrack.Effects.Count);
+                            destinationTrack.Effects.Insert(insertionIndex, transferredEffect);
+                        }
+                        // Envelopes follow a device around its own chain; on another track they would address the wrong clips.
+                        if (!copyRequested && destinationTrack == sourceTrack)
+                        {
+                            ClipAutomation.MoveEffectSlot(sourceTrack, dragPayload.Index, insertionIndex);
+                        }
+                        else
+                        {
+                            if (!copyRequested)
+                            {
+                                ClipAutomation.ForgetEffectSlot(sourceTrack, dragPayload.Index);
+                            }
+                            if (effectInserted)
+                            {
+                                ClipAutomation.MakeRoomForEffectSlot(destinationTrack, insertionIndex);
+                            }
                         }
                     }, EditScope.Structure);
                     break;

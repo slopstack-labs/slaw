@@ -155,4 +155,20 @@ public class AutomationTests
         ClipAutomation.ForgetEffectSlot(track, 0);
         Assert.Equal(new[] { "fx.0.mix", "pan" }, track.Clips[0]!.Automation!.Keys.Order());
     }
+
+    [Fact]
+    public void MovingAndInsertingEffectsTakesLanesAlong()
+    {
+        var track = new SlawTrack
+        {
+            Clips = new List<SlawClip?>
+            {
+                new() { Pattern = new List<string> { "." }, Automation = new() { ["fx.0.cutoff"] = Ramp(1, 2), ["fx.1.mix"] = Ramp(0, 1), ["fx.2.size"] = Ramp(0, 1) } },
+            },
+        };
+        ClipAutomation.MoveEffectSlot(track, 0, 2);
+        Assert.Equal(new[] { "fx.0.mix", "fx.1.size", "fx.2.cutoff" }, track.Clips[0]!.Automation!.Keys.Order());
+        ClipAutomation.MakeRoomForEffectSlot(track, 1);
+        Assert.Equal(new[] { "fx.0.mix", "fx.2.size", "fx.3.cutoff" }, track.Clips[0]!.Automation!.Keys.Order());
+    }
 }

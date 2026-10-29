@@ -202,6 +202,7 @@ internal static class PromptLibrary
         - "scenes" and "arrangement" replace the whole list when given; "clips" maps a scene index to a pattern string.
         - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence.
         - Effects replace the track's whole effect list when given.
+        - Optional clip envelopes: "automation": {"<scene>": {"fx.0.cutoff": [[0, 300], [16, 6000]]} } on a track sweeps effect 0's cutoff over the clip ([step, value] pairs). Targets: gain, pan, pitch (semitones), fx.<effectIndex>.<param>, inst.<param>.
         - Never mention tracks marked LOCKED.
 
         {{DescribeDeviceCatalog()}}
@@ -250,6 +251,10 @@ internal static class PromptLibrary
                 if (track.Clips[sceneIndex] is { } clip)
                 {
                     projectListing.Append(CultureInfo.InvariantCulture, $"  clip {sceneIndex}: {string.Join(' ', clip.Pattern)}\n");
+                    foreach (var (targetKey, points) in clip.Automation ?? new Dictionary<string, List<AutomationPoint>>())
+                    {
+                        projectListing.Append(CultureInfo.InvariantCulture, $"    envelope {ClipAutomation.Describe(targetKey, points)}\n");
+                    }
                 }
             }
         }
