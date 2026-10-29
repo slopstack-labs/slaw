@@ -25,13 +25,15 @@ internal sealed class Vst3EffectProcessor : EffectProcessor
         pluginReference = boundReference;
     }
 
-    public override void Process(Span<float> monoBlock, IReadOnlyDictionary<string, double> parameterValues, EffectProcessingContext processingContext)
+    public override bool Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double> parameterValues, EffectProcessingContext processingContext)
     {
         if (pluginPool?.TryGet(slotKey, pluginReference) is not { } pluginEffect)
         {
-            return;
+            return processingContext.MonoInput;
         }
+        MaterializeStereo(leftBlock, rightBlock, processingContext);
         pluginEffect.SetTransport(60.0 / (processingContext.StepDurationSeconds * 4), playing: true);
-        pluginEffect.Process(monoBlock, parameterValues);
+        pluginEffect.Process(leftBlock, rightBlock, parameterValues);
+        return false;
     }
 }

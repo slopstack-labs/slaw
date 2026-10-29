@@ -341,16 +341,19 @@ Open it from the sampler device (**✎ Edit**, or **⤢** for its own resizable 
 
 ### Effects
 
-All synthesized in-house, because a plugin would imply someone wrote it on purpose.
+All synthesized in-house, because a plugin would imply someone wrote it on purpose. Every track is stereo end to end: built-in voices start mono, and the device chain keeps left and right apart from the first effect that makes them differ.
 
 | Effect | Behaviour |
 |--------|-----------|
-| Auto Filter (Low) / Auto Filter (High) | Resonant state-variable filters |
-| Synergy Delay | Tempo-synced echo |
-| Cloud Reverb | Enterprise-grade space |
+| Auto Filter (Low) / Auto Filter (High) | Resonant state-variable filters, one per channel |
+| Synergy Delay | Tempo-synced echo. **Ping-Pong** (0 by default) sends each repeat to the other side |
+| Cloud Reverb | Enterprise-grade space, in stereo: two decorrelated tanks. **Width** (0.8 by default) runs from a mono tail to fully separate sides |
 | Warmth Saturator | Saturation, with warmth |
 | Lo-Fi Compliance Crusher | Bitcrusher |
-| **Neural Vibe Enhancer™** | Synergy = saturation, Disruption = noise, Alignment = does nothing. A placebo, validated in user studies. |
+| **Neural Vibe Enhancer™** | Synergy = saturation, Disruption = noise (now different noise on each side), Alignment = does nothing. A placebo, validated in user studies. |
+| Stereo Alignment Widener | Mid/side **Width** (0 = mono, 1 = untouched, 2 = twice the sides) plus a **Haas** delay on the right channel, which is how a mono synth gets a stereo image at all |
+
+Pan is a constant-power balance: a mono track pans exactly as it always has, and a stereo track keeps its image, tilted toward the side it is panned to. Samples are still mixed to mono when they load; stereo samples are on the roadmap, between plugin editor windows and profitability.
 
 Pattern steps can also be chords, written `"A3+C4+E4"`.
 
@@ -372,6 +375,20 @@ Every clip can carry envelopes: parameters that change while the clip plays, in 
 Moving, removing or inserting devices takes their envelopes along. Agents write envelopes with the `set_automation` MCP tool or `"automation"` in a patch.
 
 ### VST3 plugins: third-party synergy
+
+For when in-house synthesis has been deemed insufficiently enterprise. slaw hosts VST3 instruments and effects in-process, from C#, by hand-transcribing the VST3 binary interface. Steinberg was not consulted. Neither was common sense.
+
+- **Where slaw looks:** the system folders (`~/.vst3`, `/usr/lib/vst3` and `/usr/local/lib/vst3` on Linux, `Common Files\VST3` on Windows), every folder in `VST3_PATH`, any `--plugin-folder`, and your own folders under *Settings → Plugins* (with **Rescan**). Folders are scanned recursively, so bridged plugins anywhere under `~/.vst3` turn up on their own. Bundles that ship a `moduleinfo.json` are read without being loaded.
+- **Instruments:** **VST3…** on the instrument device lists every scanned synth, grouped by vendor. Steps and chords become note-on/note-off events, and held notes (`_`) last as long as you hold them. Their stereo output (voice panning, unison spread) reaches the mix intact.
+- **Effects:** *+ Effect → VST3*, anywhere in the chain. Audio goes through the plugin's main bus in stereo, left and right, so Ping Pong Pan pans and MVerb's tail spreads. A mono-only bus gets the mid; a mono-only output feeds both sides.
+- **Drag and drop:** drop a `.vst3` from your file manager onto a track (instruments) or the device chain (effects).
+- **Knobs:** each plugin gets a generic panel built from the parameters it declares, with a filter box once there are more than 24. Values are stored as `p<id>` = 0…1 next to the built-in knobs, so undo, AI tuning, automation and MCP all treat them like any other parameter. Plugin editor windows are on the roadmap, behind profitability.
+- **State:** each plugin's own state is saved into the `.slaw` on save, and handed back when the project opens.
+- **Bounces** wait for every plugin to load, then render in offline mode. Live playback never waits: a plugin that is still loading stays silent for a moment instead of glitching the audio.
+- **Agents:** `list_plugins` (with the folder each plugin came from) and `describe_plugin` over MCP. `add_track` with `"instrument": "vst3"` and `add_effect` with `"type": "vst3"` take a `plugin` (`{"path", "classId"}` or just its name).
+
+Plugins run inside slaw's process with slaw's privileges. A plugin that crashes takes the studio with it; slopstack labs calls this *shared accountability*. Windows `.vst3` files cannot load on Linux, so slaw lists them as unavailable instead of dlopen-ing a DLL out of optimism.
+
 ### Free timeline
 
 Scenes and sections are a governance framework. Some stakeholders prefer to work outside the framework. The **Free** view (next to Session and Arrangement; Tab cycles through all three, or start with `--view free`) is a plain timeline: put any clip at any step on any track, at any length, with no scenes and no sections.
