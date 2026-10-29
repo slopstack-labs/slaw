@@ -23,38 +23,35 @@ internal static class ClipMiniatureRenderer
             return;
         }
         var resolvedSteps = clip.Pattern.Select(NotationResolver.ResolveOrRest).ToArray();
-        var notePitches = resolvedSteps.Where(stepEvent => stepEvent.Kind == StepEventKind.Trigger).SelectMany(stepEvent => stepEvent.MidiNotes).ToList();
+        var placedNotes = ClipNoteEditor.AllNotes(clip.Pattern).ToList();
+        var notePitches = placedNotes.Select(placedNote => placedNote.MidiNote).ToList();
         var lowestPitch = notePitches.Count > 0 ? notePitches.Min() : 60;
         var pitchSpan = Math.Max(6, (notePitches.Count > 0 ? notePitches.Max() : 60) - lowestPitch);
         var stepWidth = drawingArea.Width / (stepCount * repetitions);
 
         for (var repetitionIndex = 0; repetitionIndex < repetitions; repetitionIndex++)
         {
-            for (var stepIndex = 0; stepIndex < stepCount; stepIndex++)
+            if (percussiveInstrument)
             {
-                var stepEvent = resolvedSteps[stepIndex];
-                if (stepEvent.Kind != StepEventKind.Trigger)
+                for (var stepIndex = 0; stepIndex < stepCount; stepIndex++)
                 {
-                    continue;
-                }
-                var heldStepCount = 1;
-                while (!percussiveInstrument && stepIndex + heldStepCount < stepCount && resolvedSteps[stepIndex + heldStepCount].Kind == StepEventKind.Sustain)
-                {
-                    heldStepCount++;
-                }
-                var noteX = drawingArea.X + (repetitionIndex * stepCount + stepIndex) * stepWidth;
-                if (percussiveInstrument)
-                {
+                    if (resolvedSteps[stepIndex].Kind != StepEventKind.Trigger)
+                    {
+                        continue;
+                    }
+                    var hitX = drawingArea.X + (repetitionIndex * stepCount + stepIndex) * stepWidth;
                     drawingContext.DrawRectangle(noteBrush, null,
-                        new Rect(noteX + stepWidth * 0.15, drawingArea.Y + drawingArea.Height * 0.25, Math.Max(1, stepWidth * 0.7), drawingArea.Height * 0.5), 1, 1);
-                    continue;
+                        new Rect(hitX + stepWidth * 0.15, drawingArea.Y + drawingArea.Height * 0.25, Math.Max(1, stepWidth * 0.7), drawingArea.Height * 0.5), 1, 1);
                 }
-                foreach (var midiNote in stepEvent.MidiNotes)
-                {
-                    var noteY = drawingArea.Bottom - 2 - (midiNote - lowestPitch) / (double)pitchSpan * (drawingArea.Height - 5);
-                    drawingContext.DrawRectangle(noteBrush, null,
-                        new Rect(noteX, noteY - 1.5, Math.Max(1.5, heldStepCount * stepWidth - 1), 3), 1, 1);
-                }
+                continue;
+            }
+            foreach (var placedNote in placedNotes)
+            {
+                var noteX = drawingArea.X + (repetitionIndex * stepCount + placedNote.StartStep) * stepWidth;
+                var noteY = drawingArea.Bottom - 2 - (placedNote.MidiNote - lowestPitch) / (double)pitchSpan * (drawingArea.Height - 5);
+                var visibleLength = Math.Min(placedNote.Length, stepCount - placedNote.StartStep);
+                drawingContext.DrawRectangle(noteBrush, null,
+                    new Rect(noteX, noteY - 1.5, Math.Max(1.5, visibleLength * stepWidth - 1), 3), 1, 1);
             }
         }
     }

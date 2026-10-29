@@ -65,8 +65,9 @@ internal static class PatternEditingOperations
         {
             return null;
         }
-        clip.Pattern[stepIndex] = NotationResolver.FormatChord(
-            currentStepEvent.MidiNotes.Select(midiNote => Math.Clamp(midiNote + semitoneDelta, 12, 120)));
+        clip.Pattern[stepIndex] = NotationResolver.FormatChord(currentStepEvent.MidiNotes
+            .Zip(currentStepEvent.NoteLengths)
+            .Select(note => (Math.Clamp(note.First + semitoneDelta, 12, 120), note.Second)));
         return $"transposed a note on {track.Name} by {semitoneDelta:+0;-0} semitones";
     }
 

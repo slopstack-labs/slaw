@@ -12,16 +12,27 @@ internal enum StepEventKind
 
 /// <summary>
 /// A single resolved pattern step. A trigger carries one or more MIDI notes —
-/// more than one makes it a chord.
+/// more than one makes it a chord. <see cref="NoteLengths"/> is aligned with
+/// <see cref="MidiNotes"/>: 0 means "held for this step plus any following
+/// sustains", a positive value is an explicit length in steps ("C4:8"), which
+/// lets notes struck together end at different times.
 /// </summary>
-internal readonly record struct StepEvent(StepEventKind Kind, IReadOnlyList<int> MidiNotes)
+internal readonly record struct StepEvent(StepEventKind Kind, IReadOnlyList<int> MidiNotes, IReadOnlyList<int> NoteLengths)
 {
     private static readonly int[] NoNotes = Array.Empty<int>();
 
-    public static StepEvent Rest => new(StepEventKind.Rest, NoNotes);
-    public static StepEvent Sustain => new(StepEventKind.Sustain, NoNotes);
+    public StepEvent(StepEventKind kind, IReadOnlyList<int> midiNotes)
+        : this(kind, midiNotes, new int[midiNotes.Count])
+    {
+    }
 
-    public static StepEvent Trigger(params int[] midiNotes) => new(StepEventKind.Trigger, midiNotes);
+    public static StepEvent Rest => new(StepEventKind.Rest, NoNotes, NoNotes);
+    public static StepEvent Sustain => new(StepEventKind.Sustain, NoNotes, NoNotes);
+
+    public static StepEvent Trigger(params int[] midiNotes) => new(StepEventKind.Trigger, midiNotes, new int[midiNotes.Length]);
+
+    /// <summary>True when any note in the chord carries its own length.</summary>
+    public bool HasExplicitLengths => NoteLengths.Any(noteLength => noteLength > 0);
 
     /// <summary>The lowest note of the step, or 0 for rests and sustains.</summary>
     public int MidiNote => MidiNotes.Count > 0 ? MidiNotes[0] : 0;
@@ -85,16 +96,26 @@ internal static partial class NotationResolver
         {
             return null;
         }
-        var resolvedMidiNotes = new SortedSet<int>();
+        // "C4:8" holds C4 for eight steps regardless of what follows.
+        var resolvedNoteLengths = new SortedDictionary<int, int>();
         foreach (var chordToken in chordTokens)
         {
-            if (TryResolveSinglePitch(chordToken) is not { } resolvedMidiNote)
+            var lengthSeparatorOffset = chordToken.IndexOf(':');
+            var pitchToken = lengthSeparatorOffset >= 0 ? chordToken[..lengthSeparatorOffset] : chordToken;
+            var explicitLength = 0;
+            if (lengthSeparatorOffset >= 0 &&
+                (!int.TryParse(chordToken[(lengthSeparatorOffset + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out explicitLength) ||
+                 explicitLength is < 1 or > 256))
             {
                 return null;
             }
-            resolvedMidiNotes.Add(resolvedMidiNote);
+            if (TryResolveSinglePitch(pitchToken) is not { } resolvedMidiNote)
+            {
+                return null;
+            }
+            resolvedNoteLengths[resolvedMidiNote] = Math.Max(resolvedNoteLengths.GetValueOrDefault(resolvedMidiNote), explicitLength);
         }
-        return StepEvent.Trigger(resolvedMidiNotes.ToArray());
+        return new StepEvent(StepEventKind.Trigger, resolvedNoteLengths.Keys.ToArray(), resolvedNoteLengths.Values.ToArray());
     }
 
     private static int? TryResolveSinglePitch(string pitchToken)
@@ -141,6 +162,23 @@ internal static partial class NotationResolver
             : string.Join(ChordSeparator, orderedMidiNotes.Select(FormatMidiNote));
     }
 
+    /// <summary>
+    /// Formats notes with lengths, e.g. [(60, 8), (64, 2)] → "C4:8+E4:2". A
+    /// length of 0 (implicit) or 1 is written bare.
+    /// </summary>
+    public static string FormatChord(IEnumerable<(int MidiNote, int Length)> notesWithLengths)
+    {
+        var orderedNotes = notesWithLengths
+            .GroupBy(note => note.MidiNote)
+            .Select(noteGroup => (MidiNote: noteGroup.Key, Length: noteGroup.Max(note => note.Length)))
+            .OrderBy(note => note.MidiNote)
+            .ToArray();
+        return orderedNotes.Length == 0
+            ? RestSymbol
+            : string.Join(ChordSeparator, orderedNotes.Select(note =>
+                note.Length > 1 ? $"{FormatMidiNote(note.MidiNote)}:{note.Length.ToString(CultureInfo.InvariantCulture)}" : FormatMidiNote(note.MidiNote)));
+    }
+
     public static double MidiNoteToFrequency(double midiNote) => 440.0 * Math.Pow(2.0, (midiNote - 69) / 12.0);
 
     /// <summary>
@@ -156,7 +194,7 @@ internal static partial class NotationResolver
             StepEventKind.Rest => RestSymbol,
             StepEventKind.Sustain => percussiveInstrument ? RestSymbol : SustainSymbol,
             _ when percussiveInstrument => TriggerSymbol,
-            _ => FormatChord(resolvedStepEvent.MidiNotes),
+            _ => FormatChord(resolvedStepEvent.MidiNotes.Zip(resolvedStepEvent.NoteLengths)),
         };
     }
 }

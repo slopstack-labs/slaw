@@ -39,7 +39,7 @@ internal sealed partial class StudioWindow
     private DispatcherTimer? controllerSettleTimer;
 
     /// <summary>Where a held, recorded note started, so its release can write the sustain.</summary>
-    private sealed record RecordedNote(SlawClip Clip, int StartStep, double StartPosition, bool Percussive);
+    private sealed record RecordedNote(SlawClip Clip, int StartStep, int MidiNote, double StartPosition, bool Percussive);
 
     // ── Toolbar controls ──────────────────────────────────────────────────────
 
@@ -267,13 +267,19 @@ internal sealed partial class StudioWindow
             SetStatus(StatusSeverity.Informational, $"step input: step {targetStep + 1}/{targetClip.Pattern.Count} on {targetTrack.Name}");
         }
 
-        var existingStep = NotationResolver.ResolveOrRest(targetClip.Pattern[targetStep]);
-        targetClip.Pattern[targetStep] = percussive
-            ? NotationResolver.TriggerSymbol
-            : existingStep.Kind == StepEventKind.Trigger && appendsToChord
-                ? NotationResolver.FormatChord(existingStep.MidiNotes.Append(midiNote))
-                : NotationResolver.FormatMidiNote(midiNote);
-        heldRecordedNotes[midiNote] = new RecordedNote(targetClip, targetStep, startPosition, percussive);
+        if (percussive)
+        {
+            targetClip.Pattern[targetStep] = NotationResolver.TriggerSymbol;
+        }
+        else if (appendsToChord)
+        {
+            ClipNoteEditor.AddNote(targetClip.Pattern, targetStep, midiNote, length: 1);
+        }
+        else
+        {
+            ClipNoteEditor.WriteChord(targetClip.Pattern, targetStep, new[] { (midiNote, 1) });
+        }
+        heldRecordedNotes[midiNote] = new RecordedNote(targetClip, targetStep, midiNote, startPosition, percussive);
         document.CommitEdit($"recorded {NotationResolver.FormatMidiNote(midiNote)} on {targetTrack.Name}", EditScope.Content, notifyCopilot: false);
     }
 
@@ -290,15 +296,8 @@ internal sealed partial class StudioWindow
         }
         var clipLength = recordedNote.Clip.Pattern.Count;
         var heldSteps = (int)Math.Round(((releasePosition - recordedNote.StartPosition) % clipLength + clipLength) % clipLength);
-        for (var sustainOffset = 1; sustainOffset < heldSteps && recordedNote.StartStep + sustainOffset < clipLength; sustainOffset++)
-        {
-            var sustainStep = recordedNote.StartStep + sustainOffset;
-            if (NotationResolver.ResolveOrRest(recordedNote.Clip.Pattern[sustainStep]).Kind == StepEventKind.Trigger)
-            {
-                break;
-            }
-            recordedNote.Clip.Pattern[sustainStep] = NotationResolver.SustainSymbol;
-        }
+        // Only this key's note gets the length: the rest of a recorded chord keeps its own.
+        ClipNoteEditor.SetNoteLength(recordedNote.Clip.Pattern, recordedNote.StartStep, recordedNote.MidiNote, Math.Max(1, heldSteps));
         document.CommitEdit("held a recorded note", EditScope.Content, notifyCopilot: false);
     }
 

@@ -42,6 +42,7 @@ internal sealed class PianoRollControl : Control
     private int sustainDragAnchorStepIndex;
     private int sustainDragExtentStepIndex;
     private string sustainDragDescription = string.Empty;
+    private int sustainDragMidiNote;
 
     // Note audition (keyboard press or freshly placed note).
     private bool keyboardAuditionActive;
@@ -136,36 +137,9 @@ internal sealed class PianoRollControl : Control
 
     private static bool IsBlackKey(int midiNote) => (midiNote % 12) is 1 or 3 or 6 or 8 or 10;
 
-    /// <summary>The distance, in steps, that a trigger at the given index is held: itself plus every directly following sustain.</summary>
-    private int HeldLengthFrom(int triggerStepIndex)
-    {
-        var endStepIndex = triggerStepIndex + 1;
-        while (endStepIndex < StepCount && NotationResolver.ResolveOrRest(clip.Pattern[endStepIndex]).Kind == StepEventKind.Sustain)
-        {
-            endStepIndex++;
-        }
-        return endStepIndex - triggerStepIndex;
-    }
-
     /// <summary>Finds the trigger step that owns a note at the given cell, walking left across sustains. Returns -1 for an empty cell.</summary>
-    private int FindNoteStartStepIndex(int stepIndex, int midiNote)
-    {
-        var candidateStepIndex = stepIndex;
-        while (candidateStepIndex >= 0)
-        {
-            var candidateEvent = NotationResolver.ResolveOrRest(clip.Pattern[candidateStepIndex]);
-            if (candidateEvent.Kind == StepEventKind.Trigger)
-            {
-                return candidateEvent.MidiNotes.Contains(midiNote) ? candidateStepIndex : -1;
-            }
-            if (candidateEvent.Kind != StepEventKind.Sustain)
-            {
-                return -1;
-            }
-            candidateStepIndex--;
-        }
-        return -1;
-    }
+    private int FindNoteStartStepIndex(int stepIndex, int midiNote) =>
+        ClipNoteEditor.FindNoteCovering(clip.Pattern, stepIndex, midiNote) is { } coveringNote ? coveringNote.StartStep : -1;
 
     // ── Rendering ─────────────────────────────────────────────────────────────
 
@@ -206,29 +180,20 @@ internal sealed class PianoRollControl : Control
                 new Point(lineX, 0), new Point(lineX, Bounds.Height));
         }
 
-        // Notes.
-        for (var stepIndex = 0; stepIndex < StepCount; stepIndex++)
+        // Notes, each drawn at its own length (chord notes may end at different times).
+        foreach (var placedNote in ClipNoteEditor.AllNotes(clip.Pattern))
         {
-            var stepEvent = NotationResolver.ResolveOrRest(clip.Pattern[stepIndex]);
-            if (stepEvent.Kind != StepEventKind.Trigger)
+            if (placedNote.MidiNote < lowestVisibleMidiNote)
             {
-                continue;
+                DrawOutOfRangeMarker(drawingContext, placedNote.StartStep, pointsUp: false);
             }
-            var heldLength = HeldLengthFrom(stepIndex);
-            foreach (var midiNote in stepEvent.MidiNotes)
+            else if (placedNote.MidiNote > HighestVisibleMidiNote)
             {
-                if (midiNote < lowestVisibleMidiNote)
-                {
-                    DrawOutOfRangeMarker(drawingContext, stepIndex, pointsUp: false);
-                }
-                else if (midiNote > HighestVisibleMidiNote)
-                {
-                    DrawOutOfRangeMarker(drawingContext, stepIndex, pointsUp: true);
-                }
-                else
-                {
-                    DrawNoteBlock(drawingContext, midiNote, stepIndex, heldLength);
-                }
+                DrawOutOfRangeMarker(drawingContext, placedNote.StartStep, pointsUp: true);
+            }
+            else
+            {
+                DrawNoteBlock(drawingContext, placedNote.MidiNote, placedNote.StartStep, Math.Min(placedNote.Length, StepCount - placedNote.StartStep));
             }
         }
 
@@ -366,10 +331,8 @@ internal sealed class PianoRollControl : Control
         }
 
         EditStarted?.Invoke();
-        var existingEvent = NotationResolver.ResolveOrRest(clip.Pattern[targetStepIndex]);
-        clip.Pattern[targetStepIndex] = existingEvent.Kind == StepEventKind.Trigger
-            ? NotationResolver.FormatChord(existingEvent.MidiNotes.Append(targetMidiNote))
-            : NotationResolver.FormatChord(new[] { targetMidiNote });
+        ClipNoteEditor.AddNote(clip.Pattern, targetStepIndex, targetMidiNote, length: 1);
+        sustainDragMidiNote = targetMidiNote;
 
         sustainDragActive = true;
         sustainDragAnchorStepIndex = targetStepIndex;
@@ -405,23 +368,7 @@ internal sealed class PianoRollControl : Control
 
     private void RemoveNote(int noteStartStepIndex, int midiNote)
     {
-        var startEvent = NotationResolver.ResolveOrRest(clip.Pattern[noteStartStepIndex]);
-        var remainingMidiNotes = startEvent.MidiNotes.Where(chordNote => chordNote != midiNote).ToArray();
-        if (remainingMidiNotes.Length == 0)
-        {
-            clip.Pattern[noteStartStepIndex] = NotationResolver.RestSymbol;
-            for (var followingStepIndex = noteStartStepIndex + 1;
-                 followingStepIndex < StepCount
-                 && NotationResolver.ResolveOrRest(clip.Pattern[followingStepIndex]).Kind == StepEventKind.Sustain;
-                 followingStepIndex++)
-            {
-                clip.Pattern[followingStepIndex] = NotationResolver.RestSymbol;
-            }
-        }
-        else
-        {
-            clip.Pattern[noteStartStepIndex] = NotationResolver.FormatChord(remainingMidiNotes);
-        }
+        ClipNoteEditor.RemoveNote(clip.Pattern, noteStartStepIndex, midiNote);
         InvalidateVisual();
         PatternEdited?.Invoke($"removed {NotationResolver.FormatMidiNote(midiNote)} at step {noteStartStepIndex + 1}");
     }
@@ -458,6 +405,11 @@ internal sealed class PianoRollControl : Control
         }
     }
 
+    /// <summary>
+    /// Dragging sets the length of the note just placed — only that note, so a
+    /// chord can hold its root while the third lets go. Notes may now ring over
+    /// later steps, including ones that start notes of their own.
+    /// </summary>
     private void UpdateSustainDrag(double pointerX)
     {
         if (ColumnWidth <= 0)
@@ -466,25 +418,13 @@ internal sealed class PianoRollControl : Control
         }
         var pointerColumnIndex = (int)Math.Floor((pointerX - KeyboardGutterWidth) / ColumnWidth);
         var desiredExtentStepIndex = Math.Clamp(pointerColumnIndex, sustainDragAnchorStepIndex, StepCount - 1);
-
-        // Extend: overwrite rests and sustains only, stopping at the first trigger.
-        while (sustainDragExtentStepIndex < desiredExtentStepIndex)
+        if (desiredExtentStepIndex == sustainDragExtentStepIndex)
         {
-            var nextStepIndex = sustainDragExtentStepIndex + 1;
-            if (NotationResolver.ResolveOrRest(clip.Pattern[nextStepIndex]).Kind == StepEventKind.Trigger)
-            {
-                break;
-            }
-            clip.Pattern[nextStepIndex] = NotationResolver.SustainSymbol;
-            sustainDragExtentStepIndex = nextStepIndex;
+            return;
         }
-
-        // Shorten: hand the surrendered steps back to silence.
-        while (sustainDragExtentStepIndex > desiredExtentStepIndex)
-        {
-            clip.Pattern[sustainDragExtentStepIndex] = NotationResolver.RestSymbol;
-            sustainDragExtentStepIndex--;
-        }
+        sustainDragExtentStepIndex = desiredExtentStepIndex;
+        ClipNoteEditor.SetNoteLength(clip.Pattern, sustainDragAnchorStepIndex, sustainDragMidiNote,
+            sustainDragExtentStepIndex - sustainDragAnchorStepIndex + 1);
         InvalidateVisual();
     }
 

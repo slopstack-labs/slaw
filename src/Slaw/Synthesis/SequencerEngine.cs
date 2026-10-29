@@ -445,28 +445,33 @@ internal sealed class SequencerEngine
         }
 
         var percussiveInstrument = InstrumentVoiceSynthesizer.IsPercussive(track.Instrument);
-        var heldStepCount = 1;
-        while (!percussiveInstrument &&
-               clipStep + heldStepCount < clip.Pattern.Count &&
-               NotationResolver.ResolveOrRest(clip.Pattern[clipStep + heldStepCount]).Kind == StepEventKind.Sustain)
-        {
-            heldStepCount++;
-        }
-
-        var renderedVoice = RenderOrRecallVoice(project, track, stepEvent, heldStepCount);
-        if (renderedVoice.Length == 0)
-        {
-            return;
-        }
         var humanizeAmount = DeviceCatalog.Resolve(
             track.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument), "humanize");
         var humanizedGain = (float)(1 - humanizeAmount * 0.35 * humanizationEntropySource.NextDouble());
 
-        if (runtimeState.ActiveVoices.Count >= MaximumVoicesPerTrack)
+        // Notes struck together may be held for different lengths: render one
+        // voice per distinct length, each with its share of the chord.
+        var notesByLength = percussiveInstrument
+            ? new[] { (Length: 1, Notes: stepEvent.MidiNotes.ToArray()) }
+            : ClipNoteEditor.NotesStartingAt(clip.Pattern, clipStep)
+                .GroupBy(placedNote => placedNote.Length)
+                .Select(lengthGroup => (Length: lengthGroup.Key, Notes: lengthGroup.Select(placedNote => placedNote.MidiNote).ToArray()))
+                .ToArray();
+        foreach (var (heldStepCount, chordNotes) in notesByLength)
         {
-            runtimeState.ActiveVoices.RemoveAt(0);
+            var renderedVoice = RenderOrRecallVoice(project, track, StepEvent.Trigger(chordNotes), heldStepCount);
+            if (renderedVoice.Length == 0)
+            {
+                continue;
+            }
+            if (runtimeState.ActiveVoices.Count >= MaximumVoicesPerTrack)
+            {
+                runtimeState.ActiveVoices.RemoveAt(0);
+            }
+            // Each voice normalizes its own notes by 1/sqrt(k); rescale so every
+            // note in the full chord sits at 1/sqrt(n), as if rendered together.
+            runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, humanizedGain * (float)Math.Sqrt(chordNotes.Length / (double)Math.Max(1, stepEvent.MidiNotes.Count))));
         }
-        runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, humanizedGain));
     }
 
     private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, StepEvent stepEvent, int heldStepCount)

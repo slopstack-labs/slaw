@@ -20,6 +20,7 @@ internal static class PromptLibrary
         - "x"                  trigger a drum hit (use for kick, snare, hat, clap)
         - "C4", "D#3", "A2"    play that pitch (use for melodic instruments)
         - "A3+C4+E4"           play a chord (melodic instruments only)
+        - "C4:8+E4:2"          notes with their own lengths in steps (here C4 rings 8 steps, E4 only 2)
         - "_"                  sustain the previous note through this step
         - "."                  silence
         """;

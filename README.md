@@ -432,7 +432,7 @@ A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `track
 }
 ```
 
-Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck` (Karplus-Strong), `noise`, and `sampler` (plays the WAV named by the track's `sample` field; paths next to or below the project are stored relative). Pattern steps are pitches (`"C4"`, `"D#3"`, `"Bb2"`), chords (`"A3+C4+E4"`), `"x"` to trigger, `"_"` to sustain the previous note, or `"."` for silence. `clips` holds one entry per scene (`null` is an empty slot); effect `type`s are `lowpass`, `highpass`, `delay`, `reverb`, `drive`, `bitcrush` and `vibe`.
+Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck` (Karplus-Strong), `noise`, and `sampler` (plays the WAV named by the track's `sample` field; paths next to or below the project are stored relative). Pattern steps are pitches (`"C4"`, `"D#3"`, `"Bb2"`), chords (`"A3+C4+E4"`), `"x"` to trigger, `"_"` to sustain the previous note, or `"."` for silence. A note can also carry its own length in steps: in `"C4:12+E4:2"`, C4 rings for 12 steps and E4 for 2, so chord notes can end at different times and a long note can ring under later ones. In the piano roll, drag a note to set its length. `clips` holds one entry per scene (`null` is an empty slot); effect `type`s are `lowpass`, `highpass`, `delay`, `reverb`, `drive`, `bitcrush` and `vibe`.
 
 The headless CLI commands (`compose`, `compose --optimistic`, `render`, `play`, `master`, `vibe`, `new`) are unchanged.
 

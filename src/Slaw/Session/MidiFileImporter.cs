@@ -215,29 +215,36 @@ internal static class MidiFileImporter
     /// </summary>
     private static string[] RenderPattern(IEnumerable<StepNote> notes, int totalStepCount, bool percussive)
     {
-        var pattern = Enumerable.Repeat(NotationResolver.RestSymbol, Math.Max(1, totalStepCount)).ToArray();
-        var notesByStartStep = notes.Where(note => note.StartStep >= 0 && note.StartStep < pattern.Length).GroupBy(note => note.StartStep).ToList();
-        foreach (var startingNotes in notesByStartStep)
-        {
-            pattern[startingNotes.Key] = percussive
-                ? NotationResolver.TriggerSymbol
-                : NotationResolver.FormatChord(startingNotes.Select(note => note.MidiNote));
-        }
-
-        if (!percussive)
+        var pattern = Enumerable.Repeat(NotationResolver.RestSymbol, Math.Max(1, totalStepCount)).ToList();
+        var notesByStartStep = notes
+            .Where(note => note.StartStep >= 0 && note.StartStep < pattern.Count)
+            .GroupBy(note => note.StartStep)
+            .OrderBy(startingNotes => startingNotes.Key)
+            .ToList();
+        if (percussive)
         {
             foreach (var startingNotes in notesByStartStep)
             {
-                var sustainEnd = Math.Min(pattern.Length, startingNotes.Key + startingNotes.Max(note => note.LengthInSteps));
-                for (var step = startingNotes.Key + 1; step < sustainEnd; step++)
-                {
-                    if (pattern[step] != NotationResolver.RestSymbol && pattern[step] != NotationResolver.SustainSymbol)
-                        break;
-                    pattern[step] = NotationResolver.SustainSymbol;
-                }
+                pattern[startingNotes.Key] = NotationResolver.TriggerSymbol;
             }
+            return pattern.ToArray();
         }
-        return pattern;
+
+        // Place every chord with explicit per-note lengths first, so later
+        // triggers never truncate earlier notes; then let WriteChord fold
+        // uniform chords back into the classic "chord _ _ _" spelling.
+        foreach (var startingNotes in notesByStartStep)
+        {
+            pattern[startingNotes.Key] = NotationResolver.FormatChord(startingNotes
+                .GroupBy(note => note.MidiNote)
+                .Select(sameNote => (sameNote.Key, Math.Max(1, sameNote.Max(note => note.LengthInSteps)))));
+        }
+        foreach (var startingNotes in notesByStartStep)
+        {
+            var placedNotes = ClipNoteEditor.NotesStartingAt(pattern, startingNotes.Key);
+            ClipNoteEditor.WriteChord(pattern, startingNotes.Key, placedNotes.Select(note => (note.MidiNote, note.Length)).ToList());
+        }
+        return pattern.ToArray();
     }
 
     private static List<SlawTrackCandidate> BuildTrackCandidates(
