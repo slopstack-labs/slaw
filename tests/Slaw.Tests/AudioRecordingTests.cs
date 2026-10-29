@@ -154,6 +154,30 @@ public class AudioRecordingTests
     }
 
     [Fact]
+    public void TakesOfTakesCountUpAndKeepTheirPluginEffects()
+    {
+        var project = OneSceneProject();
+        var leadTrack = new SlawTrack
+        {
+            Name = "Lead",
+            Instrument = "sampler",
+            Effects = new List<EffectDevice>
+            {
+                new() { Type = "vst3", Plugin = new PluginReference { Path = "/usr/lib/vst3/MVerb.vst3", ClassId = new string('A', 32), Name = "MVerb" }, Parameters = { ["p10"] = 0.2 } },
+            },
+        };
+        project.Tracks.Add(leadTrack);
+        var secondTake = AudioTakeAssembler.CreateTakeTrack(project, leadTrack);
+        project.Tracks.Add(secondTake);
+        var thirdTake = AudioTakeAssembler.CreateTakeTrack(project, secondTake);
+
+        Assert.Equal("Lead · take 2", secondTake.Name);
+        Assert.Equal("Lead · take 3", thirdTake.Name);
+        Assert.Equal("MVerb", thirdTake.Effects.Single().Plugin?.Name);
+        Assert.NotSame(leadTrack.Effects[0].Plugin, secondTake.Effects[0].Plugin);
+    }
+
+    [Fact]
     public void TakeWavesRoundTripThroughTheSampleLibrary()
     {
         var workingFolder = Directory.CreateTempSubdirectory("slaw-wave-").FullName;

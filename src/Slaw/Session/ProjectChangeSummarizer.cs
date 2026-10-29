@@ -92,6 +92,17 @@ internal static class ProjectChangeSummarizer
         {
             changeSummary.Add("remastered the master bus");
         }
+
+        var previousTimelineClips = previousProject.Timeline.ToDictionary(timelineClip => timelineClip.Id, timelineClip => System.Text.Json.JsonSerializer.Serialize(timelineClip, ProjectSerializer.LenientSerializationOptions));
+        var revisedTimelineClips = revisedProject.Timeline.ToDictionary(timelineClip => timelineClip.Id, timelineClip => System.Text.Json.JsonSerializer.Serialize(timelineClip, ProjectSerializer.LenientSerializationOptions));
+        var addedTimelineClips = revisedTimelineClips.Keys.Count(clipId => !previousTimelineClips.ContainsKey(clipId));
+        var removedTimelineClips = previousTimelineClips.Keys.Count(clipId => !revisedTimelineClips.ContainsKey(clipId));
+        var editedTimelineClips = revisedTimelineClips.Count(revisedClip =>
+            previousTimelineClips.TryGetValue(revisedClip.Key, out var previousClip) && previousClip != revisedClip.Value);
+        if (addedTimelineClips + removedTimelineClips + editedTimelineClips > 0)
+        {
+            changeSummary.Add($"free timeline: {addedTimelineClips} clip(s) placed, {editedTimelineClips} revised, {removedTimelineClips} offboarded");
+        }
         if (changeSummary.Count == 0)
         {
             changeSummary.Add("changed nothing, and described this as a bold creative choice");

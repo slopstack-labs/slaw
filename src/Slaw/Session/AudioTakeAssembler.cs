@@ -60,9 +60,18 @@ internal static class AudioTakeAssembler
     /// <summary>An empty sampler track for takes, modelled on <paramref name="template"/>'s mixer and effects if given.</summary>
     public static SlawTrack CreateTakeTrack(SlawProject project, SlawTrack? template)
     {
-        var takeTrackName = template is null
-            ? $"Vocal Stakeholder {project.Tracks.Count(track => track.Name.StartsWith("Vocal Stakeholder", StringComparison.Ordinal)) + 1}"
-            : $"{template.Name} · take {project.Tracks.Count(track => track.Name.StartsWith(template.Name, StringComparison.Ordinal)) + 1}";
+        string takeTrackName;
+        if (template is null)
+        {
+            takeTrackName = $"Vocal Stakeholder {project.Tracks.Count(track => track.Name.StartsWith("Vocal Stakeholder", StringComparison.Ordinal)) + 1}";
+        }
+        else
+        {
+            // Takes of takes are still takes of the original: "Lead · take 3", never "Lead · take 2 · take 2".
+            var originalName = TakeSuffix.Replace(template.Name, string.Empty);
+            var takeNumber = project.Tracks.Count(track => track.Name == originalName || TakeSuffix.Replace(track.Name, string.Empty) == originalName) + 1;
+            takeTrackName = $"{originalName} · take {takeNumber}";
+        }
         return new SlawTrack
         {
             Name = takeTrackName,
@@ -74,10 +83,16 @@ internal static class AudioTakeAssembler
                 Type = effect.Type,
                 Enabled = effect.Enabled,
                 Parameters = new Dictionary<string, double>(effect.Parameters),
+                // A plugin effect without its plugin is remediated away, taking the vocal reverb with it.
+                Plugin = effect.Plugin is { } plugin
+                    ? new PluginReference { Path = plugin.Path, ClassId = plugin.ClassId, Name = plugin.Name, State = plugin.State }
+                    : null,
             }).ToList() ?? new List<EffectDevice>(),
             Clips = Enumerable.Repeat<SlawClip?>(null, project.Scenes.Count).ToList(),
         };
     }
+
+    private static readonly System.Text.RegularExpressions.Regex TakeSuffix = new(@"( · take \d+)+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     /// <summary>
     /// Loads a take into a track and writes its clip: one note at <paramref name="startStep"/>
