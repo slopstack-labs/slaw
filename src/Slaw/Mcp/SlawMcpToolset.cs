@@ -115,7 +115,9 @@ internal sealed class SlawMcpToolset
                 "\nVST3 plugins: instrument \"vst3\" and effect type \"vst3\" host the user's installed plugins (see list_plugins). " +
                 "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
                 "with normalized values 0..1; describe_plugin lists them with titles." +
-                "\nFree timeline (apply_patch \"timeline\"): clips placed at any step on any track, independent of scenes and the arrangement. Play it with transport play_timeline, bounce it with render source \"timeline\"."));
+                "\nFree timeline (apply_patch \"timeline\"): clips placed at any step on any track, independent of scenes and the arrangement. Play it with transport play_timeline, bounce it with render source \"timeline\"." +
+                "\nStereo: tracks are stereo end to end. Built-in voices start mono; widen (width, haas ms), reverb width and delay pingpong spread them, " +
+                "VST3 plugins process left and right, and pan is a constant-power balance."));
 
         Register("apply_patch",
             "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], arrangement [{scene, repeats}], " +

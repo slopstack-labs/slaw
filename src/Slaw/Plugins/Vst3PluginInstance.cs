@@ -442,11 +442,12 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
     }
 
     /// <summary>
-    /// Runs one block. <paramref name="monoBlock"/> is fed to both input channels
-    /// and replaced by the average of the main output's channels. Instruments
-    /// ignore the input and add to nothing: the block they return is their voice.
+    /// Runs one stereo block in place. The blocks feed the main input bus (left
+    /// and right; a mono bus gets their mid) and are replaced by the main
+    /// output (a mono output goes to both sides). Instruments ignore the input:
+    /// the blocks they return are their voice.
     /// </summary>
-    public void Process(Span<float> monoBlock, IReadOnlyDictionary<string, double>? parameterValues)
+    public void Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double>? parameterValues)
     {
         if (Interlocked.CompareExchange(ref lifecycleState, StateProcessing, StateIdle) != StateIdle)
         {
@@ -454,9 +455,10 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
         }
         try
         {
-            for (var blockStart = 0; blockStart < monoBlock.Length; blockStart += MaximumBlockFrames)
+            for (var blockStart = 0; blockStart < leftBlock.Length; blockStart += MaximumBlockFrames)
             {
-                ProcessChunk(monoBlock.Slice(blockStart, Math.Min(MaximumBlockFrames, monoBlock.Length - blockStart)), parameterValues);
+                var chunkLength = Math.Min(MaximumBlockFrames, leftBlock.Length - blockStart);
+                ProcessChunk(leftBlock.Slice(blockStart, chunkLength), rightBlock.Slice(blockStart, chunkLength), parameterValues);
                 parameterValues = null;
             }
         }
@@ -466,21 +468,30 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
         }
     }
 
-    private void ProcessChunk(Span<float> monoBlock, IReadOnlyDictionary<string, double>? parameterValues)
+    private void ProcessChunk(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double>? parameterValues)
     {
-        var frameCount = monoBlock.Length;
+        var frameCount = leftBlock.Length;
         for (var busIndex = 0; busIndex < inputBusCount; busIndex++)
         {
-            for (var channelIndex = 0; channelIndex < inputBuses[busIndex].NumChannels; channelIndex++)
+            var busChannelCount = inputBuses[busIndex].NumChannels;
+            for (var channelIndex = 0; channelIndex < busChannelCount; channelIndex++)
             {
                 var channel = new Span<float>(inputBuses[busIndex].ChannelBuffers32[channelIndex], frameCount);
-                if (busIndex == 0)
+                if (busIndex != 0)
                 {
-                    monoBlock.CopyTo(channel);
+                    channel.Clear();
+                }
+                else if (busChannelCount == 1)
+                {
+                    for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
+                    {
+                        channel[frameIndex] = (leftBlock[frameIndex] + rightBlock[frameIndex]) * 0.5f;
+                    }
                 }
                 else
                 {
-                    channel.Clear();
+                    // Channels beyond a stereo pair (surround buses) alternate left and right.
+                    (channelIndex % 2 == 0 ? leftBlock : rightBlock).CopyTo(channel);
                 }
             }
             inputBuses[busIndex].SilenceFlags = 0;
@@ -532,20 +543,20 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
         {
             if (IsInstrument)
             {
-                monoBlock.Clear();
+                leftBlock.Clear();
+                rightBlock.Clear();
             }
             return;
         }
         var mainOutput = outputBuses[0];
-        var channelWeight = 1f / mainOutput.NumChannels;
+        var leftOutput = mainOutput.ChannelBuffers32[0];
+        var rightOutput = mainOutput.ChannelBuffers32[mainOutput.NumChannels > 1 ? 1 : 0];
         for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
         {
-            var mixedSample = 0f;
-            for (var channelIndex = 0; channelIndex < mainOutput.NumChannels; channelIndex++)
-            {
-                mixedSample += mainOutput.ChannelBuffers32[channelIndex][frameIndex];
-            }
-            monoBlock[frameIndex] = float.IsFinite(mixedSample) ? mixedSample * channelWeight : 0f;
+            var leftSample = leftOutput[frameIndex];
+            var rightSample = rightOutput[frameIndex];
+            leftBlock[frameIndex] = float.IsFinite(leftSample) ? leftSample : 0f;
+            rightBlock[frameIndex] = float.IsFinite(rightSample) ? rightSample : 0f;
         }
     }
 

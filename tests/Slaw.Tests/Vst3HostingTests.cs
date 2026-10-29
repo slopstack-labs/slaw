@@ -234,6 +234,83 @@ public class Vst3HostingTests : IDisposable
     private static string? TestModuleFolder =>
         Environment.GetEnvironmentVariable("SLAW_TEST_VST3_DIR") is { Length: > 0 } folder && Directory.Exists(folder) ? folder : null;
 
+    // ── Stereo, against the installed plugins ────────────────────────────────
+
+    /// <summary>Runs a plugin offline over a stereo signal, block by block, returning both channels.</summary>
+    private static (float[] Left, float[] Right) ProcessInstalled(string pluginName, Func<int, float> sourceAt, int frameCount,
+        Dictionary<string, double> parameterValues, Action<Vst3PluginInstance>? beforeFirstBlock = null)
+    {
+        var instance = Vst3PluginInstance.Create(InstalledReference(pluginName), 44100, offline: true);
+        try
+        {
+            var left = Enumerable.Range(0, frameCount).Select(sourceAt).ToArray();
+            var right = left.ToArray();
+            beforeFirstBlock?.Invoke(instance);
+            for (var blockStart = 0; blockStart < frameCount; blockStart += 512)
+            {
+                var blockLength = Math.Min(512, frameCount - blockStart);
+                instance.Process(left.AsSpan(blockStart, blockLength), right.AsSpan(blockStart, blockLength), blockStart == 0 ? parameterValues : null);
+            }
+            return (left, right);
+        }
+        finally
+        {
+            instance.Dispose();
+        }
+    }
+
+    private static double ChannelCorrelation(float[] left, float[] right, int fromFrame, int toFrame)
+    {
+        double product = 0, leftEnergy = 0, rightEnergy = 0;
+        for (var frame = fromFrame; frame < toFrame; frame++)
+        {
+            product += left[frame] * right[frame];
+            leftEnergy += left[frame] * left[frame];
+            rightEnergy += right[frame] * right[frame];
+        }
+        return product / Math.Sqrt(leftEnergy * rightEnergy + 1e-30);
+    }
+
+    private static double WindowRms(float[] channel, int fromFrame, int frameCount) =>
+        Math.Sqrt(channel.Skip(fromFrame).Take(frameCount).Sum(sample => (double)sample * sample) / frameCount);
+
+    [InstalledPluginsFact("Ping Pong Pan")]
+    public void PingPongPanNowMovesTheImageFromSideToSide()
+    {
+        var (left, right) = ProcessInstalled("Ping Pong Pan", frame => (float)(0.5 * Math.Sin(2 * Math.PI * 330 * frame / 44100.0)), 44100 * 3,
+            new Dictionary<string, double> { ["p4"] = 1 });
+        // Ten-millisecond windows: somewhere the left side must clearly lead, somewhere the right.
+        var balances = Enumerable.Range(10, 290)
+            .Select(windowIndex => (Left: WindowRms(left, windowIndex * 441, 441), Right: WindowRms(right, windowIndex * 441, 441)))
+            .Where(window => window.Left + window.Right > 1e-3)
+            .Select(window => (window.Left - window.Right) / (window.Left + window.Right))
+            .ToList();
+        Assert.True(balances.Max() > 0.3 && balances.Min() < -0.3, $"balance only ranged {balances.Min():0.00}..{balances.Max():0.00}");
+    }
+
+    [InstalledPluginsFact("MVerb")]
+    public void MVerbKeepsItsTailInStereo()
+    {
+        var noiseSource = new Random(5);
+        var burst = Enumerable.Range(0, 4410).Select(_ => (float)(noiseSource.NextDouble() - 0.5)).ToArray();
+        var (left, right) = ProcessInstalled("MVerb", frame => frame < burst.Length ? burst[frame] : 0f, 44100 * 2,
+            new Dictionary<string, double> { ["p10"] = 1, ["p6"] = 0.7 });
+        Assert.True(WindowRms(left, 8820, 22050) > 1e-4, "MVerb should ring on after the burst");
+        Assert.InRange(ChannelCorrelation(left, right, 8820, left.Length), -0.9, 0.9);
+    }
+
+    [InstalledPluginsFact("OB-Xf")]
+    public void ObXfVoicePanReachesTheMix()
+    {
+        // Every voice panned hard left: the right channel should be a fraction of the left.
+        var hardLeft = Enumerable.Range(0, 8).ToDictionary(voiceIndex => $"p{95442972 + voiceIndex}", _ => 0.0);
+        var (left, right) = ProcessInstalled("OB-Xf", _ => 0f, 44100, hardLeft, instance => instance.NoteOn(57, 0.9f));
+        var leftLevel = WindowRms(left, 4410, 22050);
+        var rightLevel = WindowRms(right, 4410, 22050);
+        Assert.True(leftLevel > 1e-3, "OB-Xf should play the note");
+        Assert.True(leftLevel > rightLevel * 2, $"voices panned left: left {leftLevel:0.0000} vs right {rightLevel:0.0000}");
+    }
+
     private static Vst3PluginDescriptor TestPlugin(string name) =>
         Vst3PluginCatalog.Scan(new[] { TestModuleFolder! }).Single(plugin => plugin.Name == name);
 
@@ -305,7 +382,7 @@ public class Vst3HostingTests : IDisposable
         using var engine = new EngineScope(new SequencerEngine(22050, offlinePluginHosting: true));
         var instance = engine.Engine.Plugins.TryGet("track/instrument", synth)!;
         var silentBlock = new float[256];
-        instance.Process(silentBlock, new Dictionary<string, double> { ["p7"] = 0.3 });
+        instance.Process(silentBlock, new float[256], new Dictionary<string, double> { ["p7"] = 0.3 });
         var capturedState = instance.CaptureState();
         Assert.True(Vst3PluginInstance.TryUnpackState(capturedState, out var componentState, out _));
         Assert.Equal(0.3, BitConverter.ToDouble(componentState));
@@ -468,7 +545,7 @@ public class Vst3HostingTests : IDisposable
                 Thread.Sleep(liveInstance is null ? 50 : 0);
             }
             Assert.NotNull(liveInstance);
-            liveInstance.Process(new float[512], new Dictionary<string, double> { [dampKey] = 0.125 });
+            liveInstance.Process(new float[512], new float[512], new Dictionary<string, double> { [dampKey] = 0.125 });
             var liveState = liveInstance.CaptureState();
 
             ProjectSerializer.Save(project, projectPath);
@@ -517,8 +594,9 @@ public class Vst3HostingTests : IDisposable
                     {
                         instance.NoteOn(60, 0.8f);
                     }
-                    instance.Process(block, new Dictionary<string, double>());
-                    Assert.All(block, sample => Assert.True(float.IsFinite(sample), $"{plugin.Name} produced a non-finite sample"));
+                    var rightBlock = block.ToArray();
+                    instance.Process(block, rightBlock, new Dictionary<string, double>());
+                    Assert.All(block.Concat(rightBlock), sample => Assert.True(float.IsFinite(sample), $"{plugin.Name} produced a non-finite sample"));
                 }
                 instance.AllNotesOff();
                 instance.Dispose();
@@ -554,9 +632,10 @@ public class Vst3HostingTests : IDisposable
         {
             var noiseSource = new Random(7);
             var block = Enumerable.Range(0, 4096).Select(_ => (float)(noiseSource.NextDouble() - 0.5)).ToArray();
+            var rightBlock = block.ToArray();
             for (var blockIndex = 0; blockIndex < 8; blockIndex++)
             {
-                instance.Process(block, new Dictionary<string, double>());
+                instance.Process(block, rightBlock, new Dictionary<string, double>());
             }
             Assert.True(block.Max(Math.Abs) > 1e-4, $"{effect.Name} swallowed all the audio");
             Assert.All(block, sample => Assert.True(float.IsFinite(sample)));
