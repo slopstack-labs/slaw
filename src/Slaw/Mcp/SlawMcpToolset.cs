@@ -20,7 +20,7 @@ internal sealed class SlawMcpToolset
         "slaw is an AI-native step-sequencing DAW. A project has tracks (each with an instrument, effects and mixer settings), " +
         "scenes (rows of clips) and an arrangement (the song order: scene + repeats). Each track holds one clip per scene; a clip " +
         "is a pattern of sixteenth-note steps written as a space-separated string: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, " +
-        "\"_\" hold the previous note, \".\" silence. Start with get_project and get_catalog. Prefer apply_patch for multi-part edits. " +
+        "\"_\" hold the previous note, \".\" silence; \"C4@0.5\" or \"x@0.5\" sets a velocity (0..1, default 1). Start with get_project and get_catalog. Prefer apply_patch for multi-part edits. " +
         "Tracks marked LOCKED are protected from AI edits and must not be changed.";
 
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
@@ -96,7 +96,8 @@ internal sealed class SlawMcpToolset
             "List every instrument and audio effect with its parameter keys and ranges, plus the pattern step vocabulary.",
             Schema(new JsonObject()),
             (_, _, _) => Task.FromResult(PromptLibrary.DescribeDeviceCatalog() +
-                "\nPattern steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \"_\" hold previous note, \".\" silence. Clips are usually 16 steps (one bar of sixteenths)."));
+                "\nPattern steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \"C4:8\" note held 8 steps, \"_\" hold previous note, \".\" silence. " +
+                "Append \"@<velocity>\" (0..1, default 1) to a note or hit for dynamics: \"x@0.4\" ghost hit, \"C4:8@0.6+E4\" soft root under a full third. Clips are usually 16 steps (one bar of sixteenths)."));
 
         Register("apply_patch",
             "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], arrangement [{scene, repeats}], " +

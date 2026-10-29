@@ -256,7 +256,7 @@ internal sealed class DetailView : UserControl
         Control editorBody;
         if (InstrumentVoiceSynthesizer.IsPercussive(track.Instrument))
         {
-            activeStepRow = new StepRowControl(track, clip, clip.Pattern.Count) { Height = 64, VerticalAlignment = VerticalAlignment.Top };
+            activeStepRow = new StepRowControl(track, clip, clip.Pattern.Count) { Height = 64, VerticalAlignment = VerticalAlignment.Top, SelectsHits = true };
             activeStepRow.EditStarted += () => document.BeginEdit("drum step");
             activeStepRow.PatternEdited += description => document.CommitEdit(description);
             editorBody = new StackPanel
@@ -296,6 +296,7 @@ internal sealed class DetailView : UserControl
             DockPanel.SetDock(octaveButtons, Dock.Right);
             editorBody = new DockPanel { Children = { octaveButtons, activePianoRoll } };
         }
+        clipHeader.Children.Add(new NoteVelocityPanel(document, track, clip, activePianoRoll, activeStepRow));
 
         return new DockPanel
         {

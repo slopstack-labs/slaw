@@ -29,6 +29,10 @@ internal sealed class PianoRollControl : Control
     private static readonly IPen BeatLinePen = new Pen(new SolidColorBrush(Color.Parse("#4a4a5e"), 0.9), 1);
     private static readonly IPen OctaveLinePen = new Pen(StudioTheme.Border, 1);
     private static readonly IPen HoverPen = new Pen(StudioTheme.TextMuted, 1);
+    private static readonly IPen SelectionPen = new Pen(StudioTheme.Text, 1.5);
+
+    /// <summary>Pixels of vertical drag that sweep a note's velocity across its whole range.</summary>
+    private const double VelocityDragPixelsPerFullRange = 120;
 
     private Rect lastRenderedGridArea;
     private SlawClip clip;
@@ -48,13 +52,50 @@ internal sealed class PianoRollControl : Control
     private bool keyboardAuditionActive;
     private int? auditionedMidiNote;
 
+    // Selection (for the velocity slider) and the alt/ctrl-drag velocity gesture.
+    private (int StartStep, int MidiNote)? selectedNoteKey;
+    private bool selectionPressActive;
+    private bool velocityDragActive;
+    private bool velocityDragEditOpened;
+    private double velocityDragAnchorY;
+    private double velocityDragStartVelocity;
+
     public PianoRollControl(SlawClip clip, int lowestVisibleMidiNote, int visibleNoteCount)
     {
         this.clip = clip;
         this.lowestVisibleMidiNote = lowestVisibleMidiNote;
         VisibleNoteCount = Math.Max(1, visibleNoteCount);
         ClipToBounds = true;
-        ToolTip.SetTip(this, "keyboard: click and hold to hear a note (drag to glide) · grid: click: add note · drag right: sustain · click note / right-click: remove · wheel: scroll pitch (shift: octave)");
+        ToolTip.SetTip(this, "keyboard: click and hold to hear a note (drag to glide) · grid: click: add note · drag right: sustain · click note: select (velocity slider above) · alt/ctrl+drag note up/down: velocity · double-click / right-click note: remove · wheel: scroll pitch (shift: octave)");
+    }
+
+    /// <summary>Raised when the selected note changes, or its velocity does.</summary>
+    public event Action? SelectionChanged;
+
+    /// <summary>The selected note as it currently stands in the pattern, or null if none is selected (or it no longer exists).</summary>
+    public PlacedNote? SelectedNote => selectedNoteKey is { } noteKey
+        ? ClipNoteEditor.NotesStartingAt(clip.Pattern, noteKey.StartStep)
+            .Where(placedNote => placedNote.MidiNote == noteKey.MidiNote)
+            .Select(placedNote => (PlacedNote?)placedNote)
+            .FirstOrDefault()
+        : null;
+
+    private void SelectNote(int startStep, int midiNote)
+    {
+        selectedNoteKey = (startStep, midiNote);
+        InvalidateVisual();
+        SelectionChanged?.Invoke();
+    }
+
+    private void ClearSelection()
+    {
+        if (selectedNoteKey is null)
+        {
+            return;
+        }
+        selectedNoteKey = null;
+        InvalidateVisual();
+        SelectionChanged?.Invoke();
     }
 
     /// <summary>Raised before a pointer press mutates the pattern, so the host can snapshot for undo.</summary>
@@ -193,7 +234,8 @@ internal sealed class PianoRollControl : Control
             }
             else
             {
-                DrawNoteBlock(drawingContext, placedNote.MidiNote, placedNote.StartStep, Math.Min(placedNote.Length, StepCount - placedNote.StartStep));
+                DrawNoteBlock(drawingContext, placedNote.MidiNote, placedNote.StartStep, Math.Min(placedNote.Length, StepCount - placedNote.StartStep), placedNote.Velocity,
+                    selectedNoteKey == (placedNote.StartStep, placedNote.MidiNote));
             }
         }
 
@@ -228,16 +270,24 @@ internal sealed class PianoRollControl : Control
             new Point(KeyboardGutterWidth - 4, RowTop(litMidiNote) + RowHeight / 2), TextAnchor.RightMiddle);
     }
 
-    private void DrawNoteBlock(DrawingContext drawingContext, int midiNote, int startStepIndex, int heldLength)
+    private void DrawNoteBlock(DrawingContext drawingContext, int midiNote, int startStepIndex, int heldLength, double velocity, bool selected)
     {
         var noteRect = new Rect(
             KeyboardGutterWidth + startStepIndex * ColumnWidth + 1,
             RowTop(midiNote) + 1,
             Math.Max(1, heldLength * ColumnWidth - 2),
             Math.Max(1, RowHeight - 2));
-        drawingContext.DrawRectangle(StudioTheme.Accent, null, noteRect, 2, 2);
-        drawingContext.DrawRectangle(NoteTopEdgeBrush, null,
-            new Rect(noteRect.X, noteRect.Y, noteRect.Width, Math.Min(2, noteRect.Height)), 2, 2);
+        // Softer notes are paler, like every DAW since the first one agreed on it.
+        using (drawingContext.PushOpacity(0.3 + 0.7 * velocity))
+        {
+            drawingContext.DrawRectangle(StudioTheme.Accent, null, noteRect, 2, 2);
+            drawingContext.DrawRectangle(NoteTopEdgeBrush, null,
+                new Rect(noteRect.X, noteRect.Y, noteRect.Width, Math.Min(2, noteRect.Height)), 2, 2);
+        }
+        if (selected)
+        {
+            drawingContext.DrawRectangle(null, SelectionPen, noteRect.Inflate(0.5), 2, 2);
+        }
 
         if (noteRect.Height >= 11)
         {
@@ -314,7 +364,7 @@ internal sealed class PianoRollControl : Control
         var pressedProperties = pointerEvent.GetCurrentPoint(this).Properties;
         var noteStartStepIndex = FindNoteStartStepIndex(targetStepIndex, targetMidiNote);
 
-        if (pressedProperties.IsRightButtonPressed || (pressedProperties.IsLeftButtonPressed && noteStartStepIndex >= 0))
+        if (pressedProperties.IsRightButtonPressed || (pressedProperties.IsLeftButtonPressed && noteStartStepIndex >= 0 && pointerEvent.ClickCount >= 2))
         {
             if (noteStartStepIndex >= 0)
             {
@@ -325,6 +375,24 @@ internal sealed class PianoRollControl : Control
             return;
         }
 
+        // Clicking a note selects it (and plays it); alt/ctrl+drag then sweeps its velocity.
+        if (pressedProperties.IsLeftButtonPressed && noteStartStepIndex >= 0)
+        {
+            SelectNote(noteStartStepIndex, targetMidiNote);
+            selectionPressActive = true;
+            if (pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Alt) || pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Control))
+            {
+                velocityDragActive = true;
+                velocityDragEditOpened = false;
+                velocityDragAnchorY = pointerPosition.Y;
+                velocityDragStartVelocity = SelectedNote?.Velocity ?? 1;
+            }
+            BeginAudition(targetMidiNote);
+            pointerEvent.Pointer.Capture(this);
+            pointerEvent.Handled = true;
+            return;
+        }
+
         if (!pressedProperties.IsLeftButtonPressed)
         {
             return;
@@ -332,6 +400,7 @@ internal sealed class PianoRollControl : Control
 
         EditStarted?.Invoke();
         ClipNoteEditor.AddNote(clip.Pattern, targetStepIndex, targetMidiNote, length: 1);
+        SelectNote(targetStepIndex, targetMidiNote);
         sustainDragMidiNote = targetMidiNote;
 
         sustainDragActive = true;
@@ -368,6 +437,10 @@ internal sealed class PianoRollControl : Control
 
     private void RemoveNote(int noteStartStepIndex, int midiNote)
     {
+        if (selectedNoteKey == (noteStartStepIndex, midiNote))
+        {
+            ClearSelection();
+        }
         ClipNoteEditor.RemoveNote(clip.Pattern, noteStartStepIndex, midiNote);
         InvalidateVisual();
         PatternEdited?.Invoke($"removed {NotationResolver.FormatMidiNote(midiNote)} at step {noteStartStepIndex + 1}");
@@ -392,6 +465,16 @@ internal sealed class PianoRollControl : Control
         if (sustainDragActive)
         {
             UpdateSustainDrag(pointerPosition.X);
+            return;
+        }
+
+        if (velocityDragActive)
+        {
+            UpdateVelocityDrag(pointerPosition.Y);
+            return;
+        }
+        if (selectionPressActive)
+        {
             return;
         }
 
@@ -428,6 +511,47 @@ internal sealed class PianoRollControl : Control
         InvalidateVisual();
     }
 
+    private void UpdateVelocityDrag(double pointerY)
+    {
+        if (SelectedNote is not { } draggedNote)
+        {
+            return;
+        }
+        var draggedVelocity = NotationResolver.ClampVelocity(
+            Math.Round(velocityDragStartVelocity + (velocityDragAnchorY - pointerY) / VelocityDragPixelsPerFullRange, 2));
+        if (Math.Abs(draggedVelocity - draggedNote.Velocity) < 0.005)
+        {
+            return;
+        }
+        if (!velocityDragEditOpened)
+        {
+            EditStarted?.Invoke();
+            velocityDragEditOpened = true;
+        }
+        ClipNoteEditor.SetNoteVelocity(clip.Pattern, draggedNote.StartStep, draggedNote.MidiNote, draggedVelocity);
+        InvalidateVisual();
+        SelectionChanged?.Invoke();
+    }
+
+    /// <summary>Ends a select / velocity gesture, reporting the edit if the velocity actually moved.</summary>
+    private void FinishSelectionPress()
+    {
+        if (!selectionPressActive)
+        {
+            return;
+        }
+        selectionPressActive = false;
+        velocityDragActive = false;
+        EndAudition();
+        if (velocityDragEditOpened && SelectedNote is { } editedNote)
+        {
+            velocityDragEditOpened = false;
+            PatternEdited?.Invoke(string.Create(CultureInfo.InvariantCulture,
+                $"set {NotationResolver.FormatMidiNote(editedNote.MidiNote)} at step {editedNote.StartStep + 1} to velocity {editedNote.Velocity * 100:0}%"));
+        }
+        velocityDragEditOpened = false;
+    }
+
     protected override void OnPointerReleased(PointerReleasedEventArgs pointerEvent)
     {
         base.OnPointerReleased(pointerEvent);
@@ -436,6 +560,12 @@ internal sealed class PianoRollControl : Control
             keyboardAuditionActive = false;
             pointerEvent.Pointer.Capture(null);
             EndAudition();
+            return;
+        }
+        if (selectionPressActive)
+        {
+            pointerEvent.Pointer.Capture(null);
+            FinishSelectionPress();
             return;
         }
         if (!sustainDragActive)
@@ -452,6 +582,7 @@ internal sealed class PianoRollControl : Control
         keyboardAuditionActive = false;
         EndAudition();
         FinishSustainDrag();
+        FinishSelectionPress();
     }
 
     private void FinishSustainDrag()
@@ -471,7 +602,7 @@ internal sealed class PianoRollControl : Control
     protected override void OnPointerExited(PointerEventArgs pointerEvent)
     {
         base.OnPointerExited(pointerEvent);
-        if (sustainDragActive)
+        if (sustainDragActive || selectionPressActive)
         {
             return;
         }
