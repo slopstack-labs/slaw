@@ -182,6 +182,50 @@ internal sealed class StudioDocument
         SelectionChanged?.Invoke();
     }
 
+    /// <summary>Adds a sampler track playing <paramref name="samplePath"/>, with a starter clip so it is audible at once.</summary>
+    public void AddSamplerTrack(string samplePath)
+    {
+        if (Project.Tracks.Count >= ProjectAlignmentRemediator.MaximumTrackCount)
+        {
+            return;
+        }
+        BeginEdit("add sampler track");
+        var sampleStem = Path.GetFileNameWithoutExtension(samplePath);
+        var addedTrack = new SlawTrack
+        {
+            Name = sampleStem.Length > 24 ? sampleStem[..24] : sampleStem,
+            Instrument = "sampler",
+            Sample = Path.GetFullPath(samplePath),
+            Gain = 0.8,
+            Clips = Enumerable.Repeat<SlawClip?>(null, Project.Scenes.Count).ToList(),
+        };
+        var starterClip = SlawClip.Empty(Project.Scenes[SelectedSceneIndex], Project.Steps);
+        starterClip.Pattern[0] = NotationResolver.FormatMidiNote(60);
+        addedTrack.Clips[SelectedSceneIndex] = starterClip;
+        Project.Tracks.Add(addedTrack);
+        SelectedTrackIndex = Project.Tracks.Count - 1;
+        CommitEdit($"added the sample {Path.GetFileName(samplePath)}", EditScope.Structure);
+        SelectionChanged?.Invoke();
+    }
+
+    /// <summary>Loads a sample into an existing track, turning it into a sampler if it was not one.</summary>
+    public void LoadSampleIntoTrack(int trackIndex, string samplePath)
+    {
+        if (trackIndex < 0 || trackIndex >= Project.Tracks.Count)
+        {
+            return;
+        }
+        var targetTrack = Project.Tracks[trackIndex];
+        BeginEdit("load sample");
+        if (targetTrack.Instrument != "sampler")
+        {
+            PatternEditingOperations.ChangeInstrument(targetTrack, "sampler");
+            targetTrack.InstrumentParameters.Clear();
+        }
+        targetTrack.Sample = Path.GetFullPath(samplePath);
+        CommitEdit($"loaded {Path.GetFileName(samplePath)} into {targetTrack.Name}", EditScope.Structure);
+    }
+
     public void AddScene()
     {
         if (Project.Scenes.Count >= ProjectAlignmentRemediator.MaximumSceneCount)

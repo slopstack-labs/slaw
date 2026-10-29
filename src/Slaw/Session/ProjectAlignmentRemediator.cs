@@ -59,6 +59,9 @@ internal static class ProjectAlignmentRemediator
         ["riser"] = "noise",
         ["ambience"] = "noise",
         ["vinyl"] = "noise",
+        ["sample"] = "sampler",
+        ["sampled"] = "sampler",
+        ["one-shot"] = "sampler",
     };
 
     private static readonly Dictionary<string, string> EffectSynonymResolutionTable = new(StringComparer.OrdinalIgnoreCase)
@@ -204,6 +207,11 @@ internal static class ProjectAlignmentRemediator
         if (string.IsNullOrWhiteSpace(track.Name))
         {
             track.Name = "unnamed track";
+        }
+
+        if (track.Instrument == "sampler" && string.IsNullOrWhiteSpace(track.Sample))
+        {
+            remediationLedger.Add($"{track.Name}: sampler has no sample loaded yet");
         }
 
         var resolvedInstrumentName = ResolveInstrument(track.Instrument);

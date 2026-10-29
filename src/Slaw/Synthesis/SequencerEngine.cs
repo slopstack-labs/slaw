@@ -174,16 +174,34 @@ internal sealed class SequencerEngine
             return;
         }
         var percussiveInstrument = InstrumentVoiceSynthesizer.IsPercussive(auditionedTrack.Instrument);
+        SampleData? samplerSource = null;
+        if (auditionedTrack.Instrument == "sampler" && !string.IsNullOrEmpty(auditionedTrack.Sample))
+        {
+            try
+            {
+                samplerSource = SampleLibrary.LoadResampled(auditionedTrack.Sample, sampleRate);
+            }
+            catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+            {
+                return;
+            }
+        }
         var renderedVoice = InstrumentVoiceSynthesizer.RenderVoice(
             auditionedTrack.Instrument,
             new[] { midiNote },
             AuditionMaximumHoldSeconds,
             sampleRate,
             auditionEntropySource,
-            auditionedTrack.InstrumentParameters);
+            auditionedTrack.InstrumentParameters,
+            samplerSource);
+        if (renderedVoice.Length == 0)
+        {
+            return;
+        }
         // Melodic voices fade on release over the instrument's own release time;
         // drums and plucks are allowed to ring out, as nature intended.
-        var releaseSeconds = percussiveInstrument || auditionedTrack.Instrument == "pluck"
+        var releaseSeconds = percussiveInstrument || auditionedTrack.Instrument == "pluck" ||
+                             (auditionedTrack.Instrument == "sampler" && DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor("sampler"), "hold") < 0.5)
             ? 0
             : DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(auditionedTrack.Instrument), "release") / 1000.0;
         var auditionVoice = new AuditionVoice(trackIdentifier, renderedVoice, Math.Max(1, (int)(releaseSeconds * sampleRate)), releaseSeconds > 0);
@@ -407,6 +425,10 @@ internal sealed class SequencerEngine
         }
 
         var renderedVoice = RenderOrRecallVoice(project, track, stepEvent, heldStepCount);
+        if (renderedVoice.Length == 0)
+        {
+            return;
+        }
         var humanizeAmount = DeviceCatalog.Resolve(
             track.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument), "humanize");
         var humanizedGain = (float)(1 - humanizeAmount * 0.35 * humanizationEntropySource.NextDouble());
@@ -421,10 +443,21 @@ internal sealed class SequencerEngine
     private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, StepEvent stepEvent, int heldStepCount)
     {
         var parameterFingerprint = string.Join(',', track.InstrumentParameters.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value:R}"));
-        var voiceCacheKey = $"{track.Instrument}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}";
+        var voiceCacheKey = $"{track.Instrument}|{track.Sample}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}";
         if (renderedVoiceCache.TryGetValue(voiceCacheKey, out var cachedVoice))
         {
             return cachedVoice;
+        }
+        SampleData? samplerSource = null;
+        if (track.Instrument == "sampler")
+        {
+            // Never touch the disk from the audio thread: a sample that is not
+            // decoded yet is requested in the background and skipped this time.
+            samplerSource = string.IsNullOrEmpty(track.Sample) ? null : SampleLibrary.TryGetResampled(track.Sample, sampleRate);
+            if (samplerSource is null)
+            {
+                return Array.Empty<float>();
+            }
         }
         if (renderedVoiceCache.Count >= MaximumCachedVoices)
         {
@@ -436,7 +469,8 @@ internal sealed class SequencerEngine
             heldStepCount * project.StepDurationSeconds * 0.92,
             sampleRate,
             noiseEntropySource,
-            track.InstrumentParameters);
+            track.InstrumentParameters,
+            samplerSource);
         renderedVoiceCache[voiceCacheKey] = renderedVoice;
         return renderedVoice;
     }

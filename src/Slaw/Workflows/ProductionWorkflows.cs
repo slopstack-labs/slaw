@@ -255,9 +255,11 @@ internal static class ProductionWorkflows
         SlawProject currentProject,
         string instruction,
         int maximumRemediationCycles,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<string>? availableSamplePaths = null)
     {
-        var currentPrompt = PromptLibrary.Autopilot(currentProject, instruction);
+        availableSamplePaths ??= Array.Empty<string>();
+        var currentPrompt = PromptLibrary.Autopilot(currentProject, instruction, availableSamplePaths);
         for (var remediationCycleIndex = 0; ; remediationCycleIndex++)
         {
             var modelOutput = await inferenceProvider.StreamCompletionAsync(currentPrompt, Array.Empty<string>(), cancellationToken);
@@ -280,6 +282,7 @@ internal static class ProductionWorkflows
                 }
 
                 var lockEnforcementCount = EnforceAiLocks(currentProject, revisedProject);
+                RealignHallucinatedSamples(currentProject, revisedProject, availableSamplePaths);
                 var remediationLedger = ProjectAlignmentRemediator.Remediate(revisedProject);
                 revisedProject.AiProvenance = $"{inferenceProvider.ModelIdentifier} via {inferenceProvider.ProviderDisplayName} (autopilot)";
                 var changeSummary = ProjectChangeSummarizer.Summarize(currentProject, revisedProject);
@@ -295,6 +298,51 @@ internal static class ProductionWorkflows
                     "\nReturn the COMPLETE project in the same schema as before (scenes, tracks with clips, arrangement, master).";
             }
         }
+    }
+
+    /// <summary>
+    /// Models misremember paths. A sampler sample that does not exist is matched
+    /// by file name against the library, or falls back to what the track had.
+    /// </summary>
+    private static void RealignHallucinatedSamples(SlawProject originalProject, SlawProject revisedProject, IReadOnlyList<string> availableSamplePaths)
+    {
+        foreach (var revisedTrack in revisedProject.Tracks.Where(track => track is not null && !string.IsNullOrEmpty(track.Sample)))
+        {
+            if (File.Exists(revisedTrack.Sample))
+            {
+                continue;
+            }
+            var requestedFileName = Path.GetFileName(revisedTrack.Sample);
+            revisedTrack.Sample = availableSamplePaths.FirstOrDefault(samplePath =>
+                    string.Equals(Path.GetFileName(samplePath), requestedFileName, StringComparison.OrdinalIgnoreCase))
+                ?? originalProject.Tracks.FirstOrDefault(track => track.Id == revisedTrack.Id)?.Sample;
+        }
+    }
+
+    /// <summary>Asks the model to choose a sample for a track from the user's library.</summary>
+    public static async Task<string> ChooseSampleAsync(
+        IInferenceSubstrateProvider inferenceProvider,
+        SlawProject project,
+        SlawTrack targetTrack,
+        IReadOnlyList<string> candidateSamplePaths,
+        string instruction,
+        CancellationToken cancellationToken = default)
+    {
+        if (candidateSamplePaths.Count == 0)
+        {
+            throw new ArrangementMisalignmentException("the sample library is empty — add a sample folder first");
+        }
+        var modelOutput = await inferenceProvider.StreamCompletionAsync(
+            PromptLibrary.SampleSelection(project, targetTrack, candidateSamplePaths, instruction), Array.Empty<string>(), cancellationToken);
+        if (LanguageModelPayloadExtractor.ExtractFirstNumber(modelOutput) is { } chosenNumber &&
+            chosenNumber >= 1 && chosenNumber <= candidateSamplePaths.Count)
+        {
+            return candidateSamplePaths[(int)chosenNumber - 1];
+        }
+        // No usable number: perhaps it named the file instead.
+        return candidateSamplePaths.FirstOrDefault(samplePath =>
+                   modelOutput.Contains(Path.GetFileNameWithoutExtension(samplePath), StringComparison.OrdinalIgnoreCase))
+               ?? throw new ArrangementMisalignmentException("the curator chose a sample that does not exist");
     }
 
     private static int EnforceAiLocks(SlawProject originalProject, SlawProject revisedProject)

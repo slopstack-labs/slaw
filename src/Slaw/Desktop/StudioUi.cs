@@ -25,6 +25,15 @@ internal interface IStudioHost
     void StartNoteAudition(string trackIdentifier, int midiNote);
     void StopNoteAudition();
 
+    /// <summary>Plays a sample file once through the live engine.</summary>
+    void PreviewSampleFile(string samplePath);
+
+    /// <summary>Opens a file picker and loads the chosen WAV into the track.</summary>
+    void ChooseSampleFileForTrack(int trackIndex);
+
+    /// <summary>Lets the model choose a sample for the track from the user's sample folders.</summary>
+    void PickSampleWithAi(int trackIndex);
+
     void GenerateClipWithAi(int trackIndex, int sceneIndex);
     void RenameTrackWithAi(int trackIndex);
 

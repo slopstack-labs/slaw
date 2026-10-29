@@ -70,6 +70,13 @@ internal sealed class SlawTrack
     public string Name { get; set; } = "track";
     public string Instrument { get; set; } = "sine";
     public Dictionary<string, double> InstrumentParameters { get; set; } = new();
+
+    /// <summary>
+    /// The WAV file a "sampler" track plays. Absolute in memory; written relative
+    /// to the project file when the sample lives next to it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Sample { get; set; }
     public List<EffectDevice> Effects { get; set; } = new();
     public double Gain { get; set; } = 0.8;
     public double Pan { get; set; }

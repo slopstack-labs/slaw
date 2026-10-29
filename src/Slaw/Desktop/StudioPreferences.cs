@@ -30,6 +30,9 @@ internal sealed class StudioPreferences
     public int EditsBetweenCopilotInterjections { get; set; } = 6;
     public int AutopilotRemediationCycles { get; set; } = 2;
 
+    /// <summary>Folders scanned for user samples (WAV files), shown in the browser.</summary>
+    public List<string> SampleFolders { get; set; } = new();
+
     /// <summary>Preferred live audio substrate, or "auto".</summary>
     public string AudioSubstrate { get; set; } = "auto";
     public int AudioLatencyMilliseconds { get; set; } = 60;
@@ -66,7 +69,12 @@ internal sealed class StudioPreferences
         File.WriteAllText(PreferencesFilePath, JsonSerializer.Serialize(persistedPreferences, ProjectSerializer.LenientSerializationOptions));
     }
 
-    public StudioPreferences Clone() => (StudioPreferences)MemberwiseClone();
+    public StudioPreferences Clone()
+    {
+        var clonedPreferences = (StudioPreferences)MemberwiseClone();
+        clonedPreferences.SampleFolders = SampleFolders.ToList();
+        return clonedPreferences;
+    }
 
     public InferenceRoutingIntent ToRoutingIntent() => new()
     {

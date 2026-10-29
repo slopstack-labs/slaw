@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using SlopstackLabs.Slaw.Inference;
 using SlopstackLabs.Slaw.Playback;
 
@@ -35,12 +36,25 @@ internal sealed class SettingsWindow : Window
     private readonly ComboBox audioSubstrateComboBox;
     private readonly NumericUpDown audioLatencyNumericUpDown;
 
+    private readonly List<string> workingSampleFolders;
+    private readonly ListBox sampleFoldersListBox;
+    private Button? removeSampleFolderButton;
+
     /// <summary>The accepted preferences, or null if the user cancelled (or closed the window like a normal person).</summary>
     public StudioPreferences? Result { get; private set; }
 
     public SettingsWindow(StudioPreferences currentPreferences)
     {
         workingPreferences = currentPreferences.Clone();
+        workingSampleFolders = new List<string>(workingPreferences.SampleFolders ?? new List<string>());
+        sampleFoldersListBox = new ListBox
+        {
+            Height = 220,
+            FontFamily = StudioTheme.MonospaceFont,
+            FontSize = 12,
+            ItemsSource = workingSampleFolders,
+        };
+        sampleFoldersListBox.SelectionChanged += (_, _) => RefreshRemoveSampleFolderEnablement();
 
         Title = "slaw — Settings";
         Width = 560;
@@ -121,6 +135,7 @@ internal sealed class SettingsWindow : Window
             {
                 new TabItem { Header = "AI", Content = WrapInScrollViewer(BuildAiTab()) },
                 new TabItem { Header = "Audio", Content = WrapInScrollViewer(BuildAudioTab()) },
+                new TabItem { Header = "Samples", Content = WrapInScrollViewer(BuildSamplesTab()) },
                 new TabItem { Header = "About", Content = WrapInScrollViewer(BuildAboutTab()) },
             },
         };
@@ -279,6 +294,74 @@ internal sealed class SettingsWindow : Window
         return tabPanel;
     }
 
+    /// <summary>Builds the Samples tab: the list of folders slaw scans (recursively) for WAV files.</summary>
+    private Control BuildSamplesTab()
+    {
+        var tabPanel = new StackPanel { Spacing = 10 };
+        tabPanel.Children.Add(StudioUi.SectionHeading("Sample folders"));
+        var explanationCaption = StudioUi.Caption(
+            "slaw scans these folders (recursively) for WAV files and lists them in the browser. slaw itself still ships zero samples; these are yours, and therefore your responsibility.");
+        explanationCaption.TextWrapping = TextWrapping.Wrap;
+        explanationCaption.TextTrimming = TextTrimming.None;
+        tabPanel.Children.Add(explanationCaption);
+        tabPanel.Children.Add(sampleFoldersListBox);
+
+        removeSampleFolderButton = StudioUi.Button("Remove", RemoveSelectedSampleFolder);
+        tabPanel.Children.Add(StudioUi.Row(8,
+            StudioUi.Button("Add folder…", () => _ = AddSampleFoldersAsync()),
+            removeSampleFolderButton));
+        RefreshRemoveSampleFolderEnablement();
+
+        var supportedFormatsCaption = StudioUi.Caption(
+            "Supported: uncompressed WAV (8/16/24/32-bit PCM, 32/64-bit float), any channel count, any sample rate.");
+        supportedFormatsCaption.TextWrapping = TextWrapping.Wrap;
+        supportedFormatsCaption.TextTrimming = TextTrimming.None;
+        tabPanel.Children.Add(supportedFormatsCaption);
+        return tabPanel;
+    }
+
+    private void RefreshRemoveSampleFolderEnablement()
+    {
+        if (removeSampleFolderButton is not null)
+        {
+            removeSampleFolderButton.IsEnabled = sampleFoldersListBox.SelectedItem is not null;
+        }
+    }
+
+    private void RefreshSampleFoldersListBox()
+    {
+        sampleFoldersListBox.ItemsSource = null;
+        sampleFoldersListBox.ItemsSource = workingSampleFolders;
+        RefreshRemoveSampleFolderEnablement();
+    }
+
+    private void RemoveSelectedSampleFolder()
+    {
+        if (sampleFoldersListBox.SelectedItem is string selectedFolder)
+        {
+            workingSampleFolders.Remove(selectedFolder);
+            RefreshSampleFoldersListBox();
+        }
+    }
+
+    private async Task AddSampleFoldersAsync()
+    {
+        var pickedFolders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Add sample folder",
+            AllowMultiple = true,
+        });
+        foreach (var pickedFolder in pickedFolders)
+        {
+            var localPath = pickedFolder.TryGetLocalPath();
+            if (!string.IsNullOrEmpty(localPath) && !workingSampleFolders.Contains(localPath))
+            {
+                workingSampleFolders.Add(localPath);
+            }
+        }
+        RefreshSampleFoldersListBox();
+    }
+
     private static Control BuildAboutTab()
     {
         var versionText = typeof(SettingsWindow).Assembly.GetName().Version?.ToString() ?? "unversioned (very agile)";
@@ -331,6 +414,7 @@ internal sealed class SettingsWindow : Window
         workingPreferences.AutopilotRemediationCycles = ReadWholeNumber(remediationCyclesNumericUpDown, workingPreferences.AutopilotRemediationCycles);
         workingPreferences.AudioSubstrate = audioSubstrateComboBox.SelectedItem as string ?? "auto";
         workingPreferences.AudioLatencyMilliseconds = ReadWholeNumber(audioLatencyNumericUpDown, workingPreferences.AudioLatencyMilliseconds);
+        workingPreferences.SampleFolders = new List<string>(workingSampleFolders);
     }
 
     private void CommitAndClose()

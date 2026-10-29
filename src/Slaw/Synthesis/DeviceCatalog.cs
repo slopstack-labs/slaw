@@ -29,6 +29,8 @@ internal sealed record ParameterSpecification(
         "Hz" => string.Create(CultureInfo.InvariantCulture, $"{parameterValue:0} Hz"),
         "ms" when parameterValue >= 1000 => string.Create(CultureInfo.InvariantCulture, $"{parameterValue / 1000:0.00} s"),
         "ms" => string.Create(CultureInfo.InvariantCulture, $"{parameterValue:0} ms"),
+        "toggle" => parameterValue >= 0.5 ? "on" : "off",
+        "note" => Session.NotationResolver.FormatMidiNote((int)Math.Round(parameterValue)),
         "%" => string.Create(CultureInfo.InvariantCulture, $"{parameterValue * 100:0}%"),
         "st" => string.Create(CultureInfo.InvariantCulture, $"{parameterValue:+0;-0;0} st"),
         "ct" => string.Create(CultureInfo.InvariantCulture, $"{parameterValue:+0;-0;0} ct"),
@@ -82,8 +84,24 @@ internal static class DeviceCatalog
         Humanize,
     };
 
+    private static readonly IReadOnlyList<ParameterSpecification> SamplerParameters = new[]
+    {
+        new ParameterSpecification("root", "Root Note", 24, 108, 60, "note", Integer: true),
+        new ParameterSpecification("transpose", "Transpose", -24, 24, 0, "st", Integer: true),
+        new ParameterSpecification("start", "Start", 0, 0.99, 0, "%"),
+        new ParameterSpecification("end", "End", 0.01, 1, 1, "%"),
+        new ParameterSpecification("hold", "Note Length", 0, 1, 0, "toggle", Integer: true),
+        new ParameterSpecification("reverse", "Reverse", 0, 1, 0, "toggle", Integer: true),
+        new ParameterSpecification("attack", "Attack", 0.5, 2000, 1, "ms", Logarithmic: true),
+        new ParameterSpecification("release", "Release", 5, 4000, 40, "ms", Logarithmic: true),
+        new ParameterSpecification("gain", "Gain", 0, 2, 1, "×"),
+        new ParameterSpecification("cutoff", "Filter", 80, 20000, 20000, "Hz", Logarithmic: true),
+        Humanize,
+    };
+
     public static IReadOnlyList<ParameterSpecification> InstrumentParametersFor(string instrumentName) => instrumentName switch
     {
+        "sampler" => SamplerParameters,
         "kick" or "snare" or "hat" or "clap" => DrumParameters,
         "pluck" => PluckParameters,
         _ => OscillatorParameters,
@@ -97,6 +115,7 @@ internal static class DeviceCatalog
         "clap" => "Clap Synthesizer",
         "pluck" => "Karplus–Strong Pluck",
         "noise" => "Generative Noise Engine",
+        "sampler" => "Sampler",
         var oscillatorName => $"{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(oscillatorName)} Oscillator",
     };
 

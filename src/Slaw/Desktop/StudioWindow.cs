@@ -88,6 +88,9 @@ internal sealed class StudioWindow : Window, IStudioHost
     private readonly ToggleSwitch fullSelfProducingSwitch = new() { OnContent = "Full Self-Producing (Beta)", OffContent = "Full Self-Producing (Beta)", FontSize = 12 };
     private readonly CheckBox unsolicitedAdviceToggle = new() { Content = "Unsolicited advice", FontSize = 12 };
     private readonly List<Control> inferenceDependentControls = new();
+    private readonly StackPanel sampleEntriesPanel = new() { Spacing = 1 };
+    private readonly TextBox sampleFilterInput = new() { Watermark = "filter samples…", FontSize = 11, MinHeight = 24, Padding = new Thickness(6, 2) };
+    private IReadOnlyList<string> sampleLibraryFiles = Array.Empty<string>();
 
     public StudioWindow(StudioLaunchParameters launchParameters)
     {
@@ -139,6 +142,10 @@ internal sealed class StudioWindow : Window, IStudioHost
 
         transportTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => AdvanceTransportDisplay());
         AddHandler(KeyDownEvent, HandleWindowKeyDown, RoutingStrategies.Tunnel);
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, HandleDragOver);
+        AddHandler(DragDrop.DropEvent, HandleDrop);
+        sampleFilterInput.TextChanged += (_, _) => PopulateSampleEntries();
         Closing += HandleWindowClosing;
         Opened += (_, _) =>
         {
@@ -172,6 +179,7 @@ internal sealed class StudioWindow : Window, IStudioHost
             }
         }
         SetStatus(StatusSeverity.Informational, "ready. launch a clip with its ▶, or press Space.");
+        _ = RescanSampleLibraryAsync();
     }
 
     public bool AiFeaturesEnabled => preferences.AiFeaturesEnabled;
@@ -300,6 +308,15 @@ internal sealed class StudioWindow : Window, IStudioHost
                 }
             }, "Click to add to the selected track"));
         }
+        browserContent.Children.Add(new Border { Height = 10 });
+        browserContent.Children.Add(StudioUi.SectionHeading("Samples"));
+        browserContent.Children.Add(StudioUi.Row(4,
+            StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV files to the browser", compact: true),
+            StudioUi.Button("⟳", () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true)));
+        browserContent.Children.Add(sampleFilterInput);
+        browserContent.Children.Add(sampleEntriesPanel);
+        PopulateSampleEntries();
+
         if (AiFeaturesEnabled)
         {
             browserContent.Children.Add(new Border { Height = 10 });
@@ -865,6 +882,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         {
             RestartLiveAudio();
         }
+        _ = RescanSampleLibraryAsync();
         SetStatus(StatusSeverity.Success, "settings saved");
     }
 
@@ -1169,10 +1187,11 @@ internal sealed class StudioWindow : Window, IStudioHost
         {
             AppendCopilotMessage("you", resolvedInstruction);
         }
+        var availableSamplePaths = sampleLibraryFiles;
         LaunchInference("autopilot", async (projectSnapshot, cancellationToken) =>
         {
             var autopilotDeliverable = await ProductionWorkflows.AutopilotAsync(
-                inferenceProvider!, projectSnapshot, resolvedInstruction, preferences.AutopilotRemediationCycles, cancellationToken);
+                inferenceProvider!, projectSnapshot, resolvedInstruction, preferences.AutopilotRemediationCycles, cancellationToken, availableSamplePaths);
             return () =>
             {
                 document.ReplaceProject(autopilotDeliverable.Project, "autopilot", undoable: true);
@@ -1284,6 +1303,208 @@ internal sealed class StudioWindow : Window, IStudioHost
                 }
             });
         });
+    }
+
+    // ── Samples ───────────────────────────────────────────────────────────────
+
+    private const int MaximumListedSamples = 200;
+
+    private async Task RescanSampleLibraryAsync()
+    {
+        var scannedFolders = preferences.SampleFolders.ToList();
+        sampleLibraryFiles = await Task.Run(() => SampleLibrary.Scan(scannedFolders));
+        PopulateSampleEntries();
+    }
+
+    private void PopulateSampleEntries()
+    {
+        sampleEntriesPanel.Children.Clear();
+        if (preferences.SampleFolders.Count == 0)
+        {
+            sampleEntriesPanel.Children.Add(new TextBlock
+            {
+                Text = "Add a folder of WAV files, or drop WAVs (or a folder) onto the window.",
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 10,
+                Foreground = StudioTheme.TextMuted,
+                Margin = new Thickness(2, 4),
+            });
+            return;
+        }
+        var filterText = sampleFilterInput.Text?.Trim() ?? string.Empty;
+        var matchingSamples = sampleLibraryFiles
+            .Where(samplePath => filterText.Length == 0 || Path.GetFileName(samplePath).Contains(filterText, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        foreach (var samplePath in matchingSamples.Take(MaximumListedSamples))
+        {
+            sampleEntriesPanel.Children.Add(ComposeSampleEntry(samplePath));
+        }
+        sampleEntriesPanel.Children.Add(StudioUi.Caption(
+            matchingSamples.Count > MaximumListedSamples
+                ? $"{MaximumListedSamples} of {matchingSamples.Count} shown — use the filter"
+                : $"{matchingSamples.Count} sample(s) · click: preview · double-click: add", 9));
+    }
+
+    private Button ComposeSampleEntry(string samplePath)
+    {
+        var sampleEntry = new Button
+        {
+            Content = "♪ " + Path.GetFileNameWithoutExtension(samplePath),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Background = Brushes.Transparent,
+            Padding = new Thickness(6, 2),
+            FontSize = 11,
+        };
+        ToolTip.SetTip(sampleEntry, samplePath);
+        sampleEntry.Click += (_, _) => PreviewSampleFile(samplePath);
+        sampleEntry.DoubleTapped += (_, _) => document.AddSamplerTrack(samplePath);
+
+        var entryMenu = new ContextMenu();
+        void AddEntryMenuItem(string header, Action onClick)
+        {
+            var menuItem = new MenuItem { Header = header };
+            menuItem.Click += (_, _) => onClick();
+            entryMenu.Items.Add(menuItem);
+        }
+        AddEntryMenuItem("Add as new track", () => document.AddSamplerTrack(samplePath));
+        AddEntryMenuItem("Load into selected track", () => document.LoadSampleIntoTrack(document.SelectedTrackIndex, samplePath));
+        AddEntryMenuItem("Preview", () => PreviewSampleFile(samplePath));
+        sampleEntry.ContextMenu = entryMenu;
+        return sampleEntry;
+    }
+
+    private async Task AddSampleFolderAsync()
+    {
+        var pickedFolders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Add sample folder", AllowMultiple = true });
+        foreach (var pickedFolder in pickedFolders)
+        {
+            if (pickedFolder.TryGetLocalPath() is { } folderPath)
+            {
+                RegisterSampleFolder(folderPath);
+            }
+        }
+        await RescanSampleLibraryAsync();
+    }
+
+    private void RegisterSampleFolder(string folderPath)
+    {
+        var normalizedFolderPath = Path.GetFullPath(folderPath);
+        if (!preferences.SampleFolders.Contains(normalizedFolderPath))
+        {
+            preferences.SampleFolders.Add(normalizedFolderPath);
+            PersistPreferences();
+        }
+    }
+
+    public void PreviewSampleFile(string samplePath)
+    {
+        try
+        {
+            var previewBuffer = SampleLibrary.ToStereoBuffer(SampleLibrary.Load(samplePath));
+            waveformScope.Present(previewBuffer, Path.GetFileName(samplePath), hallucinatedDeliverable: false);
+            liveAudioSession.Engine.PreviewBuffer(previewBuffer);
+            SetStatus(StatusSeverity.Informational, $"♪ previewing {Path.GetFileName(samplePath)} — double-click to add it as a track");
+        }
+        catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            SetStatus(StatusSeverity.Failure, $"{Path.GetFileName(samplePath)}: {sampleRemediationOpportunity.Message}");
+        }
+    }
+
+    public void ChooseSampleFileForTrack(int trackIndex) => _ = ChooseSampleFileForTrackAsync(trackIndex);
+
+    private async Task ChooseSampleFileForTrackAsync(int trackIndex)
+    {
+        var selectedFiles = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Load sample",
+            AllowMultiple = false,
+            FileTypeFilter = new[] { new FilePickerFileType("WAV audio") { Patterns = new[] { "*.wav", "*.wave" } } },
+        });
+        if (selectedFiles.Count > 0 && selectedFiles[0].TryGetLocalPath() is { } selectedPath)
+        {
+            document.LoadSampleIntoTrack(trackIndex, selectedPath);
+        }
+    }
+
+    public void PickSampleWithAi(int trackIndex)
+    {
+        if (trackIndex < 0 || trackIndex >= document.Project.Tracks.Count)
+        {
+            return;
+        }
+        var targetTrack = document.Project.Tracks[trackIndex];
+        if (targetTrack.AiLocked)
+        {
+            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is protected from AI edits (🔒).");
+            return;
+        }
+        var candidateSamplePaths = sampleLibraryFiles.Take(150).ToList();
+        var selectionGoal = string.IsNullOrWhiteSpace(aiInstructionInput.Text) ? "fit the song and the track's role" : aiInstructionInput.Text.Trim();
+        LaunchInference($"curating a sample for {targetTrack.Name}", async (projectSnapshot, cancellationToken) =>
+        {
+            var chosenSamplePath = await ProductionWorkflows.ChooseSampleAsync(
+                inferenceProvider!, projectSnapshot, projectSnapshot.Tracks[trackIndex], candidateSamplePaths, selectionGoal, cancellationToken);
+            return () =>
+            {
+                var liveTrackIndex = document.Project.Tracks.IndexOf(targetTrack);
+                if (liveTrackIndex < 0)
+                {
+                    return;
+                }
+                document.LoadSampleIntoTrack(liveTrackIndex, chosenSamplePath);
+                AppendCopilotMessage("sample curator", $"I chose {Path.GetFileName(chosenSamplePath)} for {targetTrack.Name}. It speaks to the brand.");
+                SetStatus(StatusSeverity.Success, $"AI loaded {Path.GetFileName(chosenSamplePath)}");
+            };
+        });
+    }
+
+    private static void HandleDragOver(object? sender, DragEventArgs dragEvent)
+    {
+        dragEvent.DragEffects = dragEvent.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
+    }
+
+    /// <summary>
+    /// Dropped WAV files become sampler tracks (or load into the selected sampler
+    /// when exactly one is dropped on a selected sampler track); dropped folders
+    /// join the sample library.
+    /// </summary>
+    private void HandleDrop(object? sender, DragEventArgs dragEvent)
+    {
+        var droppedPaths = dragEvent.DataTransfer.TryGetFiles()?
+            .Select(droppedItem => droppedItem.TryGetLocalPath())
+            .OfType<string>()
+            .ToList() ?? new List<string>();
+        var droppedFolders = droppedPaths.Where(Directory.Exists).ToList();
+        var droppedSamples = droppedPaths.Where(droppedPath => File.Exists(droppedPath) && SampleLibrary.IsSupportedFile(droppedPath)).ToList();
+
+        foreach (var droppedFolder in droppedFolders)
+        {
+            RegisterSampleFolder(droppedFolder);
+        }
+        if (droppedFolders.Count > 0)
+        {
+            _ = RescanSampleLibraryAsync();
+        }
+
+        if (droppedSamples.Count == 1 && document.SelectedTrack is { Instrument: "sampler", Sample: null })
+        {
+            document.LoadSampleIntoTrack(document.SelectedTrackIndex, droppedSamples[0]);
+        }
+        else
+        {
+            foreach (var droppedSample in droppedSamples)
+            {
+                document.AddSamplerTrack(droppedSample);
+            }
+        }
+
+        var ignoredCount = droppedPaths.Count - droppedFolders.Count - droppedSamples.Count;
+        SetStatus(ignoredCount > 0 ? StatusSeverity.Warning : StatusSeverity.Success,
+            $"dropped {droppedSamples.Count} sample(s), {droppedFolders.Count} folder(s)" +
+            (ignoredCount > 0 ? $"; ignored {ignoredCount} file(s) that are not uncompressed WAV" : string.Empty));
+        dragEvent.Handled = true;
     }
 
     // ── Window-level input ────────────────────────────────────────────────────

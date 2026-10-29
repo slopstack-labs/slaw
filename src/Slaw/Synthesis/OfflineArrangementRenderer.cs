@@ -17,6 +17,19 @@ internal static class OfflineArrangementRenderer
 
     public static StereoBuffer Render(SlawProject project, int sampleRate = DefaultSampleRate)
     {
+        // Bounces must not skip a sample just because it was still decoding.
+        foreach (var samplerTrack in project.Tracks.Where(track => track.Instrument == "sampler" && !string.IsNullOrEmpty(track.Sample)))
+        {
+            try
+            {
+                SampleLibrary.LoadResampled(samplerTrack.Sample!, sampleRate);
+            }
+            catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+            {
+                // A missing sample renders as silence, which is at least on-brand.
+            }
+        }
+
         var bounceEngine = new SequencerEngine(sampleRate);
         bounceEngine.PublishProject(project.DeepClone());
         bounceEngine.PlayArrangement(loop: false);

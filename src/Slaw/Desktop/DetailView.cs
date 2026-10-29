@@ -288,7 +288,52 @@ internal sealed class DetailView : UserControl
         {
             titleRow.Children.Add(StudioUi.AiButton("✨", () => host.TuneDeviceWithAi(trackIndex, -1), "Let the AI design this sound"));
         }
-        return ComposeDevicePanel(DeviceCatalog.InstrumentDisplayName(track.Instrument), titleRow, knobs, StudioTheme.TrackBrush(trackIndex));
+        Control titleControls = titleRow;
+        if (track.Instrument == "sampler")
+        {
+            titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeSamplerSection(track, trackIndex) } };
+        }
+        return ComposeDevicePanel(DeviceCatalog.InstrumentDisplayName(track.Instrument), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
+    }
+
+    private Control ComposeSamplerSection(SlawTrack track, int trackIndex)
+    {
+        var sampleActions = StudioUi.Row(4,
+            StudioUi.Button("Load…", () => host.ChooseSampleFileForTrack(trackIndex), "Load a WAV file into this sampler", compact: true));
+        if (track.Sample is { } samplePath)
+        {
+            sampleActions.Children.Add(StudioUi.Button("▶", () => host.PreviewSampleFile(samplePath), "Preview the raw sample", compact: true));
+        }
+        if (host.AiFeaturesEnabled)
+        {
+            sampleActions.Children.Add(StudioUi.AiButton("✨ Pick", () => host.PickSampleWithAi(trackIndex), "Let the AI choose a sample from your sample folders"));
+        }
+
+        var sampleOverview = new WaveformScopeControl { Width = 230, Height = 46 };
+        if (track.Sample is null)
+        {
+            return new StackPanel { Spacing = 4, Children = { StudioUi.Caption("No sample loaded — drop a WAV here or use Load…", 10, StudioTheme.Warning), sampleActions } };
+        }
+        try
+        {
+            var sampleData = SampleLibrary.Load(track.Sample);
+            sampleOverview.Present(SampleLibrary.ToStereoBuffer(sampleData),
+                FormattableString.Invariant($"{Path.GetFileName(track.Sample)} · {sampleData.DurationSeconds:0.00} s"), hallucinatedDeliverable: false);
+        }
+        catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            return new StackPanel
+            {
+                Spacing = 4,
+                Children =
+                {
+                    StudioUi.Caption($"⚠ {Path.GetFileName(track.Sample)}: {sampleRemediationOpportunity.Message}", 10, StudioTheme.Failure),
+                    sampleActions,
+                },
+            };
+        }
+        ToolTip.SetTip(sampleOverview, track.Sample);
+        return new StackPanel { Spacing = 4, Children = { sampleOverview, sampleActions } };
     }
 
     private Control ComposeEffectDevice(SlawTrack track, int trackIndex, int effectIndex)

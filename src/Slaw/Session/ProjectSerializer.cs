@@ -30,12 +30,36 @@ internal static class ProjectSerializer
     public static SlawProject Load(string projectFilePath)
     {
         var loadedProject = Deserialize(File.ReadAllText(projectFilePath));
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath)) ?? Directory.GetCurrentDirectory();
+        foreach (var track in loadedProject.Tracks.Where(track => !string.IsNullOrEmpty(track?.Sample)))
+        {
+            if (!Path.IsPathRooted(track.Sample))
+            {
+                track.Sample = Path.GetFullPath(Path.Combine(projectDirectory, track.Sample!));
+            }
+        }
         ProjectAlignmentRemediator.Remediate(loadedProject);
         return loadedProject;
     }
 
-    public static void Save(SlawProject project, string projectFilePath) =>
-        File.WriteAllText(projectFilePath, Serialize(project) + Environment.NewLine);
+    /// <summary>
+    /// Writes the project. Samples stored beside (or below) the project file are
+    /// written as relative paths, so a project folder can be moved or shared intact.
+    /// </summary>
+    public static void Save(SlawProject project, string projectFilePath)
+    {
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath)) ?? Directory.GetCurrentDirectory();
+        var persistedProject = project.DeepClone();
+        foreach (var track in persistedProject.Tracks.Where(track => !string.IsNullOrEmpty(track.Sample) && Path.IsPathRooted(track.Sample)))
+        {
+            var relativeSamplePath = Path.GetRelativePath(projectDirectory, track.Sample!);
+            if (!relativeSamplePath.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relativeSamplePath))
+            {
+                track.Sample = relativeSamplePath;
+            }
+        }
+        File.WriteAllText(projectFilePath, Serialize(persistedProject) + Environment.NewLine);
+    }
 
     /// <summary>
     /// The starter arrangement scaffolded by <c>slaw new</c> and by the studio

@@ -10,7 +10,7 @@ internal static class InstrumentVoiceSynthesizer
 {
     public static readonly IReadOnlyList<string> SupportedInstruments = new[]
     {
-        "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise",
+        "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise", "sampler",
     };
 
     private static readonly HashSet<string> PercussiveInstruments = new(StringComparer.OrdinalIgnoreCase)
@@ -31,13 +31,21 @@ internal static class InstrumentVoiceSynthesizer
         double gateDurationSeconds,
         int sampleRate,
         Random noiseEntropySource,
-        IReadOnlyDictionary<string, double>? instrumentParameters = null)
+        IReadOnlyDictionary<string, double>? instrumentParameters = null,
+        SampleData? samplerSource = null)
     {
         var parameterSpecifications = DeviceCatalog.InstrumentParametersFor(instrumentName);
         double Parameter(string parameterKey) => DeviceCatalog.Resolve(instrumentParameters, parameterSpecifications, parameterKey);
 
         float[] renderedVoice;
-        if (IsPercussive(instrumentName))
+        if (instrumentName == "sampler")
+        {
+            var chordNotes = midiNotes.Count > 0 ? midiNotes : new[] { (int)Parameter("root") };
+            renderedVoice = SumChordVoices(chordNotes
+                .Select(midiNote => RenderSamplerVoice(samplerSource, midiNote, gateDurationSeconds, sampleRate, Parameter))
+                .ToList());
+        }
+        else if (IsPercussive(instrumentName))
         {
             var pitchScale = Math.Pow(2, Parameter("pitch") / 12.0);
             var decayScale = Parameter("decay");
@@ -100,6 +108,72 @@ internal static class InstrumentVoiceSynthesizer
             filterState += smoothingCoefficient * (renderedVoice[sampleIndex] - filterState);
             renderedVoice[sampleIndex] = (float)filterState;
         }
+    }
+
+    // ── Sampler ───────────────────────────────────────────────────────────────
+
+    private const double MaximumSamplerVoiceSeconds = 30;
+
+    /// <summary>
+    /// Plays a region of a user sample, repitched by resampling relative to the
+    /// root note. One-shot by default; with "Note Length" on it follows the
+    /// note's gate and fades over the release time.
+    /// </summary>
+    private static float[] RenderSamplerVoice(SampleData? samplerSource, int midiNote, double gateDurationSeconds, int sampleRate, Func<string, double> parameter)
+    {
+        if (samplerSource is null || samplerSource.Samples.Length < 2)
+        {
+            return Array.Empty<float>();
+        }
+        var sourceSamples = samplerSource.Samples;
+        var regionStart = (int)(parameter("start") * sourceSamples.Length);
+        var regionEnd = Math.Max(regionStart + 2, (int)(parameter("end") * sourceSamples.Length));
+        regionEnd = Math.Min(regionEnd, sourceSamples.Length);
+        var regionLength = regionEnd - regionStart;
+        if (regionLength < 2)
+        {
+            return Array.Empty<float>();
+        }
+
+        var playbackRatio = Math.Pow(2, (midiNote - parameter("root") + parameter("transpose")) / 12.0)
+                            * samplerSource.SampleRate / sampleRate;
+        var followsNoteLength = parameter("hold") >= 0.5;
+        var playsReversed = parameter("reverse") >= 0.5;
+        var attackFrameCount = Math.Max(1, (int)(parameter("attack") / 1000 * sampleRate));
+        var releaseFrameCount = Math.Max(1, (int)(parameter("release") / 1000 * sampleRate));
+        var gateFrameCount = (int)(gateDurationSeconds * sampleRate);
+        var sampleGain = parameter("gain");
+
+        var outputLength = (int)Math.Min((regionLength - 1) / playbackRatio, MaximumSamplerVoiceSeconds * sampleRate);
+        if (followsNoteLength)
+        {
+            outputLength = Math.Min(outputLength, gateFrameCount + releaseFrameCount);
+        }
+        var renderedVoice = new float[Math.Max(0, outputLength)];
+        var declickFrameCount = Math.Min(outputLength / 2, sampleRate / 200);
+
+        for (var frameIndex = 0; frameIndex < renderedVoice.Length; frameIndex++)
+        {
+            var sourcePosition = frameIndex * playbackRatio;
+            var lowerOffset = (int)sourcePosition;
+            var interpolationWeight = sourcePosition - lowerOffset;
+            var lowerIndex = playsReversed ? regionEnd - 1 - lowerOffset : regionStart + lowerOffset;
+            var upperIndex = playsReversed ? Math.Max(regionStart, lowerIndex - 1) : Math.Min(regionEnd - 1, lowerIndex + 1);
+            var interpolatedSample = sourceSamples[lowerIndex] * (1 - interpolationWeight) + sourceSamples[upperIndex] * interpolationWeight;
+
+            var envelopeLevel = Math.Min(1.0, (double)frameIndex / attackFrameCount);
+            if (followsNoteLength && frameIndex > gateFrameCount)
+            {
+                envelopeLevel *= Math.Max(0, 1 - (double)(frameIndex - gateFrameCount) / releaseFrameCount);
+            }
+            var framesFromEnd = renderedVoice.Length - frameIndex;
+            if (framesFromEnd < declickFrameCount)
+            {
+                envelopeLevel *= (double)framesFromEnd / declickFrameCount;
+            }
+            renderedVoice[frameIndex] = (float)(interpolatedSample * envelopeLevel * sampleGain);
+        }
+        return renderedVoice;
     }
 
     // ── Melodic voices ────────────────────────────────────────────────────────

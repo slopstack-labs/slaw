@@ -180,7 +180,7 @@ internal static class PromptLibrary
 
     // ── Autopilot: the AI edits everything ───────────────────────────────────
 
-    public static string Autopilot(SlawProject project, string instruction) => $$"""
+    public static string Autopilot(SlawProject project, string instruction, IReadOnlyList<string> availableSamplePaths) => $$"""
         You are slaw's autopilot, an AI music producer with full edit access to the project below.
         The user asked: "{{instruction}}"
 
@@ -194,6 +194,7 @@ internal static class PromptLibrary
         - Only use instruments, effects and parameter keys from the catalog. Parameter values must stay inside their ranges.
 
         {{DescribeDeviceCatalog()}}
+        {{DescribeAvailableSamples(availableSamplePaths)}}
 
         {{PatternVocabularyDescription}}
 
@@ -216,6 +217,28 @@ internal static class PromptLibrary
         Output ONLY one JSON object mapping parameter keys to new numbers, e.g. {"cutoff": 1200}. No explanation. No markdown.
         """;
 
+    public static string SampleSelection(SlawProject project, SlawTrack targetTrack, IReadOnlyList<string> candidateSamplePaths, string instruction) => $"""
+        You are a sample curator. Pick the best sample for the track "{targetTrack.Name}" in this project.
+        Goal: {instruction}
+
+        {DescribeArrangement(project)}
+
+        Candidate samples:
+        {string.Join("\n", candidateSamplePaths.Select((samplePath, sampleIndex) => $"{sampleIndex + 1}. {Path.GetFileName(samplePath)}"))}
+
+        Respond with ONLY the number of the chosen sample.
+        """;
+
+    private static string DescribeAvailableSamples(IReadOnlyList<string> availableSamplePaths)
+    {
+        if (availableSamplePaths.Count == 0)
+        {
+            return "No user samples are available; do not create \"sampler\" tracks.";
+        }
+        return "Available user samples for the \"sampler\" instrument (set the track's \"sample\" field to one of these exact paths):\n" +
+               string.Join("\n", availableSamplePaths.Take(60).Select(samplePath => $"- {samplePath}"));
+    }
+
     public static string DescribeDeviceCatalog()
     {
         var catalogDescription = new StringBuilder("Device catalog:\n");
@@ -227,7 +250,7 @@ internal static class PromptLibrary
         {
             catalogDescription.Append(CultureInfo.InvariantCulture, $"- effect \"{effectType}\" ({DeviceCatalog.EffectDisplayName(effectType)}): {DescribeParameters(DeviceCatalog.EffectParametersFor(effectType))}\n");
         }
-        catalogDescription.Append("Track fields: name, instrument, instrumentParameters {key: number}, effects [{type, enabled, parameters {key: number}}], gain 0-1.5, pan -1..1, muted, solo, aiLocked, clips.\n");
+        catalogDescription.Append("Track fields: name, instrument, sample (sampler tracks only: a WAV path), instrumentParameters {key: number}, effects [{type, enabled, parameters {key: number}}], gain 0-1.5, pan -1..1, muted, solo, aiLocked, clips.\n");
         catalogDescription.Append("Master fields: gain 0-2, drive 1-20, lowpassHz 200-20000, delaySteps 1-16, delayFeedback 0-0.9, delayMix 0-1.");
         return catalogDescription.ToString();
     }
@@ -256,6 +279,10 @@ internal static class PromptLibrary
         foreach (var track in project.Tracks)
         {
             var effectSummary = track.Effects.Count == 0 ? "no effects" : string.Join(" → ", track.Effects.Select(effect => effect.Type));
+            if (track.Instrument == "sampler")
+            {
+                effectSummary = $"sample {(track.Sample is null ? "none" : Path.GetFileName(track.Sample))}, {effectSummary}";
+            }
             arrangementDescription.Append(CultureInfo.InvariantCulture,
                 $"- {track.Name} ({track.Instrument}, {effectSummary}, gain {track.Gain:0.00}, pan {track.Pan:+0.0;-0.0;0.0}{(track.Muted ? ", muted" : "")})\n");
             for (var sceneIndex = 0; sceneIndex < track.Clips.Count; sceneIndex++)
