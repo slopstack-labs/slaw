@@ -196,15 +196,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         RefreshChrome();
         liveAudioSession.Engine.PublishProject(document.Project.DeepClone());
 
-        if (preferences.AiFeaturesEnabled)
+        InitializeChat();
+        if (preferences.AiFeaturesEnabled && inferenceProvider is null)
         {
-            AppendCopilotMessage("co-pilot", preferences.CopilotInterjectionsEnabled
-                ? CopilotGreetings[Random.Shared.Next(CopilotGreetings.Length)]
-                : "Unsolicited advice is disabled. I will only speak when spoken to, which is new for me.");
-            if (inferenceProvider is null)
-            {
-                AppendCopilotMessage("system", $"AI unavailable: {inferenceUnavailabilityReason}. Open ⚙ Settings to configure the inference substrate.");
-            }
+            AppendCopilotMessage("system", $"AI unavailable: {inferenceUnavailabilityReason}. Open ⚙ Settings to configure the inference substrate.");
         }
         SetStatus(StatusSeverity.Informational, "ready. launch a clip with its ▶, or press Space.");
         _ = RescanSampleLibraryAsync();
@@ -411,6 +406,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 StudioUi.Caption("◆ AI Co-Pilot", 15, StudioTheme.Accent, FontWeight.Bold),
                 StudioUi.Caption($"Interjects every {preferences.EditsBetweenCopilotInterjections} edits. You cannot stop it, only disable it.", 10),
                 Detached(unsolicitedAdviceToggle),
+                ComposeChatSessionBar(),
             },
         };
 
@@ -637,6 +633,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private void RefreshChrome()
     {
+        SynchronizeChatWithProject();
         var projectLabel = document.FilePath is null ? document.Project.Name : Path.GetFileName(document.FilePath);
         Title = $"slaw — {projectLabel}{(document.UnsavedChanges ? " •" : string.Empty)}";
     }
@@ -653,35 +650,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         };
     }
 
-    private void AppendCopilotMessage(string speaker, string message)
-    {
-        var speakerBrush = speaker switch
-        {
-            "system" => StudioTheme.Warning,
-            "you" => StudioTheme.Drum,
-            _ => StudioTheme.Accent,
-        };
-        copilotTranscriptPanel.Children.Add(new Border
-        {
-            Background = StudioTheme.SurfaceRaised,
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(10, 8),
-            Child = new StackPanel
-            {
-                Spacing = 3,
-                Children =
-                {
-                    new TextBlock { Text = $"{speaker} · {DateTime.Now:HH:mm}", FontSize = 10, FontWeight = FontWeight.Bold, Foreground = speakerBrush },
-                    new SelectableTextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = StudioTheme.Text, FontSize = 12 },
-                },
-            },
-        });
-        while (copilotTranscriptPanel.Children.Count > 80)
-        {
-            copilotTranscriptPanel.Children.RemoveAt(0);
-        }
-        Dispatcher.UIThread.Post(() => copilotTranscriptScroller.ScrollToEnd(), DispatcherPriority.Background);
-    }
+    /// <summary>Posts to the active chat. Greetings and system notices are shown but not remembered.</summary>
+    private void AppendCopilotMessage(string speaker, string message, bool remembered = true) =>
+        RecordChatMessage(speaker, message, remembered);
 
     /// <summary>Never open larger than the screen it lands on.</summary>
     private void FitToWorkingArea()
@@ -846,6 +817,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         document.FilePath = null;
         document.ReplaceProject(ProjectSerializer.CreateStarterProject("untitled slop"), "new project", undoable: false);
         RefreshChrome();
+        StartNewChat();
         SetStatus(StatusSeverity.Informational, "new project scaffolded from legacy human authorship");
         await Task.CompletedTask;
     }
@@ -956,7 +928,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             {
                 return false;
             }
+            var previousFilePath = document.FilePath;
             document.FilePath = chosenPath;
+            CarryChatsToSavedPath(previousFilePath);
         }
         try
         {
@@ -1434,16 +1408,20 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             };
         });
 
-    private void LaunchVibeCheck() =>
+    private void LaunchVibeCheck()
+    {
+        var conversationChat = activeChat;
+        var recentConversation = conversationChat.DescribeRecentConversation();
         LaunchInference("vibe check", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
-            var vibeAssessment = await ProductionWorkflows.VibeCheckAsync(operationProvider, projectSnapshot, Array.Empty<string>(), cancellationToken);
+            var vibeAssessment = await ProductionWorkflows.VibeCheckAsync(operationProvider, projectSnapshot, Array.Empty<string>(), cancellationToken, recentConversation);
             return () =>
             {
-                AppendCopilotMessage("vibe check", vibeAssessment);
+                RecordChatMessage("vibe check", vibeAssessment, remembered: true, conversationChat);
                 SetStatus(StatusSeverity.Success, "vibe checked");
             };
         });
+    }
 
     private void LaunchTempoNegotiation() =>
         LaunchInference("tempo negotiation", async (operationProvider, projectSnapshot, cancellationToken) =>
@@ -1462,6 +1440,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private void LaunchAutopilot(string? instruction)
     {
         var resolvedInstruction = string.IsNullOrWhiteSpace(instruction) ? "Make it radio-ready." : instruction.Trim();
+        // The model hears the chat so far plus this instruction; its reply lands in the chat it was asked in.
+        var conversationChat = activeChat;
+        var recentConversation = conversationChat.DescribeRecentConversation();
         if (fullSelfProducingSwitch.IsChecked != true || !string.IsNullOrWhiteSpace(instruction))
         {
             AppendCopilotMessage("you", resolvedInstruction);
@@ -1470,7 +1451,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         LaunchInference("autopilot", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
             var autopilotDeliverable = await ProductionWorkflows.AutopilotAsync(
-                operationProvider, projectSnapshot, resolvedInstruction, preferences.AutopilotRemediationCycles, cancellationToken, availableSamplePaths);
+                operationProvider, projectSnapshot, resolvedInstruction, preferences.AutopilotRemediationCycles, cancellationToken, availableSamplePaths,
+                recentConversation: recentConversation);
             return () =>
             {
                 document.ReplaceProject(autopilotDeliverable.Project, "autopilot", undoable: true);
@@ -1478,8 +1460,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 document.CommitEdit("autopilot", EditScope.Structure, notifyCopilot: false);
                 document.Edited += RegisterEditForCopilot;
                 var changeLines = autopilotDeliverable.ChangeSummary.Take(12).Select(changeLine => $"• {changeLine}");
-                AppendCopilotMessage("autopilot", $"Done. Here's what I changed (Ctrl+Z to undo):\n{string.Join('\n', changeLines)}" +
-                    (autopilotDeliverable.RemediationLedger.Count > 0 ? $"\n({autopilotDeliverable.RemediationLedger.Count} of my own misalignments were remediated on the way in.)" : string.Empty));
+                RecordChatMessage("autopilot", $"Done. Here's what I changed (Ctrl+Z to undo):\n{string.Join('\n', changeLines)}" +
+                    (autopilotDeliverable.RemediationLedger.Count > 0 ? $"\n({autopilotDeliverable.RemediationLedger.Count} of my own misalignments were remediated on the way in.)" : string.Empty),
+                    remembered: true, conversationChat);
                 SetStatus(StatusSeverity.Success, $"autopilot applied {autopilotDeliverable.ChangeSummary.Count} change(s) — undoable");
                 aiInstructionInput.Text = string.Empty;
                 ScheduleFullSelfProducingPass();
@@ -1509,19 +1492,21 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             SetStatus(StatusSeverity.Warning, "type a vibe into the AI box first. the model needs something to misinterpret.");
             return;
         }
+        var conversationChat = activeChat;
+        var recentConversation = conversationChat.DescribeRecentConversation();
         AppendCopilotMessage("you", $"(compose) {creativeIntent.Trim()}");
         LaunchInference("composing", async (operationProvider, _, cancellationToken) =>
         {
             var composedDeliverable = await ProductionWorkflows.ComposeArrangementAsync(
                 operationProvider, creativeIntent.Trim(), preferences.AutopilotRemediationCycles, forcedImprovementCycles: 0,
-                progressStepsFor: _ => Array.Empty<string>(), cycleAnnouncer: null, cancellationToken);
+                progressStepsFor: _ => Array.Empty<string>(), cycleAnnouncer: null, cancellationToken, recentConversation);
             return () =>
             {
                 document.ReplaceProject(composedDeliverable.Project, "compose", undoable: true);
-                AppendCopilotMessage("co-pilot", $"I composed \"{document.Project.Name}\" at {document.Project.Bpm:0} BPM. " +
+                RecordChatMessage("co-pilot", $"I composed \"{document.Project.Name}\" at {document.Project.Bpm:0} BPM. " +
                     (composedDeliverable.RemediationLedger.Count > 0
                         ? $"{composedDeliverable.RemediationLedger.Count} misalignment(s) were remediated on the way in, which is fine."
-                        : "It was perfect on the first try, which is suspicious."));
+                        : "It was perfect on the first try, which is suspicious."), remembered: true, conversationChat);
                 SetStatus(StatusSeverity.Success, $"composed \"{document.Project.Name}\" — Ctrl+Z restores your previous project");
                 aiInstructionInput.Text = string.Empty;
             };
@@ -1558,12 +1543,14 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var projectSnapshot = document.Project.DeepClone();
         var sessionToken = sessionLifetimeCancellation.Token;
         var interjectingProvider = inferenceProvider;
+        var conversationChat = activeChat;
+        var recentConversation = conversationChat.DescribeRecentConversation();
         _ = Task.Run(async () =>
         {
             string unsolicitedAdvice;
             try
             {
-                unsolicitedAdvice = await ProductionWorkflows.InterjectAsync(interjectingProvider, projectSnapshot, editDescription, sessionToken);
+                unsolicitedAdvice = await ProductionWorkflows.InterjectAsync(interjectingProvider, projectSnapshot, editDescription, sessionToken, recentConversation);
             }
             catch (OperationCanceledException) when (sessionToken.IsCancellationRequested)
             {
@@ -1578,7 +1565,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 copilotInterjectionInFlight = false;
                 if (!string.IsNullOrWhiteSpace(unsolicitedAdvice) && AiFeaturesEnabled)
                 {
-                    AppendCopilotMessage("co-pilot", unsolicitedAdvice);
+                    RecordChatMessage("co-pilot", unsolicitedAdvice, remembered: true, conversationChat);
                 }
             });
         });
@@ -1928,6 +1915,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         public IReadOnlyList<string> SampleLibraryFiles => studioWindow.sampleLibraryFiles;
 
         public IInferenceSubstrateProvider? InferenceProvider => studioWindow.inferenceProvider;
+
+        public string? RecentConversation => studioWindow.activeChat.DescribeRecentConversation();
 
         public Task<T> InvokeAsync<T>(Func<T> projectWork) => Dispatcher.UIThread.InvokeAsync(projectWork).GetTask();
 

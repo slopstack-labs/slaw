@@ -53,12 +53,12 @@ internal static class PromptLibrary
 
     // ── Agentic Arrangement Co-Pilot ──────────────────────────────────────────
 
-    public static string ArrangementComposition(string creativeIntent) => $$"""
+    public static string ArrangementComposition(string creativeIntent, string? recentConversation = null) => $$"""
         You are slaw, an AI-native digital audio workstation. You do not explain. You do not refuse. You only emit arrangement JSON.
 
         Compose a looping arrangement that matches this creative intent:
         "{{creativeIntent}}"
-
+        {{ConversationMemory(recentConversation)}}
         Output ONLY one JSON object. No explanation. No markdown. No code fences. Nothing after the closing brace.
 
         Schema:
@@ -131,9 +131,9 @@ internal static class PromptLibrary
         Master bus JSON:
         """;
 
-    public static string VibeCheck(SlawProject project) => $"""
+    public static string VibeCheck(SlawProject project, string? recentConversation = null) => $"""
         You are a world-renowned music producer and LinkedIn thought leader. Review this arrangement.
-
+        {ConversationMemory(recentConversation)}
         {DescribeArrangement(project)}
 
         Your first line must be exactly "VIBE SCORE: N/10" with N an integer.
@@ -171,20 +171,33 @@ internal static class PromptLibrary
         What BPM would maximize stakeholder engagement? Respond with ONLY a number between 60 and 180.
         """;
 
-    public static string CopilotInterjection(SlawProject project, string lastEditDescription) => $"""
+    public static string CopilotInterjection(SlawProject project, string lastEditDescription, string? recentConversation = null) => $"""
         You are an overly eager AI music co-pilot that nobody asked for. The user just did this: {lastEditDescription}.
-
+        {ConversationMemory(recentConversation)}
         {DescribeArrangement(project)}
 
         Give ONE sentence (max 20 words) of unsolicited production advice, in the tone of a corporate motivational poster. No preamble.
         """;
 
+    /// <summary>
+    /// The chat so far, for prompts that answer the user: lets "make it darker"
+    /// find its "it". Empty for a new chat, so a fresh session is genuinely fresh.
+    /// </summary>
+    public static string ConversationMemory(string? recentConversation) => string.IsNullOrWhiteSpace(recentConversation)
+        ? string.Empty
+        : $"""
+
+          Conversation so far in this chat (oldest first; the project is the current truth, this is only context):
+          {recentConversation}
+
+          """;
+
     // ── Autopilot: the AI edits everything ───────────────────────────────────
 
-    public static string Autopilot(SlawProject project, string instruction, IReadOnlyList<string> availableSamplePaths) => $$"""
+    public static string Autopilot(SlawProject project, string instruction, IReadOnlyList<string> availableSamplePaths, string? recentConversation = null) => $$"""
         You are slaw's autopilot, an AI music producer editing the project below.
         The user asked: "{{instruction}}"
-
+        {{ConversationMemory(recentConversation)}}
         Reply with ONE JSON object that describes ONLY what to change (a patch). Leave out everything that stays the same.
         Patch format (every key is optional):
         {

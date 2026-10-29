@@ -36,6 +36,7 @@ internal enum StudioCommand
     BounceAs,
     Settings,
     ShowShortcuts,
+    NewChat,
     Dismiss,
 }
 
@@ -99,6 +100,7 @@ internal static class StudioShortcutMap
         new(StudioCommand.Redo, Key.Z, CommandShift, "Redo", ShortcutReach.Everywhere, Repeats: true),
         new(StudioCommand.Redo, Key.Y, Command, "Redo", ShortcutReach.Everywhere, Repeats: true),
         new(StudioCommand.New, Key.N, Command, "New project", ShortcutReach.Everywhere),
+        new(StudioCommand.NewChat, Key.N, CommandShift, "New AI chat (the co-pilot forgets this one)", ShortcutReach.Everywhere),
         new(StudioCommand.Open, Key.O, Command, "Open a project", ShortcutReach.Everywhere),
         new(StudioCommand.Save, Key.S, Command, "Save", ShortcutReach.Everywhere),
         new(StudioCommand.SaveAs, Key.S, CommandShift, "Save As…", ShortcutReach.Everywhere),
