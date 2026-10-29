@@ -65,6 +65,9 @@ internal sealed class SequencerEngine
     private float[]? previewRight;
     private int previewPosition;
 
+    private readonly Random auditionEntropySource = new(0xA0D1);
+    private AuditionVoice? activeAudition;
+
     public SequencerEngine(int sampleRate, int noiseSeed = 0x51A7)
     {
         this.sampleRate = sampleRate;
@@ -151,6 +154,47 @@ internal sealed class SequencerEngine
     }
 
     public void StopPreview() => pendingTransportCommands.Enqueue(() => previewLeft = previewRight = null);
+
+    // ── Note audition ─────────────────────────────────────────────────────────
+
+    private const double AuditionMaximumHoldSeconds = 6;
+
+    /// <summary>
+    /// Starts sounding <paramref name="midiNote"/> on a track's instrument, through
+    /// its device chain, until <see cref="StopNoteAudition"/>. The voice is rendered
+    /// on the calling thread so the audio thread never waits for synthesis.
+    /// Call from one thread only (the UI thread).
+    /// </summary>
+    public void StartNoteAudition(string trackIdentifier, int midiNote)
+    {
+        var project = Volatile.Read(ref publishedProject);
+        var auditionedTrack = project?.Tracks.FirstOrDefault(track => track.Id == trackIdentifier);
+        if (auditionedTrack is null)
+        {
+            return;
+        }
+        var percussiveInstrument = InstrumentVoiceSynthesizer.IsPercussive(auditionedTrack.Instrument);
+        var renderedVoice = InstrumentVoiceSynthesizer.RenderVoice(
+            auditionedTrack.Instrument,
+            new[] { midiNote },
+            AuditionMaximumHoldSeconds,
+            sampleRate,
+            auditionEntropySource,
+            auditionedTrack.InstrumentParameters);
+        // Melodic voices fade on release over the instrument's own release time;
+        // drums and plucks are allowed to ring out, as nature intended.
+        var releaseSeconds = percussiveInstrument || auditionedTrack.Instrument == "pluck"
+            ? 0
+            : DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(auditionedTrack.Instrument), "release") / 1000.0;
+        var auditionVoice = new AuditionVoice(trackIdentifier, renderedVoice, Math.Max(1, (int)(releaseSeconds * sampleRate)), releaseSeconds > 0);
+        pendingTransportCommands.Enqueue(() =>
+        {
+            activeAudition?.BeginRelease();
+            activeAudition = auditionVoice;
+        });
+    }
+
+    public void StopNoteAudition() => pendingTransportCommands.Enqueue(() => activeAudition?.BeginRelease());
 
     // ── Rendering (audio thread) ──────────────────────────────────────────────
 
@@ -408,12 +452,14 @@ internal sealed class SequencerEngine
         foreach (var track in project.Tracks)
         {
             var runtimeState = RuntimeStateFor(track.Id);
+            var trackAudible = !track.Muted && (!soloEngaged || track.Solo);
             trackBlock.Clear();
             for (var voiceIndex = runtimeState.ActiveVoices.Count - 1; voiceIndex >= 0; voiceIndex--)
             {
                 var activeVoice = runtimeState.ActiveVoices[voiceIndex];
                 var mixableFrameCount = Math.Min(trackBlock.Length, activeVoice.Samples.Length - activeVoice.Position);
-                for (var frameIndex = 0; frameIndex < mixableFrameCount; frameIndex++)
+                // Muted voices still advance, so unmuting lands mid-note rather than restarting it.
+                for (var frameIndex = 0; trackAudible && frameIndex < mixableFrameCount; frameIndex++)
                 {
                     trackBlock[frameIndex] += activeVoice.Samples[activeVoice.Position + frameIndex] * activeVoice.Gain;
                 }
@@ -422,6 +468,13 @@ internal sealed class SequencerEngine
                 {
                     runtimeState.ActiveVoices.RemoveAt(voiceIndex);
                 }
+            }
+
+            // An auditioned note is heard even on a muted track: you asked for it explicitly.
+            var auditionOnThisTrack = activeAudition is { } audition && audition.TrackIdentifier == track.Id;
+            if (auditionOnThisTrack && activeAudition!.MixInto(trackBlock))
+            {
+                activeAudition = null;
             }
 
             runtimeState.SynchronizeEffectChain(track.Effects, sampleRate);
@@ -433,8 +486,7 @@ internal sealed class SequencerEngine
                 }
             }
 
-            var trackAudible = !track.Muted && (!soloEngaged || track.Solo);
-            if (!trackAudible)
+            if (!trackAudible && !auditionOnThisTrack)
             {
                 continue;
             }
@@ -491,6 +543,53 @@ internal sealed class SequencerEngine
         public float[] Samples { get; }
         public float Gain { get; }
         public int Position { get; set; }
+    }
+
+    /// <summary>A held preview note: plays until released, then fades over its release time.</summary>
+    private sealed class AuditionVoice
+    {
+        private readonly float[] samples;
+        private readonly int releaseFrameCount;
+        private readonly bool fadesOnRelease;
+        private int position;
+        private int releaseFramesRemaining = -1;
+
+        public AuditionVoice(string trackIdentifier, float[] samples, int releaseFrameCount, bool fadesOnRelease)
+        {
+            TrackIdentifier = trackIdentifier;
+            this.samples = samples;
+            this.releaseFrameCount = releaseFrameCount;
+            this.fadesOnRelease = fadesOnRelease;
+        }
+
+        public string TrackIdentifier { get; }
+
+        public void BeginRelease()
+        {
+            if (fadesOnRelease && releaseFramesRemaining < 0)
+            {
+                releaseFramesRemaining = releaseFrameCount;
+            }
+        }
+
+        /// <summary>Adds the next block of the voice. Returns true once the voice has finished.</summary>
+        public bool MixInto(Span<float> trackBlock)
+        {
+            for (var frameIndex = 0; frameIndex < trackBlock.Length; frameIndex++)
+            {
+                if (position >= samples.Length || releaseFramesRemaining == 0)
+                {
+                    return true;
+                }
+                var releaseGain = releaseFramesRemaining > 0 ? (float)releaseFramesRemaining / releaseFrameCount : 1f;
+                trackBlock[frameIndex] += samples[position++] * releaseGain;
+                if (releaseFramesRemaining > 0)
+                {
+                    releaseFramesRemaining--;
+                }
+            }
+            return false;
+        }
     }
 
     private sealed class TrackRuntimeState

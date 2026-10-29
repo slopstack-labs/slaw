@@ -191,6 +191,8 @@ internal sealed class DetailView : UserControl
             activePianoRoll = new PianoRollControl(clip, pianoRollLowestNote, 25);
             activePianoRoll.EditStarted += () => document.BeginEdit("piano roll");
             activePianoRoll.PatternEdited += description => document.CommitEdit($"{description} on {track.Name}");
+            activePianoRoll.NoteAuditionStarted += midiNote => host.StartNoteAudition(track.Id, midiNote);
+            activePianoRoll.NoteAuditionEnded += host.StopNoteAudition;
             var octaveButtons = new StackPanel
             {
                 Spacing = 4,

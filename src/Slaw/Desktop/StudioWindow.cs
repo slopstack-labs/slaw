@@ -697,6 +697,11 @@ internal sealed class StudioWindow : Window, IStudioHost
 
     public void StopAll() => StopPlayback();
 
+    public void StartNoteAudition(string trackIdentifier, int midiNote) =>
+        liveAudioSession.Engine.StartNoteAudition(trackIdentifier, midiNote);
+
+    public void StopNoteAudition() => liveAudioSession.Engine.StopNoteAudition();
+
     public void PlayArrangementFrom(int sectionIndex)
     {
         var project = document.Project;

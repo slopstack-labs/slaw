@@ -21,6 +21,10 @@ internal interface IStudioHost
     void StopAll();
     void PlayArrangementFrom(int sectionIndex);
 
+    /// <summary>Sounds a note on a track's instrument until <see cref="StopNoteAudition"/>.</summary>
+    void StartNoteAudition(string trackIdentifier, int midiNote);
+    void StopNoteAudition();
+
     void GenerateClipWithAi(int trackIndex, int sceneIndex);
     void RenameTrackWithAi(int trackIndex);
 

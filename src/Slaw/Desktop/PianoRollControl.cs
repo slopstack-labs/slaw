@@ -43,13 +43,17 @@ internal sealed class PianoRollControl : Control
     private int sustainDragExtentStepIndex;
     private string sustainDragDescription = string.Empty;
 
+    // Note audition (keyboard press or freshly placed note).
+    private bool keyboardAuditionActive;
+    private int? auditionedMidiNote;
+
     public PianoRollControl(SlawClip clip, int lowestVisibleMidiNote, int visibleNoteCount)
     {
         this.clip = clip;
         this.lowestVisibleMidiNote = lowestVisibleMidiNote;
         VisibleNoteCount = Math.Max(1, visibleNoteCount);
         ClipToBounds = true;
-        ToolTip.SetTip(this, "click: add note · drag right: sustain · click note / right-click: remove · wheel: scroll pitch (shift: octave)");
+        ToolTip.SetTip(this, "keyboard: click and hold to hear a note (drag to glide) · grid: click: add note · drag right: sustain · click note / right-click: remove · wheel: scroll pitch (shift: octave)");
     }
 
     /// <summary>Raised before a pointer press mutates the pattern, so the host can snapshot for undo.</summary>
@@ -57,6 +61,12 @@ internal sealed class PianoRollControl : Control
 
     /// <summary>Raised after a mutation, with a short description for the co-pilot.</summary>
     public event Action<string>? PatternEdited;
+
+    /// <summary>Raised when a note should start sounding: a key is pressed (or glided onto), or a note is placed.</summary>
+    public event Action<int>? NoteAuditionStarted;
+
+    /// <summary>Raised when the auditioned note should stop.</summary>
+    public event Action? NoteAuditionEnded;
 
     public new SlawClip Clip
     {
@@ -236,6 +246,21 @@ internal sealed class PianoRollControl : Control
                 new Rect(KeyboardGutterWidth + hoveredStepIndex * columnWidth + 0.5, RowTop(hoveredMidiNote) + 0.5,
                     Math.Max(0, columnWidth - 1), Math.Max(0, rowHeight - 1)));
         }
+
+        DrawAuditionedKey(drawingContext);
+    }
+
+    /// <summary>Lights up the key currently being auditioned, like a pressed piano key.</summary>
+    private void DrawAuditionedKey(DrawingContext drawingContext)
+    {
+        if (auditionedMidiNote is not { } litMidiNote || litMidiNote < lowestVisibleMidiNote || litMidiNote > HighestVisibleMidiNote)
+        {
+            return;
+        }
+        drawingContext.DrawRectangle(StudioTheme.Accent, null,
+            new Rect(0, RowTop(litMidiNote), KeyboardGutterWidth - 1, RowHeight), 2, 2);
+        DrawText(drawingContext, NotationResolver.FormatMidiNote(litMidiNote), 9, StudioTheme.Background,
+            new Point(KeyboardGutterWidth - 4, RowTop(litMidiNote) + RowHeight / 2), TextAnchor.RightMiddle);
     }
 
     private void DrawNoteBlock(DrawingContext drawingContext, int midiNote, int startStepIndex, int heldLength)
@@ -299,6 +324,21 @@ internal sealed class PianoRollControl : Control
     {
         base.OnPointerPressed(pointerEvent);
         var pointerPosition = pointerEvent.GetPosition(this);
+
+        // The keyboard gutter is a playable keyboard: press and hold to hear the note.
+        if (pointerPosition.X < KeyboardGutterWidth && pointerEvent.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            var pressedKeyMidiNote = MidiNoteAt(pointerPosition.Y);
+            if (pressedKeyMidiNote >= 0)
+            {
+                keyboardAuditionActive = true;
+                BeginAudition(pressedKeyMidiNote);
+                pointerEvent.Pointer.Capture(this);
+                pointerEvent.Handled = true;
+            }
+            return;
+        }
+
         var targetStepIndex = StepIndexAt(pointerPosition.X);
         var targetMidiNote = MidiNoteAt(pointerPosition.Y);
         if (targetStepIndex < 0 || targetMidiNote < 0)
@@ -335,8 +375,31 @@ internal sealed class PianoRollControl : Control
         sustainDragAnchorStepIndex = targetStepIndex;
         sustainDragExtentStepIndex = targetStepIndex;
         sustainDragDescription = $"added {NotationResolver.FormatMidiNote(targetMidiNote)} at step {targetStepIndex + 1}";
+        BeginAudition(targetMidiNote);
         pointerEvent.Pointer.Capture(this);
         pointerEvent.Handled = true;
+        InvalidateVisual();
+    }
+
+    private void BeginAudition(int midiNote)
+    {
+        if (auditionedMidiNote == midiNote)
+        {
+            return;
+        }
+        auditionedMidiNote = midiNote;
+        NoteAuditionStarted?.Invoke(midiNote);
+        InvalidateVisual();
+    }
+
+    private void EndAudition()
+    {
+        if (auditionedMidiNote is null)
+        {
+            return;
+        }
+        auditionedMidiNote = null;
+        NoteAuditionEnded?.Invoke();
         InvalidateVisual();
     }
 
@@ -367,6 +430,17 @@ internal sealed class PianoRollControl : Control
     {
         base.OnPointerMoved(pointerEvent);
         var pointerPosition = pointerEvent.GetPosition(this);
+
+        if (keyboardAuditionActive)
+        {
+            // Glide: dragging along the keyboard plays each key it crosses.
+            var glidedMidiNote = MidiNoteAt(pointerPosition.Y);
+            if (glidedMidiNote >= 0)
+            {
+                BeginAudition(glidedMidiNote);
+            }
+            return;
+        }
 
         if (sustainDragActive)
         {
@@ -417,6 +491,13 @@ internal sealed class PianoRollControl : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs pointerEvent)
     {
         base.OnPointerReleased(pointerEvent);
+        if (keyboardAuditionActive)
+        {
+            keyboardAuditionActive = false;
+            pointerEvent.Pointer.Capture(null);
+            EndAudition();
+            return;
+        }
         if (!sustainDragActive)
         {
             return;
@@ -428,6 +509,8 @@ internal sealed class PianoRollControl : Control
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs captureLostEvent)
     {
         base.OnPointerCaptureLost(captureLostEvent);
+        keyboardAuditionActive = false;
+        EndAudition();
         FinishSustainDrag();
     }
 
@@ -438,6 +521,7 @@ internal sealed class PianoRollControl : Control
             return;
         }
         sustainDragActive = false;
+        EndAudition();
         var heldStepCount = sustainDragExtentStepIndex - sustainDragAnchorStepIndex + 1;
         var editDescription = heldStepCount > 1 ? $"{sustainDragDescription}, held for {heldStepCount} steps" : sustainDragDescription;
         InvalidateVisual();
