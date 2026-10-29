@@ -106,6 +106,8 @@ slaw <command> [options]    # headless production pipeline
 | `slaw play <project.slaw\|file.wav>` | Render (if needed) and audition through the host player. |
 | `slaw master <project.slaw> [-o out.slaw]` | AI mastering: the model chooses the master chain, saved into the project and bounced to WAV. |
 | `slaw vibe <project.slaw>` | Vibe check. Returns `VIBE SCORE: N/10` and a short critique. |
+| `slaw autopilot <project.slaw> "<instruction>"` | Headless Autopilot: the model patches the project, and the change summary is printed. Saves in place, or to `-o`. |
+| `slaw mcp [project.slaw]` | Serve the project to MCP clients (Claude Code, …) over stdio, autosaving every edit. |
 | `slaw new [project.slaw]` | Scaffold a starter project (default `untitled.slaw`). |
 
 | Flag | Default | Description |
@@ -119,6 +121,7 @@ slaw <command> [options]    # headless production pipeline
 | `--optimistic` | false | `compose`: engage agentic arrangement co-pilot |
 | `--loop N` | 0 | `compose`: re-align LLM outputs with ground truth up to N times on JSON parse failure |
 | `--force-iterate N` | 0 | `compose`: proactively enhance output quality for N cycles even on success |
+| `--mcp` / `--mcp-port N` | off / `47115` | `studio`: expose the open project over MCP (HTTP on 127.0.0.1) |
 | `--view` | `session` | `studio`: starting view, `session`, `arrangement`, or `sample` (the first sampler's editor) |
 | `--no-copilot` | false | `studio`: disable the unsolicited AI co-pilot (why would you). Flags override saved Settings for one session |
 | `--timeout N` | 300 | HTTP request timeout in seconds per LLM call (`0` = no timeout) |
@@ -225,6 +228,37 @@ The `sampler` instrument ("Sampler") plays your own WAV files, pitched across th
 - **Portability**: samples stored next to (or below) the project file are saved as relative paths, so project folders can be moved. Others stay absolute.
 
 slaw itself still ships zero samples. These are yours, and therefore your responsibility.
+
+### MCP: let other AIs produce your song
+
+An AI-native DAW that only one AI can use would be a silo. slaw speaks the [Model Context Protocol](https://modelcontextprotocol.io), so agents such as Claude Code can read and edit your project directly.
+
+**Live studio.** Enable *Settings → Integrations → Expose the open project over MCP*, or start with `slaw studio --mcp`. slaw then listens on `http://127.0.0.1:47115/mcp` (change it with `--mcp-port`). Agents edit the song you have open, while it plays:
+
+- edits are heard on the next step, show up in the UI, and undo with Ctrl+Z like any other edit
+- the co-pilot announces each one ("I see we've brought in a consultant")
+
+```sh
+claude mcp add --transport http slaw-studio http://127.0.0.1:47115/mcp
+```
+
+**Headless.** `slaw mcp song.slaw` serves a project file over stdio and autosaves every edit:
+
+```sh
+claude mcp add slaw -- slaw mcp /path/to/song.slaw
+```
+
+| Tool | Does |
+|------|------|
+| `get_project` / `get_catalog` | Describe the project (compact listing or full JSON), and list every instrument, effect and parameter range |
+| `apply_patch` | Apply a patch in the same format the Autopilot uses: tempo, scenes, arrangement, tracks (`"id": "new"` adds one), clips as `"x . . . x"` strings, effects, master |
+| `set_clip`, `add_track`, `update_track`, `add_effect`, `set_tempo` | Focused edits |
+| `transport` | `play_scene`, `play_arrangement`, `stop` (live studio only) |
+| `render`, `save_project`, `undo`, `redo` | Bounce to WAV, save, history |
+| `list_samples` | Your sample library, for sampler tracks |
+| `ask_copilot` | Ask slaw's own configured model for its opinion: an AI consulting an AI about music |
+
+Tracks protected with 🔒 are refused to every MCP client, too. The HTTP endpoint binds to 127.0.0.1 only and rejects requests whose `Origin` is not local, so a web page cannot quietly remix your song.
 
 ### Drag and drop
 

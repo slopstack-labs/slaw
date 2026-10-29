@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="${MODEL:-phi3}"
+MODEL="${MODEL:-qwen2.5:3b}"
 
 if [[ $# -eq 0 ]]; then
   set -- studio

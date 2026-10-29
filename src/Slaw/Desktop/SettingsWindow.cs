@@ -23,6 +23,8 @@ internal sealed class SettingsWindow : Window
     private readonly TextBox modelTextBox;
     private readonly TextBox apiKeyTextBox;
     private readonly CheckBox rememberApiKeyCheckBox;
+    private CheckBox? mcpServerCheckBox;
+    private NumericUpDown? mcpPortNumericUpDown;
     private readonly TextBox baseUrlTextBox;
     private readonly TextBox ollamaEndpointTextBox;
     private readonly NumericUpDown requestTimeoutNumericUpDown;
@@ -136,6 +138,7 @@ internal sealed class SettingsWindow : Window
                 new TabItem { Header = "AI", Content = WrapInScrollViewer(BuildAiTab()) },
                 new TabItem { Header = "Audio", Content = WrapInScrollViewer(BuildAudioTab()) },
                 new TabItem { Header = "Samples", Content = WrapInScrollViewer(BuildSamplesTab()) },
+                new TabItem { Header = "Integrations", Content = WrapInScrollViewer(BuildIntegrationsTab()) },
                 new TabItem { Header = "About", Content = WrapInScrollViewer(BuildAboutTab()) },
             },
         };
@@ -295,6 +298,59 @@ internal sealed class SettingsWindow : Window
     }
 
     /// <summary>Builds the Samples tab: the list of folders slaw scans (recursively) for WAV files.</summary>
+    /// <summary>
+    /// MCP: lets other AI agents (Claude Code, …) read and edit the open
+    /// project. An AI-native DAW that only one AI can use would be a silo.
+    /// </summary>
+    private Control BuildIntegrationsTab()
+    {
+        mcpServerCheckBox = new CheckBox
+        {
+            Content = "Expose the open project over MCP (Model Context Protocol)",
+            IsChecked = workingPreferences.McpServerEnabled,
+        };
+        mcpPortNumericUpDown = BuildNumericUpDown(workingPreferences.McpServerPort, 1024, 65535);
+
+        Control WrappedCaption(string captionText)
+        {
+            var wrappedCaption = StudioUi.Caption(captionText);
+            wrappedCaption.TextWrapping = TextWrapping.Wrap;
+            wrappedCaption.TextTrimming = TextTrimming.None;
+            return wrappedCaption;
+        }
+
+        Control CommandLine(string commandText) => new SelectableTextBlock
+        {
+            Text = commandText,
+            FontFamily = StudioTheme.MonospaceFont,
+            FontSize = 12,
+            Foreground = StudioTheme.Text,
+            Background = StudioTheme.SurfaceRaised,
+            Padding = new Thickness(8, 6),
+            TextWrapping = TextWrapping.Wrap,
+        };
+
+        return new StackPanel
+        {
+            Spacing = 10,
+            Children =
+            {
+                StudioUi.SectionHeading("MCP server (live studio)"),
+                WrappedCaption("Lets AI agents such as Claude Code read and edit the song you have open — while it plays. Their edits are undoable, " +
+                               "heard on the next step, and announced by the co-pilot. HTTP on 127.0.0.1 only; requests from web pages are refused."),
+                mcpServerCheckBox,
+                StudioUi.Row(8, StudioUi.Caption("Port", 12), mcpPortNumericUpDown),
+                WrappedCaption("Connect Claude Code to the running studio:"),
+                CommandLine($"claude mcp add --transport http slaw-studio http://127.0.0.1:{workingPreferences.McpServerPort}/mcp"),
+                StudioUi.SectionHeading("MCP server (headless)"),
+                WrappedCaption("No window needed: slaw can also serve a project file over stdio, autosaving every edit."),
+                CommandLine("claude mcp add slaw -- slaw mcp /path/to/song.slaw"),
+                WrappedCaption("Tools: get_project, get_catalog, apply_patch, set_clip, add_track, update_track, add_effect, set_tempo, transport, " +
+                               "render, save_project, undo, redo, list_samples, ask_copilot. Tracks locked with 🔒 stay off-limits."),
+            },
+        };
+    }
+
     private Control BuildSamplesTab()
     {
         var tabPanel = new StackPanel { Spacing = 10 };
@@ -415,6 +471,10 @@ internal sealed class SettingsWindow : Window
         workingPreferences.AudioSubstrate = audioSubstrateComboBox.SelectedItem as string ?? "auto";
         workingPreferences.AudioLatencyMilliseconds = ReadWholeNumber(audioLatencyNumericUpDown, workingPreferences.AudioLatencyMilliseconds);
         workingPreferences.SampleFolders = new List<string>(workingSampleFolders);
+        workingPreferences.McpServerEnabled = mcpServerCheckBox?.IsChecked == true;
+        workingPreferences.McpServerPort = mcpPortNumericUpDown is null
+            ? workingPreferences.McpServerPort
+            : ReadWholeNumber(mcpPortNumericUpDown, workingPreferences.McpServerPort);
     }
 
     private void CommitAndClose()

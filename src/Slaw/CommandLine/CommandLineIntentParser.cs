@@ -44,12 +44,12 @@ internal static class CommandLineIntentParser
 {
     public static readonly IReadOnlySet<string> ValuedOptionNames = new HashSet<string>(StringComparer.Ordinal)
     {
-        "provider", "api-key", "model", "ollama", "base-url", "timeout", "o", "loop", "force-iterate", "view",
+        "provider", "api-key", "model", "ollama", "base-url", "timeout", "o", "loop", "force-iterate", "view", "mcp-port",
     };
 
     public static readonly IReadOnlySet<string> BooleanFlagNames = new HashSet<string>(StringComparer.Ordinal)
     {
-        "optimistic", "verbose", "no-copilot", "help", "h", "version",
+        "optimistic", "verbose", "no-copilot", "help", "h", "version", "mcp",
     };
 
     public static CommandLineIntent Parse(IReadOnlyList<string> rawArguments)

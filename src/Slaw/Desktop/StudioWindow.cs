@@ -93,6 +93,7 @@ internal sealed class StudioWindow : Window, IStudioHost
     private IReadOnlyList<string> sampleLibraryFiles = Array.Empty<string>();
     private readonly Dictionary<string, SampleEditorWindow> openSampleEditorWindows = new();
     private readonly DispatcherTimer inferenceProgressTimer;
+    private Mcp.McpHttpTransport? mcpHttpTransport;
     private readonly Button cancelInferenceButton;
     private CancellationTokenSource? activeInferenceCancellation;
     private int activeInferenceReceivedCharacters;
@@ -160,11 +161,13 @@ internal sealed class StudioWindow : Window, IStudioHost
         {
             FitToWorkingArea();
             StartLiveAudio();
+            ApplyMcpServerPreference();
         };
         Closed += (_, _) =>
         {
             sessionLifetimeCancellation.Cancel();
             transportTimer.Stop();
+            mcpHttpTransport?.Dispose();
             foreach (var sampleEditorWindow in openSampleEditorWindows.Values.ToList())
             {
                 sampleEditorWindow.Close();
@@ -681,7 +684,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         try
         {
             liveAudioSession.Start();
-            audioStatusText.Text = FormattableString.Invariant($"audio: {liveAudioSession.SubstrateName} · {LiveAudioSession.LiveSampleRate / 1000.0:0.#} kHz · {preferences.AudioLatencyMilliseconds} ms");
+            RefreshAudioStatus();
             transportTimer.Start();
         }
         catch (InvalidOperationException audioRemediationOpportunity)
@@ -934,6 +937,7 @@ internal sealed class StudioWindow : Window, IStudioHost
         {
             RestartLiveAudio();
         }
+        ApplyMcpServerPreference();
         _ = RescanSampleLibraryAsync();
         SetStatus(StatusSeverity.Success, "settings saved");
     }
@@ -1673,6 +1677,101 @@ internal sealed class StudioWindow : Window, IStudioHost
             $"dropped {droppedSamples.Count} sample(s), {droppedFolders.Count} folder(s)" +
             (ignoredCount > 0 ? $"; ignored {ignoredCount} file(s) that are not uncompressed WAV" : string.Empty));
         dragEvent.Handled = true;
+    }
+
+    // ── MCP server ────────────────────────────────────────────────────────────
+
+    /// <summary>Starts, restarts or stops the live MCP endpoint to match the preferences.</summary>
+    private void ApplyMcpServerPreference()
+    {
+        var desiredPort = preferences.McpServerEnabled ? preferences.McpServerPort : (int?)null;
+        if (mcpHttpTransport?.Port == desiredPort)
+        {
+            return;
+        }
+        mcpHttpTransport?.Dispose();
+        mcpHttpTransport = null;
+        if (desiredPort is not { } mcpPort)
+        {
+            RefreshAudioStatus();
+            return;
+        }
+        var liveMcpHost = new LiveStudioMcpHost(this);
+        var startingTransport = new Mcp.McpHttpTransport(mcpPort, () => new Mcp.McpProtocolDispatcher(new Mcp.SlawMcpToolset(liveMcpHost)));
+        try
+        {
+            startingTransport.Start();
+            mcpHttpTransport = startingTransport;
+            SetStatus(StatusSeverity.Success, $"MCP server listening on {startingTransport.EndpointUrl}");
+        }
+        catch (System.Net.HttpListenerException listenerRemediationOpportunity)
+        {
+            startingTransport.Dispose();
+            SetStatus(StatusSeverity.Failure, $"MCP server could not start on port {mcpPort}: {listenerRemediationOpportunity.Message}");
+        }
+        RefreshAudioStatus();
+    }
+
+    private void RefreshAudioStatus()
+    {
+        var audioDescription = liveAudioSession.IsRunning
+            ? FormattableString.Invariant($"audio: {liveAudioSession.SubstrateName} · {LiveAudioSession.LiveSampleRate / 1000.0:0.#} kHz · {preferences.AudioLatencyMilliseconds} ms")
+            : "audio: offline";
+        audioStatusText.Text = mcpHttpTransport is { } runningTransport
+            ? $"{audioDescription}   ·   MCP: 127.0.0.1:{runningTransport.Port}"
+            : audioDescription;
+    }
+
+    /// <summary>The MCP host backed by this window: project work runs on the UI thread, like any other edit.</summary>
+    private sealed class LiveStudioMcpHost : Mcp.ISlawMcpHost
+    {
+        private readonly StudioWindow studioWindow;
+
+        public LiveStudioMcpHost(StudioWindow studioWindow)
+        {
+            this.studioWindow = studioWindow;
+        }
+
+        public string HostDescription => "live slaw studio";
+
+        public bool IsLive => true;
+
+        public StudioDocument Document => studioWindow.document;
+
+        public IReadOnlyList<string> SampleLibraryFiles => studioWindow.sampleLibraryFiles;
+
+        public IInferenceSubstrateProvider? InferenceProvider => studioWindow.inferenceProvider;
+
+        public Task<T> InvokeAsync<T>(Func<T> projectWork) => Dispatcher.UIThread.InvokeAsync(projectWork).GetTask();
+
+        public void OnAgentEdit(string clientName, string editDescription)
+        {
+            studioWindow.SetStatus(StatusSeverity.Success, $"🔌 {clientName}: {editDescription}");
+            if (studioWindow.AiFeaturesEnabled)
+            {
+                studioWindow.AppendCopilotMessage("mcp", $"{clientName} {editDescription}. I see we've brought in a consultant.");
+            }
+        }
+
+        public string ControlTransport(string transportAction, int sceneIndex, int sectionIndex)
+        {
+            switch (transportAction)
+            {
+                case "play_scene":
+                    if (sceneIndex < 0 || sceneIndex >= studioWindow.document.Project.Scenes.Count)
+                    {
+                        throw new Mcp.McpInvalidParamsException($"scene must be between 0 and {studioWindow.document.Project.Scenes.Count - 1}");
+                    }
+                    studioWindow.LaunchScene(sceneIndex);
+                    return $"playing scene {sceneIndex} (\"{studioWindow.document.Project.Scenes[sceneIndex]}\") — launches are quantized to the next bar";
+                case "play_arrangement":
+                    studioWindow.PlayArrangementFrom(sectionIndex);
+                    return $"playing the arrangement from section {sectionIndex}";
+                default:
+                    studioWindow.StopPlayback();
+                    return "stopped";
+            }
+        }
     }
 
     // ── Drag and drop routing ─────────────────────────────────────────────────

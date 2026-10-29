@@ -408,7 +408,7 @@ internal static class ProductionWorkflows
     private static string Abbreviate(string modelOutput) =>
         modelOutput.Length <= 160 ? modelOutput.Trim() : modelOutput[..160].Trim() + "…";
 
-    private static int EnforceAiLocks(SlawProject originalProject, SlawProject revisedProject)
+    internal static int EnforceAiLocks(SlawProject originalProject, SlawProject revisedProject)
     {
         var lockEnforcementCount = 0;
         foreach (var lockedTrack in originalProject.Tracks.Where(track => track.AiLocked))

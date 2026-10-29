@@ -81,6 +81,7 @@ internal static class Program
                 "master" => MasterAsync(commandLineIntent).GetAwaiter().GetResult(),
                 "vibe" => VibeCheckAsync(commandLineIntent).GetAwaiter().GetResult(),
                 "autopilot" => AutopilotAsync(commandLineIntent).GetAwaiter().GetResult(),
+                "mcp" => RunMcpServerAsync(commandLineIntent).GetAwaiter().GetResult(),
                 var unknownCommand => throw new CommandLineMisalignmentException($"unknown command \"{unknownCommand}\" — see slaw --help"),
             };
         }
@@ -131,6 +132,7 @@ internal static class Program
                 master <project.slaw>          let the model choose the master chain
                 vibe <project.slaw>            inference-backed vibe check
                 autopilot <project.slaw> "<instruction>"  let the model rewrite the whole project
+                mcp [project.slaw]             serve the project to MCP clients over stdio (e.g. Claude Code)
                 new [project.slaw]             scaffold a starter project
 
               {Dim}Options:{Reset}
@@ -147,6 +149,8 @@ internal static class Program
                 --force-iterate N   force N improvement cycles even on success
                 --no-copilot        silence the studio co-pilot (not recommended by the co-pilot)
                 --view NAME         open the studio in the session, arrangement, or sample view
+                --mcp               studio: expose the open project over MCP (HTTP on 127.0.0.1)
+                --mcp-port N        studio: MCP port (default 47115)
 
             """);
         return 0;
@@ -246,6 +250,11 @@ internal static class Program
         {
             studioPreferences.CopilotInterjectionsEnabled = false;
         }
+        if (commandLineIntent.Flag("mcp"))
+        {
+            studioPreferences.McpServerEnabled = true;
+        }
+        studioPreferences.McpServerPort = commandLineIntent.IntegerOption("mcp-port", studioPreferences.McpServerPort);
 
         return SlawDesktopApplication.Launch(
             new StudioLaunchParameters(studioProject, requestedProjectPath, studioPreferences,
@@ -425,6 +434,59 @@ internal static class Program
         }
         ProjectSerializer.Save(autopilotDeliverable.Project, projectOutputPath);
         PrintDeliverable(projectOutputPath, "the autopilot has landed.");
+        return 0;
+    }
+
+    /// <summary>
+    /// <c>slaw mcp [project.slaw]</c>: a stdio MCP server over one project file.
+    /// Register it with e.g. <c>claude mcp add slaw -- slaw mcp song.slaw</c>.
+    /// </summary>
+    private static async Task<int> RunMcpServerAsync(CommandLineIntent commandLineIntent)
+    {
+        var requestedProjectPath = commandLineIntent.PositionalArguments.FirstOrDefault();
+        SlawProject servedProject;
+        if (requestedProjectPath is not null && File.Exists(requestedProjectPath))
+        {
+            servedProject = ProjectSerializer.Load(requestedProjectPath);
+        }
+        else
+        {
+            servedProject = ProjectSerializer.CreateStarterProject(
+                requestedProjectPath is null ? "untitled slop" : Path.GetFileNameWithoutExtension(requestedProjectPath));
+            if (requestedProjectPath is not null)
+            {
+                ProjectSerializer.Save(servedProject, requestedProjectPath);
+            }
+        }
+
+        var studioPreferences = StudioPreferences.Load();
+        if (commandLineIntent.Option("provider") is not null)
+        {
+            studioPreferences.ProviderName = ResolveRoutingIntent(commandLineIntent).ProviderName;
+        }
+        studioPreferences.ModelIdentifier = commandLineIntent.Option("model") ?? studioPreferences.ModelIdentifier;
+        studioPreferences.ApiKey = commandLineIntent.Option("api-key") ?? studioPreferences.ApiKey;
+
+        var servedDocument = new StudioDocument(servedProject, requestedProjectPath is null ? null : Path.GetFullPath(requestedProjectPath));
+        var mcpHost = new Mcp.HeadlessMcpHost(servedDocument, studioPreferences);
+        var mcpDispatcher = new Mcp.McpProtocolDispatcher(new Mcp.SlawMcpToolset(mcpHost));
+
+        Console.Error.WriteLine(
+            $"\n  {Bold}slaw mcp{Reset}  {Dim}stdio · {(servedDocument.FilePath ?? "in-memory project (pass a .slaw path to autosave)")}{Reset}\n");
+        using var serverLifetime = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, cancelEvent) =>
+        {
+            cancelEvent.Cancel = true;
+            serverLifetime.Cancel();
+        };
+        try
+        {
+            await Mcp.McpStdioTransport.RunAsync(mcpDispatcher, serverLifetime.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Ctrl+C: the agent has been let go.
+        }
         return 0;
     }
 

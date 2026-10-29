@@ -33,6 +33,13 @@ internal sealed class StudioPreferences
     /// <summary>Folders scanned for user samples (WAV files), shown in the browser.</summary>
     public List<string> SampleFolders { get; set; } = new();
 
+    /// <summary>
+    /// Exposes the open project to MCP clients (Claude Code, etc.) over HTTP on
+    /// 127.0.0.1. Off by default: an open port is a commitment.
+    /// </summary>
+    public bool McpServerEnabled { get; set; }
+    public int McpServerPort { get; set; } = 47115;
+
     /// <summary>Preferred live audio substrate, or "auto".</summary>
     public string AudioSubstrate { get; set; } = "auto";
     public int AudioLatencyMilliseconds { get; set; } = 60;
