@@ -1,0 +1,430 @@
+{
+  "format": "slaw-project/v2",
+  "name": "Synergy Drop (Q4 Earnings Dubstep)",
+  "bpm": 140,
+  "steps": 16,
+  "scenes": [
+    "Intro",
+    "Build",
+    "Drop",
+    "Breakdown"
+  ],
+  "tracks": [
+    {
+      "id": "0f97553a",
+      "name": "Half-Time Kick",
+      "instrument": "kick",
+      "instrumentParameters": {
+        "pitch": -2,
+        "decay": 1.4
+      },
+      "effects": [],
+      "gain": 1,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Half-Time Kick",
+          "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", "x"]
+        },
+        {
+          "name": "Half-Time Kick",
+          "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "6e86daac",
+      "name": "Snare of Accountability",
+      "instrument": "snare",
+      "instrumentParameters": {
+        "decay": 1.3
+      },
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.5,
+            "mix": 0.18
+          }
+        }
+      ],
+      "gain": 0.9,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Snare of Accountability",
+          "pattern": [".", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", ".", "x", "x", "x", "x"]
+        },
+        {
+          "name": "Snare of Accountability",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "6586167d",
+      "name": "Stakeholder Clap",
+      "instrument": "clap",
+      "instrumentParameters": {},
+      "effects": [],
+      "gain": 0.55,
+      "pan": 0.1,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Stakeholder Clap",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "5e2f0214",
+      "name": "Velocity Hats",
+      "instrument": "hat",
+      "instrumentParameters": {
+        "humanize": 0.5
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 6000
+          }
+        }
+      ],
+      "gain": 0.4,
+      "pan": -0.25,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Velocity Hats",
+          "pattern": [".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", "."]
+        },
+        {
+          "name": "Velocity Hats",
+          "pattern": ["x", ".", "x", ".", "x", ".", "x", ".", "x", "x", "x", "x", "x", "x", "x", "x"]
+        },
+        {
+          "name": "Velocity Hats",
+          "pattern": ["x", ".", "x", "x", ".", ".", "x", ".", "x", ".", "x", "x", ".", "x", "x", "x"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "ab93ae0f",
+      "name": "Wobble of Synergy",
+      "instrument": "saw",
+      "instrumentParameters": {
+        "attack": 2,
+        "decay": 120,
+        "sustain": 0.8,
+        "release": 30,
+        "octave": 0
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 700,
+            "resonance": 0.82
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 6,
+            "mix": 0.8
+          }
+        },
+        {
+          "type": "bitcrush",
+          "enabled": true,
+          "parameters": {
+            "bits": 9,
+            "downsample": 2,
+            "mix": 0.35
+          }
+        },
+        {
+          "type": "vibe",
+          "enabled": true,
+          "parameters": {
+            "synergy": 0.9,
+            "disruption": 0.15,
+            "alignment": 1
+          }
+        }
+      ],
+      "gain": 0.6,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Wobble of Synergy",
+          "pattern": ["F1", "F1", "_", "F2", "F1", "_", "F1", "F1", "G#1", "_", "F1", "F2", "F1", "_", "D#1", "F1"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "88e0cf9a",
+      "name": "Growl Layer",
+      "instrument": "square",
+      "instrumentParameters": {
+        "octave": 1,
+        "detune": 18,
+        "release": 25
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 1400,
+            "resonance": 0.6
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 10,
+            "mix": 0.7
+          }
+        }
+      ],
+      "gain": 0.32,
+      "pan": 0.2,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Growl Layer",
+          "pattern": [".", "F1", ".", ".", ".", "F1", ".", ".", ".", "F1", "_", ".", ".", "F1", ".", "F1"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "f60eb547",
+      "name": "Sub Ledger",
+      "instrument": "sine",
+      "instrumentParameters": {
+        "release": 60
+      },
+      "effects": [],
+      "gain": 0.85,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Sub Ledger",
+          "pattern": ["F1", "_", "_", "_", "_", "_", "_", "_", "D#1", "_", "_", "_", "C#1", "_", "C1", "_"]
+        },
+        {
+          "name": "Sub Ledger",
+          "pattern": ["F1", "_", "_", "_", "_", "_", "_", "_", "C#1", "_", "_", "_", "_", "_", "_", "_"]
+        }
+      ]
+    },
+    {
+      "id": "d850f381",
+      "name": "Visionary Pad",
+      "instrument": "triangle",
+      "instrumentParameters": {
+        "attack": 400,
+        "release": 900,
+        "sustain": 0.9
+      },
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.9,
+            "damping": 0.3,
+            "mix": 0.45
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.35,
+            "mix": 0.2
+          }
+        }
+      ],
+      "gain": 0.32,
+      "pan": -0.1,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Visionary Pad",
+          "pattern": ["F3\u002BG#3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "C#3\u002BF3\u002BG#3", "_", "_", "_", "D#3\u002BG3\u002BA#3", "_", "_", "_"]
+        },
+        null,
+        null,
+        {
+          "name": "Visionary Pad",
+          "pattern": ["F3\u002BG#3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "C#3\u002BF3\u002BG#3", "_", "_", "_", "C3\u002BE3\u002BG3", "_", "_", "_"]
+        }
+      ]
+    },
+    {
+      "id": "28b6fa71",
+      "name": "Thought Leader Arp",
+      "instrument": "pluck",
+      "instrumentParameters": {
+        "brightness": 0.75,
+        "length": 600
+      },
+      "effects": [
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.45,
+            "mix": 0.35
+          }
+        }
+      ],
+      "gain": 0.45,
+      "pan": 0.3,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Thought Leader Arp",
+          "pattern": ["F4", ".", "G#4", ".", "C5", ".", "F5", ".", "C5", ".", "G#4", ".", "F4", ".", "C5", "."]
+        },
+        {
+          "name": "Thought Leader Arp",
+          "pattern": ["F4", "G#4", "C5", "F5", "F4", "G#4", "C5", "F5", "G4", "A#4", "C5", "G5", "G4", "A#4", "C5", "G5"]
+        },
+        null,
+        {
+          "name": "Thought Leader Arp",
+          "pattern": ["F5", ".", ".", "C5", ".", ".", "G#4", ".", "F5", ".", ".", "C#5", ".", ".", "C5", "."]
+        }
+      ]
+    },
+    {
+      "id": "16c98825",
+      "name": "Quarterly Riser",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 1800,
+        "release": 200,
+        "sustain": 1
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 2500,
+            "resonance": 0.5
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.8,
+            "mix": 0.4
+          }
+        }
+      ],
+      "gain": 0.22,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Quarterly Riser",
+          "pattern": ["C4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        },
+        null,
+        null
+      ]
+    }
+  ],
+  "arrangement": [
+    {
+      "scene": 0,
+      "repeats": 2
+    },
+    {
+      "scene": 1,
+      "repeats": 2
+    },
+    {
+      "scene": 2,
+      "repeats": 4
+    },
+    {
+      "scene": 3,
+      "repeats": 2
+    },
+    {
+      "scene": 1,
+      "repeats": 1
+    },
+    {
+      "scene": 2,
+      "repeats": 4
+    }
+  ],
+  "master": {
+    "gain": 0.95,
+    "drive": 1.8,
+    "lowpassHz": 17000,
+    "delaySteps": 3,
+    "delayFeedback": 0.25,
+    "delayMix": 0.04,
+    "rationale": null
+  },
+  "aiProvenance": "claude-code via MCP",
+  "stepDurationSeconds": 0.10714285714285714
+}
