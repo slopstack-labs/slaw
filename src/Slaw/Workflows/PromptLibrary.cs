@@ -258,6 +258,24 @@ internal static class PromptLibrary
                 }
             }
         }
+        if (project.Timeline.Count > 0)
+        {
+            projectListing.Append(CultureInfo.InvariantCulture, $"free timeline ({FreeTimeline.LengthInSteps(project) / 16.0:0.#} bars; start/length in steps, 16 per bar):\n");
+            foreach (var timelineClip in project.Timeline.OrderBy(timelineClip => timelineClip.StartStep))
+            {
+                var trackName = project.Tracks.FirstOrDefault(track => track.Id == timelineClip.TrackId)?.Name ?? "?";
+                projectListing.Append(CultureInfo.InvariantCulture,
+                    $"  timeline clip id \"{timelineClip.Id}\" track \"{trackName}\" start {timelineClip.StartStep} (bar {FreeTimeline.FormatPosition(timelineClip.StartStep)}) length {timelineClip.LengthSteps}: {string.Join(' ', timelineClip.Clip.Pattern)}\n");
+                foreach (var (targetKey, points) in timelineClip.Clip.Automation ?? new Dictionary<string, List<AutomationPoint>>())
+                {
+                    projectListing.Append(CultureInfo.InvariantCulture, $"    envelope {ClipAutomation.Describe(targetKey, points)}\n");
+                }
+            }
+            if (project.TimelineLoop is { IsValid: true } loopRegion)
+            {
+                projectListing.Append(CultureInfo.InvariantCulture, $"  loop {loopRegion.StartStep}–{loopRegion.EndStep}\n");
+            }
+        }
         var masterChain = project.Master;
         projectListing.Append(CultureInfo.InvariantCulture,
             $"master: gain {masterChain.Gain:0.00}, drive {masterChain.Drive:0.0}, lowpassHz {masterChain.LowpassHz:0}, delayMix {masterChain.DelayMix:0.00}");

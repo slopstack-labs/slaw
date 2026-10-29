@@ -195,4 +195,37 @@ public class FreeTimelineTests
             """)!.AsObject()).Project;
         Assert.Empty(removed.Timeline);
     }
+
+    [Fact]
+    public async Task AgentsPatchListAndRenderTheTimelineOverMcp()
+    {
+        var servedDocument = new Desktop.StudioDocument(ProjectSerializer.CreateStarterProject("mcp"), filePath: null);
+        var headlessHost = new Mcp.HeadlessMcpHost(servedDocument, new Desktop.StudioPreferences { AiFeaturesEnabled = false });
+        var dispatcher = new Mcp.McpProtocolDispatcher(new Mcp.SlawMcpToolset(headlessHost));
+        async Task<string> CallToolAsync(string toolName, JsonObject toolArguments)
+        {
+            var request = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = 1, ["method"] = "tools/call", ["params"] = new JsonObject { ["name"] = toolName, ["arguments"] = toolArguments } };
+            var response = JsonNode.Parse((await dispatcher.HandleAsync(request.ToJsonString(), CancellationToken.None))!)!;
+            Assert.False(response["result"]!["isError"]!.GetValue<bool>(), response.ToJsonString());
+            return response["result"]!["content"]![0]!["text"]!.GetValue<string>();
+        }
+
+        await CallToolAsync("apply_patch", new JsonObject
+        {
+            ["patch"] = JsonNode.Parse("""{"timeline":[{"id":"new","track":"Synergy Kick","start":32,"length":16,"pattern":"x . . . x . . ."}]}"""),
+        });
+        Assert.Equal(32, Assert.Single(servedDocument.Project.Timeline).StartStep);
+        Assert.Contains("track \"Synergy Kick\" start 32 (bar 3.1) length 16", await CallToolAsync("get_project", new JsonObject()));
+
+        var renderPath = Path.Combine(Path.GetTempPath(), $"slaw-timeline-test-{Environment.ProcessId}.wav");
+        try
+        {
+            // 48 steps at the starter's 124 BPM plus the release tail.
+            Assert.Contains("rendered 7.3 s", await CallToolAsync("render", new JsonObject { ["path"] = renderPath, ["source"] = "timeline" }));
+        }
+        finally
+        {
+            File.Delete(renderPath);
+        }
+    }
 }

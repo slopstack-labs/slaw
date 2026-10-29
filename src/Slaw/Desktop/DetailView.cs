@@ -81,7 +81,9 @@ internal sealed class DetailView : UserControl
         if (document.SelectedTrack is { } selectedTrack &&
             transportSnapshot.Mode != TransportMode.Stopped &&
             transportSnapshot.Tracks.TryGetValue(selectedTrack.Id, out var trackState) &&
-            trackState.PlayingScene == document.SelectedSceneIndex)
+            (document.SelectedTimelineClipId is { } selectedTimelineClipId
+                ? trackState.TimelineClipId == selectedTimelineClipId
+                : trackState.PlayingScene == document.SelectedSceneIndex))
         {
             playheadStep = trackState.ClipStep;
         }
@@ -182,14 +184,17 @@ internal sealed class DetailView : UserControl
         {
             return StudioUi.Caption("No track selected.");
         }
-        var sceneName = sceneIndex < document.Project.Scenes.Count ? document.Project.Scenes[sceneIndex] : "?";
+        var selectedTimelineClip = document.SelectedTimelineClip;
+        var sceneName = selectedTimelineClip is not null
+            ? $"Free timeline @ {FreeTimeline.FormatPosition(selectedTimelineClip.StartStep)}"
+            : sceneIndex < document.Project.Scenes.Count ? document.Project.Scenes[sceneIndex] : "?";
         var headerRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
         var titleRow = StudioUi.Row(8,
             new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(5), Background = StudioTheme.TrackBrush(trackIndex) },
             StudioUi.Caption($"{track.Name}  ·  {sceneName}", 12, StudioTheme.Text, FontWeight.SemiBold));
         headerRow.Children.Add(titleRow);
 
-        if (track.ClipAt(sceneIndex) is not { } clip)
+        if (document.SelectedClip is not { } clip)
         {
             var emptyActions = StudioUi.Row(8,
                 StudioUi.AccentButton("Create clip", () => document.CreateClip(trackIndex, sceneIndex)));
@@ -256,7 +261,9 @@ internal sealed class DetailView : UserControl
                     clip.Pattern[stepIndex] = NotationResolver.RestSymbol;
                 }
             }, EditScope.Structure), "Silence every step", compact: true),
-            StudioUi.Button("▶ Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true));
+            selectedTimelineClip is null
+                ? StudioUi.Button("▶ Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true)
+                : StudioUi.Button("▶ Here", () => host.PlayTimelineFrom(selectedTimelineClip.StartStep), "Play the free timeline from this clip", compact: true));
         var envelopeToggle = new Avalonia.Controls.Primitives.ToggleButton
         {
             Content = clip.Automation is { Count: > 0 } ? $"∿ Envelopes ({clip.Automation.Count})" : "∿ Envelopes",
@@ -271,7 +278,8 @@ internal sealed class DetailView : UserControl
             Rebuild();
         };
         clipActions.Children.Add(envelopeToggle);
-        if (host.AiFeaturesEnabled)
+        // The AI rewrites scene slots; a timeline clip is not one.
+        if (host.AiFeaturesEnabled && selectedTimelineClip is null)
         {
             clipActions.Children.Add(StudioUi.AiButton("✨ Rewrite", () => host.GenerateClipWithAi(trackIndex, sceneIndex), "Let the AI rewrite this clip"));
         }

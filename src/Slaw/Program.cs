@@ -261,7 +261,8 @@ internal static class Program
         return SlawDesktopApplication.Launch(
             new StudioLaunchParameters(studioProject, requestedProjectPath, studioPreferences,
                 OpenInArrangementView: string.Equals(commandLineIntent.Option("view"), "arrangement", StringComparison.OrdinalIgnoreCase),
-                OpenSampleEditor: string.Equals(commandLineIntent.Option("view"), "sample", StringComparison.OrdinalIgnoreCase)),
+                OpenSampleEditor: string.Equals(commandLineIntent.Option("view"), "sample", StringComparison.OrdinalIgnoreCase),
+                OpenInFreeView: string.Equals(commandLineIntent.Option("view"), "free", StringComparison.OrdinalIgnoreCase)),
             rawArguments);
     }
 

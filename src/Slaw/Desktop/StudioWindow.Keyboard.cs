@@ -209,6 +209,10 @@ internal sealed partial class StudioWindow
 
     private void ExecuteStudioCommand(StudioCommand studioCommand)
     {
+        if (TryExecuteTimelineCommand(studioCommand))
+        {
+            return;
+        }
         switch (studioCommand)
         {
             case StudioCommand.TogglePlayback:
@@ -218,7 +222,7 @@ internal sealed partial class StudioWindow
                 PlayFromSelectedScene();
                 break;
             case StudioCommand.SwitchView:
-                SelectMainView(!arrangementViewActive);
+                CycleMainView();
                 break;
             case StudioCommand.LaunchSelection:
                 if (arrangementViewActive)

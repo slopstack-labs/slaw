@@ -74,7 +74,7 @@ internal static class StudioShortcutMap
     {
         new(StudioCommand.TogglePlayback, Key.Space, KeyModifiers.None, "Play / stop", ShortcutReach.Global),
         new(StudioCommand.PlayFromSelection, Key.Space, KeyModifiers.Shift, "Play from the selected scene", ShortcutReach.Global),
-        new(StudioCommand.SwitchView, Key.Tab, KeyModifiers.None, "Switch Session / Arrangement view", ShortcutReach.Global),
+        new(StudioCommand.SwitchView, Key.Tab, KeyModifiers.None, "Switch Session / Arrangement / Free view", ShortcutReach.Global),
         new(StudioCommand.LaunchSelection, Key.Enter, KeyModifiers.None, "Launch the selected clip (Arrangement: play from it)"),
         new(StudioCommand.LaunchSelectedScene, Key.Enter, KeyModifiers.Shift, "Launch the selected scene"),
         new(StudioCommand.Dismiss, Key.Escape, KeyModifiers.None, "Stop notes, leave text fields, close overlays", ShortcutReach.Everywhere),
@@ -156,7 +156,7 @@ internal static class PlaybackToggle
     /// not stop the silence.
     /// </summary>
     public static bool IsAudiblyPlaying(Synthesis.TransportSnapshot transportSnapshot) =>
-        transportSnapshot.Mode == Synthesis.TransportMode.Arrangement ||
+        transportSnapshot.Mode is Synthesis.TransportMode.Arrangement or Synthesis.TransportMode.Timeline ||
         (transportSnapshot.Mode == Synthesis.TransportMode.Session &&
          transportSnapshot.Tracks.Values.Any(trackState => trackState.PlayingScene is not null || trackState.QueuedScene >= 0));
 }
