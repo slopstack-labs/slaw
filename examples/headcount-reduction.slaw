@@ -1,0 +1,544 @@
+{
+  "format": "slaw-project/v2",
+  "name": "Headcount Reduction (Restructuring Riddim)",
+  "bpm": 150,
+  "steps": 16,
+  "scenes": [
+    "All-Hands Announcement",
+    "Rumors in Slack",
+    "Restructuring",
+    "Exit Interview",
+    "Rightsizing",
+    "Severance Package"
+  ],
+  "tracks": [
+    {
+      "id": "258ff7f7",
+      "name": "Org Chart Kick",
+      "instrument": "kick",
+      "instrumentParameters": {
+        "pitch": -3,
+        "decay": 1.5
+      },
+      "effects": [],
+      "gain": 1,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Org Chart Kick",
+          "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", "x"]
+        },
+        {
+          "name": "Org Chart Kick",
+          "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+        },
+        null,
+        {
+          "name": "Org Chart Kick",
+          "pattern": ["x", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x", ".", ".", ".", ".", "."]
+        },
+        {
+          "name": "Org Chart Kick",
+          "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+        }
+      ]
+    },
+    {
+      "id": "f5110964",
+      "name": "Pink Slip Snare",
+      "instrument": "snare",
+      "instrumentParameters": {
+        "decay": 1.2
+      },
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.5,
+            "mix": 0.2
+          }
+        }
+      ],
+      "gain": 0.8,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Pink Slip Snare",
+          "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", ".", "x", "x", "x", "x"]
+        },
+        {
+          "name": "Pink Slip Snare",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "."]
+        },
+        {
+          "name": "Pink Slip Snare",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "."]
+        },
+        {
+          "name": "Pink Slip Snare",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", "x"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "725020f6",
+      "name": "Town Hall Clap",
+      "instrument": "clap",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.7,
+            "mix": 0.3
+          }
+        }
+      ],
+      "gain": 0.55,
+      "pan": 0.1,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Town Hall Clap",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "."]
+        },
+        null,
+        {
+          "name": "Town Hall Clap",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "23adbe52",
+      "name": "Open-Plan Hats",
+      "instrument": "hat",
+      "instrumentParameters": {
+        "humanize": 0.4
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 6500
+          }
+        }
+      ],
+      "gain": 0.35,
+      "pan": -0.25,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Open-Plan Hats",
+          "pattern": [".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", "."]
+        },
+        {
+          "name": "Open-Plan Hats",
+          "pattern": ["x", ".", "x", ".", "x", ".", "x", ".", "x", "x", "x", "x", "x", "x", "x", "x"]
+        },
+        {
+          "name": "Open-Plan Hats",
+          "pattern": ["x", ".", "x", "x", ".", ".", "x", ".", "x", ".", "x", "x", ".", "x", "x", "x"]
+        },
+        {
+          "name": "Open-Plan Hats",
+          "pattern": [".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", "."]
+        },
+        {
+          "name": "Open-Plan Hats",
+          "pattern": ["x", "x", "x", ".", "x", "x", "x", ".", "x", "x", "x", ".", "x", "x", "x", "x"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "22594332",
+      "name": "Restructuring Wobble",
+      "instrument": "saw",
+      "instrumentParameters": {
+        "attack": 2,
+        "decay": 110,
+        "sustain": 0.85,
+        "release": 25
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 650,
+            "resonance": 0.85
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 8,
+            "mix": 0.8
+          }
+        },
+        {
+          "type": "vibe",
+          "enabled": true,
+          "parameters": {
+            "synergy": 1,
+            "disruption": 0.3,
+            "alignment": 0.9
+          }
+        }
+      ],
+      "gain": 0.55,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Restructuring Wobble",
+          "pattern": ["D1", "_", "D1", "D2", ".", "D1", "_", "D1", "A#1", "_", "A#1", "A#2", "C2", "_", "C1", "C2"]
+        },
+        null,
+        {
+          "name": "Restructuring Wobble",
+          "pattern": ["D1", "D1", "D1", "D2", "D2", "D2", "D1", "_", "F1", "F1", "F1", "F2", "C2", "C2", "C1", "C1"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "1b515b70",
+      "name": "Rightsizing Growl",
+      "instrument": "square",
+      "instrumentParameters": {
+        "octave": 1,
+        "detune": 22,
+        "release": 20
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 1600,
+            "resonance": 0.7
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 12,
+            "mix": 0.75
+          }
+        },
+        {
+          "type": "bitcrush",
+          "enabled": true,
+          "parameters": {
+            "bits": 7,
+            "downsample": 3,
+            "mix": 0.4
+          }
+        }
+      ],
+      "gain": 0.4,
+      "pan": 0.15,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Rightsizing Growl",
+          "pattern": ["D2", ".", ".", "D2", ".", ".", "D2", "_", ".", "A#1", ".", ".", "C2", ".", "C2", "."]
+        },
+        null,
+        {
+          "name": "Rightsizing Growl",
+          "pattern": ["D2", "D2", ".", "D2", ".", "D2", "D2", ".", "F2", ".", "F2", ".", "C2", "C2", "C2", "C2"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "176d1aac",
+      "name": "Severance Sub",
+      "instrument": "sine",
+      "instrumentParameters": {
+        "release": 60
+      },
+      "effects": [],
+      "gain": 0.7,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Severance Sub",
+          "pattern": ["D1", "_", "_", "_", "_", "_", "_", "_", "A#0", "_", "_", "_", "C1", "_", "_", "_"]
+        },
+        null,
+        {
+          "name": "Severance Sub",
+          "pattern": ["D1", "_", "_", "_", "_", "_", "_", "_", "A#0", "_", "_", "_", "C1", "_", "_", "_"]
+        },
+        {
+          "name": "Severance Sub",
+          "pattern": ["D1", "_", "_", "_", "_", "_", "_", "_", "F1", "_", "_", "_", "C1", "_", "_", "_"]
+        },
+        {
+          "name": "Severance Sub",
+          "pattern": ["D1", "_", "_", "_", "_", "_", "_", "_", "F1", "_", "_", "_", "C1", "_", "_", "_"]
+        },
+        {
+          "name": "Severance Sub",
+          "pattern": ["D1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        }
+      ]
+    },
+    {
+      "id": "e0a8f4ce",
+      "name": "Mission Statement Pad",
+      "instrument": "triangle",
+      "instrumentParameters": {
+        "attack": 500,
+        "release": 1000,
+        "sustain": 0.9
+      },
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.9,
+            "damping": 0.3,
+            "mix": 0.45
+          }
+        }
+      ],
+      "gain": 0.35,
+      "pan": -0.2,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Mission Statement Pad",
+          "pattern": ["D3\u002BF3\u002BA3", "_", "_", "_", "_", "_", "_", "_", "A#2\u002BD3\u002BF3", "_", "_", "_", "C3\u002BE3\u002BG3", "_", "_", "_"]
+        },
+        {
+          "name": "Mission Statement Pad",
+          "pattern": ["D3\u002BF3\u002BA3", "_", "_", "_", "_", "_", "_", "_", "A#2\u002BD3\u002BF3", "_", "_", "_", "C3\u002BE3\u002BG3", "_", "_", "_"]
+        },
+        null,
+        {
+          "name": "Mission Statement Pad",
+          "pattern": ["D3\u002BF3\u002BA3", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "C3\u002BE3\u002BG3", "_", "_", "_"]
+        },
+        null,
+        {
+          "name": "Mission Statement Pad",
+          "pattern": ["D3\u002BF3\u002BA3", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        }
+      ]
+    },
+    {
+      "id": "6cb9324b",
+      "name": "Synergy Arp",
+      "instrument": "pluck",
+      "instrumentParameters": {
+        "brightness": 0.7,
+        "length": 500
+      },
+      "effects": [
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.45,
+            "mix": 0.3
+          }
+        }
+      ],
+      "gain": 0.45,
+      "pan": 0.3,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Synergy Arp",
+          "pattern": ["D4", ".", "F4", ".", "A4", ".", "D5", ".", "A4", ".", "F4", ".", "A#4", ".", "C5", "."]
+        },
+        {
+          "name": "Synergy Arp",
+          "pattern": ["D4", "F4", "A4", "D5", "D4", "F4", "A4", "D5", "C4", "E4", "G4", "C5", "C4", "E4", "G4", "C5"]
+        },
+        null,
+        {
+          "name": "Synergy Arp",
+          "pattern": ["A4", ".", ".", "F4", ".", ".", "D4", ".", "A4", ".", ".", "C5", ".", ".", "A#4", "."]
+        },
+        null,
+        {
+          "name": "Synergy Arp",
+          "pattern": ["D5", ".", ".", "A4", ".", ".", "F4", ".", "D4", ".", ".", ".", ".", ".", ".", "."]
+        }
+      ]
+    },
+    {
+      "id": "9de81846",
+      "name": "Pivot Riser",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 2000,
+        "sustain": 1,
+        "release": 200
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 2000,
+            "resonance": 0.5
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.8,
+            "mix": 0.4
+          }
+        }
+      ],
+      "gain": 0.3,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Pivot Riser",
+          "pattern": ["C4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        },
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "id": "b2a37753",
+      "name": "Stakeholder Siren",
+      "instrument": "square",
+      "instrumentParameters": {
+        "attack": 5,
+        "release": 80
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 3000,
+            "resonance": 0.3
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 2,
+            "feedback": 0.3,
+            "mix": 0.25
+          }
+        }
+      ],
+      "gain": 0.22,
+      "pan": -0.1,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        null,
+        null,
+        {
+          "name": "Stakeholder Siren",
+          "pattern": ["D5", "_", ".", "D5", "F5", "_", ".", "E5", "D5", "_", ".", "C5", "A4", "_", "_", "_"]
+        },
+        null
+      ]
+    }
+  ],
+  "arrangement": [
+    {
+      "scene": 0,
+      "repeats": 4
+    },
+    {
+      "scene": 1,
+      "repeats": 2
+    },
+    {
+      "scene": 2,
+      "repeats": 8
+    },
+    {
+      "scene": 3,
+      "repeats": 4
+    },
+    {
+      "scene": 1,
+      "repeats": 2
+    },
+    {
+      "scene": 4,
+      "repeats": 8
+    },
+    {
+      "scene": 5,
+      "repeats": 2
+    }
+  ],
+  "master": {
+    "gain": 0.85,
+    "drive": 1.6,
+    "lowpassHz": 18000,
+    "delaySteps": 3,
+    "delayFeedback": 0.3,
+    "delayMix": 0.08,
+    "rationale": null
+  },
+  "aiProvenance": "an MCP client via MCP",
+  "stepDurationSeconds": 0.1
+}

@@ -227,10 +227,16 @@ internal sealed class ComplianceCrusherProcessor : EffectProcessor
 /// <summary>
 /// The Neural Vibe Enhancer™. Synergy is gentle saturation, disruption is
 /// noise, and alignment does nothing at all — exactly as marketed.
+/// Disruption rides an envelope follower, so the noise is grit on the notes
+/// rather than a hiss under every bar the track sits out.
 /// </summary>
 internal sealed class NeuralVibeEnhancerProcessor : EffectProcessor
 {
+    private const double DisruptionReleaseSeconds = 0.03;
+    private const double FullDisruptionInputLevel = 0.125;
+
     private readonly Random disruptionEntropySource = new(0x5E1F);
+    private double inputEnvelope;
 
     public NeuralVibeEnhancerProcessor()
         : base("vibe")
@@ -243,9 +249,12 @@ internal sealed class NeuralVibeEnhancerProcessor : EffectProcessor
         var disruptionLevel = 0.04 * Parameter(parameterValues, "disruption");
         _ = Parameter(parameterValues, "alignment");
         var synergyNormalization = Math.Tanh(synergyDrive);
+        var envelopeRelease = Math.Exp(-1 / (DisruptionReleaseSeconds * processingContext.SampleRate));
         for (var sampleIndex = 0; sampleIndex < monoBlock.Length; sampleIndex++)
         {
-            var disruptedSample = monoBlock[sampleIndex] + (disruptionEntropySource.NextDouble() * 2 - 1) * disruptionLevel;
+            inputEnvelope = Math.Max(Math.Abs(monoBlock[sampleIndex]), inputEnvelope * envelopeRelease);
+            var disruptionGate = Math.Min(1, inputEnvelope / FullDisruptionInputLevel);
+            var disruptedSample = monoBlock[sampleIndex] + (disruptionEntropySource.NextDouble() * 2 - 1) * disruptionLevel * disruptionGate;
             monoBlock[sampleIndex] = (float)(Math.Tanh(disruptedSample * synergyDrive) / synergyNormalization);
         }
     }
