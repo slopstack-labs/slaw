@@ -342,7 +342,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             StudioDragDrop.MakeDragSource(instrumentEntry, () => new DragPayload(DragPayloadKind.Instrument, instrumentName));
             browserContent.Children.Add(instrumentEntry);
         }
-        browserContent.Children.Add(BrowserEntry("🎙 Audio Track", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
+        browserContent.Children.Add(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
         browserContent.Children.Add(new Border { Height = 10 });
         browserContent.Children.Add(StudioUi.SectionHeading("Audio Effects"));
         foreach (var effectType in DeviceCatalog.EffectTypes)
