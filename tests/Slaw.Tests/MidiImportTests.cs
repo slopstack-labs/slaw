@@ -91,7 +91,7 @@ public class MidiImportTests
         var track = MidiFileImporter.Import(file, "bass").Project.Tracks.Single();
 
         Assert.Equal("saw", track.Instrument);
-        Assert.Equal("Bass", track.Name);
+        Assert.Equal("Fingered Bass", track.Name);
     }
 
     [Fact]
@@ -132,5 +132,72 @@ public class MidiImportTests
         Assert.Equal(new[] { "x", ".", "x", ".", ".", ".", ".", "." }, pattern);
         Assert.True(MidiFileImporter.IsMidiFile("song.MID"));
         Assert.False(MidiFileImporter.IsMidiFile("song.wav"));
+    }
+}
+
+/// <summary>Real-world MIDI quirks, found in an Arabic GM file from 2010.</summary>
+public class MidiImportRealWorldTests
+{
+    [Fact]
+    public void DecodesLegacyArabicTrackNames()
+    {
+        // "يا طارشي" as written by a Windows-1256 sequencer.
+        var windows1256Bytes = new byte[] { 0xED, 0xC7, 0x20, 0xD8, 0xC7, 0xD1, 0xD4, 0xED };
+        Assert.Equal("يا طارشي", SlopstackLabs.Slaw.Session.MidiFileImporter.DecodeMidiText(windows1256Bytes));
+        Assert.Equal("Piano", SlopstackLabs.Slaw.Session.MidiFileImporter.DecodeMidiText("Piano"u8));
+        Assert.Equal("Café", SlopstackLabs.Slaw.Session.MidiFileImporter.DecodeMidiText("Café"u8));
+    }
+
+    [Fact]
+    public void FoldsUnisonDoublesAndMapsHandPercussion()
+    {
+        // Format 0: channels 0 and 1 play the same violin line; channel 10 plays doum/tek/wood block.
+        var events = new List<(int Tick, byte[] Bytes)>
+        {
+            (0, new byte[] { 0xC0, 40 }), (0, new byte[] { 0xC1, 40 }),
+        };
+        foreach (var (tick, note) in new[] { (0, 69), (96, 71), (192, 72) })
+        {
+            foreach (var channel in new[] { 0, 1 })
+            {
+                events.Add((tick, new byte[] { (byte)(0x90 | channel), (byte)note, 90 }));
+                events.Add((tick + 90, new byte[] { (byte)(0x80 | channel), (byte)note, 0 }));
+            }
+        }
+        foreach (var (tick, drum) in new[] { (0, 45), (96, 50), (144, 77) })
+        {
+            events.Add((tick, new byte[] { 0x99, (byte)drum, 100 }));
+            events.Add((tick + 10, new byte[] { 0x89, (byte)drum, 0 }));
+        }
+        var trackBytes = new List<byte>();
+        var previousTick = 0;
+        foreach (var (tick, bytes) in events.OrderBy(entry => entry.Tick))
+        {
+            var delta = tick - previousTick;
+            var vlq = new List<byte> { (byte)(delta & 0x7F) };
+            for (delta >>= 7; delta > 0; delta >>= 7)
+            {
+                vlq.Insert(0, (byte)((delta & 0x7F) | 0x80));
+            }
+            trackBytes.AddRange(vlq);
+            trackBytes.AddRange(bytes);
+            previousTick = tick;
+        }
+        trackBytes.AddRange(new byte[] { 0x00, 0xFF, 0x2F, 0x00 });
+        var midiFile = new List<byte>();
+        midiFile.AddRange("MThd"u8.ToArray());
+        midiFile.AddRange(new byte[] { 0, 0, 0, 6, 0, 0, 0, 1, 0, 96 });
+        midiFile.AddRange("MTrk"u8.ToArray());
+        midiFile.AddRange(BitConverter.GetBytes(trackBytes.Count).Reverse());
+        midiFile.AddRange(trackBytes);
+
+        var importResult = SlopstackLabs.Slaw.Session.MidiFileImporter.Import(midiFile.ToArray(), "test");
+        var trackSummary = importResult.Project.Tracks.Select(track => (track.Name, track.Instrument)).ToList();
+
+        Assert.Contains(("Violin ×2", "saw"), trackSummary);
+        Assert.Contains(("Drums: Low Tom", "kick"), trackSummary);
+        Assert.Contains(("Drums: High Tom", "snare"), trackSummary);
+        Assert.Contains(("Drums: Low Wood Block", "clap"), trackSummary);
+        Assert.Contains(importResult.ImportLedger, line => line.Contains("unison"));
     }
 }

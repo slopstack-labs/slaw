@@ -77,7 +77,9 @@ internal static class MidiFileImporter
         if (allStepNotes.Count == 0)
             throw new InvalidDataException("This MIDI file contains no notes. Silence is bold, but slaw needs at least one note to deliver value.");
 
-        var candidates = BuildTrackCandidates(allStepNotes, parsedMidiFile.TrackNames);
+        var candidates = BuildTrackCandidates(allStepNotes, parsedMidiFile.TrackNames, out var foldedUnisonCount);
+        if (foldedUnisonCount > 0)
+            importLedger.Add($"folded {foldedUnisonCount} unison double(s) into their twins (louder, not duplicated)");
 
         if (candidates.Count > ProjectAlignmentRemediator.MaximumTrackCount)
         {
@@ -95,7 +97,7 @@ internal static class MidiFileImporter
 
         var project = new SlawProject
         {
-            Name = string.IsNullOrWhiteSpace(projectName) ? "imported slop" : projectName,
+            Name = SongTitle(parsedMidiFile, projectName),
             Bpm = Math.Clamp(parsedMidiFile.TempoBpm ?? 120.0, 40.0, 300.0),
             Steps = StepsPerBar,
         };
@@ -178,6 +180,17 @@ internal static class MidiFileImporter
         return SlicePattern(RenderPattern(stepNotes, songEndStep, percussive), firstBarStartStep, Math.Max(0, stepCount));
     }
 
+    /// <summary>A single-track file's track name is the song title; otherwise use the file name.</summary>
+    private static string SongTitle(ParsedMidiFile parsedMidiFile, string projectName)
+    {
+        var fallbackName = string.IsNullOrWhiteSpace(projectName) ? "imported slop" : projectName;
+        if (parsedMidiFile.MidiTrackCount == 1 && parsedMidiFile.TrackNames.TryGetValue(0, out var songTitle) && !string.IsNullOrWhiteSpace(songTitle))
+        {
+            return string.Equals(songTitle, fallbackName, StringComparison.OrdinalIgnoreCase) ? songTitle : $"{songTitle} ({fallbackName})";
+        }
+        return fallbackName;
+    }
+
     private static StepNote Quantize(ParsedNote parsedNote, double stepsPerTick)
     {
         var startStep = (int)Math.Min(int.MaxValue / 2, Math.Round(parsedNote.StartTick * stepsPerTick, MidpointRounding.AwayFromZero));
@@ -229,21 +242,35 @@ internal static class MidiFileImporter
 
     private static List<SlawTrackCandidate> BuildTrackCandidates(
         IReadOnlyList<(ParsedNote Source, StepNote Quantized)> allStepNotes,
-        IReadOnlyDictionary<int, string> midiTrackNames)
+        IReadOnlyDictionary<int, string> midiTrackNames,
+        out int foldedUnisonCount)
     {
         var candidates = new List<SlawTrackCandidate>();
         var groups = allStepNotes
             .GroupBy(entry => (entry.Source.MidiTrackIndex, entry.Source.Channel))
             .OrderBy(group => group.Key.MidiTrackIndex).ThenBy(group => group.Key.Channel);
 
+        // A MIDI track name only identifies an instrument when it is not shared:
+        // in single-track files it is usually the song title.
+        var channelCountPerMidiTrack = allStepNotes
+            .GroupBy(entry => entry.Source.MidiTrackIndex)
+            .ToDictionary(trackGroup => trackGroup.Key, trackGroup => trackGroup.Select(entry => entry.Source.Channel).Distinct().Count());
+
         foreach (var group in groups)
         {
             midiTrackNames.TryGetValue(group.Key.MidiTrackIndex, out var midiTrackName);
+            if (channelCountPerMidiTrack.GetValueOrDefault(group.Key.MidiTrackIndex) > 1)
+            {
+                midiTrackName = null;
+            }
             if (group.Key.Channel == DrumChannelIndex)
             {
                 foreach (var drumGroup in group.GroupBy(entry => ClassifyDrum(entry.Source.MidiNote)).OrderBy(drumGroup => drumGroup.Key))
                 {
-                    var drumName = char.ToUpperInvariant(drumGroup.Key[0]) + drumGroup.Key[1..];
+                    var dominantDrumNote = drumGroup.GroupBy(entry => entry.Source.MidiNote).OrderByDescending(noteGroup => noteGroup.Count()).First().Key;
+                    var drumName = GeneralMidiPercussionNames.TryGetValue(dominantDrumNote, out var percussionName)
+                        ? percussionName
+                        : char.ToUpperInvariant(drumGroup.Key[0]) + drumGroup.Key[1..];
                     var candidate = new SlawTrackCandidate
                     {
                         Name = string.IsNullOrWhiteSpace(midiTrackName) ? $"Drums: {drumName}" : $"{midiTrackName}: {drumName}",
@@ -260,12 +287,14 @@ internal static class MidiFileImporter
             var program = group.OrderBy(entry => entry.Source.StartTick).First().Source.Program;
             var melodic = new SlawTrackCandidate
             {
-                Name = string.IsNullOrWhiteSpace(midiTrackName) ? DescribeProgramFamily(program) : midiTrackName,
+                Name = string.IsNullOrWhiteSpace(midiTrackName) ? DescribeProgram(program) : midiTrackName,
                 Instrument = InstrumentForProgram(program),
             };
             melodic.Notes.AddRange(group.Select(entry => entry.Quantized));
             candidates.Add(melodic);
         }
+
+        candidates = FoldUnisonDoubles(candidates, out foldedUnisonCount);
 
         // Duplicate names get numbered, because "Piano" twice is a naming collision and "Piano 1" is a taxonomy.
         var renamed = new List<SlawTrackCandidate>();
@@ -290,13 +319,137 @@ internal static class MidiFileImporter
         return renamed;
     }
 
+    /// <summary>
+    /// Arrangers often double a part on a second channel to thicken it (strings
+    /// in unison are a classic). slaw would render two identical voices anyway,
+    /// so identical tracks fold into one, a little louder.
+    /// </summary>
+    private static List<SlawTrackCandidate> FoldUnisonDoubles(List<SlawTrackCandidate> candidates, out int foldedUnisonCount)
+    {
+        static string NoteSignature(SlawTrackCandidate candidate) => string.Join(';',
+            candidate.Notes.OrderBy(note => note.StartStep).ThenBy(note => note.MidiNote).Select(note => $"{note.StartStep}:{note.MidiNote}:{note.LengthInSteps}"));
+
+        var folded = new List<SlawTrackCandidate>();
+        var foldedBySignature = new Dictionary<string, (SlawTrackCandidate Candidate, int Copies)>();
+        foldedUnisonCount = 0;
+        foreach (var candidate in candidates)
+        {
+            var signature = $"{candidate.Percussive}|{NoteSignature(candidate)}";
+            if (foldedBySignature.TryGetValue(signature, out var existing))
+            {
+                foldedBySignature[signature] = (existing.Candidate, existing.Copies + 1);
+                foldedUnisonCount++;
+                continue;
+            }
+            foldedBySignature[signature] = (candidate, 1);
+            folded.Add(candidate);
+        }
+        return folded.Select(candidate =>
+        {
+            var copies = foldedBySignature[$"{candidate.Percussive}|{NoteSignature(candidate)}"].Copies;
+            if (copies == 1)
+            {
+                return candidate;
+            }
+            var thickened = new SlawTrackCandidate
+            {
+                Name = $"{candidate.Name} ×{copies}",
+                Instrument = candidate.Instrument,
+                Gain = Math.Min(1.0, candidate.Gain * (1 + 0.25 * (copies - 1))),
+                Percussive = candidate.Percussive,
+            };
+            thickened.Notes.AddRange(candidate.Notes);
+            return thickened;
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Maps General MIDI percussion onto slaw's four drum voices. Low drums of
+    /// any tradition (toms, congas, bongos, timbales — a darbuka's doum) become
+    /// the kick; high ones (the tek) the snare; wood and hand percussion the
+    /// clap; metal and shakers the hat.
+    /// </summary>
     private static string ClassifyDrum(int midiNote) => midiNote switch
     {
-        35 or 36 => "kick",
-        37 or 38 or 40 => "snare",
-        39 => "clap",
+        35 or 36 or 41 or 43 or 45 or 61 or 64 or 66 => "kick",
+        37 or 38 or 40 or 47 or 48 or 50 or 60 or 62 or 63 or 65 => "snare",
+        39 or 54 or 75 or 76 or 77 or 78 or 79 => "clap",
         _ => "hat",
     };
+
+    private static readonly Dictionary<int, string> GeneralMidiPercussionNames = new()
+    {
+        [35] = "Acoustic Kick",
+        [36] = "Kick",
+        [37] = "Side Stick",
+        [38] = "Snare",
+        [39] = "Hand Clap",
+        [40] = "Electric Snare",
+        [41] = "Low Floor Tom",
+        [42] = "Closed Hat",
+        [43] = "High Floor Tom",
+        [44] = "Pedal Hat",
+        [45] = "Low Tom",
+        [46] = "Open Hat",
+        [47] = "Low-Mid Tom",
+        [48] = "High-Mid Tom",
+        [49] = "Crash",
+        [50] = "High Tom",
+        [51] = "Ride",
+        [52] = "China",
+        [53] = "Ride Bell",
+        [54] = "Tambourine",
+        [55] = "Splash",
+        [56] = "Cowbell",
+        [57] = "Crash 2",
+        [58] = "Vibraslap",
+        [59] = "Ride 2",
+        [60] = "High Bongo",
+        [61] = "Low Bongo",
+        [62] = "Muted Conga",
+        [63] = "Open Conga",
+        [64] = "Low Conga",
+        [65] = "High Timbale",
+        [66] = "Low Timbale",
+        [67] = "High Agogo",
+        [68] = "Low Agogo",
+        [69] = "Cabasa",
+        [70] = "Maracas",
+        [73] = "Short Guiro",
+        [74] = "Long Guiro",
+        [75] = "Claves",
+        [76] = "High Wood Block",
+        [77] = "Low Wood Block",
+        [78] = "Muted Cuica",
+        [79] = "Open Cuica",
+        [80] = "Muted Triangle",
+        [81] = "Open Triangle",
+    };
+
+    private static readonly string[] GeneralMidiProgramNames =
+    {
+        "Grand Piano", "Bright Piano", "Electric Grand", "Honky-Tonk", "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavinet",
+        "Celesta", "Glockenspiel", "Music Box", "Vibraphone", "Marimba", "Xylophone", "Tubular Bells", "Dulcimer",
+        "Drawbar Organ", "Percussive Organ", "Rock Organ", "Church Organ", "Reed Organ", "Accordion", "Harmonica", "Bandoneon",
+        "Nylon Guitar", "Steel Guitar", "Jazz Guitar", "Clean Guitar", "Muted Guitar", "Overdrive Guitar", "Distortion Guitar", "Guitar Harmonics",
+        "Acoustic Bass", "Fingered Bass", "Picked Bass", "Fretless Bass", "Slap Bass 1", "Slap Bass 2", "Synth Bass 1", "Synth Bass 2",
+        "Violin", "Viola", "Cello", "Contrabass", "Tremolo Strings", "Pizzicato Strings", "Harp", "Timpani",
+        "String Ensemble", "Slow Strings", "Synth Strings 1", "Synth Strings 2", "Choir Aahs", "Voice Oohs", "Synth Voice", "Orchestra Hit",
+        "Trumpet", "Trombone", "Tuba", "Muted Trumpet", "French Horn", "Brass Section", "Synth Brass 1", "Synth Brass 2",
+        "Soprano Sax", "Alto Sax", "Tenor Sax", "Baritone Sax", "Oboe", "English Horn", "Bassoon", "Clarinet",
+        "Piccolo", "Flute", "Recorder", "Pan Flute", "Blown Bottle", "Shakuhachi", "Whistle", "Ocarina",
+        "Square Lead", "Saw Lead", "Calliope Lead", "Chiff Lead", "Charang Lead", "Voice Lead", "Fifths Lead", "Bass + Lead",
+        "New Age Pad", "Warm Pad", "Polysynth Pad", "Choir Pad", "Bowed Pad", "Metallic Pad", "Halo Pad", "Sweep Pad",
+        "Rain FX", "Soundtrack FX", "Crystal FX", "Atmosphere FX", "Brightness FX", "Goblins FX", "Echoes FX", "Sci-Fi FX",
+        "Sitar", "Banjo", "Shamisen", "Koto", "Kalimba", "Bagpipe", "Fiddle", "Shanai",
+        "Tinkle Bell", "Agogo", "Steel Drums", "Woodblock", "Taiko Drum", "Melodic Tom", "Synth Drum", "Reverse Cymbal",
+        "Guitar Fret Noise", "Breath Noise", "Seashore", "Bird Tweet", "Telephone Ring", "Helicopter", "Applause", "Gunshot",
+    };
+
+    private static string DescribeProgram(int? program) =>
+        program is { } knownProgram && knownProgram >= 0 && knownProgram < GeneralMidiProgramNames.Length
+            ? GeneralMidiProgramNames[knownProgram]
+            : DescribeProgramFamily(program);
 
     private static string InstrumentForProgram(int? program) => program switch
     {
@@ -421,7 +574,7 @@ internal static class MidiFileImporter
                     }
                     else if (metaType == 0x03 && !trackNames.ContainsKey(midiTrackIndex))
                     {
-                        var name = System.Text.Encoding.Latin1.GetString(bytes, cursor, metaLength).Trim('\0', ' ');
+                        var name = DecodeMidiText(bytes.AsSpan(cursor, metaLength)).Trim('\0', ' ');
                         if (name.Length > 0)
                             trackNames[midiTrackIndex] = name;
                     }
@@ -483,6 +636,43 @@ internal static class MidiFileImporter
             foreach (var (noteStartTick, noteProgram) in pendingStarts)
                 notes.Add(new ParsedNote(midiTrackIndex, channel, note, noteStartTick, Math.Max(tick, noteStartTick), noteProgram));
         }
+    }
+
+    private static readonly System.Text.Encoding StrictUtf8 = new System.Text.UTF8Encoding(false, throwOnInvalidBytes: true);
+
+    /// <summary>
+    /// MIDI text has no declared encoding. Valid UTF-8 wins; plain ASCII is
+    /// ASCII; text that is mostly high bytes is assumed to come from a legacy
+    /// non-Latin code page (Windows-1256 Arabic, then 1251 Cyrillic, 1255
+    /// Hebrew); anything else is Windows-1252. A heuristic, but a better guess
+    /// than rendering a song title as "íÇ ØÇÑÔí".
+    /// </summary>
+    internal static string DecodeMidiText(ReadOnlySpan<byte> textBytes)
+    {
+        try
+        {
+            return StrictUtf8.GetString(textBytes);
+        }
+        catch (System.Text.DecoderFallbackException)
+        {
+            // Not UTF-8; consult the legacy code pages.
+        }
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        var highByteCount = 0;
+        var letterishByteCount = 0;
+        foreach (var textByte in textBytes)
+        {
+            if (textByte >= 0x80)
+            {
+                highByteCount++;
+            }
+            if (textByte >= 0x80 || char.IsAsciiLetter((char)textByte))
+            {
+                letterishByteCount++;
+            }
+        }
+        var codePage = letterishByteCount > 0 && highByteCount * 2 >= letterishByteCount ? 1256 : 1252;
+        return System.Text.Encoding.GetEncoding(codePage).GetString(textBytes);
     }
 
     private static long ReadBigEndian(byte[] bytes, int offset, int byteCount)
