@@ -571,19 +571,46 @@ internal static class ProjectPatchApplier
     }
 
     /// <summary>Parses a model's patch, which must at least be a JSON object.</summary>
+    private static void MaterializeEveryObject(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject jsonObject:
+                foreach (var (_, childNode) in jsonObject)
+                {
+                    MaterializeEveryObject(childNode);
+                }
+                break;
+            case JsonArray jsonArray:
+                foreach (var childNode in jsonArray)
+                {
+                    MaterializeEveryObject(childNode);
+                }
+                break;
+        }
+    }
+
     public static JsonObject ParsePatch(string extractedJsonPayload)
     {
         try
         {
-            return JsonNode.Parse(extractedJsonPayload, documentOptions: new JsonDocumentOptions
+            var parsedPatch = JsonNode.Parse(extractedJsonPayload, documentOptions: new JsonDocumentOptions
             {
                 AllowTrailingCommas = true,
                 CommentHandling = JsonCommentHandling.Skip,
             }) as JsonObject ?? throw new JsonException("the patch is not a JSON object");
+            // JsonObject materializes lazily: a key written twice only throws when first read, deep inside Apply.
+            // Walking the tree once here turns that into an ordinary, retryable parse error.
+            MaterializeEveryObject(parsedPatch);
+            return parsedPatch;
         }
         catch (JsonException parseRemediationOpportunity)
         {
             throw new FormatException($"invalid JSON: {parseRemediationOpportunity.Message}", parseRemediationOpportunity);
+        }
+        catch (ArgumentException duplicateKeyRemediationOpportunity)
+        {
+            throw new FormatException($"invalid JSON: a key appears twice in one object ({duplicateKeyRemediationOpportunity.Message}); merge them into one", duplicateKeyRemediationOpportunity);
         }
     }
 }

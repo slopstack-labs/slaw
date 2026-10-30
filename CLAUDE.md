@@ -52,7 +52,7 @@ Several places describe the same thing to different readers (humans, the autopil
 | **Keyboard shortcuts / commands** (`StudioShortcuts` table) | nothing else for the F1 sheet or the menu bar's shortcut labels (both read the table); the menu item in `StudioWindow.Menu.cs` if the command should be reachable from a menu; README "Keyboard" and "Window layout" sections; tooltips that mention the key |
 | **CLI flags** (`CommandLineIntentParser`, `Program.cs`) | the flag lists in `CommandLineIntentParser`; `--help` text; README usage tables |
 | **Settings** (`StudioPreferences`, `SettingsWindow*`) | README "Settings" table |
-| **LLM prompts** (`PromptLibrary`) | keep them short: the default model is a 3B local one; examples beat prose |
+| **LLM prompts** (`PromptLibrary`) | keep them short: the default model is a 3B local one; examples beat prose. The default co-pilot model (qwen2.5:3b) copies example values literally: label each example with the request it answers, give examples for other songs with obviously different ids/values, and say "never copy". Measure prompt changes against the real local model (Ollama) with a scratch harness that runs the workflow and reports what each patch changed, not by reading the prompt |
 
 After any change to MCP-facing text, re-run a cold-start check: give a fresh agent (no repo access) only the tool list and a small task on a scratch project through `slaw mcp`, and fix whatever it trips over.
 

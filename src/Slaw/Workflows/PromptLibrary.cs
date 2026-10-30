@@ -201,23 +201,17 @@ internal static class PromptLibrary
         The user asked: "{{instruction}}"
         {{ConversationMemory(recentConversation)}}
         Reply with ONE JSON object that describes ONLY what to change (a patch). Leave out everything that stays the same.
-        Patch format (every key is optional):
-        {
-          "summary": "one short sentence about what you changed",
-          "bpm": 140,
-          "scenes": ["Intro", "Drop"],
-          "arrangement": [{"scene": 0, "repeats": 2}, {"scene": 1, "repeats": 4}],
-          "tracks": [
-            {"id": "<existing id>", "gain": 0.7, "clips": {"1": "x . . . x . . . x . . . x . x ."} },
-            {"id": "new", "name": "Wobble Bass", "instrument": "saw", "effects": [{"type": "lowpass", "parameters": {"cutoff": 500, "resonance": 0.7} }], "clips": {"0": "E1 _ _ . E1 . G1 _ . . E1 . D1 _ . ."} },
-            {"id": "<existing id>", "remove": true}
-          ],
-          "master": {"drive": 2.0}
-        }
-        - "scenes" renames scenes in order ("removeScenes": [indices] deletes); "clips" maps a scene index to a pattern string. "arrangement" lays scenes out as the song (it replaces the arrangement timeline); "timeline" places single clips at exact steps instead (16 steps per bar, step 0 = bar 1).
-        - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence; "@0.5" after a note or "x" sets its velocity (0..1, default 1), for that one note only: a soft chord is "A3@0.6+C4@0.6+E4@0.6".
-        - Effects replace the track's whole effect list when given. {"type": "duck", "sidechain": "Kick"} ducks a track whenever Kick plays. "master": {"effects": [...]} sets effects on the whole mix.
-        - Optional clip envelopes: "automation": {"<scene>": {"fx.0.cutoff": [[0, 300], [16, 6000]]} } on a track sweeps effect 0's cutoff over the clip ([step, value] pairs). On a "timeline" clip, "automation": {"fx.0.cutoff": [[0, 300], [128, 6000]]} spans the whole clip (steps from its start). Targets: gain, pan, pitch (semitones), fx.<effectIndex>.<param>, inst.<param>.
+        The SONG is the ARRANGEMENT timeline listed below ("arrangement timeline", one line per clip with its id, track, start and pattern).
+        To change what the user hears (notes, chords, beats, parts, new instruments), edit "timeline" clips. Session "clips" are only jam loops and are NOT heard in the song.
+        Reply with only the keys you need: "summary", "timeline", "tracks", "bpm", "master", "scenes". Two examples, for OTHER songs (never copy their ids, tracks, numbers or patterns; use the real ones from the project below):
+        Example request "make the bass busier in bars 9-16" (the bass clip there has id "a1b2c3d4"):
+        {"summary": "busier bass in bars 9-16", "timeline": [{"id": "a1b2c3d4", "pattern": "C2 . C2 G1 C2 . G1 . F1 . F1 C2 F1 . C2 ."}]}
+        Example request "add a shaker on the off-beats" (the song is 32 bars = 512 steps):
+        {"summary": "shaker on the off-beats", "tracks": [{"id": "new", "name": "Shaker", "instrument": "hat"}], "timeline": [{"id": "new", "track": "Shaker", "start": 0, "length": 512, "pattern": ". . x . . . x . . . x . . . x ."}]}
+        - "timeline" entries: an existing clip by its "id" changes only the fields you give ("pattern", "start", "length"); "id": "new" adds a clip on "track" (a track id or name, also a track added in this same patch) at "start" for "length" steps. Steps: 16 per bar, step 0 = bar 1, step 128 = bar 9. A pattern loops to fill the clip's length, so a 16-step pattern on a 512-step clip plays for 32 bars.
+        - A pattern is space-separated steps, one per sixteenth: "x" drum hit, "C4" note, "A3+C4+E4" chord, "C4:8" a note held 8 steps, "_" hold, "." silence; "@0.5" after a note or "x" sets that one note's velocity (a soft chord is "A3@0.6+C4@0.6+E4@0.6").
+        - Change ONLY what the user asked for. Do not add or change effects unless the user asks about the sound or the mix; then "effects" on a track replaces its whole effect list.
+        - Never send "arrangement" (it replaces the whole song with copies of scenes).
         - Never mention tracks marked LOCKED.
 
         {{DescribeDeviceCatalog()}}
