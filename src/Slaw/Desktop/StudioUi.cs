@@ -51,6 +51,9 @@ internal interface IStudioHost
     /// <summary>Opens a file picker and loads the chosen WAV into the track.</summary>
     void ChooseSampleFileForTrack(int trackIndex);
 
+    /// <summary>Shows a problem in the status bar (a file that would not load, say).</summary>
+    void ReportStatus(string message);
+
     /// <summary>Lets the model choose a sample for the track from the user's sample folders.</summary>
     void PickSampleWithAi(int trackIndex);
 

@@ -565,6 +565,10 @@ internal sealed partial class DetailView : UserControl
         {
             titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeSamplerSection(track, trackIndex) } };
         }
+        else if (track.Instrument == "soundfont")
+        {
+            titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeSoundFontSection(track) } };
+        }
         return ComposeDevicePanel(PluginDeviceOperations.DeviceName(track), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
     }
 

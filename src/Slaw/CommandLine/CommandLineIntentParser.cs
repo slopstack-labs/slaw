@@ -50,7 +50,7 @@ internal static class CommandLineIntentParser
 {
     public static readonly IReadOnlySet<string> ValuedOptionNames = new HashSet<string>(StringComparer.Ordinal)
     {
-        "provider", "api-key", "model", "ollama", "base-url", "timeout", "o", "loop", "force-iterate", "view", "mcp-port", "plugin-folder",
+        "provider", "api-key", "model", "ollama", "base-url", "timeout", "o", "loop", "force-iterate", "view", "mcp-port", "plugin-folder", "soundfont",
     };
 
     /// <summary>Valued options that accumulate instead of overwriting (e.g. several --plugin-folder).</summary>

@@ -134,7 +134,8 @@ internal static class Program
                 vibe <project.slaw>            inference-backed vibe check
                 autopilot <project.slaw> "<instruction>"  let the model rewrite the whole project
                 mcp [project.slaw]             serve the project to MCP clients over stdio (e.g. Claude Code)
-                import <song.mid>              convert a MIDI file into a slaw project (-o song.slaw)
+                import <song.mid>              convert a MIDI file into a slaw project (-o song.slaw); voiced with the
+                                               .sf2 next to it, or --soundfont PATH (--soundfont none: built-ins)
                 new [project.slaw]             scaffold a starter project
 
               {Dim}Options:{Reset}
@@ -280,8 +281,15 @@ internal static class Program
         var midiFilePath = RequirePositional(commandLineIntent, "a .mid file");
         var projectOutputPath = commandLineIntent.Option("o") ?? Path.ChangeExtension(midiFilePath, ProjectSerializer.ProjectFileExtension);
         Console.Error.WriteLine($"\n  {Bold}slaw{Reset}  {Dim}MIDI ingestion substrate{Reset}  →  {Bold}{midiFilePath}{Reset}\n");
+        var requestedSoundFont = commandLineIntent.Option("soundfont");
+        var soundFontPath = requestedSoundFont is null
+            ? MidiFileImporter.FindCompanionSoundFont(midiFilePath)
+            : string.Equals(requestedSoundFont, "none", StringComparison.OrdinalIgnoreCase) ? null : requestedSoundFont;
+        var soundFontChoice = soundFontPath is null
+            ? null
+            : new MidiSoundFontChoice(Path.GetFullPath(soundFontPath), SoundFonts.SoundFontLibrary.Load(soundFontPath));
         var importSpinner = ProgressSpinner.Start("quantizing human timing into sixteenth-note compliance");
-        var importResult = MidiFileImporter.Import(midiFilePath);
+        var importResult = MidiFileImporter.Import(midiFilePath, soundFontChoice);
         importSpinner.Succeed();
         foreach (var ledgerLine in importResult.ImportLedger)
         {

@@ -107,7 +107,7 @@ slaw <command> [options]    # headless production pipeline
 | `slaw master <project.slaw> [-o out.slaw]` | AI mastering: the model chooses the master chain, saved into the project and bounced to WAV. |
 | `slaw vibe <project.slaw>` | Vibe check. Returns `VIBE SCORE: N/10` and a short critique. |
 | `slaw autopilot <project.slaw> "<instruction>"` | Headless Autopilot: the model patches the project, and the change summary is printed. Saves in place, or to `-o`. |
-| `slaw import <song.mid> [-o song.slaw]` | Convert a Standard MIDI File into a slaw project. |
+| `slaw import <song.mid> [-o song.slaw] [--soundfont font.sf2\|none]` | Convert a Standard MIDI File into a slaw project, voiced with the SoundFont next to it (or the one given; `none` for built-in instruments). |
 | `slaw mcp [project.slaw]` | Serve the project to MCP clients (Claude Code, …) over stdio, autosaving every edit. |
 | `slaw new [project.slaw]` | Scaffold a starter project (default `untitled.slaw`). |
 
@@ -232,6 +232,17 @@ The `sampler` instrument ("Sampler") plays your own WAV files, pitched across th
 
 slaw itself still ships zero samples. These are yours, and therefore your responsibility.
 
+### SoundFonts
+
+The `soundfont` instrument ("SoundFont Player") plays one preset of a SoundFont 2 bank (`.sf2`): General MIDI sets, ringtone-grade phone fonts, sampled orchestras, whatever compliance has signed off on.
+
+- **Loading:** **SoundFont… (.sf2)** in the browser adds a track; **Load…** in the device swaps the font on a track; or drop a `.sf2` onto a track (loads into it) or the window (new track). The device's preset picker lists every preset as `bank:program name`. Bank 128 is the drum kit: each MIDI note plays a different drum.
+- **Knobs:** Gain, Transpose (semitones), Release (scales every zone's release), Filter, AI Humanize. Velocity, clip envelopes (including `pitch`, bent tape-style like the sampler) and the device chain work as on any track.
+- **What is honoured:** key and velocity ranges, root key (and overridingRootKey), coarse/fine/scale tuning and pitch correction, loop modes (continuous and until-release) with every address offset, the delay/attack/hold/decay/sustain/release volume envelope (with keynum-to-hold/decay), initialAttenuation (scaled 0.4, as E-mu hardware and FluidSynth do), the zone's lowpass filter, and preset-level generators added on top of instrument ones.
+- **What is not (yet):** the modulation envelope and both LFOs, modulators, chorus/reverb sends, exclusive classes, and stereo: zones render mono, and a stereo pair is summed at half level each. Zones are chosen at velocity 100; how hard a note is struck is applied as gain, like every other slaw instrument.
+- **Loading behaviour:** fonts parse in the background; a note that arrives while its font is still loading is skipped, exactly like an undecoded sample. Bounces wait for the parse.
+- **Portability:** a font next to (or below) the project file is saved as a relative path.
+
 ### MIDI
 
 **MIDI input.** Every connected keyboard or controller plays the selected track:
@@ -251,14 +262,16 @@ slaw itself still ships zero samples. These are yours, and therefore your respon
 - **Velocity:** each note keeps how hard you struck it.
 - **Undo:** a whole take is one undo step.
 
-**MIDI import.** Open a `.mid` with **Open…**, drop it on the window, or run `slaw import song.mid`:
+**MIDI import.** Open a `.mid` with **File → Import MIDI…** (or **Open…**), drop it on the window, or run `slaw import song.mid`:
 
-- **Notes:** quantized to sixteenths. Channel 10 drums are split into kick, snare, clap and hat tracks, and General MIDI programs pick slaw instruments (basses → saw, pads → triangle, pianos and guitars → pluck…).
+- **With a SoundFont:** if a `.sf2` came with the file (same name, or the only one in its folder), or you pick one (**File → Import MIDI with SoundFont…**, drop the `.mid` and `.sf2` together, `--soundfont`), every channel plays its General MIDI program from the font and channel 10 plays the font's drum kit as one track, note for note. The status bar and the import notes say which font was used.
+- **Without one:** notes are quantized to sixteenths, channel 10 drums are split into kick, snare, clap and hat tracks, and General MIDI programs pick slaw instruments (basses → saw, pads → triangle, pianos and guitars → pluck…).
+- **Pitch bends:** imported as clip `pitch` envelopes, in semitones, honouring each channel's bend range (RPN 0, ±2 by default). Quarter-tone ornaments and quarter-tone-flat parts survive the import intact.
 - **Song structure:** the song is cut into 4-bar scenes, and the arrangement plays them back in the file's order (a repeated section becomes one longer arrangement clip).
 - **Single clip:** drop a `.mid` on a clip slot to fill just that clip.
 - **Agents:** the `import_midi` MCP tool does the same for agents.
 
-slaw's notation is monophonic per step and polyphonic per chord, so imports are lossy by design. Velocities, pitch bends and that one grace note are remediated away.
+slaw's notation is monophonic per step and polyphonic per chord, so imports are lossy by design. Velocities and that one grace note are remediated away.
 
 ### Recording
 
@@ -309,6 +322,7 @@ claude mcp add slaw -- slaw mcp /path/to/song.slaw
 
 Positions are sixteenth-note steps from 0 (16 per bar) wherever an argument says `start` or `length`, and 1-based bars wherever it says `bar`; listings print both. The server's instructions teach agents this before they touch anything, along with a worked example, because the alternative was watching them guess.
 | `list_samples` | Your sample library, for sampler tracks |
+| `describe_soundfont` | A `.sf2` file's presets as `bank:program name` (bank 128 = drum kit), for `add_track` `{"instrument": "soundfont", "soundfont": {"path", "bank", "program"}}` or `apply_patch` `tracks[].soundfont`; `import_midi` takes `soundfont` (a path, or `"none"`) and otherwise uses the `.sf2` next to the `.mid` |
 | `list_plugins` / `describe_plugin` | Installed VST3 plugins (and which folder each came from); one plugin's parameters as `p<id>` keys with titles |
 | `ask_copilot` | Ask slaw's own configured model for its opinion: an AI consulting an AI about music |
 
@@ -541,7 +555,7 @@ A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `track
 }
 ```
 
-Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck` (Karplus-Strong), `noise`, and `sampler` (plays the WAV named by the track's `sample` field; paths next to or below the project are stored relative). Pattern steps are pitches (`"C4"`, `"D#3"`, `"Bb2"`), chords (`"A3+C4+E4"`), `"x"` to trigger, `"_"` to sustain the previous note, or `"."` for silence. A note can also carry its own length in steps: in `"C4:12+E4:2"`, C4 rings for 12 steps and E4 for 2, so chord notes can end at different times and a long note can ring under later ones. In the piano roll, drag a note to set its length. Notes and hits can also carry a velocity after `@`, from 0 to 1 (MIDI-style 2–127 is accepted and converted): `"x@0.4"` is a ghost hit, `"C4:8@0.6+E4"` a soft root under a full-strength third. Full strength (1) is never written, so existing projects and terse models stay terse. Velocity scales loudness on a velocity^1.5 curve, so 0.5 sits about 9 dB down, where ghost notes live. A clip may also hold `automation`: envelopes by target, as `{"fx.0.cutoff": [{"step": 0, "value": 300}, {"step": 16, "value": 6000}]}`. `clips` holds one entry per scene (`null` is an empty slot); effect `type`s are `lowpass`, `highpass`, `delay`, `reverb`, `drive`, `bitcrush` and `vibe`.
+Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck` (Karplus-Strong), `noise`, `sampler` (plays the WAV named by the track's `sample` field; paths next to or below the project are stored relative), and `soundfont` (plays the preset named by the track's `soundFont` field: `{"path", "bank", "program", "presetName"}`, stored relative like samples). Pattern steps are pitches (`"C4"`, `"D#3"`, `"Bb2"`), chords (`"A3+C4+E4"`), `"x"` to trigger, `"_"` to sustain the previous note, or `"."` for silence. A note can also carry its own length in steps: in `"C4:12+E4:2"`, C4 rings for 12 steps and E4 for 2, so chord notes can end at different times and a long note can ring under later ones. In the piano roll, drag a note to set its length. Notes and hits can also carry a velocity after `@`, from 0 to 1 (MIDI-style 2–127 is accepted and converted): `"x@0.4"` is a ghost hit, `"C4:8@0.6+E4"` a soft root under a full-strength third. Full strength (1) is never written, so existing projects and terse models stay terse. Velocity scales loudness on a velocity^1.5 curve, so 0.5 sits about 9 dB down, where ghost notes live. A clip may also hold `automation`: envelopes by target, as `{"fx.0.cutoff": [{"step": 0, "value": 300}, {"step": 16, "value": 6000}]}`. `clips` holds one entry per scene (`null` is an empty slot); effect `type`s are `lowpass`, `highpass`, `delay`, `reverb`, `drive`, `bitcrush` and `vibe`.
 
 The headless CLI commands (`compose`, `compose --optimistic`, `render`, `play`, `master`, `vibe`, `new`) are unchanged.
 
