@@ -576,7 +576,7 @@ Instruments are `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triang
 
 The headless CLI commands (`compose`, `compose --optimistic`, `render`, `play`, `master`, `vibe`, `new`) are unchanged.
 
-`slaw new` scaffolds a starter project with the tracks *Synergy Kick*, *Stakeholder Clap*, *Agile Hats*, *Bottom-Line Bass*, and *Thought Leader Pluck*.
+`slaw new` scaffolds the starter song, which is also what the studio's **New project** opens and what `slaw studio` and `slaw mcp` start from when no project file is given or the file does not exist yet. It is a 40-bar house track in A minor at 124 BPM over an Am7 – Fmaj7 – C/E – G6/D progression, made only from slaw's own instruments and effects, so it sounds the same on a fresh install with no samples, SoundFonts or plugins. The arrangement runs intro (bars 1–8), groove (9–16), build (17–20), drop (21–36) and outro (37–40). *Synergy Kick* keys a duck on *Bottom-Line Bass*, *Thought Leader Chords* and *Visionary Pluck*, and clip envelopes open the pads' filter, sweep the build, pitch up the *Escalation Snare* roll and swell the *Runway Riser*. The other tracks are *Stakeholder Clap* and *Agile Hats*. The session holds the same material as two scenes, *Onboarding* and *Q4 Drop*, so there is something to launch before anything has been learned. Every note of it was placed by a human, which Compliance has logged as a one-time exception.
 
 ## Images
 

@@ -177,7 +177,7 @@ public class McpArrangementToolTests
         var (byName, _) = await CallToolAsync(dispatcher, "apply_patch", new JsonObject { ["patch"] = JsonNode.Parse("""{"tracks": [{"id": "Synergy Kick", "gain": 0.5}]}""") });
         Assert.Equal(trackCount, servedDocument.Project.Tracks.Count);
         Assert.Equal(0.5, servedDocument.Project.Tracks.Single(track => track.Name == "Synergy Kick").Gain);
-        Assert.Contains("Synergy Kick: gain 0.95 → 0.50", byName);
+        Assert.Contains("Synergy Kick: gain 0.70 → 0.50", byName);
 
         var (unknownEdit, _) = await CallToolAsync(dispatcher, "apply_patch", new JsonObject { ["patch"] = JsonNode.Parse("""{"tracks": [{"id": "Kik", "gain": 0.2}]}""") });
         Assert.Equal(trackCount, servedDocument.Project.Tracks.Count);

@@ -115,7 +115,7 @@ public class McpPolishTests
         Assert.Empty(servedDocument.Project.Tracks);
         Assert.Empty(servedDocument.Project.Timeline);
         Assert.Equal(new[] { "Scene 1" }, servedDocument.Project.Scenes);
-        Assert.Equal(new MasterChainParameters().DelayMix, servedDocument.Project.Master.DelayMix);
+        Assert.Equal(new MasterChainParameters().Gain, servedDocument.Project.Master.Gain);
 
         Assert.Contains("undid", (await CallToolAsync(dispatcher, "undo", new JsonObject())).Text);
         Assert.NotEmpty(servedDocument.Project.Tracks);
