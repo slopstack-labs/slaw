@@ -274,11 +274,18 @@ internal static class InstrumentVoiceSynthesizer
             _ => RenderEnvelopedOscillator(phase => Math.Sin(2 * Math.PI * phase), frequencyHz, gateDurationSeconds, sampleRate, 0.8, parameter, pitchBendSemitonesAt),
         };
 
+    /// <summary>Where the second unison oscillator starts: a quarter cycle ahead, so the fundamentals of the pair start 90° apart and sum at equal power from the first sample.</summary>
+    private const double UnisonPartnerStartPhase = 0.25;
+
     /// <summary>
     /// A naive (aliasing, and proud of it) oscillator through a linear ADSR.
     /// <paramref name="waveformAtPhase"/> maps a phase in [0, 1) to a sample.
     /// <paramref name="pitchBendSemitonesAt"/>, if given, bends the pitch by
     /// seconds since the note started, without changing how long it lasts.
+    /// With a "spread" above 0 (cents) the oscillator becomes a detuned pair at
+    /// ±spread/2, each at 1/√2 so the beating pair keeps the single oscillator's power.
+    /// The partner's start phase is fixed, so the pair is as deterministic as one oscillator;
+    /// with spread 0 the output is exactly the single oscillator's.
     /// </summary>
     private static float[] RenderEnvelopedOscillator(
         Func<double, double> waveformAtPhase,
@@ -299,6 +306,13 @@ internal static class InstrumentVoiceSynthesizer
         var phaseIncrementPerSample = frequencyHz / sampleRate;
         var oscillatorPhase = 0.0;
         var levelAtGateRelease = 0.0;
+
+        var unisonSpreadCents = parameter("spread");
+        var unisonEngaged = unisonSpreadCents > 0;
+        var lowerUnisonRatio = Math.Pow(2, -unisonSpreadCents / 2 / 1200);
+        var upperUnisonRatio = Math.Pow(2, unisonSpreadCents / 2 / 1200);
+        var unisonPartnerPhase = UnisonPartnerStartPhase;
+        const double UnisonPairGain = 0.70710678118654752;
 
         for (var sampleIndex = 0; sampleIndex < renderedVoice.Length; sampleIndex++)
         {
@@ -323,6 +337,16 @@ internal static class InstrumentVoiceSynthesizer
             if (pitchBendSemitonesAt is not null && sampleIndex % 32 == 0)
             {
                 phaseIncrementPerSample = frequencyHz * Math.Pow(2, pitchBendSemitonesAt(elapsedSeconds) / 12) / sampleRate;
+            }
+            if (unisonEngaged)
+            {
+                var unisonSample = (waveformAtPhase(oscillatorPhase) + waveformAtPhase(unisonPartnerPhase)) * UnisonPairGain;
+                renderedVoice[sampleIndex] = (float)(unisonSample * envelopeLevel * voiceLevel);
+                oscillatorPhase += phaseIncrementPerSample * lowerUnisonRatio;
+                oscillatorPhase -= Math.Floor(oscillatorPhase);
+                unisonPartnerPhase += phaseIncrementPerSample * upperUnisonRatio;
+                unisonPartnerPhase -= Math.Floor(unisonPartnerPhase);
+                continue;
             }
             renderedVoice[sampleIndex] = (float)(waveformAtPhase(oscillatorPhase) * envelopeLevel * voiceLevel);
             oscillatorPhase += phaseIncrementPerSample;

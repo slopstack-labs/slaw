@@ -578,7 +578,13 @@ internal sealed partial class DetailView : UserControl
         {
             titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeSoundFontSection(track) } };
         }
-        return ComposeDevicePanel(PluginDeviceOperations.DeviceName(track), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
+        var instrumentPanel = ComposeDevicePanel(PluginDeviceOperations.DeviceName(track), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
+        var instrumentDescription = DeviceCatalog.InstrumentDescription(track.Instrument);
+        if (!string.IsNullOrEmpty(instrumentDescription))
+        {
+            ToolTip.SetTip(instrumentPanel, instrumentDescription);
+        }
+        return instrumentPanel;
     }
 
     private Control ComposeSamplerSection(SlawTrack track, int trackIndex)

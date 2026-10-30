@@ -174,6 +174,7 @@ internal sealed class StepRowControl : Control
                     {
                         DrawCenteredLabel(drawingContext, NotationResolver.FormatMidiNote(stepEvent.MidiNote), cellRect, StudioTheme.Background);
                     }
+                    DrawRatchetDividers(drawingContext, cellRect, stepEvent.StrikeCount, percussiveInstrument);
                     break;
                 case StepEventKind.Sustain:
                     // Bleed left into the gap so a held note reads as one bar.
@@ -198,6 +199,26 @@ internal sealed class StepRowControl : Control
             {
                 drawingContext.DrawRectangle(null, HoverPen, cellRect.Deflate(0.5), CellCornerRadius, CellCornerRadius);
             }
+        }
+    }
+
+    private static readonly IPen RatchetDividerPen = new Pen(StudioTheme.Background, 1.5);
+
+    /// <summary>
+    /// A ratchet ("x*3") is drawn as its hit split into that many slices: full-height cuts on a
+    /// drum cell, short notches along the bottom edge under a note name.
+    /// </summary>
+    internal static void DrawRatchetDividers(DrawingContext drawingContext, Rect cellRect, int strikeCount, bool fullHeight)
+    {
+        if (strikeCount < 2)
+        {
+            return;
+        }
+        var dividerTop = fullHeight ? cellRect.Top + 3 : cellRect.Bottom - Math.Min(7, cellRect.Height / 3);
+        for (var dividerIndex = 1; dividerIndex < strikeCount; dividerIndex++)
+        {
+            var dividerX = cellRect.X + cellRect.Width * dividerIndex / strikeCount;
+            drawingContext.DrawLine(RatchetDividerPen, new Point(dividerX, dividerTop), new Point(dividerX, cellRect.Bottom - 3));
         }
     }
 

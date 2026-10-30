@@ -248,4 +248,30 @@ public class McpPolishTests
         // And the envelope really did something in bar 1.
         Assert.True(Enumerable.Range(sampleRate, sampleRate / 2).Max(frameIndex => Math.Abs(automated[frameIndex] - static_[frameIndex])) > 0.01);
     }
+
+    [Fact]
+    public async Task RatchetsAreTaughtKeptAndMisplacedOnesWarned()
+    {
+        Assert.Contains("RATCHET \"*N\"", SlawMcpToolset.ServerInstructions);
+        var (dispatcher, servedDocument) = CreateHeadlessServer();
+        var (catalog, _) = await CallToolAsync(dispatcher, "get_catalog", new JsonObject());
+        Assert.Contains("Ratchet: \"*N\"", catalog);
+        Assert.Contains("spread 0..50", catalog);
+
+        var (placed, placeFailed) = await CallToolAsync(dispatcher, "arrangement_place_clip", new JsonObject
+        {
+            ["track"] = "Synergy Kick",
+            ["bar"] = 1,
+            ["pattern"] = "x . . x*2 . . x . . . x*3@0.5 . x . x*4 x*20",
+        });
+        Assert.False(placeFailed, placed);
+        Assert.Contains("step 15: \"x*20\" plays as \"x*8\"", placed);
+        var placedClip = Assert.Single(servedDocument.Project.Timeline);
+        // Arrangement patterns are kept as written; every ratchet in them reads back as what it plays.
+        Assert.Equal(new[] { 2, 3, 4, 8 }, placedClip.Clip.Pattern.Where(step => step.Contains('*')).Select(step => NotationResolver.ResolveOrRest(step).StrikeCount));
+
+        var (chordWritten, _) = await CallToolAsync(dispatcher, "set_clip", new JsonObject { ["track"] = "Thought Leader Chords", ["scene"] = 0, ["pattern"] = "A3*2+C4 . A3+C4*2 ." });
+        Assert.Contains("step 0: \"A3*2+C4\" repeats the WHOLE step 2 times", chordWritten);
+        Assert.DoesNotContain("step 2:", chordWritten);
+    }
 }

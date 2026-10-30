@@ -38,6 +38,7 @@ internal static class ProjectAlignmentRemediator
         ["handclap"] = "clap",
         ["claps"] = "clap",
         ["bass"] = "saw",
+        ["reese"] = "saw",
         ["sub"] = "sine",
         ["sub bass"] = "sine",
         ["synth"] = "saw",

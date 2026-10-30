@@ -17,8 +17,10 @@ internal enum StepEventKind
 /// sustains", a positive value is an explicit length in steps ("C4:8"), which
 /// lets notes struck together end at different times. <see cref="NoteVelocities"/>
 /// is aligned too: 0..1, where 1 ("C4") is full strength and "C4@0.5" is not.
+/// <see cref="RatchetCount"/> is the step-wide "*N" suffix: the whole step (every
+/// note of a chord) is struck N times, evenly spaced inside the one step; 1 is a plain step.
 /// </summary>
-internal readonly record struct StepEvent(StepEventKind Kind, IReadOnlyList<int> MidiNotes, IReadOnlyList<int> NoteLengths, IReadOnlyList<double> NoteVelocities)
+internal readonly record struct StepEvent(StepEventKind Kind, IReadOnlyList<int> MidiNotes, IReadOnlyList<int> NoteLengths, IReadOnlyList<double> NoteVelocities, int RatchetCount = 1)
 {
     private static readonly int[] NoNotes = Array.Empty<int>();
     private static readonly double[] NoVelocities = Array.Empty<double>();
@@ -48,6 +50,9 @@ internal readonly record struct StepEvent(StepEventKind Kind, IReadOnlyList<int>
 
     /// <summary>The lowest note of the step, or 0 for rests and sustains.</summary>
     public int MidiNote => MidiNotes.Count > 0 ? MidiNotes[0] : 0;
+
+    /// <summary>How many times the step is struck inside itself: 1 normally, 2..8 for a ratchet ("x*3").</summary>
+    public int StrikeCount => Math.Clamp(RatchetCount, 1, NotationResolver.MaximumRatchetCount);
 }
 
 /// <summary>
@@ -72,6 +77,17 @@ internal static partial class NotationResolver
 
     /// <summary>The softest a note can be struck; 0 would be a rest with extra steps.</summary>
     public const double MinimumVelocity = 0.01;
+
+    /// <summary>
+    /// Separator before a ratchet count, e.g. "x*2" or "A3+C4*3": the whole step is struck
+    /// that many times, evenly spaced inside its one sixteenth. A bare "*" is still a hit.
+    /// </summary>
+    public const char RatchetSeparator = '*';
+
+    /// <summary>The most strikes a ratchet fits into one step ("x*8" is a 128th-note roll); larger counts play as this.</summary>
+    public const int MaximumRatchetCount = 8;
+
+    private static readonly HashSet<string> TriggerTokens = new(StringComparer.Ordinal) { "x", "X", "*", "o", "hit" };
 
     private static readonly char[] ChordTokenSeparators = { '+', ',', ' ', '/', '&' };
 
@@ -108,20 +124,36 @@ internal static partial class NotationResolver
             case "x" or "X" or "*" or "o" or "1" or "hit":
                 return StepEvent.Trigger(DefaultTriggerMidiNote);
         }
-        // "x@0.6": a drum hit with a velocity.
-        var velocitySeparatorOffset = normalizedStepNotation.IndexOf(VelocitySeparator);
-        if (velocitySeparatorOffset > 0 &&
-            normalizedStepNotation[..velocitySeparatorOffset] is "x" or "X" or "*" or "o" or "hit")
-        {
-            return new StepEvent(StepEventKind.Trigger, new[] { DefaultTriggerMidiNote }, new[] { 0 },
-                new[] { ParseVelocity(normalizedStepNotation[(velocitySeparatorOffset + 1)..]) });
-        }
-
         var chordTokens = normalizedStepNotation.Split(ChordTokenSeparators, StringSplitOptions.RemoveEmptyEntries);
         if (chordTokens.Length == 0)
         {
             return null;
         }
+        // "*N" is step-wide: wherever it is written, the whole step repeats N times.
+        var ratchetCount = 1;
+        for (var chordTokenIndex = 0; chordTokenIndex < chordTokens.Length; chordTokenIndex++)
+        {
+            if (!TryStripRatchet(chordTokens[chordTokenIndex], out var ratchetlessToken, out var tokenRatchetCount))
+            {
+                return null;
+            }
+            chordTokens[chordTokenIndex] = ratchetlessToken;
+            ratchetCount = Math.Max(ratchetCount, tokenRatchetCount);
+        }
+
+        // "x", "x@0.6", "x*3@0.6": a drum hit, maybe with a velocity, maybe ratcheted.
+        if (chordTokens.Length == 1)
+        {
+            var soleToken = chordTokens[0];
+            var velocitySeparatorOffset = soleToken.IndexOf(VelocitySeparator);
+            var triggerToken = velocitySeparatorOffset > 0 ? soleToken[..velocitySeparatorOffset] : soleToken;
+            if (TriggerTokens.Contains(triggerToken))
+            {
+                return new StepEvent(StepEventKind.Trigger, new[] { DefaultTriggerMidiNote }, new[] { 0 },
+                    new[] { velocitySeparatorOffset > 0 ? ParseVelocity(soleToken[(velocitySeparatorOffset + 1)..]) : 1.0 }, ratchetCount);
+            }
+        }
+
         // "C4:8" holds C4 for eight steps regardless of what follows; "C4:8@0.6" also plays it softly.
         var resolvedNoteLengths = new SortedDictionary<int, int>();
         var resolvedNoteVelocities = new Dictionary<int, double>();
@@ -155,8 +187,56 @@ internal static partial class NotationResolver
             resolvedNoteVelocities[resolvedMidiNote] = Math.Max(resolvedNoteVelocities.GetValueOrDefault(resolvedMidiNote), noteVelocity);
         }
         return new StepEvent(StepEventKind.Trigger, resolvedNoteLengths.Keys.ToArray(), resolvedNoteLengths.Values.ToArray(),
-            resolvedNoteLengths.Keys.Select(midiNote => resolvedNoteVelocities[midiNote]).ToArray());
+            resolvedNoteLengths.Keys.Select(midiNote => resolvedNoteVelocities[midiNote]).ToArray(), ratchetCount);
     }
+
+    /// <summary>
+    /// Takes a "*N" ratchet off one chord token, wherever among its suffixes it sits
+    /// ("C4*2", "C4@0.5*2", "x*3@0.5"). A token without one has count 1. A leading "*" is
+    /// the trigger symbol, not a ratchet. Returns false for a malformed ratchet
+    /// ("x*", "x*0", "x*2*3", "x*1.5"); counts above <see cref="MaximumRatchetCount"/> clamp to it.
+    /// </summary>
+    internal static bool TryStripRatchet(string chordToken, out string ratchetlessToken, out int ratchetCount)
+    {
+        ratchetlessToken = chordToken;
+        ratchetCount = 1;
+        var ratchetOffset = chordToken.Length < 2 ? -1 : chordToken.IndexOf(RatchetSeparator, 1);
+        if (ratchetOffset < 0)
+        {
+            return true;
+        }
+        var countEnd = chordToken.IndexOfAny(RatchetCountTerminators, ratchetOffset + 1);
+        countEnd = countEnd < 0 ? chordToken.Length : countEnd;
+        var countText = chordToken[(ratchetOffset + 1)..countEnd];
+        if (countText.Length == 0 || countText.Length > 4 || !countText.All(char.IsAsciiDigit) ||
+            chordToken.IndexOf(RatchetSeparator, countEnd) >= 0)
+        {
+            return false;
+        }
+        var parsedCount = int.Parse(countText, NumberStyles.None, CultureInfo.InvariantCulture);
+        if (parsedCount < 1)
+        {
+            return false;
+        }
+        ratchetCount = Math.Min(parsedCount, MaximumRatchetCount);
+        ratchetlessToken = chordToken[..ratchetOffset] + chordToken[countEnd..];
+        return true;
+    }
+
+    private static readonly char[] RatchetCountTerminators = { VelocitySeparator, ':', RatchetSeparator };
+
+    /// <summary>Writes "*3" for a ratchet, nothing for a plain step.</summary>
+    public static string FormatRatchetSuffix(int ratchetCount) =>
+        ratchetCount > 1 ? RatchetSeparator + Math.Min(ratchetCount, MaximumRatchetCount).ToString(CultureInfo.InvariantCulture) : string.Empty;
+
+    /// <summary>
+    /// Puts a ratchet on a formatted step: "*N" goes last, after every note and its own
+    /// suffixes ("A3@0.5+C4*2"). Rests and sustains cannot be ratcheted and stay as they are.
+    /// </summary>
+    public static string WithRatchet(string formattedStep, int ratchetCount) =>
+        ratchetCount > 1 && formattedStep != RestSymbol && formattedStep != SustainSymbol
+            ? formattedStep + FormatRatchetSuffix(ratchetCount)
+            : formattedStep;
 
     /// <summary>
     /// Reads a velocity: 0..1, or a MIDI-style 2..127 (models and humans both think in those).
@@ -187,8 +267,8 @@ internal static partial class NotationResolver
         return roundedVelocity >= 1 ? string.Empty : VelocitySeparator + roundedVelocity.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
-    /// <summary>A drum hit at a velocity: "x" or "x@0.6".</summary>
-    public static string FormatTrigger(double velocity) => TriggerSymbol + FormatVelocitySuffix(velocity);
+    /// <summary>A drum hit at a velocity: "x" or "x@0.6"; ratcheted, "x*2" or "x@0.6*3".</summary>
+    public static string FormatTrigger(double velocity, int ratchetCount = 1) => TriggerSymbol + FormatVelocitySuffix(velocity) + FormatRatchetSuffix(ratchetCount);
 
     private static int? TryResolveSinglePitch(string pitchToken)
     {
@@ -269,7 +349,7 @@ internal static partial class NotationResolver
     /// <summary>
     /// Rewrites a step into canonical notation: "." for rests, "_" for sustains,
     /// "x" for drum triggers, and sharps-only pitch names (joined with "+" for
-    /// chords) for everything else. Unparseable steps canonicalize to a rest.
+    /// chords) for everything else, with a ratchet "*N" last. Unparseable steps canonicalize to a rest.
     /// </summary>
     public static string Canonicalize(string? rawStepNotation, bool percussiveInstrument)
     {
@@ -278,9 +358,9 @@ internal static partial class NotationResolver
         {
             StepEventKind.Rest => RestSymbol,
             StepEventKind.Sustain => percussiveInstrument ? RestSymbol : SustainSymbol,
-            _ when percussiveInstrument => FormatTrigger(resolvedStepEvent.PeakVelocity),
-            _ => FormatChord(resolvedStepEvent.MidiNotes.Select((midiNote, noteIndex) =>
-                (midiNote, resolvedStepEvent.NoteLengths[noteIndex], resolvedStepEvent.NoteVelocities[noteIndex]))),
+            _ when percussiveInstrument => FormatTrigger(resolvedStepEvent.PeakVelocity, resolvedStepEvent.StrikeCount),
+            _ => WithRatchet(FormatChord(resolvedStepEvent.MidiNotes.Select((midiNote, noteIndex) =>
+                (midiNote, resolvedStepEvent.NoteLengths[noteIndex], resolvedStepEvent.NoteVelocities[noteIndex]))), resolvedStepEvent.StrikeCount),
         };
     }
 }
