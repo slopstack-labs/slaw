@@ -537,7 +537,7 @@ Settings persist in the per-user config folder (`~/.config/slaw/settings.json` o
 
 ### Project format
 
-A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `tracks[]` (`id`, `name`, `instrument`, `instrumentParameters`, `effects[]` (each optionally keyed by a `sidechainSource` track id), `clips[]`, `aiLocked`, plus gain, pan, mute), the arrangement as `timeline` (clips with `trackId`, `startStep`, `lengthSteps` and the `clip` itself), `master` (with its own `effects[]` when it has any), and `aiProvenance`. Older files with a scene list under `arrangement`, and v1 files, are migrated automatically on load. A sketch:
+A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `tracks[]` (`id`, `name`, `instrument`, `instrumentParameters`, `effects[]` (each optionally keyed by a `sidechainSource` track id), `clips[]`, `aiLocked`, plus gain, pan, mute), the arrangement as `timeline` (clips with `trackId`, `startStep`, `lengthSteps` and the `clip` itself), `master` (with its own `effects[]` when it has any), and `aiProvenance`. A project holds up to 128 tracks (up to 16 scenes); anything past that is trimmed on load and noted in the remediation ledger. Older files with a scene list under `arrangement`, and v1 files, are migrated automatically on load. A sketch:
 
 ```json
 {

@@ -148,6 +148,21 @@ public class SmokeTests
     }
 
     [Fact]
+    public void KeepsMoreThanSixteenTracksThroughRemediation()
+    {
+        var crowdedProject = new SlawProject { Name = "all hands", Scenes = ["Kickoff"] };
+        for (var trackIndex = 0; trackIndex < 40; trackIndex++)
+        {
+            crowdedProject.Tracks.Add(new SlawTrack { Name = $"Stakeholder {trackIndex + 1}", Instrument = "sine", Clips = [SlawClip.Empty("Kickoff", 16)] });
+        }
+
+        var remediationLedger = ProjectAlignmentRemediator.Remediate(crowdedProject);
+
+        Assert.Equal(40, crowdedProject.Tracks.Count);
+        Assert.DoesNotContain(remediationLedger, entry => entry.Contains("tracks (the limit"));
+    }
+
+    [Fact]
     public void MigratesV1ProjectFilesToV2()
     {
         const string legacyProjectFile = """{"name":"old","bpm":120,"steps":16,"loops":3,"tracks":[{"name":"K","instrument":"kick","pattern":["x",".",".","."]}]}""";
