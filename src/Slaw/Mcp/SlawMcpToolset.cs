@@ -31,7 +31,10 @@ internal sealed class SlawMcpToolset
         "PATTERN: space-separated steps. \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \".\" rest, \"_\" holds the previous step's note one more step, " +
         "\"C4:8\" holds C4 for 8 steps by itself (follow it with \".\" or with other notes, which sound on top), \"C4@0.5\" / \"x@0.5\" velocity 0..1 (default 1). " +
         "Velocity @ and length : bind to the ONE note they follow: \"A3+C4+E4@0.7\" softens only E4; a soft chord is \"A3@0.7+C4@0.7+E4@0.7\" " +
-        "(and \"C4:8@0.6+E4\" is a soft held root under a full-strength E4).\n" +
+        "(and \"C4:8@0.6+E4\" is a soft held root under a full-strength E4). " +
+        "RATCHET \"*N\" (N 2..8; larger counts play as 8) is the opposite: it applies to the WHOLE step, written once at its very end: the step is struck N times, evenly spaced inside its one " +
+        "sixteenth, and the pattern keeps its length (\"x*2\" two 32nd hits, \"x*4\" a snare roll, \"x@0.5*3\" a soft triplet roll, \"A3+C4*2\" the chord twice). Each strike keeps its note's @velocity; " +
+        "every strike but the last stops at the next one, and the last is held as the note would be (\"_\" or :length). A bare \"*\" is still a plain hit.\n" +
         "ENVELOPES (set_automation, or \"automation\" in a clip): [step, value] points joined linearly. On an ARRANGEMENT clip the steps count from the clip's " +
         "start across its whole length (0..length) and do not repeat with the pattern; on a SESSION clip they span the pattern (0..pattern length) and loop with it. " +
         "Values are absolute: a gain envelope (0..1.5) replaces the track's gain while the clip plays, it does not multiply it. " +
@@ -158,6 +161,9 @@ internal sealed class SlawMcpToolset
                 "\"C4:8\" holds C4 for 8 steps by itself (the next steps may be \".\" or other notes, which sound on top; \"_\" only extends notes written without :length). " +
                 "Append \"@<velocity>\" (0..1, default 1) to a note or hit for dynamics: \"x@0.4\" ghost hit, \"C4:8@0.6+E4\" soft root under a full third. " +
                 "Velocity and :length bind to the single note they follow, never to the whole chord: \"A3+C4+E4@0.7\" softens only E4; write \"A3@0.7+C4@0.7+E4@0.7\" for a soft chord. " +
+                "Ratchet: \"*N\" (N 2..8, larger plays as 8) at the very end of a step strikes the WHOLE step (every chord note) N times, evenly spaced inside that one step, adding no steps: " +
+                "\"x*2\" two 32nd-note hits, \"x*4\" a roll, \"x@0.5*3\" a soft triplet, \"C2*2 _ _ _\" two strikes then held, \"A3@0.6+C4@0.6*2\" a soft chord twice. " +
+                "Strikes keep each note's velocity; all but the last end at the next strike, the last lasts as long as the note would without *N. A bare \"*\" is a plain hit. " +
                 "Clips are usually 16 steps (one bar of sixteenths)." +
                 "\nClip envelopes (set_automation, or \"automation\" in apply_patch) move a parameter while a clip plays, as [step, value] breakpoints joined linearly. " +
                 "Outside the envelope's clip (and in clips without that envelope) the knob's own value applies. " +
@@ -189,7 +195,7 @@ internal sealed class SlawMcpToolset
             "(steps 0..length from the clip's start), remove: true}] (ARRANGEMENT clips; get_project JSON names trackId/startStep/lengthSteps/clip{...} work too), " +
             "arrangement [{scene, repeats}] (legacy shortcut: lays those session scenes end to end and REPLACES the whole arrangement), " +
             "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix, effects [same shape as track effects] (replaces the master chain; it processes the sum of all tracks)}. " +
-            "Pattern velocities and lengths bind per note (\"A3@0.7+C4@0.7+E4@0.7\" for a soft chord). " +
+            "Pattern velocities and lengths bind per note (\"A3@0.7+C4@0.7+E4@0.7\" for a soft chord); a ratchet \"*N\" at the end of a step repeats the whole step N times inside it (\"x*2\"). " +
             "The result lists what changed (with new clip ids and their envelopes) and warnings for anything ignored or adjusted. Undoable in the studio.",
             Schema(new JsonObject { ["patch"] = PatchSchema() }, "patch"),
             async (toolArguments, clientName, _) =>
@@ -243,6 +249,8 @@ internal sealed class SlawMcpToolset
                     JsonArray stepArray => stepArray.Select(stepNode => ReadString(stepNode) ?? NotationResolver.RestSymbol).ToList(),
                     var patternNode => CompactPatternJsonConverter.SplitStepString(ReadString(patternNode)),
                 };
+                // Lint what the agent wrote, before the checker tidies a misplaced "*N" into its canonical place.
+                var writtenWarnings = stepList is null ? new List<string>() : PatternLint.ChordSuffixWarnings(stepList, string.Empty);
                 document.BeginEdit($"{clientName}: clip");
                 if (sceneIndex == document.Project.Scenes.Count)
                 {
@@ -269,7 +277,7 @@ internal sealed class SlawMcpToolset
                 return writtenClip is null
                     ? $"cleared the clip of {targetTrack.Name} in scene {sceneIndex}"
                     : AppendWarnings($"{targetTrack.Name} · scene {sceneIndex} ({document.Project.Scenes[sceneIndex]}): {string.Join(' ', writtenClip.Pattern)}",
-                        PatternLint.ChordSuffixWarnings(writtenClip.Pattern, string.Empty));
+                        writtenWarnings);
             }));
 
         Register("set_automation",

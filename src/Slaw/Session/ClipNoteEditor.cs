@@ -1,7 +1,10 @@
 namespace SlopstackLabs.Slaw.Session;
 
-/// <summary>A note as it actually sounds: where it starts, for how many steps, and how hard (0..1).</summary>
-internal readonly record struct PlacedNote(int StartStep, int MidiNote, int Length, double Velocity = 1);
+/// <summary>
+/// A note as it actually sounds: where it starts, for how many steps, and how hard (0..1).
+/// <paramref name="RatchetCount"/> is its step's "*N": struck that many times inside the start step, the last strike held to the note's end.
+/// </summary>
+internal readonly record struct PlacedNote(int StartStep, int MidiNote, int Length, double Velocity = 1, int RatchetCount = 1);
 
 /// <summary>
 /// Per-note editing of step patterns. Steps can say "this chord, held by the
@@ -37,7 +40,8 @@ internal static class ClipNoteEditor
         return stepEvent.MidiNotes
             .Select((midiNote, noteIndex) => new PlacedNote(startStep, midiNote,
                 stepEvent.NoteLengths[noteIndex] > 0 ? stepEvent.NoteLengths[noteIndex] : implicitLength,
-                stepEvent.NoteVelocities[noteIndex]))
+                stepEvent.NoteVelocities[noteIndex],
+                stepEvent.StrikeCount))
             .ToList();
     }
 
@@ -69,13 +73,16 @@ internal static class ClipNoteEditor
     /// Rewrites one step's chord. The step's old sustain run is cleared first;
     /// then, if every note shares one length and the steps it needs are free,
     /// the classic "chord + _ _ _" form is used, otherwise each note gets an
-    /// explicit ":length". Velocities below 1 ride along as "@0.6" either way.
+    /// explicit ":length". Velocities below 1 ride along as "@0.6" either way. The step's
+    /// ratchet ("*3") survives the rewrite unless <paramref name="ratchetCount"/> replaces it.
     /// </summary>
-    public static void WriteChord(List<string> pattern, int startStep, IReadOnlyCollection<(int MidiNote, int Length, double Velocity)> notes)
+    public static void WriteChord(List<string> pattern, int startStep, IReadOnlyCollection<(int MidiNote, int Length, double Velocity)> notes, int? ratchetCount = null)
     {
-        var previousImplicitLength = NotationResolver.ResolveOrRest(pattern[startStep]).Kind == StepEventKind.Trigger
+        var previousStepEvent = NotationResolver.ResolveOrRest(pattern[startStep]);
+        var previousImplicitLength = previousStepEvent.Kind == StepEventKind.Trigger
             ? ImplicitLength(pattern, startStep)
             : 1;
+        var writtenRatchetCount = ratchetCount ?? (previousStepEvent.Kind == StepEventKind.Trigger ? previousStepEvent.StrikeCount : 1);
         for (var sustainStep = startStep + 1; sustainStep < startStep + previousImplicitLength; sustainStep++)
         {
             pattern[sustainStep] = NotationResolver.RestSymbol;
@@ -96,14 +103,14 @@ internal static class ClipNoteEditor
                                   .All(step => NotationResolver.ResolveOrRest(pattern[step]).Kind == StepEventKind.Rest);
         if (classicFormFits)
         {
-            pattern[startStep] = NotationResolver.FormatChord(clampedNotes.Select(note => (note.MidiNote, note.Velocity)));
+            pattern[startStep] = NotationResolver.WithRatchet(NotationResolver.FormatChord(clampedNotes.Select(note => (note.MidiNote, note.Velocity))), writtenRatchetCount);
             for (var sustainStep = startStep + 1; sustainStep < startStep + sharedLength!.Value; sustainStep++)
             {
                 pattern[sustainStep] = NotationResolver.SustainSymbol;
             }
             return;
         }
-        pattern[startStep] = NotationResolver.FormatChord(clampedNotes);
+        pattern[startStep] = NotationResolver.WithRatchet(NotationResolver.FormatChord(clampedNotes), writtenRatchetCount);
     }
 
     /// <summary>Adds a note (or replaces the same pitch) at a step, keeping the other chord notes' lengths and velocities.</summary>
@@ -144,12 +151,12 @@ internal static class ClipNoteEditor
         WriteChord(pattern, startStep, chordNotes);
     }
 
-    /// <summary>Re-strikes a drum hit at a velocity. Does nothing on a step without a hit.</summary>
+    /// <summary>Re-strikes a drum hit at a velocity, keeping its ratchet. Does nothing on a step without a hit.</summary>
     public static void SetDrumHitVelocity(List<string> pattern, int step, double velocity)
     {
-        if (NotationResolver.ResolveOrRest(pattern[step]).Kind == StepEventKind.Trigger)
+        if (NotationResolver.ResolveOrRest(pattern[step]) is { Kind: StepEventKind.Trigger } stepEvent)
         {
-            pattern[step] = NotationResolver.FormatTrigger(velocity);
+            pattern[step] = NotationResolver.FormatTrigger(velocity, stepEvent.StrikeCount);
         }
     }
 }

@@ -54,7 +54,8 @@ internal static class DeviceCatalog
     private static readonly ParameterSpecification Humanize =
         new("humanize", "AI Humanize", 0, 1, 0, "%");
 
-    private static readonly IReadOnlyList<ParameterSpecification> OscillatorParameters = new[]
+    /// <summary>The noise engine's knobs: an oscillator's, minus anything that needs a pitch to spread.</summary>
+    private static readonly IReadOnlyList<ParameterSpecification> NoiseParameters = new[]
     {
         new ParameterSpecification("attack", "Attack", 1, 2000, 4, "ms", Logarithmic: true),
         new ParameterSpecification("decay", "Decay", 5, 3000, 90, "ms", Logarithmic: true),
@@ -65,6 +66,16 @@ internal static class DeviceCatalog
         new ParameterSpecification("detune", "Detune", -100, 100, 0, "ct"),
         Humanize,
     };
+
+    /// <summary>
+    /// Unison spread for the pitched oscillators (sine, square, saw, triangle), in cents: above 0 the note
+    /// is two oscillators detuned by ±spread/2 and mixed at equal power. A saw at 15–30 is a Reese bass.
+    /// </summary>
+    private static readonly ParameterSpecification UnisonSpread =
+        new("spread", "Spread", 0, 50, 0, "ct");
+
+    private static readonly IReadOnlyList<ParameterSpecification> OscillatorParameters =
+        NoiseParameters.Take(NoiseParameters.Count - 1).Append(UnisonSpread).Append(Humanize).ToArray();
 
     private static readonly IReadOnlyList<ParameterSpecification> PluckParameters = new[]
     {
@@ -115,6 +126,7 @@ internal static class DeviceCatalog
         "soundfont" => SoundFontParameters,
         "kick" or "snare" or "hat" or "clap" => DrumParameters,
         "pluck" => PluckParameters,
+        "noise" => NoiseParameters,
         _ => OscillatorParameters,
     };
 
@@ -130,6 +142,15 @@ internal static class DeviceCatalog
         "soundfont" => "SoundFont Player",
         Plugins.DeviceTypes.Vst3 => "VST3 Instrument",
         var oscillatorName => $"{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(oscillatorName)} Oscillator",
+    };
+
+    /// <summary>What an instrument does beyond its name, for the device view and the catalog; empty when the name says it all.</summary>
+    public static string InstrumentDescription(string instrumentName) => instrumentName switch
+    {
+        "sine" or "square" or "saw" or "triangle" =>
+            "Spread (unison detune, 0..50 cents): above 0 the note is two oscillators detuned by ±spread/2 cents, mixed at equal power so the level stays put. " +
+            "A saw at 15–30 beats like a Reese bass; at 0 it is one oscillator, aligned with itself as always.",
+        _ => string.Empty,
     };
 
     // ── Audio effects ─────────────────────────────────────────────────────────

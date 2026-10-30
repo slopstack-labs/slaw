@@ -23,6 +23,7 @@ internal static class PromptLibrary
         - "C4:8+E4:2"          notes with their own lengths in steps (here C4 rings 8 steps, E4 only 2)
         - "C4@0.5", "x@0.4"    optional velocity 0..1 after "@" (default 1): ghost notes, accents ("C4:8@0.6+E4" also works)
         - "A3@0.6+C4@0.6+E4@0.6" a soft chord: "@" and ":" belong to ONE note each ("A3+C4+E4@0.6" softens only E4)
+        - "x*2", "x@0.6*4"     ratchet: that step struck 2 or 4 times inside its sixteenth (hat rolls, snare rolls)
         - "_"                  sustain the previous note through this step
         - "."                  silence
         """;
@@ -209,7 +210,7 @@ internal static class PromptLibrary
         Example request "add a shaker on the off-beats" (the song is 32 bars = 512 steps):
         {"summary": "shaker on the off-beats", "tracks": [{"id": "new", "name": "Shaker", "instrument": "hat"}], "timeline": [{"id": "new", "track": "Shaker", "start": 0, "length": 512, "pattern": ". . x . . . x . . . x . . . x ."}]}
         - "timeline" entries: an existing clip by its "id" changes only the fields you give ("pattern", "start", "length"); "id": "new" adds a clip on "track" (a track id or name, also a track added in this same patch) at "start" for "length" steps. Steps: 16 per bar, step 0 = bar 1, step 128 = bar 9. A pattern loops to fill the clip's length, so a 16-step pattern on a 512-step clip plays for 32 bars.
-        - A pattern is space-separated steps, one per sixteenth: "x" drum hit, "C4" note, "A3+C4+E4" chord, "C4:8" a note held 8 steps, "_" hold, "." silence; "@0.5" after a note or "x" sets that one note's velocity (a soft chord is "A3@0.6+C4@0.6+E4@0.6").
+        - A pattern is space-separated steps, one per sixteenth: "x" drum hit, "C4" note, "A3+C4+E4" chord, "C4:8" a note held 8 steps, "_" hold, "." silence; "@0.5" after a note or "x" sets that one note's velocity (a soft chord is "A3@0.6+C4@0.6+E4@0.6"); "x*2" plays that hit twice inside its one step (a quick roll).
         - Change ONLY what the user asked for. Do not add or change effects unless the user asks about the sound or the mix; then "effects" on a track replaces its whole effect list.
         - Never send "arrangement" (it replaces the whole song with copies of scenes).
         - Never mention tracks marked LOCKED.
@@ -382,6 +383,7 @@ internal static class PromptLibrary
         {
             catalogDescription.Append(CultureInfo.InvariantCulture, $"- instrument \"{instrumentName}\": {DescribeParameters(DeviceCatalog.InstrumentParametersFor(instrumentName))}\n");
         }
+        catalogDescription.Append("Oscillators sine/square/saw/triangle: spread (cents) above 0 plays two oscillators detuned by ±spread/2 at equal power; saw with spread 15-30 is a Reese bass.\n");
         foreach (var effectType in DeviceCatalog.EffectTypes)
         {
             catalogDescription.Append(CultureInfo.InvariantCulture, $"- effect \"{effectType}\" ({DeviceCatalog.EffectDisplayName(effectType)}): {DescribeParameters(DeviceCatalog.EffectParametersFor(effectType))}\n");
