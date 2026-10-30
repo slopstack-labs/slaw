@@ -23,7 +23,7 @@ internal sealed class RecordingSettingsForm
             ItemsSource = substrateChoices,
             SelectedItem = substrateChoices.Contains(preferences.RecordingSubstrate) ? preferences.RecordingSubstrate : "auto",
             MinWidth = 160,
-            IsEnabled = !OperatingSystem.IsWindows(),
+            IsEnabled = OperatingSystem.IsLinux(),
         };
 
         var deviceChoices = new List<string> { DefaultDeviceLabel };
@@ -56,8 +56,8 @@ internal sealed class RecordingSettingsForm
     {
         var formGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("150,*"), RowSpacing = 10, ColumnSpacing = 8 };
         AddRow(formGrid, 0, "Recording tool", substrateComboBox,
-            OperatingSystem.IsWindows() ? "On Windows, waveIn is always used." : "auto tries pw-record, then parec, then arecord.");
-        AddRow(formGrid, 1, "Input device", deviceComboBox, "Where vocals are captured from. arecord always records the ALSA default.");
+            OperatingSystem.IsWindows() ? "On Windows, waveIn is always used." : OperatingSystem.IsMacOS() ? "On macOS, Core Audio is always used, with nothing to install." : "auto tries pw-record, then parec, then arecord.");
+        AddRow(formGrid, 1, "Input device", deviceComboBox, OperatingSystem.IsMacOS() ? "The default input in System Settings → Sound." : "Where vocals are captured from. arecord always records the ALSA default.");
         AddRow(formGrid, 2, "Input latency (ms)", inputLatencyNumericUpDown,
             "Trimmed from the head of each take. If takes land late, raise it; early, lower it. Output latency is already compensated.");
         return new StackPanel

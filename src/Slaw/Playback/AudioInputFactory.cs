@@ -15,6 +15,10 @@ internal static class AudioInputFactory
         {
             return new PipedProcessAudioInput(sampleRate, preferredSubstrate, inputDeviceName);
         }
+        if (OperatingSystem.IsMacOS())
+        {
+            return new MacAudioQueueAudioInput(sampleRate);
+        }
         unavailabilityReason = "audio recording is not supported on this platform yet (CoreAudio input is scheduled for the same quarter as CoreMIDI)";
         return null;
     }

@@ -17,16 +17,16 @@ internal sealed class MacAudioQueueAudioSink : IAudioOutputSink
 {
     public const string CoreAudioSubstrateName = "coreaudio";
 
-    private const string AudioToolboxLibraryPath = "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox";
+    internal const string AudioToolboxLibraryPath = "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox";
     private const int ChannelCount = 2;
     private const int BytesPerFrame = ChannelCount * sizeof(float);
     private const int FramesPerQueuedBuffer = 512;
     private const int MinimumQueuedBufferCount = 3;
-    private const uint LinearPcmFormatIdentifier = 0x6C70636D; // 'lpcm'
-    private const uint FloatPackedFormatFlags = 0x1 | 0x8; // kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
+    internal const uint LinearPcmFormatIdentifier = 0x6C70636D; // 'lpcm'
+    internal const uint FloatPackedFormatFlags = 0x1 | 0x8; // kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
     private static readonly TimeSpan StalledDeviceGracePeriod = TimeSpan.FromSeconds(2);
-    private static readonly int AudioDataPointerOffset = (int)Marshal.OffsetOf<AudioQueueBufferRecord>(nameof(AudioQueueBufferRecord.mAudioData));
-    private static readonly int AudioDataByteSizeOffset = (int)Marshal.OffsetOf<AudioQueueBufferRecord>(nameof(AudioQueueBufferRecord.mAudioDataByteSize));
+    internal static readonly int AudioDataPointerOffset = (int)Marshal.OffsetOf<AudioQueueBufferRecord>(nameof(AudioQueueBufferRecord.mAudioData));
+    internal static readonly int AudioDataByteSizeOffset = (int)Marshal.OffsetOf<AudioQueueBufferRecord>(nameof(AudioQueueBufferRecord.mAudioDataByteSize));
 
     // Held in a field so the garbage collector never reclaims a callback AudioToolbox still calls.
     private readonly AudioQueueOutputCallback bufferReturnedCallback;
@@ -199,7 +199,7 @@ internal sealed class MacAudioQueueAudioSink : IAudioOutputSink
     private delegate void AudioQueueOutputCallback(IntPtr userData, IntPtr audioQueue, IntPtr buffer);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct AudioStreamBasicDescriptionRecord
+    internal struct AudioStreamBasicDescriptionRecord
     {
         public double mSampleRate;
         public uint mFormatID;
@@ -235,14 +235,14 @@ internal sealed class MacAudioQueueAudioSink : IAudioOutputSink
         out IntPtr outAudioQueue);
 
     [DllImport(AudioToolboxLibraryPath)]
-    private static extern int AudioQueueAllocateBuffer(IntPtr inAudioQueue, uint inBufferByteSize, out IntPtr outBuffer);
+    internal static extern int AudioQueueAllocateBuffer(IntPtr inAudioQueue, uint inBufferByteSize, out IntPtr outBuffer);
 
     [DllImport(AudioToolboxLibraryPath)]
-    private static extern int AudioQueueEnqueueBuffer(IntPtr inAudioQueue, IntPtr inBuffer, uint inNumPacketDescs, IntPtr inPacketDescs);
+    internal static extern int AudioQueueEnqueueBuffer(IntPtr inAudioQueue, IntPtr inBuffer, uint inNumPacketDescs, IntPtr inPacketDescs);
 
     [DllImport(AudioToolboxLibraryPath)]
-    private static extern int AudioQueueStart(IntPtr inAudioQueue, IntPtr inStartTime);
+    internal static extern int AudioQueueStart(IntPtr inAudioQueue, IntPtr inStartTime);
 
     [DllImport(AudioToolboxLibraryPath)]
-    private static extern int AudioQueueDispose(IntPtr inAudioQueue, [MarshalAs(UnmanagedType.U1)] bool inImmediate);
+    internal static extern int AudioQueueDispose(IntPtr inAudioQueue, [MarshalAs(UnmanagedType.U1)] bool inImmediate);
 }

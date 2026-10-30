@@ -78,6 +78,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
     <string>public.app-category.music</string>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>slaw records your takes from the microphone when you arm a track.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

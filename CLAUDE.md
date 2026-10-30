@@ -32,7 +32,7 @@ Two views, like Ableton Live. The **Session** holds clips by scene (`SlawTrack.C
 | MCP | `src/Slaw/Mcp/` — `SlawMcpToolset.cs` (instructions, every tool), `ProtocolStandardOutput.cs` |
 | LLM prompts and workflows | `src/Slaw/Workflows/PromptLibrary.cs`, `ProductionWorkflows.cs` |
 | Studio UI | `src/Slaw/Desktop/` — `StudioWindow*.cs` partials (`StudioWindow.Timeline.cs` is the Arrangement's transport and keys), `SessionGridView.cs`, `ArrangementView.cs`, `DetailView*.cs`, `StudioShortcuts.cs`. Panels and the second window: `StudioWindow.Windows.cs`, `StudioWorkspacePane.cs`, `StudioSecondWindow.cs` |
-| Audio/MIDI I/O | `src/Slaw/Playback/` — live output per OS: `MacAudioQueueAudioSink` (Core Audio), `WindowsWaveOutAudioSink`, `PipedProcessAudioSink` (Linux, or a player picked in Settings) |
+| Audio/MIDI I/O | `src/Slaw/Playback/` — live output per OS: `MacAudioQueueAudioSink` (Core Audio), `WindowsWaveOutAudioSink`, `PipedProcessAudioSink` (Linux, or a player picked in Settings); recording: `MacAudioQueueAudioInput`, `WindowsWaveInAudioInput`, `PipedProcessAudioInput` |
 | Installers | `installer/` — Windows: `slaw.wxs` (MSI), `bundle.wxs` + `SlawSetup/` (setup.exe with turntables, WiX v5), `New-InstallerAssets.ps1`; macOS: `installer/macos/` (`build-dmg.sh`, `dmg-settings.py`, `render-assets.swift`). Built only by the manual workflows `release-installer.yml` and `release-macos.yml`. Every release workflow is `workflow_dispatch` only (a pushed tag publishes nothing); only `ci.yml` runs on its own |
 
 ## Keep these in sync
