@@ -535,7 +535,7 @@ internal sealed class SlawMcpToolset
                 var document = host.Document;
                 if (document.Project.Tracks.Count >= ProjectAlignmentRemediator.MaximumTrackCount)
                 {
-                    throw new McpInvalidParamsException($"the project already has {ProjectAlignmentRemediator.MaximumTrackCount} tracks");
+                    throw new McpInvalidParamsException($"the project already has {ProjectAlignmentRemediator.MaximumTrackCount} tracks, the most a project can hold");
                 }
                 var resolvedInstrument = ProjectAlignmentRemediator.ResolveInstrument(ReadString(toolArguments["instrument"]));
                 if (toolArguments["plugin"] is not null || resolvedInstrument == DeviceTypes.Vst3)

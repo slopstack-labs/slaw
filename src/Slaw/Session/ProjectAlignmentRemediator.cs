@@ -11,7 +11,7 @@ namespace SlopstackLabs.Slaw.Session;
 /// </summary>
 internal static class ProjectAlignmentRemediator
 {
-    public const int MaximumTrackCount = 16;
+    public const int MaximumTrackCount = 128;
     public const int MaximumSceneCount = 16;
     public const int MaximumStepCount = 64;
     public const int MaximumEffectsPerTrack = 8;

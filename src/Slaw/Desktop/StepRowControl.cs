@@ -10,7 +10,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 
 /// <summary>
 /// One track's step grid, drawn directly rather than built from controls, so
-/// sixteen tracks of sixteen steps cost one render pass each. With no track
+/// a whole session of tracks costs one render pass per row. With no track
 /// assigned it draws the step-number ruler instead.
 /// </summary>
 internal sealed class StepRowControl : Control
