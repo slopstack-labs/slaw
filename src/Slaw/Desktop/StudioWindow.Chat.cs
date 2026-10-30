@@ -56,7 +56,7 @@ internal sealed partial class StudioWindow
         var newChatButton = StudioUi.Button("＋ New chat", StartNewChat, "Start a fresh conversation: the AI forgets this chat (Ctrl+Shift+N)", compact: true);
         ToolTip.SetTip(chatSessionSelector, "Earlier chats about this project. Pick one to continue it where you left off.");
         var sessionBar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,6,Auto") };
-        sessionBar.Children.Add(chatSessionSelector);
+        sessionBar.Children.Add(Detached(chatSessionSelector));
         Grid.SetColumn(newChatButton, 2);
         sessionBar.Children.Add(newChatButton);
         return sessionBar;
