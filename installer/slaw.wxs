@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Windows installer for slaw (WiX Toolset v5).
+
+  Build-time variables (wix build -d Name=Value):
+    ProductVersion  numeric MSI version, e.g. 0.2.0
+    PublishDir      folder containing the single-file slaw.exe
+    AssetsDir       output of installer/New-InstallerAssets.ps1
+    RepoRoot        repository root (for LICENSE)
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="slaw"
+           Manufacturer="slopstack labs"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="66F0C8E8-4B5F-4C4D-9402-719839B6CD91"
+           Scope="perMachine"
+           Language="1033">
+
+    <SummaryInformation Description="slaw — the AI-native digital audio workstation" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of slaw is already installed. Downgrades are not a supported production workflow." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Add/Remove Programs -->
+    <Icon Id="SlawIcon" SourceFile="$(var.AssetsDir)\slaw.ico" />
+    <Property Id="ARPPRODUCTICON" Value="SlawIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/slopstack-labs/slaw" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/slopstack-labs/slaw/issues" />
+
+    <!-- Wizard: welcome, license, feature selection (with install folder), progress, finish -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.AssetsDir)\License.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.AssetsDir)\banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.AssetsDir)\dialog.bmp" />
+
+    <UI>
+      <ui:WixUI Id="WixUI_FeatureTree" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchStudio"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
+
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="slaw is installed. Your speakers have been notified." />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch slaw studio" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#SlawExe]" />
+    <CustomAction Id="LaunchStudio" BinaryRef="Wix4UtilCA_X64" DllEntry="WixShellExec" Impersonate="yes" />
+
+    <!-- Layout -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="slaw" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="CoreComponents" Directory="INSTALLFOLDER">
+      <Component Id="SlawExecutable">
+        <File Id="SlawExe" Source="$(var.PublishDir)\slaw.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="SlawIconFile">
+        <File Id="SlawIco" Source="$(var.AssetsDir)\slaw.ico" KeyPath="yes" />
+      </Component>
+      <Component Id="LicenseFile">
+        <File Id="LicenseTxt" Source="$(var.RepoRoot)\LICENSE" Name="LICENSE.txt" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenuStudio"
+                  Name="slaw"
+                  Description="Open slaw studio"
+                  Target="[INSTALLFOLDER]slaw.exe"
+                  Arguments="studio"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="SlawIcon" />
+        <RegistryValue Root="HKCU" Key="Software\slopstack labs\slaw" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut">
+        <Shortcut Id="DesktopStudio"
+                  Name="slaw"
+                  Description="Open slaw studio"
+                  Target="[INSTALLFOLDER]slaw.exe"
+                  Arguments="studio"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="SlawIcon" />
+        <RegistryValue Root="HKCU" Key="Software\slopstack labs\slaw" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Component Id="PathEntry" Directory="INSTALLFOLDER">
+      <Environment Id="SlawOnPath" Name="PATH" Value="[INSTALLFOLDER]" Part="last" Action="set" System="yes" Permanent="no" />
+      <RegistryValue Root="HKLM" Key="Software\slopstack labs\slaw" Name="PathEntry" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="ProjectFileAssociation" Directory="INSTALLFOLDER">
+      <!-- Written by hand rather than via ProgId/Verb so the paths come from INSTALLFOLDER (ICE69) -->
+      <RegistryValue Root="HKLM" Key="Software\Classes\.slaw" Value="Slaw.Project" Type="string" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.slaw" Name="Content Type" Value="application/x-slaw" Type="string" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\Slaw.Project" Value="slaw project" Type="string" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\Slaw.Project\DefaultIcon" Value="&quot;[INSTALLFOLDER]slaw.ico&quot;" Type="string" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\Slaw.Project\shell\open" Value="Open in slaw studio" Type="string" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\Slaw.Project\shell\open\command" Value="&quot;[INSTALLFOLDER]slaw.exe&quot; studio &quot;%1&quot;" Type="string" />
+      <RegistryValue Root="HKLM" Key="Software\slopstack labs\slaw" Name="ProjectFileAssociation" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- Features, as shown in the custom setup tree -->
+    <Feature Id="Studio"
+             Title="slaw"
+             Description="The slaw studio and command-line tool, with a Start menu shortcut."
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER"
+             AllowAbsent="no"
+             AllowAdvertise="no">
+      <ComponentGroupRef Id="CoreComponents" />
+      <ComponentRef Id="StartMenuShortcut" />
+
+      <Feature Id="DesktopShortcutFeature"
+               Title="Desktop shortcut"
+               Description="Put slaw studio on the desktop, where stakeholders can see it."
+               AllowAdvertise="no">
+        <ComponentRef Id="DesktopShortcut" />
+      </Feature>
+
+      <Feature Id="PathFeature"
+               Title="Add to PATH"
+               Description="Run slaw compose, render, play and friends from any terminal."
+               AllowAdvertise="no">
+        <ComponentRef Id="PathEntry" />
+      </Feature>
+
+      <Feature Id="FileAssociationFeature"
+               Title=".slaw file association"
+               Description="Open .slaw projects in the studio with a double-click."
+               AllowAdvertise="no">
+        <ComponentRef Id="ProjectFileAssociation" />
+      </Feature>
+    </Feature>
+
+  </Package>
+</Wix>

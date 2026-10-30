@@ -1,0 +1,198 @@
+name: Release with installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.2.0 or v0.2.0-beta.1)'
+        required: true
+      prerelease:
+        description: 'Mark as prerelease'
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  WIX_VERSION: 5.0.2
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      semver: ${{ steps.resolve.outputs.semver }}
+      msi: ${{ steps.resolve.outputs.msi }}
+    steps:
+      - id: resolve
+        env:
+          REQUESTED_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          tag="$REQUESTED_VERSION"
+          semver="${tag#v}"
+          # MSI versions are numeric major.minor.patch; prerelease labels live only in the tag
+          msi="${semver%%[-+]*}"
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$tag' is not a version tag like v1.2.3 or v1.2.3-beta.1"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "semver=$semver" >> "$GITHUB_OUTPUT"
+          echo "msi=$msi" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.rid }}
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - rid: linux-x64
+            suffix: ""
+          - rid: linux-arm64
+            suffix: ""
+          - rid: osx-x64
+            suffix: ""
+          - rid: osx-arm64
+            suffix: ""
+          - rid: win-x64
+            suffix: ".exe"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build
+        run: |
+          dotnet publish src/Slaw/Slaw.csproj -c Release -r ${{ matrix.rid }} --self-contained \
+            -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None \
+            -p:Version=${{ needs.version.outputs.semver }} \
+            -o publish/${{ matrix.rid }}
+          mv publish/${{ matrix.rid }}/slaw${{ matrix.suffix }} slaw-${{ matrix.rid }}${{ matrix.suffix }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slaw-${{ matrix.rid }}
+          path: slaw-${{ matrix.rid }}${{ matrix.suffix }}
+
+  installer:
+    name: Windows installer
+    needs: [version, build]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: slaw-win-x64
+          path: publish
+
+      - name: Stage binary
+        shell: pwsh
+        run: Rename-Item publish/slaw-win-x64.exe slaw.exe
+
+      - name: Render installer artwork
+        shell: pwsh
+        run: ./installer/New-InstallerAssets.ps1 -OutputDirectory out/installer-assets
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version $env:WIX_VERSION
+          wix extension add --global WixToolset.UI.wixext/$env:WIX_VERSION
+          wix extension add --global WixToolset.Util.wixext/$env:WIX_VERSION
+
+      - name: Build setup window
+        run: dotnet build installer/SlawSetup/SlawSetup.csproj -c Release -o out/setup-ui
+
+      - name: Build MSI
+        shell: pwsh
+        env:
+          MSI_VERSION: ${{ needs.version.outputs.msi }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          wix build installer/slaw.wxs -arch x64 `
+            -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext `
+            -d ProductVersion=$env:MSI_VERSION `
+            -d PublishDir="$PWD/publish" `
+            -d AssetsDir="$PWD/out/installer-assets" `
+            -d RepoRoot="$PWD" `
+            -o "slaw-$env:TAG-win-x64.msi"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          wix msi validate "slaw-$env:TAG-win-x64.msi"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build setup.exe
+        shell: pwsh
+        env:
+          MSI_VERSION: ${{ needs.version.outputs.msi }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          wix build installer/bundle.wxs -arch x64 `
+            -d ProductVersion=$env:MSI_VERSION `
+            -d DisplayVersion=$env:TAG `
+            -d MsiPath="$PWD/slaw-$env:TAG-win-x64.msi" `
+            -d SetupUiDir="$PWD/out/setup-ui" `
+            -d AssetsDir="$PWD/out/installer-assets" `
+            -o "slaw-$env:TAG-win-x64-setup.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: slaw-win-x64-installers
+          path: |
+            slaw-*-win-x64.msi
+            slaw-*-win-x64-setup.exe
+
+  release:
+    name: Create release
+    needs: [version, build, installer]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Tag commit
+        run: |
+          gh api repos/${{ github.repository }}/git/refs \
+            -f ref="refs/tags/${{ needs.version.outputs.tag }}" \
+            -f sha="${{ github.sha }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          files: slaw-*
+          body: |
+            ## Slaw ${{ needs.version.outputs.tag }}
+
+            *Beyond Deterministic Production.*
+
+            **Windows:** run `slaw-${{ needs.version.outputs.tag }}-win-x64-setup.exe` and watch the records spin. The installer adds a Start menu shortcut and, if you let it, a desktop shortcut, a `PATH` entry and `.slaw` file association. It removes all of them on uninstall, unlike the tinnitus. The plain `.msi` is there for silent and managed installs.
+
+            Everyone else: download the binary for your platform and point it at a running Ollama instance.
+
+            | Platform | Download |
+            |----------|----------|
+            | Windows x86_64 (installer) | `slaw-${{ needs.version.outputs.tag }}-win-x64-setup.exe` |
+            | Windows x86_64 (MSI) | `slaw-${{ needs.version.outputs.tag }}-win-x64.msi` |
+            | Windows x86_64 (portable) | `slaw-win-x64.exe` |
+            | Linux x86_64 | `slaw-linux-x64` |
+            | Linux arm64 | `slaw-linux-arm64` |
+            | macOS Intel | `slaw-osx-x64` |
+            | macOS Apple Silicon | `slaw-osx-arm64` |

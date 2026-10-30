@@ -1,9 +1,7 @@
 name: Release
 
+# Manual only, like every release workflow: pushing a tag does not publish anything.
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -56,10 +54,9 @@ jobs:
       contents: write
     steps:
       - name: Tag commit
-        if: github.event_name == 'workflow_dispatch'
         run: |
           gh api repos/${{ github.repository }}/git/refs \
-            -f ref="refs/tags/${{ github.event.inputs.version || github.ref_name }}" \
+            -f ref="refs/tags/${{ github.event.inputs.version }}" \
             -f sha="${{ github.sha }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,10 +68,10 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          tag_name: ${{ github.event.inputs.version }}
           files: slaw-*
           body: |
-            ## Slaw ${{ github.event.inputs.version || github.ref_name }}
+            ## Slaw ${{ github.event.inputs.version }}
 
             *Beyond Deterministic Production.*
 
