@@ -91,6 +91,17 @@ $env:MODEL = "phi3"; ./run.ps1 compose "lofi beat for productivity"
 
 The default `MODEL` is `llama3`.
 
+### macOS disk image
+
+The **macOS disk images** workflow (manual only: Actions → *macOS disk images* → *Run workflow*) builds `slaw-<tag>-osx-arm64.dmg` and `slaw-<tag>-osx-x64.dmg`. Each holds `slaw.app` and an Applications shortcut, on a background with a turntable, so installing is one drag and the needle drops itself. Tick *attach to release* to upload both to the existing release with that tag. To build one locally on a Mac:
+
+```sh
+pip install dmgbuild
+installer/macos/build-dmg.sh osx-arm64 v0.2.0 out/macos
+```
+
+The app is ad-hoc signed, not notarized, because notarization costs a subscription and slaw's revenue model is still in remediation. The first launch therefore needs **System Settings → Privacy & Security → Open Anyway** (or `xattr -dr com.apple.quarantine /Applications/slaw.app`). Live playback streams through sox, so `brew install sox` first. The app looks in `/opt/homebrew/bin` and `/usr/local/bin` even when Finder starts it with a bare `PATH`. For `slaw` on the command line, link the binary inside the bundle: `ln -s /Applications/slaw.app/Contents/MacOS/slaw /usr/local/bin/slaw`.
+
 ## Usage
 
 ```sh

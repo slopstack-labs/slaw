@@ -99,7 +99,8 @@ internal static class PlaybackDeviceNegotiator
     {
         var executableExtensions = OperatingSystem.IsWindows() ? new[] { ".exe", ".cmd", "" } : new[] { "" };
         var searchDirectories = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
-            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Concat(HostToolDirectoriesBeyondPath());
         foreach (var searchDirectory in searchDirectories)
         {
             foreach (var executableExtension in executableExtensions)
@@ -113,4 +114,9 @@ internal static class PlaybackDeviceNegotiator
         }
         return null;
     }
+
+    // An app opened from Finder or the Dock inherits launchd's PATH (/usr/bin:/bin:/usr/sbin:/sbin),
+    // which knows nothing of Homebrew, so `brew install sox` would go unheard without these.
+    private static IEnumerable<string> HostToolDirectoriesBeyondPath() =>
+        OperatingSystem.IsMacOS() ? new[] { "/opt/homebrew/bin", "/usr/local/bin" } : Array.Empty<string>();
 }
