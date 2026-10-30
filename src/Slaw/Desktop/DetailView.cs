@@ -711,7 +711,7 @@ internal sealed partial class DetailView : UserControl
             effectMenuItem.Click += (_, _) => AddEffect(track, effectType);
             effectMenu.Items.Add(effectMenuItem);
         }
-        effectMenu.Items.Add(ComposeEffectPluginSubmenu(track));
+        effectMenu.Items.Add(ComposeEffectPluginSubmenu(track, effectMenu));
         addEffectButton.Flyout = effectMenu;
         addEffectButton.IsEnabled = track.Effects.Count < ProjectAlignmentRemediator.MaximumEffectsPerTrack;
         return addEffectButton;

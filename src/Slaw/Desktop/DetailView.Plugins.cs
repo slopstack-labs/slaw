@@ -49,13 +49,19 @@ internal sealed partial class DetailView
         return pickerButton;
     }
 
-    /// <summary>The "+ Effect" menu's VST3 submenu.</summary>
-    private MenuItem ComposeEffectPluginSubmenu(SlawTrack track)
+    /// <summary>
+    /// The "+ Effect" menu's VST3 submenu. Filled when the parent menu opens, never
+    /// while the submenu itself is on screen: items swapped into an already-open
+    /// submenu on a real desktop never got working popups of their own, so the
+    /// plugins could be seen but not picked.
+    /// </summary>
+    private MenuItem ComposeEffectPluginSubmenu(SlawTrack track, MenuFlyout parentMenu)
     {
         var pluginSubmenu = new MenuItem { Header = "VST3" };
-        pluginSubmenu.Items.Add(new MenuItem { Header = "Scanning plugin folders…", IsEnabled = false });
-        pluginSubmenu.SubmenuOpened += (_, _) => PopulatePluginMenu(pluginSubmenu.Items, instruments: false,
+        void Populate() => PopulatePluginMenu(pluginSubmenu.Items, instruments: false,
             pickedPlugin => AddPluginEffect(track, PluginDeviceOperations.ToReference(pickedPlugin)));
+        Populate();
+        parentMenu.Opening += (_, _) => Populate();
         return pluginSubmenu;
     }
 
@@ -88,17 +94,16 @@ internal sealed partial class DetailView
                 IsEnabled = false,
             });
         }
-        foreach (var vendorGroup in matchingPlugins.GroupBy(plugin => string.IsNullOrEmpty(plugin.Vendor) ? "Unknown vendor" : plugin.Vendor).OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
+        // One flat level, vendor beside the name: every extra submenu level is another popup that can fail to open.
+        foreach (var plugin in matchingPlugins.OrderBy(plugin => plugin.Name, StringComparer.OrdinalIgnoreCase))
         {
-            var vendorItem = new MenuItem { Header = vendorGroup.Key };
-            foreach (var plugin in vendorGroup)
+            var pluginItem = new MenuItem
             {
-                var pluginItem = new MenuItem { Header = plugin.Name };
-                ToolTip.SetTip(pluginItem, $"{plugin.BundlePath}\nfound in {plugin.SourceFolder}");
-                pluginItem.Click += (_, _) => pluginPicked(plugin);
-                vendorItem.Items.Add(pluginItem);
-            }
-            menuItems.Add(vendorItem);
+                Header = string.IsNullOrEmpty(plugin.Vendor) ? plugin.Name : $"{plugin.Name}   ·  {plugin.Vendor}",
+            };
+            ToolTip.SetTip(pluginItem, $"{plugin.BundlePath}\nfound in {plugin.SourceFolder}");
+            pluginItem.Click += (_, _) => pluginPicked(plugin);
+            menuItems.Add(pluginItem);
         }
         var rescanItem = new MenuItem { Header = "↻ Rescan plugin folders" };
         rescanItem.Click += (_, _) => _ = Task.Run(Vst3PluginCatalog.Rescan);
