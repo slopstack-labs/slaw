@@ -204,13 +204,14 @@ internal static class PromptLibrary
         Reply with ONE JSON object that describes ONLY what to change (a patch). Leave out everything that stays the same.
         The SONG is the ARRANGEMENT timeline listed below ("arrangement timeline", one line per clip with its id, track, start and pattern).
         To change what the user hears (notes, chords, beats, parts, new instruments), edit "timeline" clips. Session "clips" are only jam loops and are NOT heard in the song.
-        Reply with only the keys you need: "summary", "timeline", "tracks", "bpm", "master", "scenes". Two examples, for OTHER songs (never copy their ids, tracks, numbers or patterns; use the real ones from the project below):
+        Reply with only the keys you need: "summary", "timeline", "tracks", "bpm", "swing", "master", "scenes". Two examples, for OTHER songs (never copy their ids, tracks, numbers or patterns; use the real ones from the project below):
         Example request "make the bass busier in bars 9-16" (the bass clip there has id "a1b2c3d4"):
         {"summary": "busier bass in bars 9-16", "timeline": [{"id": "a1b2c3d4", "pattern": "C2 . C2 G1 C2 . G1 . F1 . F1 C2 F1 . C2 ."}]}
         Example request "add a shaker on the off-beats" (the song is 32 bars = 512 steps):
         {"summary": "shaker on the off-beats", "tracks": [{"id": "new", "name": "Shaker", "instrument": "hat"}], "timeline": [{"id": "new", "track": "Shaker", "start": 0, "length": 512, "pattern": ". . x . . . x . . . x . . . x ."}]}
         - "timeline" entries: an existing clip by its "id" changes only the fields you give ("pattern", "start", "length"); "id": "new" adds a clip on "track" (a track id or name, also a track added in this same patch) at "start" for "length" steps. Steps: 16 per bar, step 0 = bar 1, step 128 = bar 9. A pattern loops to fill the clip's length, so a 16-step pattern on a 512-step clip plays for 32 bars.
         - A pattern is space-separated steps, one per sixteenth: "x" drum hit, "C4" note, "A3+C4+E4" chord, "C4:8" a note held 8 steps, "_" hold, "." silence; "@0.5" after a note or "x" sets that one note's velocity (a soft chord is "A3@0.6+C4@0.6+E4@0.6"); "x*2" plays that hit twice inside its one step (a quick roll).
+        - Swing/shuffle: "swing" 50 (straight) to 75, 66.67 = triplet shuffle; on the song ({"swing": 58}) or one track ({"tracks": [{"id": "e5f6a7b8", "swing": 66}]}).
         - Change ONLY what the user asked for. Do not add or change effects unless the user asks about the sound or the mix; then "effects" on a track replaces its whole effect list.
         - Never send "arrangement" (it replaces the whole song with copies of scenes).
         - Never mention tracks marked LOCKED.
@@ -232,13 +233,21 @@ internal static class PromptLibrary
     public static string DescribeProjectForPatching(SlawProject project)
     {
         var projectListing = new StringBuilder();
-        projectListing.Append(CultureInfo.InvariantCulture, $"name \"{project.Name}\", bpm {project.Bpm:0}\n");
+        projectListing.Append(CultureInfo.InvariantCulture, $"name \"{project.Name}\", bpm {project.Bpm:0}, swing {GrooveTiming.FormatSwing(project.Swing)}\n");
         projectListing.Append(CultureInfo.InvariantCulture,
             $"session scenes (clip slots, not the song order): {string.Join(", ", project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}=\"{sceneName}\""))}\n");
         foreach (var track in project.Tracks)
         {
             projectListing.Append(CultureInfo.InvariantCulture,
                 $"track id \"{track.Id}\" \"{track.Name}\" {track.Instrument}{(track.AiLocked ? " LOCKED" : string.Empty)} gain {track.Gain:0.00} pan {track.Pan:0.00}{(track.Muted ? " muted" : string.Empty)}");
+            if (track.Swing is { } trackSwing)
+            {
+                projectListing.Append(CultureInfo.InvariantCulture, $" swing {GrooveTiming.FormatSwing(trackSwing)}");
+            }
+            if (track.Timing > 0)
+            {
+                projectListing.Append(CultureInfo.InvariantCulture, $" timing {track.Timing:0.#}ms");
+            }
             if (track.Sample is not null)
             {
                 projectListing.Append(CultureInfo.InvariantCulture, $" sample \"{Path.GetFileName(track.Sample)}\"");
@@ -388,7 +397,7 @@ internal static class PromptLibrary
         {
             catalogDescription.Append(CultureInfo.InvariantCulture, $"- effect \"{effectType}\" ({DeviceCatalog.EffectDisplayName(effectType)}): {DescribeParameters(DeviceCatalog.EffectParametersFor(effectType))}\n");
         }
-        catalogDescription.Append("Track fields: name, instrument, sample (sampler tracks only: a WAV path), instrumentParameters {key: number}, effects [{type, enabled, parameters {key: number}, sidechain}], gain 0-1.5, pan -1..1, muted, solo, aiLocked, clips.\n");
+        catalogDescription.Append("Track fields: name, instrument, sample (sampler tracks only: a WAV path), instrumentParameters {key: number}, effects [{type, enabled, parameters {key: number}, sidechain}], gain 0-1.5, pan -1..1, swing 50-75 (null = the project's), timing 0-50 (ms), muted, solo, aiLocked, clips.\n");
         catalogDescription.Append("Sidechain: an effect's \"sidechain\" names the track (id or name) whose audio keys it. \"duck\" turns its track down while that track plays (e.g. a pad keyed by the kick); VST3 effects with a sidechain input receive it there. The source is heard after its effects and before its fader, so a muted track still keys. No track may key itself or close a loop.\n");
         catalogDescription.Append("Master fields: gain 0-2, drive 1-20, lowpassHz 200-20000, delaySteps 1-16, delayFeedback 0-0.9, delayMix 0-1, effects [same shape as track effects, VST3 and sidechain included]: the master chain processes the sum of every track, before drive/lowpass/delay/gain.");
         return catalogDescription.ToString();
@@ -430,7 +439,7 @@ internal static class PromptLibrary
     {
         var arrangementDescription = new StringBuilder();
         arrangementDescription.Append(CultureInfo.InvariantCulture,
-            $"Project \"{project.Name}\" — {project.Bpm:0} BPM. Scenes: {string.Join(", ", project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}={sceneName}"))}.\n");
+            $"Project \"{project.Name}\" — {project.Bpm:0} BPM{(project.Swing > GrooveTiming.StraightSwing ? $", swing {GrooveTiming.FormatSwing(project.Swing)}" : string.Empty)}. Scenes: {string.Join(", ", project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}={sceneName}"))}.\n");
         arrangementDescription.Append(DescribeTimelineSections(project));
         arrangementDescription.Append("Tracks:\n");
         foreach (var track in project.Tracks)

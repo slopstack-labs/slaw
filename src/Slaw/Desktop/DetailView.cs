@@ -478,6 +478,7 @@ internal sealed partial class DetailView : UserControl
         if (document.SelectedTrack is { } track)
         {
             var trackIndex = document.SelectedTrackIndex;
+            deviceRow.Children.Add(ComposeGrooveDevice(track, trackIndex));
             deviceRow.Children.Add(ComposeInstrumentDevice(track, trackIndex));
             for (var effectIndex = 0; effectIndex < track.Effects.Count; effectIndex++)
             {
@@ -502,6 +503,59 @@ internal sealed partial class DetailView : UserControl
         };
         StudioDragDrop.MakeDropTarget(deviceChainScroller, host, () => new DropTarget(DropTargetKind.DeviceChain));
         return deviceChainScroller;
+    }
+
+    private static readonly ParameterSpecification TimingHumanizeSpecification =
+        new("timing", "Timing", 0, GrooveTiming.MaximumTimingMilliseconds, 0, "ms");
+
+    /// <summary>
+    /// The track's groove: its own swing (empty follows the song's transport-bar swing) and timing humanize,
+    /// a random 0..N ms lateness per step. Small on purpose; it sits before the instrument it feeds.
+    /// </summary>
+    private Control ComposeGrooveDevice(SlawTrack track, int trackIndex)
+    {
+        var swingOverrideInput = new NumericUpDown
+        {
+            Minimum = (decimal)GrooveTiming.StraightSwing,
+            Maximum = (decimal)GrooveTiming.MaximumSwing,
+            Increment = 1,
+            FormatString = "0.#",
+            Value = track.Swing is { } ownSwing ? (decimal)ownSwing : null,
+            Watermark = FormattableString.Invariant($"song {document.Project.Swing:0.#}"),
+            FontSize = 12,
+            Width = 136,
+        };
+        ToolTip.SetTip(swingOverrideInput, "This track's swing (50 straight … 66 triplet … 75). Leave empty to follow the song's swing in the transport bar.");
+        swingOverrideInput.ValueChanged += (_, _) =>
+        {
+            var requestedSwing = swingOverrideInput.Value is { } typedSwing
+                ? Math.Clamp((double)typedSwing, GrooveTiming.StraightSwing, GrooveTiming.MaximumSwing)
+                : (double?)null;
+            if (requestedSwing != track.Swing)
+            {
+                document.Edit(requestedSwing is { } swingPercent ? $"swung {track.Name} to {swingPercent:0.#}%" : $"{track.Name} follows the song's swing",
+                    _ => track.Swing = requestedSwing);
+            }
+        };
+        var followSongButton = StudioUi.Button("↺", () =>
+        {
+            if (track.Swing is not null)
+            {
+                document.Edit($"{track.Name} follows the song's swing", _ => track.Swing = null, EditScope.Structure);
+            }
+        }, "Follow the song's swing", compact: true);
+
+        var timingKnob = StudioUi.Knob(TimingHumanizeSpecification, track.Timing);
+        timingKnob.EditStarted += () => document.BeginEdit($"{track.Name} timing");
+        timingKnob.ValueChanged += changedValue =>
+        {
+            track.Timing = TimingHumanizeSpecification.Clamp(changedValue);
+            document.CommitEdit($"adjusted {track.Name} timing humanize", notifyCopilot: false);
+        };
+        ToolTip.SetTip(timingKnob, "Timing humanize: every step this track plays starts a random 0..N ms late. 0 is machine-tight.");
+
+        var titleControls = StudioUi.Row(4, StudioUi.Caption("Swing", 11, StudioTheme.TextMuted), swingOverrideInput, followSongButton);
+        return ComposeDevicePanel("Groove", titleControls, new List<Control> { timingKnob }, StudioTheme.TrackBrush(trackIndex));
     }
 
     private Control ComposeInstrumentDevice(SlawTrack track, int trackIndex)

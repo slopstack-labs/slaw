@@ -35,6 +35,11 @@ internal sealed class SlawMcpToolset
         "RATCHET \"*N\" (N 2..8; larger counts play as 8) is the opposite: it applies to the WHOLE step, written once at its very end: the step is struck N times, evenly spaced inside its one " +
         "sixteenth, and the pattern keeps its length (\"x*2\" two 32nd hits, \"x*4\" a snare roll, \"x@0.5*3\" a soft triplet roll, \"A3+C4*2\" the chord twice). Each strike keeps its note's @velocity; " +
         "every strike but the last stops at the next one, and the last is held as the note would be (\"_\" or :length). A bare \"*\" is still a plain hit.\n" +
+        "GROOVE: swing is a percentage from 50 to 75 (apply_patch \"swing\" for the whole project; tracks[].swing or update_track swing overrides it for one track, null follows the project). " +
+        "It delays every odd sixteenth (steps 1, 3, 5 … counted from the start of the song, not of the clip: the second of each eighth-note pair) by (swing - 50) / 50 of a step: 50 straight, 58 a light shuffle, " +
+        "66.67 a triplet shuffle, 75 a dotted-sixteenth limp. Patterns and step positions do not change; only where the odd steps sound. " +
+        "Typical: swung hats {\"swing\": 62} on the hat track over a straight kick. A track's \"timing\" (0..50 ms) starts each of its steps a random 0..timing ms late " +
+        "(deterministic per render), e.g. 8-15 for a played feel. Envelopes stay on the straight grid.\n" +
         "ENVELOPES (set_automation, or \"automation\" in a clip): [step, value] points joined linearly. On an ARRANGEMENT clip the steps count from the clip's " +
         "start across its whole length (0..length) and do not repeat with the pattern; on a SESSION clip they span the pattern (0..pattern length) and loop with it. " +
         "Values are absolute: a gain envelope (0..1.5) replaces the track's gain while the clip plays, it does not multiply it. " +
@@ -165,6 +170,10 @@ internal sealed class SlawMcpToolset
                 "\"x*2\" two 32nd-note hits, \"x*4\" a roll, \"x@0.5*3\" a soft triplet, \"C2*2 _ _ _\" two strikes then held, \"A3@0.6+C4@0.6*2\" a soft chord twice. " +
                 "Strikes keep each note's velocity; all but the last end at the next strike, the last lasts as long as the note would without *N. A bare \"*\" is a plain hit. " +
                 "Clips are usually 16 steps (one bar of sixteenths)." +
+                "\nGroove: project \"swing\" (percent, 50..75; apply_patch) delays every odd sixteenth (steps 1, 3, 5 … counted from the start of the song, not of the clip) by (swing - 50) / 50 of a step: " +
+                "50 straight, 66.67 a triplet shuffle (odd steps 1/3 step late), 75 a dotted-sixteenth (1/2 step late). A track's \"swing\" overrides the project's (null follows it), " +
+                "so hats can swing over a straight kick. Ratchet strikes spread evenly across their step's swung length; a held note ends where the step after it really starts. " +
+                "A track's \"timing\" (0..50 ms) starts each step it plays a random 0..timing ms late (never early; seeded, so renders are repeatable). Envelopes stay on the straight grid." +
                 "\nClip envelopes (set_automation, or \"automation\" in apply_patch) move a parameter while a clip plays, as [step, value] breakpoints joined linearly. " +
                 "Outside the envelope's clip (and in clips without that envelope) the knob's own value applies. " +
                 "Arrangement clips: steps 0..clip length, counted from the clip's start, played once across the clip. Session clips: steps 0..pattern length, looping with the pattern. " +
@@ -185,8 +194,9 @@ internal sealed class SlawMcpToolset
         Register("apply_patch",
             "Apply a patch describing only what should change; every key is optional. Best for many edits at once. " +
             "Keys: reset (true = start from an empty project first: no tracks, no clips, one empty scene, default master; then the rest of the patch applies), " +
-            "bpm, name, scenes [names] (renames scenes in order; never deletes), removeScenes [0-based scene indices], " +
-            "tracks [{id (existing id, exact name or index, or \"new\" to add), name, instrument, plugin (vst3 instrument: name or {path, classId}), sample, gain, pan, muted, solo, " +
+            "bpm, swing (50..75 percent: 50 straight, 66.67 triplet shuffle; delays every odd sixteenth), name, scenes [names] (renames scenes in order; never deletes), removeScenes [0-based scene indices], " +
+            "tracks [{id (existing id, exact name or index, or \"new\" to add), name, instrument, plugin (vst3 instrument: name or {path, classId}), sample, gain, pan, " +
+            "swing (this track's own swing 50..75; null follows the project's), timing (0..50 ms: each step starts a random 0..timing ms late), muted, solo, " +
             "instrumentParameters {key: number}, effects [{type, enabled, parameters, plugin, sidechain (track id or name that keys it; null clears)}] (replaces the whole chain), " +
             "clips {\"<sceneIndex>\": pattern or null} (SESSION clips), automation {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}}, " +
             "remove: true (deletes the track together with its session and arrangement clips)}], " +
@@ -714,7 +724,7 @@ internal sealed class SlawMcpToolset
             }));
 
         Register("update_track",
-            "Change a track's name, instrument, mixer settings or instrument parameters. Only the given fields change.",
+            "Change a track's name, instrument, mixer settings, groove (swing, timing) or instrument parameters. Only the given fields change.",
             Schema(new JsonObject
             {
                 ["track"] = AnyProperty(TrackReferenceDescription),
@@ -722,6 +732,8 @@ internal sealed class SlawMcpToolset
                 ["instrument"] = Property("string", "New instrument."),
                 ["gain"] = Property("number", "0 to 1.5."),
                 ["pan"] = Property("number", "-1 (left) to 1 (right)."),
+                ["swing"] = AnyProperty("This track's own swing, 50..75 percent (50 straight, 66.67 triplet shuffle), overriding the project's; null = follow the project's swing."),
+                ["timing"] = Property("number", "Timing humanize, 0..50 ms: each step starts a random 0..timing ms late (0 = tight)."),
                 ["muted"] = Property("boolean", "Mute."),
                 ["solo"] = Property("boolean", "Solo."),
                 ["instrumentParameters"] = Property("object", "Parameter key → number, see get_catalog."),
@@ -735,12 +747,13 @@ internal sealed class SlawMcpToolset
                 trackPatch.Remove("track");
                 trackPatch["id"] = targetTrack.Id;
                 var patchOutcome = ProjectPatchApplier.Apply(document.Project, new JsonObject { ["tracks"] = new JsonArray(trackPatch) });
-                ProjectAlignmentRemediator.Remediate(patchOutcome.Project);
+                // Values the checker clamps (swing 90, timing -5, gain 3) are reported, never adjusted silently.
+                var remediationLedger = NewRemediations(document.Project, ProjectAlignmentRemediator.Remediate(patchOutcome.Project));
                 patchOutcome.Project.AiProvenance = $"{clientName} via MCP";
                 var changeSummary = ProjectChangeSummarizer.Summarize(document.Project, patchOutcome.Project);
                 document.ReplaceProject(patchOutcome.Project, $"{clientName}: update track", undoable: true);
                 host.OnAgentEdit(clientName, $"updated {targetTrack.Name}");
-                return AppendWarnings(string.Join("\n", changeSummary), patchOutcome.Warnings);
+                return AppendWarnings(string.Join("\n", changeSummary), patchOutcome.Warnings.Concat(remediationLedger).ToList());
             }));
 
         Register("add_effect",
@@ -1444,6 +1457,7 @@ internal sealed class SlawMcpToolset
     {
         ["reset"] = Property("boolean", "true: start from an empty project (no tracks or clips, one empty scene, default master) before applying the rest."),
         ["bpm"] = Property("number", "Tempo, 40..300."),
+        ["swing"] = AnyProperty("Project swing in percent, 50..75: every odd sixteenth starts (swing - 50) / 50 of a step late. 50 = straight (default), 66.67 = triplet shuffle, 75 = dotted. null = straight."),
         ["name"] = Property("string", "Project name."),
         ["summary"] = Property("string", "Optional one-line description of the change, shown to the user."),
         ["scenes"] = ArrayOf(new JsonObject { ["type"] = "string" }, "Renames session scenes in order (never deletes)."),
@@ -1457,6 +1471,8 @@ internal sealed class SlawMcpToolset
             ["sample"] = Property("string", "WAV path for sampler tracks."),
             ["gain"] = Property("number", "0..1.5."),
             ["pan"] = Property("number", "-1..1."),
+            ["swing"] = AnyProperty("This track's own swing, 50..75 percent, overriding the project's; null = follow the project's swing."),
+            ["timing"] = Property("number", "Timing humanize, 0..50 ms: each step this track plays starts a random 0..timing ms late (0 = tight)."),
             ["muted"] = Property("boolean", "Mute."),
             ["solo"] = Property("boolean", "Solo."),
             ["instrumentParameters"] = Property("object", "Parameter key → number (see get_catalog; p<id> → 0..1 for vst3)."),

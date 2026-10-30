@@ -121,6 +121,7 @@ internal static class ProjectAlignmentRemediator
         project.Format = SlawProject.CurrentFormatIdentifier;
         project.Bpm = ClampWithLedger(project.Bpm, 40, 300, "bpm", remediationLedger);
         project.Steps = (int)ClampWithLedger(project.Steps <= 0 ? 16 : project.Steps, 1, MaximumStepCount, "steps", remediationLedger);
+        project.Swing = GrooveTiming.RemediateSwing(project.Swing, "swing", remediationLedger);
         project.Tracks ??= new List<SlawTrack>();
         project.Scenes ??= new List<string>();
         project.Arrangement ??= new List<ArrangementSection>();
@@ -396,6 +397,11 @@ internal static class ProjectAlignmentRemediator
 
         track.Gain = ClampWithLedger(track.Gain, 0, 1.5, $"{track.Name}.gain", remediationLedger);
         track.Pan = ClampWithLedger(track.Pan, -1, 1, $"{track.Name}.pan", remediationLedger);
+        if (track.Swing is { } trackSwing)
+        {
+            track.Swing = GrooveTiming.RemediateSwing(trackSwing, $"{track.Name}.swing", remediationLedger);
+        }
+        track.Timing = ClampWithLedger(track.Timing, 0, GrooveTiming.MaximumTimingMilliseconds, $"{track.Name}.timing", remediationLedger);
 
         track.InstrumentParameters ??= new Dictionary<string, double>();
         var realignedInstrumentParameters = track.Instrument == Plugins.DeviceTypes.Vst3

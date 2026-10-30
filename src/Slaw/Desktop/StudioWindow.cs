@@ -76,6 +76,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private readonly ToggleButton arrangementViewToggle = new() { Content = "Arrangement", Padding = new Thickness(12, 5) };
     private readonly Button playButton;
     private readonly NumericUpDown tempoInput = new() { Minimum = 40, Maximum = 300, Increment = 1, FormatString = "0", Width = 112, FontSize = 13 };
+    private readonly NumericUpDown swingInput = new()
+    {
+        Minimum = (decimal)GrooveTiming.StraightSwing,
+        Maximum = (decimal)GrooveTiming.MaximumSwing,
+        Increment = 1,
+        FormatString = "0.#",
+        Width = 112,
+        FontSize = 13,
+    };
     private readonly TextBox projectNameInput = new() { Width = 150, Watermark = "song title", VerticalAlignment = VerticalAlignment.Center };
     private readonly ToggleSwitch aiFeaturesSwitch = new() { OnContent = "AI", OffContent = "AI off", VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock routingChip = new() { VerticalAlignment = VerticalAlignment.Center, FontSize = 11 };
@@ -298,6 +307,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         AddTransportControl(ComposeRecordControls());
         AddTransportControl(ComposeComputerKeyboardControls());
         AddTransportControl(StudioUi.Row(6, StudioUi.Caption("BPM", 12), tempoInput));
+        ToolTip.SetTip(swingInput, "Swing, % of an eighth note: 50 straight, 66 triplet shuffle, 75 dotted. Delays every second sixteenth; tracks can override it in their Groove device.");
+        AddTransportControl(StudioUi.Row(6, StudioUi.Caption("Swing", 12), swingInput));
         ToolTip.SetTip(projectNameInput, "Song title");
         AddTransportControl(projectNameInput);
 
@@ -605,6 +616,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 document.Edit($"changed the tempo to {requestedTempo:0} BPM", project => project.Bpm = (double)requestedTempo);
             }
         };
+        swingInput.ValueChanged += (_, _) =>
+        {
+            var requestedSwing = (double)(swingInput.Value ?? (decimal)GrooveTiming.StraightSwing);
+            if (!synchronizingControls && requestedSwing != document.Project.Swing)
+            {
+                document.Edit(requestedSwing <= GrooveTiming.StraightSwing ? "straightened the groove" : $"swung the groove to {requestedSwing:0.#}%",
+                    project => project.Swing = Math.Clamp(requestedSwing, GrooveTiming.StraightSwing, GrooveTiming.MaximumSwing));
+            }
+        };
         projectNameInput.LostFocus += (_, _) =>
         {
             var revisedName = projectNameInput.Text?.Trim();
@@ -675,6 +695,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         synchronizingControls = true;
         tempoInput.Value = (decimal)document.Project.Bpm;
+        swingInput.Value = (decimal)document.Project.Swing;
         if (!projectNameInput.IsFocused)
         {
             projectNameInput.Text = document.Project.Name;
