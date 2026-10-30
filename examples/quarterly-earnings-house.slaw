@@ -160,20 +160,6 @@
       ]
     }
   ],
-  "arrangement": [
-    {
-      "scene": 0,
-      "repeats": 2
-    },
-    {
-      "scene": 1,
-      "repeats": 4
-    },
-    {
-      "scene": 2,
-      "repeats": 2
-    }
-  ],
   "master": {
     "gain": 0.9,
     "drive": 2.5,
@@ -183,6 +169,140 @@
     "delayMix": 0.15,
     "rationale": null
   },
+  "timeline": [
+    {
+      "id": "f48d4550",
+      "trackId": "7eb3120f",
+      "startStep": 0,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Wobble Bass",
+        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
+      },
+      "endStep": 32
+    },
+    {
+      "id": "3a9ad018",
+      "trackId": "c684b5ae",
+      "startStep": 0,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Wobble Bass",
+        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
+      },
+      "endStep": 32
+    },
+    {
+      "id": "345219df",
+      "trackId": "cb5dfb7f",
+      "startStep": 0,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Wobble Bass",
+        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
+      },
+      "endStep": 32
+    },
+    {
+      "id": "08a89095",
+      "trackId": "ffb4810c",
+      "startStep": 0,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Intro",
+        "pattern": ["C2", "C2", "C2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 32
+    },
+    {
+      "id": "63060843",
+      "trackId": "7eb3120f",
+      "startStep": 32,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Wobble Bass",
+        "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
+      },
+      "endStep": 96
+    },
+    {
+      "id": "b6132296",
+      "trackId": "c684b5ae",
+      "startStep": 32,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Wobble Bass",
+        "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
+      },
+      "endStep": 96
+    },
+    {
+      "id": "570bc5a9",
+      "trackId": "cb5dfb7f",
+      "startStep": 32,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Wobble Bass",
+        "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
+      },
+      "endStep": 96
+    },
+    {
+      "id": "b4b35768",
+      "trackId": "ffb4810c",
+      "startStep": 32,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Drop",
+        "pattern": ["C2", "C2", "C2", ".", "C2", "C2", "C2", ".", "C2", "C2", "C2", ".", "C2", "C2", "C2", "."]
+      },
+      "endStep": 96
+    },
+    {
+      "id": "f0004f7c",
+      "trackId": "7eb3120f",
+      "startStep": 96,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Outro",
+        "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "a7d29557",
+      "trackId": "c684b5ae",
+      "startStep": 96,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Outro",
+        "pattern": ["A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "6b53cc06",
+      "trackId": "cb5dfb7f",
+      "startStep": 96,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Outro",
+        "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "400f201b",
+      "trackId": "2db2f15c",
+      "startStep": 96,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Outro",
+        "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+      },
+      "endStep": 128
+    }
+  ],
   "aiProvenance": "qwen2.5:3b via Ollama (autopilot)",
   "stepDurationSeconds": 0.10714285714285714
 }

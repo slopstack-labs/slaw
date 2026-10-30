@@ -390,32 +390,6 @@
       ]
     }
   ],
-  "arrangement": [
-    {
-      "scene": 0,
-      "repeats": 2
-    },
-    {
-      "scene": 1,
-      "repeats": 2
-    },
-    {
-      "scene": 2,
-      "repeats": 4
-    },
-    {
-      "scene": 3,
-      "repeats": 2
-    },
-    {
-      "scene": 1,
-      "repeats": 1
-    },
-    {
-      "scene": 2,
-      "repeats": 4
-    }
-  ],
   "master": {
     "gain": 0.95,
     "drive": 1.8,
@@ -425,6 +399,338 @@
     "delayMix": 0.04,
     "rationale": null
   },
+  "timeline": [
+    {
+      "id": "f8e1c79c",
+      "trackId": "5e2f0214",
+      "startStep": 0,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Velocity Hats",
+        "pattern": [".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", "."]
+      },
+      "endStep": 32
+    },
+    {
+      "id": "27acc477",
+      "trackId": "d850f381",
+      "startStep": 0,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Visionary Pad",
+        "pattern": ["F3\u002BG#3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "C#3\u002BF3\u002BG#3", "_", "_", "_", "D#3\u002BG3\u002BA#3", "_", "_", "_"]
+      },
+      "endStep": 32
+    },
+    {
+      "id": "7e3c3a7c",
+      "trackId": "28b6fa71",
+      "startStep": 0,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Thought Leader Arp",
+        "pattern": ["F4", ".", "G#4", ".", "C5", ".", "F5", ".", "C5", ".", "G#4", ".", "F4", ".", "C5", "."]
+      },
+      "endStep": 32
+    },
+    {
+      "id": "52cd689a",
+      "trackId": "0f97553a",
+      "startStep": 32,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Half-Time Kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", "x"]
+      },
+      "endStep": 64
+    },
+    {
+      "id": "e989585e",
+      "trackId": "6e86daac",
+      "startStep": 32,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Snare of Accountability",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", ".", "x", "x", "x", "x"]
+      },
+      "endStep": 64
+    },
+    {
+      "id": "21e5b508",
+      "trackId": "5e2f0214",
+      "startStep": 32,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Velocity Hats",
+        "pattern": ["x", ".", "x", ".", "x", ".", "x", ".", "x", "x", "x", "x", "x", "x", "x", "x"]
+      },
+      "endStep": 64
+    },
+    {
+      "id": "d30d1bba",
+      "trackId": "28b6fa71",
+      "startStep": 32,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Thought Leader Arp",
+        "pattern": ["F4", "G#4", "C5", "F5", "F4", "G#4", "C5", "F5", "G4", "A#4", "C5", "G5", "G4", "A#4", "C5", "G5"]
+      },
+      "endStep": 64
+    },
+    {
+      "id": "8d5c58d9",
+      "trackId": "16c98825",
+      "startStep": 32,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Quarterly Riser",
+        "pattern": ["C4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 64
+    },
+    {
+      "id": "27a89b93",
+      "trackId": "0f97553a",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Half-Time Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "559191ac",
+      "trackId": "6e86daac",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare of Accountability",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "5825dbc0",
+      "trackId": "6586167d",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stakeholder Clap",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "629c66d9",
+      "trackId": "5e2f0214",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Velocity Hats",
+        "pattern": ["x", ".", "x", "x", ".", ".", "x", ".", "x", ".", "x", "x", ".", "x", "x", "x"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "a4eb4903",
+      "trackId": "ab93ae0f",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Wobble of Synergy",
+        "pattern": ["F1", "F1", "_", "F2", "F1", "_", "F1", "F1", "G#1", "_", "F1", "F2", "F1", "_", "D#1", "F1"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "1d8894eb",
+      "trackId": "88e0cf9a",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Growl Layer",
+        "pattern": [".", "F1", ".", ".", ".", "F1", ".", ".", ".", "F1", "_", ".", ".", "F1", ".", "F1"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "dc248fd4",
+      "trackId": "f60eb547",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub Ledger",
+        "pattern": ["F1", "_", "_", "_", "_", "_", "_", "_", "D#1", "_", "_", "_", "C#1", "_", "C1", "_"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "0511f305",
+      "trackId": "f60eb547",
+      "startStep": 128,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Sub Ledger",
+        "pattern": ["F1", "_", "_", "_", "_", "_", "_", "_", "C#1", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 160
+    },
+    {
+      "id": "dc620873",
+      "trackId": "d850f381",
+      "startStep": 128,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Visionary Pad",
+        "pattern": ["F3\u002BG#3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "C#3\u002BF3\u002BG#3", "_", "_", "_", "C3\u002BE3\u002BG3", "_", "_", "_"]
+      },
+      "endStep": 160
+    },
+    {
+      "id": "44494100",
+      "trackId": "28b6fa71",
+      "startStep": 128,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Thought Leader Arp",
+        "pattern": ["F5", ".", ".", "C5", ".", ".", "G#4", ".", "F5", ".", ".", "C#5", ".", ".", "C5", "."]
+      },
+      "endStep": 160
+    },
+    {
+      "id": "0adf2ff0",
+      "trackId": "0f97553a",
+      "startStep": 160,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Half-Time Kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", "x"]
+      },
+      "endStep": 176
+    },
+    {
+      "id": "17e18d4a",
+      "trackId": "6e86daac",
+      "startStep": 160,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Snare of Accountability",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", ".", "x", "x", "x", "x"]
+      },
+      "endStep": 176
+    },
+    {
+      "id": "46522eb3",
+      "trackId": "5e2f0214",
+      "startStep": 160,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Velocity Hats",
+        "pattern": ["x", ".", "x", ".", "x", ".", "x", ".", "x", "x", "x", "x", "x", "x", "x", "x"]
+      },
+      "endStep": 176
+    },
+    {
+      "id": "4a13434b",
+      "trackId": "28b6fa71",
+      "startStep": 160,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Thought Leader Arp",
+        "pattern": ["F4", "G#4", "C5", "F5", "F4", "G#4", "C5", "F5", "G4", "A#4", "C5", "G5", "G4", "A#4", "C5", "G5"]
+      },
+      "endStep": 176
+    },
+    {
+      "id": "ebda45cd",
+      "trackId": "16c98825",
+      "startStep": 160,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Quarterly Riser",
+        "pattern": ["C4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 176
+    },
+    {
+      "id": "0b004ea7",
+      "trackId": "0f97553a",
+      "startStep": 176,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Half-Time Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 240
+    },
+    {
+      "id": "6e630e97",
+      "trackId": "6e86daac",
+      "startStep": 176,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare of Accountability",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 240
+    },
+    {
+      "id": "40823c7b",
+      "trackId": "6586167d",
+      "startStep": 176,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stakeholder Clap",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x"]
+      },
+      "endStep": 240
+    },
+    {
+      "id": "f8f51d0e",
+      "trackId": "5e2f0214",
+      "startStep": 176,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Velocity Hats",
+        "pattern": ["x", ".", "x", "x", ".", ".", "x", ".", "x", ".", "x", "x", ".", "x", "x", "x"]
+      },
+      "endStep": 240
+    },
+    {
+      "id": "b0717686",
+      "trackId": "ab93ae0f",
+      "startStep": 176,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Wobble of Synergy",
+        "pattern": ["F1", "F1", "_", "F2", "F1", "_", "F1", "F1", "G#1", "_", "F1", "F2", "F1", "_", "D#1", "F1"]
+      },
+      "endStep": 240
+    },
+    {
+      "id": "42482714",
+      "trackId": "88e0cf9a",
+      "startStep": 176,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Growl Layer",
+        "pattern": [".", "F1", ".", ".", ".", "F1", ".", ".", ".", "F1", "_", ".", ".", "F1", ".", "F1"]
+      },
+      "endStep": 240
+    },
+    {
+      "id": "ad6bc351",
+      "trackId": "f60eb547",
+      "startStep": 176,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub Ledger",
+        "pattern": ["F1", "_", "_", "_", "_", "_", "_", "_", "D#1", "_", "_", "_", "C#1", "_", "C1", "_"]
+      },
+      "endStep": 240
+    }
+  ],
   "aiProvenance": "claude-code via MCP",
   "stepDurationSeconds": 0.10714285714285714
 }

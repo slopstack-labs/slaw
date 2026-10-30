@@ -16,6 +16,10 @@ dotnet src/Slaw/bin/Debug/net8.0/slaw.dll mcp song.slaw # headless MCP server ov
 - Installed Linux VST3s live in `/usr/lib/vst3`; real-plugin tests skip when they are absent.
 - Commits go straight to `main` (the user authorized it), in the slaw commit voice, ending with the `Co-Authored-By` trailer.
 
+## The model in one paragraph
+
+Two views, like Ableton Live. The **Session** holds clips by scene (`SlawTrack.Clips`, one slot per scene): loops to jam with and launch. The **Arrangement** is the song: one linear timeline (`SlawProject.Timeline`, see `FreeTimeline.cs`) of clips placed on a track at a start step for a length, in sixteenth-note steps, 16 per bar; a clip's pattern loops to fill its length. Only the arrangement is played by Play in the Arrangement view, bounced and rendered. Scenes are **not** the song order: `SlawProject.Arrangement` (a scene sequence) is legacy input only — remediation flattens it onto an empty timeline and drops it, and it is never written back. While the arrangement plays, launching a session clip takes that track over from the next bar (`TrackRuntimeState.OverridesArrangement`) until Back to Arrangement.
+
 ## Where things live
 
 | Area | Files |
@@ -25,7 +29,7 @@ dotnet src/Slaw/bin/Debug/net8.0/slaw.dll mcp song.slaw # headless MCP server ov
 | VST3 hosting | `src/Slaw/Plugins/` |
 | MCP | `src/Slaw/Mcp/` — `SlawMcpToolset.cs` (instructions, every tool), `ProtocolStandardOutput.cs` |
 | LLM prompts and workflows | `src/Slaw/Workflows/PromptLibrary.cs`, `ProductionWorkflows.cs` |
-| Studio UI | `src/Slaw/Desktop/` — `StudioWindow*.cs` partials, `DetailView*.cs`, views, `StudioShortcuts.cs` |
+| Studio UI | `src/Slaw/Desktop/` — `StudioWindow*.cs` partials (`StudioWindow.Timeline.cs` is the Arrangement's transport and keys), `SessionGridView.cs`, `ArrangementView.cs`, `DetailView*.cs`, `StudioShortcuts.cs` |
 | Audio/MIDI I/O | `src/Slaw/Playback/` |
 
 ## Keep these in sync
@@ -40,7 +44,7 @@ Several places describe the same thing to different readers (humans, the autopil
 | **Project format** (`SlawProject` fields) | remediator (validate, migrate old files); serializer round-trip; `PromptLibrary.DescribeProjectForPatching` (this is also `get_project`'s listing); `ProjectChangeSummarizer`; `apply_patch`; README "Project format"; open every `examples/*.slaw` once to check they still load and render |
 | **Devices** (instrument or effect in `DeviceCatalog` / `EffectProcessor.Create` / `InstrumentVoiceSynthesizer.SupportedInstruments`) | display name and description in `DeviceCatalog`; remediator synonyms (`ResolveInstrument`/`ResolveEffect`); README instruments/effects tables. Browser, knobs, `get_catalog` and automation targets read the catalog automatically — check they do |
 | **Clip envelope targets** (`ClipAutomation`) | `set_automation` description; `get_catalog` envelope paragraph; `PromptLibrary` automation bullet; README "Automation" table; engine `CompiledEnvelopes` |
-| **Timeline / arrangement behaviour** (`FreeTimeline`, engine transport) | `ServerInstructions` (agents struggle most here: units are sixteenth steps, 16 per bar, 0-based in arguments, 1-based bars in listings); `apply_patch`/`transport`/`render` descriptions; README; tests |
+| **Arrangement behaviour** (`FreeTimeline`, engine transport, session launches over the arrangement, the legacy `arrangement` scene-sequence key) | `ServerInstructions` (agents struggle most here: units are sixteenth steps, 16 per bar, 0-based in arguments, 1-based bars in listings; scenes are not the song order); `apply_patch`/`transport`/`render` descriptions; `PromptLibrary` (patch prompt, `DescribeProjectForPatching`, `DescribeArrangement`); remediator migration; README "Arrangement" section; `ArrangementTests` |
 | **Keyboard shortcuts** (`StudioShortcuts` table) | nothing else for the F1 sheet (generated from the table); README "Keyboard" section; tooltips that mention the key |
 | **CLI flags** (`CommandLineIntentParser`, `Program.cs`) | the flag lists in `CommandLineIntentParser`; `--help` text; README usage tables |
 | **Settings** (`StudioPreferences`, `SettingsWindow*`) | README "Settings" table |

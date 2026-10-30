@@ -124,7 +124,7 @@ slaw <command> [options]    # headless production pipeline
 | `--force-iterate N` | 0 | `compose`: proactively enhance output quality for N cycles even on success |
 | `--mcp` / `--mcp-port N` | off / `47115` | `studio`: expose the open project over MCP (HTTP on 127.0.0.1) |
 | `--plugin-folder DIR` | — | `studio`, `mcp`: also scan `DIR` for VST3 plugins this session (repeatable; or set `VST3_PATH`) |
-| `--view` | `session` | `studio`: starting view, `session`, `arrangement`, `free` (the free timeline), or `sample` (the first sampler's editor) |
+| `--view` | `session` | `studio`: starting view, `session`, `arrangement` (`free` still works, for stakeholders attached to the old name), or `sample` (the first sampler's editor) |
 | `--no-copilot` | false | `studio`: disable the unsolicited AI co-pilot (why would you). Flags override saved Settings for one session |
 | `--timeout N` | 300 | HTTP request timeout in seconds per LLM call (`0` = no timeout) |
 | `--verbose` | false | Verbose debug output |
@@ -205,9 +205,9 @@ A real-time, sample-accurate sequencer runs in-process and streams audio continu
 
 ### Window layout
 
-- **Toolbar** (top): New / Open… / Save / Bounce, Play/Stop, BPM, project title, the **Session / Arrangement** switch, a master **AI** switch, Settings (⚙), and a status chip showing the inference substrate ("● llama3 via Ollama" or "○ AI offline").
-- **Session view**: tracks are columns, scenes are rows. Each cell is a clip slot with a ▶ launch triangle; empty slots show a stop square, and double-clicking one creates a clip. Launches are **quantized to the next bar**, like a real DAW. The right-most column launches whole scenes (▶ per scene, editable scene names; right-click for *append to arrangement*, *duplicate*, *delete*) and holds the master fader and **Stop all clips**. Every track column ends in a **mixer strip**: stop button, pan knob, vertical volume fader with dB readout, Mute / Solo, a 🔒 **Protect from AI** lock, delete, and "✨ Name" (AI rename).
-- **Arrangement view**: the song as an ordered list of scene sections on a timeline with a lane per track. Each track has an editable header (name, M, S, 🔒 AI lock, volume slider). Each section header has a scene dropdown, −/+ repeats, ▶ play-from-here, move earlier/later, and remove. **+ Section** adds one. Click any block to open that track's clip for that scene in the piano roll and device chain below (the open clip is outlined wherever it appears in the timeline). Right-click a block for *Create clip*, *Edit clip*, *Delete clip*, or ✨ *Generate/Rewrite clip* with AI. Double-click a block to play from there. A green playhead sweeps the timeline.
+- **Toolbar** (top): New / Open… / Save / Bounce, Play/Stop (plus **⤺ Back to Arrangement** while session clips play over the song), BPM, project title, the **Session / Arrangement** switch, a master **AI** switch, Settings (⚙), and a status chip showing the inference substrate ("● llama3 via Ollama" or "○ AI offline").
+- **Session view**: tracks are columns, scenes are rows. Each cell is a clip slot with a ▶ launch triangle; empty slots show a stop square, and double-clicking one creates a clip. Launches are **quantized to the next bar**, like a real DAW. The right-most column launches whole scenes (▶ per scene, editable scene names; right-click for *place in arrangement at cursor*, *duplicate*, *delete*) and holds the master fader and **Stop all clips**. Every track column ends in a **mixer strip**: stop button, pan knob, vertical volume fader with dB readout, Mute / Solo, a 🔒 **Protect from AI** lock, delete, and "✨ Name" (AI rename).
+- **Arrangement view**: the song, as one timeline with a lane per track. Clips sit at any step, at any length. See **Arrangement** below.
 - **Detail view** (bottom): the clip editor. Melodic tracks get a polyphonic **piano roll** (click to add notes or chords, drag right to hold, click a note to select it, double- or right-click to delete, wheel or ▲▼ to scroll octaves); drums get a step row. A **Velocity** slider above the editor sets how hard the selected note or hit is struck. The keyboard strip along the left edge is playable: see **Note audition** below. Clip name, clip length (4-64 steps), Clear, ▶ Clip, and "✨ Rewrite" sit alongside. Next to the editor is the **device chain**: the instrument device with knobs (oscillators: Attack, Decay, Sustain, Release, Filter, Octave, Detune, AI Humanize; pluck: Length, Brightness, …; drums: Pitch, Decay, Tone, AI Humanize), then audio effects with knobs, on/off, reorder, remove, and **+ Effect**, and finally the **Master Bus** device (Drive, Lowpass, Delay time/feedback/mix, "✨ AI master"). Knobs the AI changed glow violet until you touch them.
 - **Browser** (left, AI on): lists instruments (click to add a track) and effects (click to add to the selected track), plus the AI actions. A **Samples** section lists your own WAVs (see **Your own samples**).
 - **AI panel** (right, AI on): the co-pilot transcript and the Autopilot chat box. See below.
@@ -253,7 +253,7 @@ slaw itself still ships zero samples. These are yours, and therefore your respon
 **MIDI import.** Open a `.mid` with **Open…**, drop it on the window, or run `slaw import song.mid`:
 
 - **Notes:** quantized to sixteenths. Channel 10 drums are split into kick, snare, clap and hat tracks, and General MIDI programs pick slaw instruments (basses → saw, pads → triangle, pianos and guitars → pluck…).
-- **Song structure:** the song is cut into 4-bar scenes, with repeated sections folded into arrangement repeats.
+- **Song structure:** the song is cut into 4-bar scenes, and the arrangement plays them back in the file's order (a repeated section becomes one longer arrangement clip).
 - **Single clip:** drop a `.mid` on a clip slot to fill just that clip.
 - **Agents:** the `import_midi` MCP tool does the same for agents.
 
@@ -265,7 +265,7 @@ After years of generating vocals, slaw now also accepts them from humans. A pilo
 
 1. **Arm a track.** Click **🎙 Audio Track** in the browser, which adds an empty track and arms it, or press **●** on any sampler track's mixer strip. One track can be armed at a time, because there is one microphone. While a track is armed, the 🎙 meter next to **● Rec** shows the input level, and it turns red when you clip.
 2. **Press ● Rec (F9).**
-   - If the transport is stopped, slaw launches the scene (or the arrangement, if you're in that view) and the take starts with it.
+   - If the transport is stopped, slaw launches the selected scene and the take starts with it. In the Arrangement view it plays the arrangement from the cursor instead, and the take lands on the arrangement where you sang it (long takes are sliced into consecutive 4-bar clips).
    - If the transport is already playing, the take punches in on the next step. A clip that wasn't playing yet joins on the next bar.
 3. **Stop the transport, or press ● Rec again,** to end the take.
 
@@ -300,10 +300,10 @@ claude mcp add slaw -- slaw mcp /path/to/song.slaw
 | Tool | Does |
 |------|------|
 | `get_project` / `get_catalog` | Describe the project (compact listing or full JSON), and list every instrument, effect and parameter range |
-| `apply_patch` | Apply a patch in the same format the Autopilot uses: tempo, scenes, arrangement, tracks (`"id": "new"` adds one), clips as `"x . . . x"` strings, clip envelopes, effects, master |
+| `apply_patch` | Apply a patch in the same format the Autopilot uses: tempo, scenes, tracks (`"id": "new"` adds one), session clips as `"x . . . x"` strings, clip envelopes, effects, master, and `timeline` (arrangement clips by track, start step and length). A legacy `arrangement` list of scenes replaces the whole arrangement with those scenes end to end |
 | `set_clip`, `set_automation`, `add_track`, `update_track`, `add_effect`, `set_tempo` | Focused edits (`set_automation` writes a clip envelope) |
-| `transport` | `play_scene`, `play_arrangement`, `stop` (live studio only) |
-| `render`, `save_project`, `undo`, `redo` | Bounce to WAV, save, history |
+| `transport` | `play_arrangement` (from a bar), `play_scene` (over a playing arrangement it takes those tracks over), `back_to_arrangement`, `stop` (live studio only) |
+| `render`, `save_project`, `undo`, `redo` | Bounce the arrangement to WAV, save, history |
 | `list_samples` | Your sample library, for sampler tracks |
 | `list_plugins` / `describe_plugin` | Installed VST3 plugins (and which folder each came from); one plugin's parameters as `p<id>` keys with titles |
 | `ask_copilot` | Ask slaw's own configured model for its opinion: an AI consulting an AI about music |
@@ -323,8 +323,8 @@ Almost everything can be dragged somewhere it makes sense. Drop targets glow gre
 | Sample or WAV file | empty space, or a non-sampler track | new sampler track(s) |
 | Folder (file manager) | anywhere | joins the sample library |
 | Clip | another clip slot | moves it; hold **Ctrl** (or Alt) to copy. Drum ↔ melodic notation is re-spelled for its new track. |
-| Scene ⠿ grip | the **Arrangement** button, a section, or **+ Section** | adds that scene to the song |
-| Arrangement section ⠿ grip | another section, or **+ Section** | reorders the song |
+| Scene ⠿ grip | the **Arrangement** button | adds the scene's clips at the end of the arrangement |
+| Scene ⠿ grip or a clip | the arrangement lanes | places them where you drop |
 | Effect device ⠿ grip | another device, or another track | reorders the chain, or moves the effect to that track (**Ctrl** copies) |
 
 Every drop is a single undoable edit.
@@ -389,19 +389,21 @@ For when in-house synthesis has been deemed insufficiently enterprise. slaw host
 
 Plugins run inside slaw's process with slaw's privileges. A plugin that crashes takes the studio with it; slopstack labs calls this *shared accountability*. Windows `.vst3` files cannot load on Linux, so slaw lists them as unavailable instead of dlopen-ing a DLL out of optimism.
 
-### Free timeline
+### Arrangement
 
-Scenes and sections are a governance framework. Some stakeholders prefer to work outside the framework. The **Free** view (next to Session and Arrangement; Tab cycles through all three, or start with `--view free`) is a plain timeline: put any clip at any step on any track, at any length, with no scenes and no sections.
+The song is one timeline. Scenes stay in the session, where they belong: a grid of loops to jam with, approved for creative exploration but no longer responsible for the song order. Tab toggles **Session / Arrangement** (or start with `--view arrangement`).
 
-- **Make clips:** double-click a lane to create a one-bar clip, drag a session clip in to place a copy (drag a whole scene in to place its whole row), or press **⇣ Import arrangement** to flatten the scene-based song onto the timeline as a starting point.
+- **Make clips:** double-click a lane to create a one-bar clip, drag a session clip in to place a copy (drag a whole scene in to place its whole row), use **＋ Scene at cursor** in the toolbar, or right-click a session clip or scene for *Place in arrangement at cursor*.
 - **Edit them:** drag to move, even onto another track. Moves snap to beats; hold Shift for bars or Alt for single steps. Drag a clip's right edge to make it longer: the pattern loops to fill the length, and dashed lines mark each pass. Ctrl+drag copies. Right-click to duplicate, rename, loop or delete.
 - **Same editor:** a selected clip opens in the detail view like any other clip, with the piano roll, step row and envelopes.
 - **Overlaps:** where two clips overlap on a track, the one that starts later plays. Nothing is trimmed, so moving it away reveals the clip underneath, intact. The later clip is also the one drawn on top.
 - **Ruler:** click to set the cursor, double-click to play from there, and drag to set the loop brace (**⟲ Loop** toggles it; right-click the ruler to clear it).
-- **Keys:** Space plays and stops from the cursor. Enter plays from the selected clip. Del, Ctrl+D (duplicate right after itself), Ctrl+C/X/V (paste at the cursor) act on timeline clips. Ctrl+wheel zooms; Shift+wheel scrolls.
-- **Bounce:** Bounce As… gains *Free timeline*. Agents use `"timeline"` in `apply_patch`, `transport` `play_timeline`, and `render` with `source: "timeline"`.
+- **Tracks:** hover a header for its ✕, or right-click it to rename, duplicate (with its session and arrangement clips), arm for recording or delete. Click a header and press Del to delete that track; Ctrl+Z brings it back, clips and all. Double-click a name to rename it in place.
+- **Keys:** Space plays and stops from the cursor. Enter plays from the selected clip. Del, Ctrl+D (duplicate right after itself), Ctrl+C/X/V (paste at the cursor) act on arrangement clips. Ctrl+wheel zooms; Shift+wheel scrolls.
 
-The timeline lives in the project file under `timeline` (and `timelineLoop`), and only once you use it. Scene-only projects stay byte-for-byte compliant.
+**Jamming over the song.** While the arrangement plays, launch any session clip or scene: on the next bar that track follows the session instead (its lane dims and its header shows an orange **▶ session**). Other tracks keep playing the arrangement. Stopping a track's clip silences it until you return. **⤺ Back to Arrangement** hands every track back on the next bar. Stopping the transport forgets the detour, so the next play is the arrangement as written. Launching a scene over the song only takes over the tracks that have a clip in it.
+
+Projects from before the arrangement was a timeline (a list of scenes with repeats) open with that list laid out on the timeline, one clip per track per section, sounding exactly as before. The list is not written back. Agents and the autopilot may still send one in a patch, and it replaces the arrangement with those scenes end to end.
 
 ### Mouse and knobs
 
@@ -409,7 +411,7 @@ The timeline lives in the project file under `timeline` (and `timelineLoop`), an
 |---------|--------|
 | Click a clip slot's ▶ | Launch the clip on the next bar |
 | Double-click an empty slot | Create a clip |
-| Right-click a scene | Append to arrangement / duplicate / delete |
+| Right-click a scene | Place in arrangement at cursor / duplicate / delete |
 | Click and hold a piano roll key | Audition the note on the track's instrument |
 | Drag along the piano roll keys | Glide between notes |
 | Click in the piano roll | Add a note or chord (previews while the mouse is held) |
@@ -419,9 +421,11 @@ The timeline lives in the project file under `timeline` (and `timelineLoop`), an
 | Double-click or right-click a note | Delete it |
 | Drag a drum hit up/down | Change its velocity (Shift+click selects a hit without toggling it) |
 | Mouse wheel (piano roll) | Scroll octaves |
-| Click an arrangement block | Open that track's clip for that scene in the editor below |
-| Right-click an arrangement block | Create / Edit / Delete clip, or ✨ Generate/Rewrite clip with AI |
-| Double-click an arrangement block | Play from there |
+| Click an arrangement clip | Select it and open it in the editor below |
+| Drag an arrangement clip / its right edge | Move it / loop its pattern longer (Ctrl copies) |
+| Double-click an empty arrangement lane | Create a one-bar clip there |
+| Right-click an arrangement clip | Edit / duplicate / rename / delete |
+| Right-click a track header | Rename / duplicate / arm / delete the track |
 | Double-click a sample in the browser | Add it as a new sampler track |
 | Right-click a sample in the browser | Add as new track / load into selected track / preview |
 | Drop WAV files or a folder on the window | Create sampler tracks / add folder to the sample library |
@@ -435,13 +439,13 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 
 | Shortcut | Action |
 |----------|--------|
-| Space | Play / stop. Session view launches the selected scene, Arrangement view plays the song |
-| Shift+Space | Play from the selected scene (Arrangement: its first section) |
+| Space | Play / stop. Session view launches the selected scene, Arrangement view plays the song from the cursor |
+| Shift+Space | Relaunch the selected scene right away (Arrangement: play from the cursor) |
 | Tab | Toggle Session / Arrangement |
 | Enter / Shift+Enter | Launch the selected clip / scene |
 | ↑ ↓ ← → | Move the clip selection |
 | Ctrl+D / Ctrl+Shift+D | Duplicate the selected clip into the next scene / duplicate the scene |
-| Delete / Backspace | Delete the selected clip |
+| Delete / Backspace | Delete the selected clip (Arrangement: the selected clip, or the track whose header you clicked last) |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste a clip into the selected slot |
 | Ctrl+Shift+M | Create an empty clip in the selected slot |
 | Ctrl+T / Ctrl+I | Add a track / a scene |
@@ -499,7 +503,7 @@ Settings persist in the per-user config folder (`~/.config/slaw/settings.json` o
 
 ### Project format
 
-A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `tracks[]` (`id`, `name`, `instrument`, `instrumentParameters`, `effects[]`, `clips[]`, `aiLocked`, plus gain, pan, mute), an `arrangement`, `master`, and `aiProvenance`. v1 files are migrated automatically on load. A sketch:
+A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `tracks[]` (`id`, `name`, `instrument`, `instrumentParameters`, `effects[]`, `clips[]`, `aiLocked`, plus gain, pan, mute), the arrangement as `timeline` (clips with `trackId`, `startStep`, `lengthSteps` and the `clip` itself), `master`, and `aiProvenance`. Older files with a scene list under `arrangement`, and v1 files, are migrated automatically on load. A sketch:
 
 ```json
 {
@@ -525,7 +529,10 @@ A `.slaw` project is plain JSON, currently `slaw-project/v2`: `scenes[]`, `track
       "clips": [{ "name": "Onboarding", "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", "."] }, null]
     }
   ],
-  "arrangement": [{ "scene": 0, "repeats": 2 }, { "scene": 1, "repeats": 4 }]
+  "timeline": [
+    { "id": "a1b2c3d4", "trackId": "84fbd7b5", "startStep": 0, "lengthSteps": 64,
+      "clip": { "name": "Verse bass", "pattern": ["A1", "_", ".", "A1", ".", ".", "A2", ".", "F1", "_", ".", "F1", ".", ".", "G1", "G2"] } }
+  ]
 }
 ```
 
