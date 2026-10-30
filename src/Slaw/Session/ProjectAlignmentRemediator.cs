@@ -422,6 +422,8 @@ internal static class ProjectAlignmentRemediator
                 zone.TuneCents = double.IsFinite(zone.TuneCents) ? Math.Clamp(zone.TuneCents, -1200, 1200) : 0;
                 zone.StartSeconds = double.IsFinite(zone.StartSeconds) ? Math.Max(0, zone.StartSeconds) : 0;
                 zone.EndSeconds = double.IsFinite(zone.EndSeconds) ? Math.Max(0, zone.EndSeconds) : 0;
+                zone.AttackOverride = zone.AttackOverride is { } attack && double.IsFinite(attack) ? Math.Clamp(attack, 0.5, 2000) : null;
+                zone.ReleaseOverride = zone.ReleaseOverride is { } release && double.IsFinite(release) ? Math.Clamp(release, 5, 4000) : null;
             }
         }
         if (track.Instrument == "multisampler" && track.SampleZones is not { Count: > 0 })

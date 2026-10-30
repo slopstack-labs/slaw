@@ -152,6 +152,7 @@ internal static class SoundImportPlanner
         rackTrack.Gain = 0.8;
         rackTrack.SampleZones = rack.Zones;
         rackTrack.InstrumentParameters = new Dictionary<string, double>(rack.InstrumentParameters);
+        rackTrack.Effects = rack.Effects;
         rackTrack.Clips[sceneIndex] = SlawClip.Empty(project.Scenes[sceneIndex], project.SceneLengthInSteps(sceneIndex));
         return rackTrack;
     }

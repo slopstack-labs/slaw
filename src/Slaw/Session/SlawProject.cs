@@ -308,7 +308,17 @@ internal sealed class SampleZone
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? RoundRobinGroup { get; set; }
 
-    public string Fingerprint => FormattableString.Invariant($"{Sample}|{RootNote}|{KeyLow}-{KeyHigh}|{VelocityLow}-{VelocityHigh}|{Gain:R}|{TuneCents:R}|{StartSeconds:R}|{EndSeconds:R}|{RoundRobinGroup}");
+    /// <summary>A layer's own envelope, where it differs from the track's knobs; null follows the knob.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? HoldOverride { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? AttackOverride { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? ReleaseOverride { get; set; }
+
+    public string Fingerprint => FormattableString.Invariant($"{Sample}|{RootNote}|{KeyLow}-{KeyHigh}|{VelocityLow}-{VelocityHigh}|{Gain:R}|{TuneCents:R}|{StartSeconds:R}|{EndSeconds:R}|{RoundRobinGroup}|{HoldOverride}|{AttackOverride:R}|{ReleaseOverride:R}");
 }
 
 internal sealed class SoundFontReference

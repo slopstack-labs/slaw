@@ -31,6 +31,7 @@ internal sealed class SoundImportWindow : Window
 
     private readonly Action<string> previewSound;
     private readonly Action<SoundImportRequest> import;
+    private readonly double projectBpm;
     private readonly List<SoundRow> rows = new();
     private readonly List<string> sourceFolders = new();
 
@@ -51,8 +52,9 @@ internal sealed class SoundImportWindow : Window
     private bool scanning;
     private CancellationTokenSource? scanCancellation;
 
-    public SoundImportWindow(Action<string> previewSound, Action<SoundImportRequest> import)
+    public SoundImportWindow(Action<string> previewSound, Action<SoundImportRequest> import, double projectBpm)
     {
+        this.projectBpm = projectBpm;
         this.previewSound = previewSound;
         this.import = import;
         Title = "slaw — Import sounds";
@@ -197,7 +199,7 @@ internal sealed class SoundImportWindow : Window
             Children =
             {
                 StudioUi.Caption("Bring them in as", 13, StudioTheme.Text, FontWeight.SemiBold),
-                ComposeModeCard(SoundImportMode.AbletonPreset, "Ableton preset", "One playable instrument per preset, with its key and velocity map. Effects and macros stay behind."),
+                ComposeModeCard(SoundImportMode.AbletonPreset, "Ableton preset", "One playable instrument per preset, with its key and velocity map, and its effects where slaw has them."),
                 ComposeModeCard(SoundImportMode.DrumKit, "Drum kit", "One track, one sound per key, starting on C4. Best for one-shots."),
                 ComposeModeCard(SoundImportMode.SeparateTracks, "Separate tracks", "A track for each sound, pitched across the keyboard."),
                 ComposeModeCard(SoundImportMode.SampleLibrary, "Sample library", "Keep the folder in Browser → Samples, and add nothing to this song yet."),
@@ -371,7 +373,7 @@ internal sealed class SoundImportWindow : Window
             {
                 if (row.IsPreset)
                 {
-                    row.Rack = AbletonRackImporter.Read(row.Path);
+                    row.Rack = AbletonRackImporter.Read(row.Path, projectBpm);
                     row.Kind = new SoundKind(row.Rack.Kind, 0);
                 }
                 else
@@ -549,7 +551,12 @@ internal sealed class SoundImportWindow : Window
             description += $" {missing} recording{(missing == 1 ? " was" : "s were")} not found.";
         }
         var leftOut = racks.SelectMany(rack => rack.LeftOut).Distinct().ToList();
-        return leftOut.Count > 0 ? $"{description} Left out: {string.Join(", ", leftOut)}." : description;
+        var effectCount = racks.Sum(rack => rack.Effects.Count);
+        if (effectCount > 0)
+        {
+            description += $" {effectCount} effect{(effectCount == 1 ? string.Empty : "s")} brought over as slaw's own.";
+        }
+        return leftOut.Count > 0 ? $"{description} Not brought over: {string.Join(", ", leftOut)}." : description;
     }
 
     private void ConfirmImport()

@@ -262,7 +262,7 @@ public class MultisamplerTests
             Assert.InRange(0.5 * rack.Zones[1].Gain, 0.75, 0.85);
             Assert.Contains("gone.wav", rack.MissingFiles);
             Assert.Contains("Chorus-Ensemble", rack.LeftOut);
-            Assert.Contains("1 macro", rack.LeftOut);
+            Assert.Contains(rack.LeftOut, note => note.StartsWith("1 macro knob", StringComparison.Ordinal));
         }
         finally
         {
@@ -291,6 +291,96 @@ public class MultisamplerTests
             Assert.Equal(2, rack.Zones.Count);
             Assert.Equal(0.1, rack.Zones[1].Gain / rack.Zones[0].Gain, 3);
             Assert.InRange(0.5 * rack.Zones[0].Gain, 0.75, 0.85);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    private static string Effect(string tag, string body) => $"""<AbletonDevicePreset><Device><{tag} Id="0">{body}</{tag}></Device></AbletonDevicePreset>""";
+
+    private static string Manual(string name, string value) => $"""<{name}><Manual Value="{value}" /></{name}>""";
+
+    [Fact]
+    public void EffectsThatChangeNothingAreSkippedAndTheRestBecomeSlawsOwn()
+    {
+        var folder = Directory.CreateTempSubdirectory("slaw-adg-").FullName;
+        try
+        {
+            WriteTone(folder, "a.wav", 220);
+            var devices = Simpler(Part("a.wav", 60, 0, 127, 1, 127))
+                + Effect("Delay", Manual("On", "true") + Manual("DryWet", "0") + Manual("Feedback", "0.5"))
+                + Effect("Chorus2", Manual("On", "true") + Manual("DryWet", "0"))
+                + Effect("AutoPan2", Manual("On", "true") + Manual("Modulation_Amount", "0"))
+                + Effect("Redux2", Manual("On", "false"))
+                + Effect("StereoGain", Manual("On", "true") + Manual("Gain", "1") + Manual("StereoWidth", "1"));
+            var silentChain = $"<InstrumentBranchPreset><DevicePresets>{devices}</DevicePresets></InstrumentBranchPreset>";
+
+            var skipped = AbletonRackImporter.Read(WritePreset(folder, "Inert.adg", Rack("InstrumentGroupDevice", silentChain)));
+            Assert.Empty(skipped.Effects);
+            Assert.Empty(skipped.LeftOut);
+
+            var wetDevices = Simpler(Part("a.wav", 60, 0, 127, 1, 127))
+                + Effect("Delay", Manual("On", "true") + Manual("DryWet", "0.4") + Manual("Feedback", "0.5") + Manual("DelayLine_SyncL", "true") + Manual("DelayLine_SyncedSixteenthL", "3"))
+                + Effect("Chorus2", Manual("On", "true") + Manual("DryWet", "0.5"));
+            var wetChain = $"<InstrumentBranchPreset><DevicePresets>{wetDevices}</DevicePresets></InstrumentBranchPreset>";
+
+            var wet = AbletonRackImporter.Read(WritePreset(folder, "Wet.adg", Rack("InstrumentGroupDevice", wetChain)));
+            var delay = Assert.Single(wet.Effects);
+            Assert.Equal(("delay", 3.0, 0.5, 0.4), (delay.Type, delay.Parameters["steps"], delay.Parameters["feedback"], delay.Parameters["mix"]));
+            Assert.Equal(new[] { "Chorus-Ensemble" }, wet.LeftOut);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void OnlyTheLoudestLayersEffectsGoOnTheTrackAndAQuieterLayersAreNamed()
+    {
+        var folder = Directory.CreateTempSubdirectory("slaw-adg-").FullName;
+        try
+        {
+            WriteTone(folder, "main.wav", 220);
+            WriteTone(folder, "quiet.wav", 330);
+            string Chain(string name, string file, string volume, string effectBody) => $"""
+                <InstrumentBranchPreset><Name Value="{name}" /><DevicePresets>{Simpler(Part(file, 60, 0, 127, 1, 127))}{Effect("Delay", effectBody)}</DevicePresets>
+                <MixerPreset><AbletonDevicePreset><Device><AudioBranchMixerDevice Id="0"><Speaker><Manual Value="true" /></Speaker><Volume><Manual Value="{volume}" /></Volume></AudioBranchMixerDevice></Device></AbletonDevicePreset></MixerPreset>
+                </InstrumentBranchPreset>
+                """;
+            var wetBody = Manual("On", "true") + Manual("DryWet", "0.3");
+
+            var rack = AbletonRackImporter.Read(WritePreset(folder, "Two.adg", Rack("InstrumentGroupDevice", Chain("Main", "main.wav", "1", wetBody) + Chain("Quiet", "quiet.wav", "0.1", wetBody))));
+
+            Assert.Equal("delay", Assert.Single(rack.Effects).Type);
+            Assert.Contains("Delay on Quiet", rack.LeftOut);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ALayerWithItsOwnReleaseKeepsItAndARingingLayerOutlastsAShortOne()
+    {
+        var folder = Directory.CreateTempSubdirectory("slaw-zones-").FullName;
+        try
+        {
+            var tone = WriteTone(folder, "tone.wav", 220);
+            float[] Render(double? releaseOverride)
+            {
+                var project = OneSceneProject();
+                var track = Track(project, new List<SampleZone> { new() { Sample = tone, RootNote = 60, ReleaseOverride = releaseOverride } }, (0, "C4"));
+                track.InstrumentParameters["hold"] = 1;
+                track.InstrumentParameters["release"] = 2000;
+                return OfflineArrangementRenderer.Render(project, SampleRate).Left;
+            }
+            int LastAudibleFrame(float[] render) => Array.FindLastIndex(render, sample => Math.Abs(sample) > 0.002);
+
+            Assert.True(LastAudibleFrame(Render(10)) + SampleRate / 2 < LastAudibleFrame(Render(null)), "a short layer stops long before the knob's long release would");
         }
         finally
         {

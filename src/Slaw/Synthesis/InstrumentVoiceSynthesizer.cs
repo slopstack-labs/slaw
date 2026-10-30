@@ -235,7 +235,16 @@ internal static partial class InstrumentVoiceSynthesizer
         var regionStart = Math.Clamp((int)(strike.Zone.StartSeconds * sourceRate), 0, sourceSamples.Length);
         var regionEnd = strike.Zone.EndSeconds > 0 ? Math.Clamp((int)(strike.Zone.EndSeconds * sourceRate), regionStart, sourceSamples.Length) : sourceSamples.Length;
         var semitoneOffset = strike.MidiNote - strike.Zone.RootNote + strike.Zone.TuneCents / 100 + parameter("transpose");
-        return RenderSampleRegion(sourceSamples, sourceRate, regionStart, regionEnd, semitoneOffset, gateDurationSeconds, sampleRate, parameter, null, strike.Zone.Gain);
+        // A layer may keep its own envelope; everything else, and every zone without one, follows the track's knobs.
+        var zone = strike.Zone;
+        double ZoneParameter(string parameterKey) => parameterKey switch
+        {
+            "hold" when zone.HoldOverride is { } hold => hold ? 1 : 0,
+            "attack" when zone.AttackOverride is { } attack => attack,
+            "release" when zone.ReleaseOverride is { } release => release,
+            _ => parameter(parameterKey),
+        };
+        return RenderSampleRegion(sourceSamples, sourceRate, regionStart, regionEnd, semitoneOffset, gateDurationSeconds, sampleRate, ZoneParameter, null, zone.Gain);
     }
 
     private static float[] RenderSampleRegion(

@@ -23,7 +23,7 @@ internal sealed partial class StudioWindow
         }
         else
         {
-            soundImportWindow = new SoundImportWindow(PreviewSampleFile, request => _ = ImportSoundsAsync(request));
+            soundImportWindow = new SoundImportWindow(PreviewSampleFile, request => _ = ImportSoundsAsync(request), document.Project.Bpm);
             soundImportWindow.Closed += (_, _) => soundImportWindow = null;
             soundImportWindow.Show(this);
         }
@@ -137,8 +137,8 @@ internal sealed partial class StudioWindow
         SetStatus(missing > 0 ? StatusSeverity.Warning : StatusSeverity.Success,
             $"imported {string.Join(" and ", racks.Select(rack => rack.Name))}. Keys A to ; play it" +
             (missing > 0 ? $", {missing} recording(s) not found" : string.Empty) +
-            (leftOut.Count > 0 ? $", {leftOut.Count} thing(s) left out (hover to see)" : string.Empty) + ". Ctrl+Z removes it");
-        ToolTip.SetTip(statusText, leftOut.Count > 0 ? $"Left out: {string.Join(", ", leftOut)}" : null);
+            (leftOut.Count > 0 ? $", {leftOut.Count} thing(s) not brought over (hover to see)" : string.Empty) + ". Ctrl+Z removes it");
+        ToolTip.SetTip(statusText, leftOut.Count > 0 ? $"Not brought over: {string.Join(", ", leftOut)}" : null);
     }
 
     private void ImportSeparateTracks(SoundImportRequest request)
