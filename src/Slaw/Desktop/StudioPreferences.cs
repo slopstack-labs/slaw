@@ -4,6 +4,9 @@ using SlopstackLabs.Slaw.Session;
 
 namespace SlopstackLabs.Slaw.Desktop;
 
+/// <summary>A window's place on the desktop: position in screen pixels, size in layout units.</summary>
+internal sealed record StudioWindowBounds(int X, int Y, double Width, double Height);
+
 /// <summary>
 /// Per-user studio settings, persisted as JSON in the platform's application
 /// data folder (~/.config/slaw on Linux). Command-line flags override them for
@@ -73,6 +76,17 @@ internal sealed class StudioPreferences
     public bool BrowserHidden { get; set; }
     public bool AiPanelHidden { get; set; }
     public bool DetailPanelHidden { get; set; }
+    public bool SessionMixerHidden { get; set; }
+
+    /// <summary>Where the splitters were left. Clamped when applied, so a hand-edited file cannot hide a panel.</summary>
+    public double BrowserPanelWidth { get; set; } = 196;
+    public double AiPanelWidth { get; set; } = 300;
+    public double DetailPanelHeight { get; set; } = 330;
+
+    /// <summary>The second window: open or not, whether it holds the clip and devices panel, and where it was.</summary>
+    public bool SecondWindowOpen { get; set; }
+    public bool DetailInSecondWindow { get; set; }
+    public StudioWindowBounds? SecondWindowBounds { get; set; }
 
     public static string PreferencesFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create),
@@ -104,6 +118,32 @@ internal sealed class StudioPreferences
         }
         Directory.CreateDirectory(Path.GetDirectoryName(PreferencesFilePath)!);
         File.WriteAllText(PreferencesFilePath, JsonSerializer.Serialize(persistedPreferences, ProjectSerializer.LenientSerializationOptions));
+    }
+
+    /// <summary>
+    /// Writes the panels and windows and nothing else. These change while the studio
+    /// runs and on the way out, and this object may be carrying command-line overrides
+    /// (--mcp, --model, …) that must not outlive the session.
+    /// </summary>
+    public void SaveWindowLayout()
+    {
+        var persistedPreferences = Load();
+        CopyWindowLayoutTo(persistedPreferences);
+        persistedPreferences.Save();
+    }
+
+    public void CopyWindowLayoutTo(StudioPreferences otherPreferences)
+    {
+        otherPreferences.BrowserHidden = BrowserHidden;
+        otherPreferences.AiPanelHidden = AiPanelHidden;
+        otherPreferences.DetailPanelHidden = DetailPanelHidden;
+        otherPreferences.SessionMixerHidden = SessionMixerHidden;
+        otherPreferences.BrowserPanelWidth = BrowserPanelWidth;
+        otherPreferences.AiPanelWidth = AiPanelWidth;
+        otherPreferences.DetailPanelHeight = DetailPanelHeight;
+        otherPreferences.SecondWindowOpen = SecondWindowOpen;
+        otherPreferences.DetailInSecondWindow = DetailInSecondWindow;
+        otherPreferences.SecondWindowBounds = SecondWindowBounds;
     }
 
     public StudioPreferences Clone()

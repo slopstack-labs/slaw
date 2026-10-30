@@ -30,6 +30,9 @@ internal sealed class SessionGridView : UserControl
         Rebuild();
     }
 
+    /// <summary>Hides the strips along the bottom, for when the clips need the room more than the faders do.</summary>
+    public bool MixerStripsHidden { get; set; }
+
     public void Rebuild()
     {
         clipSlots.Clear();
@@ -64,7 +67,10 @@ internal sealed class SessionGridView : UserControl
             {
                 Place(sessionGrid, ComposeClipSlot(track, trackIndex, sceneIndex), sceneIndex + 1, trackIndex);
             }
-            Place(sessionGrid, ComposeMixerStrip(track, trackIndex), mixerRowIndex, trackIndex);
+            if (!MixerStripsHidden)
+            {
+                Place(sessionGrid, ComposeMixerStrip(track, trackIndex), mixerRowIndex, trackIndex);
+            }
         }
 
         var masterHeader = StudioUi.Panel(StudioUi.Caption("Scenes", 12, StudioTheme.Text, FontWeight.Bold), new Thickness(10, 8));
@@ -74,7 +80,10 @@ internal sealed class SessionGridView : UserControl
             Place(sessionGrid, ComposeSceneLauncher(sceneIndex), sceneIndex + 1, trackCount);
         }
         Place(sessionGrid, StudioUi.Button("+ Scene", document.AddScene, "Add an empty scene row", compact: true), sceneCount + 1, trackCount);
-        Place(sessionGrid, ComposeMasterStrip(), mixerRowIndex, trackCount);
+        if (!MixerStripsHidden)
+        {
+            Place(sessionGrid, ComposeMasterStrip(), mixerRowIndex, trackCount);
+        }
 
         var addTrackButton = StudioUi.Button("+", () => document.AddTrack("sine"), "Add a track (or pick an instrument in the browser)");
         addTrackButton.VerticalAlignment = VerticalAlignment.Top;

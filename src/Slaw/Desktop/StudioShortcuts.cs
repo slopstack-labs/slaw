@@ -9,6 +9,13 @@ internal enum StudioCommand
     TogglePlayback,
     PlayFromSelection,
     SwitchView,
+    ToggleBrowser,
+    ToggleDetailPanel,
+    ToggleAiPanel,
+    ToggleSessionMixer,
+    ToggleSecondWindow,
+    ToggleDetailInSecondWindow,
+    ToggleFullScreen,
     LaunchSelection,
     LaunchSelectedScene,
     ToggleRecord,
@@ -70,12 +77,20 @@ internal static class StudioShortcutMap
 {
     private const KeyModifiers Command = KeyModifiers.Control;
     private const KeyModifiers CommandShift = KeyModifiers.Control | KeyModifiers.Shift;
+    private const KeyModifiers CommandAlt = KeyModifiers.Control | KeyModifiers.Alt;
 
     public static readonly IReadOnlyList<StudioShortcut> All = new StudioShortcut[]
     {
         new(StudioCommand.TogglePlayback, Key.Space, KeyModifiers.None, "Play / stop", ShortcutReach.Global),
         new(StudioCommand.PlayFromSelection, Key.Space, KeyModifiers.Shift, "Play from the selected scene", ShortcutReach.Global),
-        new(StudioCommand.SwitchView, Key.Tab, KeyModifiers.None, "Switch Session / Arrangement view", ShortcutReach.Global),
+        new(StudioCommand.SwitchView, Key.Tab, KeyModifiers.None, "Switch Session / Arrangement view (with two windows: swap them)", ShortcutReach.Global),
+        // Global, not Everywhere: Ctrl+Alt is AltGr on many keyboards, and a text field may want that µ.
+        new(StudioCommand.ToggleBrowser, Key.B, CommandAlt, "Show / hide the browser", ShortcutReach.Global),
+        new(StudioCommand.ToggleDetailPanel, Key.L, CommandAlt, "Show / hide the clip and devices panel", ShortcutReach.Global),
+        new(StudioCommand.ToggleSessionMixer, Key.M, CommandAlt, "Show / hide the Session view's mixer strips", ShortcutReach.Global),
+        new(StudioCommand.ToggleAiPanel, Key.I, CommandAlt, "Show / hide the AI co-pilot panel", ShortcutReach.Global),
+        new(StudioCommand.ToggleSecondWindow, Key.W, CommandShift, "Open / close the second window", ShortcutReach.Global),
+        new(StudioCommand.ToggleFullScreen, Key.F11, KeyModifiers.None, "Full screen for the focused window", ShortcutReach.Global),
         new(StudioCommand.LaunchSelection, Key.Enter, KeyModifiers.None, "Launch the selected clip (Arrangement: play from it)"),
         new(StudioCommand.LaunchSelectedScene, Key.Enter, KeyModifiers.Shift, "Launch the selected scene"),
         new(StudioCommand.Dismiss, Key.Escape, KeyModifiers.None, "Stop notes, leave text fields, close overlays", ShortcutReach.Everywhere),
@@ -144,6 +159,7 @@ internal static class StudioShortcutMap
             _ => shortcut.Key.ToString(),
         };
         var modifierPrefix = (shortcut.Modifiers.HasFlag(KeyModifiers.Control) ? "Ctrl+" : string.Empty) +
+                             (shortcut.Modifiers.HasFlag(KeyModifiers.Alt) ? "Alt+" : string.Empty) +
                              (shortcut.Modifiers.HasFlag(KeyModifiers.Shift) ? "Shift+" : string.Empty);
         return modifierPrefix + keyName;
     }

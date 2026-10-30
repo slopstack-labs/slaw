@@ -61,7 +61,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private int editsSinceLastInterjection;
     private bool closeArmed;
     private bool synchronizingControls;
-    private bool arrangementViewActive;
 
     // ── Views and controls ────────────────────────────────────────────────────
 
@@ -69,7 +68,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private readonly ArrangementView arrangementView;
     private readonly Button backToArrangementButton;
     private readonly DetailView detailView;
-    private readonly ContentControl mainViewHost = new();
     private readonly ContentControl browserHost = new();
     private readonly ContentControl aiPanelHost = new();
     private readonly ToggleButton sessionViewToggle = new() { Content = "Session", Padding = new Thickness(12, 5) };
@@ -158,19 +156,18 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             }
         };
 
-        sessionView = new SessionGridView(document, this);
+        sessionView = new SessionGridView(document, this) { MixerStripsHidden = preferences.SessionMixerHidden };
         arrangementView = new ArrangementView(document, this);
         detailView = new DetailView(document, this);
+        mainPane = new StudioWorkspacePane(preferences.DetailPanelHeight);
+        detailView.MinimumHeightRequested += requestedHeight => DetailPane.GrowDetailTo(requestedHeight);
 
         Content = ComposeLayout();
         WireDocument();
         WireControls();
 
         transportTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => AdvanceTransportDisplay());
-        WireKeyboard();
-        DragDrop.SetAllowDrop(this, true);
-        AddHandler(DragDrop.DragOverEvent, HandleDragOver);
-        AddHandler(DragDrop.DropEvent, HandleDrop);
+        WireStudioInput(this);
         sampleFilterInput.TextChanged += (_, _) => PopulateSampleEntries();
         Closing += HandleWindowClosing;
         Opened += (_, _) =>
@@ -179,9 +176,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             StartLiveAudio();
             ApplyMcpServerPreference();
             ApplyMidiInputPreference();
+            if (preferences.SecondWindowOpen)
+            {
+                OpenSecondWindow();
+                Activate();
+            }
         };
         Closed += (_, _) =>
         {
+            CloseSecondWindowWithStudio();
             sessionLifetimeCancellation.Cancel();
             transportTimer.Stop();
             mcpHttpTransport?.Dispose();
@@ -241,44 +244,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         DockPanel.SetDock(statusBar, Dock.Bottom);
         rootLayout.Children.Add(statusBar);
 
-        var browserContainer = browserPanel = new Border
-        {
-            IsVisible = !preferences.BrowserHidden,
-            Width = 196,
-            Background = StudioTheme.Surface,
-            BorderBrush = StudioTheme.Border,
-            BorderThickness = new Thickness(0, 0, 1, 0),
-            Child = browserHost,
-        };
-        DockPanel.SetDock(browserContainer, Dock.Left);
-        rootLayout.Children.Add(browserContainer);
-
-        DockPanel.SetDock(aiPanelHost, Dock.Right);
-        rootLayout.Children.Add(aiPanelHost);
-
-        var workspaceLayout = new Grid { RowDefinitions = new RowDefinitions("*,5,330") };
-        var detailRowDefinition = workspaceLayout.RowDefinitions[2];
-        detailPanelRow = detailRowDefinition;
-        detailView.MinimumHeightRequested += requestedHeight =>
-        {
-            // Grow for the sample editor, but never shrink below what the user dragged it to,
-            // and always leave the session/arrangement view some room.
-            var workspaceHeight = workspaceLayout.Bounds.Height > 0 ? workspaceLayout.Bounds.Height : Height - 140;
-            var availableHeight = Math.Max(200, workspaceHeight - 180);
-            var targetHeight = Math.Min(requestedHeight, availableHeight);
-            if (detailRowDefinition.Height.Value < targetHeight)
-            {
-                detailRowDefinition.Height = new GridLength(targetHeight, GridUnitType.Pixel);
-            }
-        };
-        var horizontalSplitter = detailPanelSplitter = new GridSplitter { Background = StudioTheme.Border, ResizeDirection = GridResizeDirection.Rows };
-        var detailContainer = detailPanelContainer = new Border { Background = StudioTheme.Background, Child = detailView };
-        Grid.SetRow(horizontalSplitter, 1);
-        Grid.SetRow(detailContainer, 2);
-        workspaceLayout.Children.Add(mainViewHost);
-        workspaceLayout.Children.Add(horizontalSplitter);
-        workspaceLayout.Children.Add(detailContainer);
-        rootLayout.Children.Add(workspaceLayout);
+        rootLayout.Children.Add(ComposePanelColumns());
         ApplyPanelVisibility();
         return rootLayout;
     }
@@ -331,7 +297,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private Control ComposeStatusBar()
     {
         var statusLayout = new DockPanel();
-        var rightGroup = StudioUi.Row(10, audioStatusText, waveformScope);
+        var rightGroup = StudioUi.Row(10, audioStatusText, waveformScope, ComposePanelSelectors());
         DockPanel.SetDock(rightGroup, Dock.Right);
         statusLayout.Children.Add(rightGroup);
         statusLayout.Children.Add(StudioUi.Row(10, inferenceActivityIndicator, cancelInferenceButton, statusText));
@@ -517,7 +483,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         return new Border
         {
-            Width = 300,
             Background = StudioTheme.Surface,
             BorderBrush = StudioTheme.Border,
             BorderThickness = new Thickness(1, 0, 0, 0),
@@ -672,7 +637,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         inferenceDependentControls.Clear();
         browserHost.Content = ComposeBrowser();
         aiPanelHost.Content = AiFeaturesEnabled ? ComposeAiPanel() : null;
-        aiPanelHost.IsVisible = AiFeaturesEnabled && !preferences.AiPanelHidden;
+        ApplyPanelVisibility();
         routingChipContainer.IsVisible = AiFeaturesEnabled;
         if (!AiFeaturesEnabled)
         {
@@ -685,8 +650,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private void SelectMainView(bool arrangementView)
     {
-        arrangementViewActive = arrangementView;
-        mainViewHost.Content = arrangementView ? this.arrangementView : sessionView;
+        mainWindowShowsArrangement = arrangementView;
+        ArrangeWorkspaces();
         sessionViewToggle.IsChecked = !arrangementView;
         arrangementViewToggle.IsChecked = arrangementView;
     }

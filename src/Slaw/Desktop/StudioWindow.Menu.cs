@@ -15,11 +15,6 @@ namespace SlopstackLabs.Slaw.Desktop;
 internal sealed partial class StudioWindow
 {
     private string? lastBouncePath;
-    private Border? browserPanel;
-    private RowDefinition? detailPanelRow;
-    private GridSplitter? detailPanelSplitter;
-    private Border? detailPanelContainer;
-    private GridLength detailPanelHeightBeforeHiding = new(330, GridUnitType.Pixel);
 
     private Control ComposeMenuBar()
     {
@@ -119,6 +114,15 @@ internal sealed partial class StudioWindow
             },
         };
 
+        var checkedViewItems = new List<(MenuItem Item, Func<bool> IsOn)>();
+        MenuItem CheckedCommandItem(string header, StudioCommand studioCommand, Func<bool> isOn)
+        {
+            var checkedItem = CommandItem(header, studioCommand);
+            checkedItem.ToggleType = MenuItemToggleType.CheckBox;
+            checkedViewItems.Add((checkedItem, isOn));
+            return checkedItem;
+        }
+
         var viewMenu = new MenuItem
         {
             Header = "_View",
@@ -130,10 +134,22 @@ internal sealed partial class StudioWindow
                 new Separator(),
                 CommandItem("Computer MIDI _Keyboard", StudioCommand.ToggleComputerKeyboard),
                 new Separator(),
-                PanelToggleItem("_Browser", () => !preferences.BrowserHidden, shown => preferences.BrowserHidden = !shown),
-                PanelToggleItem("Clip && _Devices Panel", () => !preferences.DetailPanelHidden, shown => preferences.DetailPanelHidden = !shown),
-                PanelToggleItem("AI _Co-Pilot Panel", () => !preferences.AiPanelHidden, shown => preferences.AiPanelHidden = !shown),
+                CheckedCommandItem("_Browser", StudioCommand.ToggleBrowser, () => !preferences.BrowserHidden),
+                CheckedCommandItem("Clip && _Devices Panel", StudioCommand.ToggleDetailPanel, () => !preferences.DetailPanelHidden),
+                CheckedCommandItem("Session _Mixer", StudioCommand.ToggleSessionMixer, () => !preferences.SessionMixerHidden),
+                CheckedCommandItem("AI _Co-Pilot Panel", StudioCommand.ToggleAiPanel, () => !preferences.AiPanelHidden),
+                new Separator(),
+                CheckedCommandItem("Second _Window", StudioCommand.ToggleSecondWindow, () => secondWindow is not null),
+                CheckedCommandItem("Clip && Devices in Second Window", StudioCommand.ToggleDetailInSecondWindow, () => secondWindow is not null && preferences.DetailInSecondWindow),
+                CheckedCommandItem("_Full Screen", StudioCommand.ToggleFullScreen, () => FocusedStudioWindow.WindowState == WindowState.FullScreen),
             },
+        };
+        viewMenu.SubmenuOpened += (_, _) =>
+        {
+            foreach (var (checkedItem, isOn) in checkedViewItems)
+            {
+                checkedItem.IsChecked = isOn();
+            }
         };
 
         var helpMenu = new MenuItem
@@ -151,41 +167,6 @@ internal sealed partial class StudioWindow
             Padding = new Thickness(6, 0),
             Items = { fileMenu, editMenu, createMenu, viewMenu, helpMenu },
         };
-    }
-
-    /// <summary>A checkable View-menu item that shows or hides a panel and remembers the choice.</summary>
-    private MenuItem PanelToggleItem(string header, Func<bool> isShown, Action<bool> setShown)
-    {
-        var toggleItem = new MenuItem { Header = header, ToggleType = MenuItemToggleType.CheckBox, IsChecked = isShown() };
-        toggleItem.Click += (_, _) =>
-        {
-            setShown(!isShown());
-            toggleItem.IsChecked = isShown();
-            preferences.Save();
-            ApplyPanelVisibility();
-        };
-        return toggleItem;
-    }
-
-    private void ApplyPanelVisibility()
-    {
-        if (browserPanel is not null)
-        {
-            browserPanel.IsVisible = !preferences.BrowserHidden;
-        }
-        aiPanelHost.IsVisible = AiFeaturesEnabled && !preferences.AiPanelHidden;
-        if (detailPanelRow is null || detailPanelSplitter is null || detailPanelContainer is null)
-        {
-            return;
-        }
-        var detailShown = !preferences.DetailPanelHidden;
-        if (!detailShown && detailPanelRow.Height.Value > 0)
-        {
-            detailPanelHeightBeforeHiding = detailPanelRow.Height;
-        }
-        detailPanelRow.Height = detailShown ? detailPanelHeightBeforeHiding : new GridLength(0);
-        detailPanelSplitter.IsVisible = detailShown;
-        detailPanelContainer.IsVisible = detailShown;
     }
 
     private async Task ImportMidiFromPickerAsync()

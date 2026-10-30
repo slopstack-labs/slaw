@@ -38,16 +38,20 @@ internal sealed partial class StudioWindow
 
     private bool ComputerKeyboardActive => computerKeyboardToggle?.IsChecked == true;
 
-    private void WireKeyboard()
+    /// <summary>Every studio window takes the same keys and drops, so the second one is not a lesser citizen.</summary>
+    private void WireStudioInput(Window studioWindow)
     {
-        AddHandler(KeyDownEvent, HandleWindowKeyDown, RoutingStrategies.Tunnel);
-        AddHandler(KeyUpEvent, HandleWindowKeyUp, RoutingStrategies.Tunnel);
-        AddHandler(PointerPressedEvent, HandleWindowPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
-        Deactivated += (_, _) => ReleaseHeldKeys();
+        studioWindow.AddHandler(KeyDownEvent, HandleWindowKeyDown, RoutingStrategies.Tunnel);
+        studioWindow.AddHandler(KeyUpEvent, HandleWindowKeyUp, RoutingStrategies.Tunnel);
+        studioWindow.AddHandler(PointerPressedEvent, HandleWindowPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        studioWindow.Deactivated += (_, _) => ReleaseHeldKeys();
+        DragDrop.SetAllowDrop(studioWindow, true);
+        studioWindow.AddHandler(DragDrop.DragOverEvent, HandleDragOver);
+        studioWindow.AddHandler(DragDrop.DropEvent, HandleDrop);
 
         // A clicked button keeps focus and re-fires on Enter; in a DAW the keyboard
         // belongs to the transport, so buttons are mouse-only.
-        Styles.Add(new Style(selector => selector.Is<Button>())
+        studioWindow.Styles.Add(new Style(selector => selector.Is<Button>())
         {
             Setters = { new Setter(InputElement.FocusableProperty, false) },
         });
@@ -93,7 +97,8 @@ internal sealed partial class StudioWindow
 
     private void HandleWindowKeyDown(object? sender, KeyEventArgs keyEvent)
     {
-        var focusedElement = FocusManager?.GetFocusedElement();
+        var windowFocusManager = (sender as TopLevel)?.FocusManager;
+        var focusedElement = windowFocusManager?.GetFocusedElement();
         var typingInTextField = focusedElement is TextBox;
         var controlOwnsKeys = typingInTextField ||
                               focusedElement is SelectingItemsControl or RangeBase or NumericUpDown or SelectableTextBlock or WaveformEditorControl;
@@ -101,7 +106,7 @@ internal sealed partial class StudioWindow
         if (typingInTextField && keyEvent.Key == Key.Enter && focusedElement is TextBox { AcceptsReturn: false } singleLineInput && singleLineInput != aiInstructionInput)
         {
             // Enter commits a name or a tempo and hands the keyboard back to the transport.
-            Dispatcher.UIThread.Post(() => FocusManager?.ClearFocus(), DispatcherPriority.Input);
+            Dispatcher.UIThread.Post(() => windowFocusManager?.ClearFocus(), DispatcherPriority.Input);
             return;
         }
 
@@ -146,7 +151,8 @@ internal sealed partial class StudioWindow
     /// </summary>
     private void HandleWindowPointerPressed(object? sender, PointerPressedEventArgs pointerEvent)
     {
-        if (FocusManager?.GetFocusedElement() is null)
+        var windowFocusManager = (sender as TopLevel)?.FocusManager;
+        if (windowFocusManager?.GetFocusedElement() is null)
         {
             return;
         }
@@ -156,7 +162,7 @@ internal sealed partial class StudioWindow
             .Any(visual => visual is InputElement { Focusable: true, IsEffectivelyEnabled: true }) == true;
         if (!landsOnFocusableControl)
         {
-            FocusManager?.ClearFocus();
+            windowFocusManager.ClearFocus();
         }
     }
 
@@ -222,7 +228,30 @@ internal sealed partial class StudioWindow
                 PlayFromSelectedScene();
                 break;
             case StudioCommand.SwitchView:
-                SelectMainView(arrangementView: !arrangementViewActive);
+                SelectMainView(arrangementView: !mainWindowShowsArrangement);
+                break;
+            case StudioCommand.ToggleBrowser:
+                TogglePanel(() => preferences.BrowserHidden = !preferences.BrowserHidden);
+                break;
+            case StudioCommand.ToggleDetailPanel:
+                TogglePanel(() => preferences.DetailPanelHidden = !preferences.DetailPanelHidden);
+                break;
+            case StudioCommand.ToggleAiPanel:
+                TogglePanel(() => preferences.AiPanelHidden = !preferences.AiPanelHidden);
+                break;
+            case StudioCommand.ToggleSessionMixer:
+                TogglePanel(() => preferences.SessionMixerHidden = !preferences.SessionMixerHidden);
+                sessionView.MixerStripsHidden = preferences.SessionMixerHidden;
+                sessionView.Rebuild();
+                break;
+            case StudioCommand.ToggleSecondWindow:
+                ToggleSecondWindow();
+                break;
+            case StudioCommand.ToggleDetailInSecondWindow:
+                ToggleDetailInSecondWindow();
+                break;
+            case StudioCommand.ToggleFullScreen:
+                ToggleFullScreen();
                 break;
             case StudioCommand.LaunchSelection:
                 LaunchClip(document.SelectedTrackIndex, document.SelectedSceneIndex);
@@ -332,7 +361,7 @@ internal sealed partial class StudioWindow
             case StudioCommand.Dismiss:
                 liveAudioSession.Engine.StopNoteAudition();
                 ReleaseComputerKeyboardNotes();
-                FocusManager?.ClearFocus();
+                FocusedStudioWindow.FocusManager?.ClearFocus();
                 break;
         }
     }

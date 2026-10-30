@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Input;
 using SlopstackLabs.Slaw.Desktop;
 using SlopstackLabs.Slaw.Synthesis;
@@ -19,8 +20,61 @@ public class KeyboardShortcutTests
     [InlineData(Key.M, KeyModifiers.None, nameof(StudioCommand.ToggleComputerKeyboard))]
     [InlineData(Key.M, KeyModifiers.Control | KeyModifiers.Shift, nameof(StudioCommand.CreateClip))]
     [InlineData(Key.Enter, KeyModifiers.Shift, nameof(StudioCommand.LaunchSelectedScene))]
+    [InlineData(Key.B, KeyModifiers.Control | KeyModifiers.Alt, nameof(StudioCommand.ToggleBrowser))]
+    [InlineData(Key.L, KeyModifiers.Control | KeyModifiers.Alt, nameof(StudioCommand.ToggleDetailPanel))]
+    [InlineData(Key.L, KeyModifiers.Meta | KeyModifiers.Alt, nameof(StudioCommand.ToggleDetailPanel))]
+    [InlineData(Key.M, KeyModifiers.Control | KeyModifiers.Alt, nameof(StudioCommand.ToggleSessionMixer))]
+    [InlineData(Key.I, KeyModifiers.Control | KeyModifiers.Alt, nameof(StudioCommand.ToggleAiPanel))]
+    [InlineData(Key.W, KeyModifiers.Control | KeyModifiers.Shift, nameof(StudioCommand.ToggleSecondWindow))]
+    [InlineData(Key.F11, KeyModifiers.None, nameof(StudioCommand.ToggleFullScreen))]
     public void ResolvesAbletonShapedShortcuts(Key key, KeyModifiers modifiers, string expectedCommand) =>
         Assert.Equal(expectedCommand, StudioShortcutMap.Resolve(key, modifiers)?.Command.ToString());
+
+    [Fact]
+    public void CheatSheetSpellsOutEveryModifier()
+    {
+        var showBrowser = StudioShortcutMap.Resolve(Key.B, KeyModifiers.Control | KeyModifiers.Alt)!;
+        Assert.Equal("Ctrl+Alt+B", StudioShortcutMap.DescribeGesture(showBrowser));
+    }
+
+    [Fact]
+    public void PanelShortcutsLeaveTextFieldsTheirAltGrCharacters()
+    {
+        var showMixer = StudioShortcutMap.Resolve(Key.M, KeyModifiers.Control | KeyModifiers.Alt)!;
+        Assert.False(StudioShortcutMap.Reaches(showMixer, typingInTextField: true, controlOwnsKeys: true));
+        Assert.True(StudioShortcutMap.Reaches(showMixer, typingInTextField: false, controlOwnsKeys: true));
+    }
+
+    [Theory]
+    [InlineData(100, 100, true)]
+    [InlineData(2500, 100, true)]
+    [InlineData(5000, 100, false)]
+    [InlineData(100, -300, false)]
+    public void SecondWindowOnlyReturnsWhereItCanBeReached(int windowX, int windowY, bool expected)
+    {
+        var screens = new[] { new PixelRect(0, 0, 1920, 1080), new PixelRect(1920, 0, 2560, 1440) };
+        Assert.Equal(expected, SecondWindowPlacement.IsReachable(new PixelPoint(windowX, windowY), screens));
+    }
+
+    [Fact]
+    public void WindowLayoutSurvivesTheSettingsFile()
+    {
+        var preferences = new StudioPreferences
+        {
+            SecondWindowOpen = true,
+            DetailInSecondWindow = true,
+            BrowserPanelWidth = 240,
+            SecondWindowBounds = new StudioWindowBounds(1920, 40, 1400.5, 900),
+        };
+        var restored = System.Text.Json.JsonSerializer.Deserialize<StudioPreferences>(
+            System.Text.Json.JsonSerializer.Serialize(preferences, Session.ProjectSerializer.LenientSerializationOptions),
+            Session.ProjectSerializer.LenientSerializationOptions)!;
+
+        Assert.True(restored.SecondWindowOpen);
+        Assert.True(restored.DetailInSecondWindow);
+        Assert.Equal(240, restored.BrowserPanelWidth);
+        Assert.Equal(preferences.SecondWindowBounds, restored.SecondWindowBounds);
+    }
 
     [Fact]
     public void UnboundKeysResolveToNothing()

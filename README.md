@@ -228,7 +228,8 @@ A real-time, sample-accurate sequencer runs in-process and streams audio continu
 
 ### Window layout
 
-- **Menu bar** (top): **File** (new, open, save, import MIDI, bounce, show the last bounce in its folder, settings), **Edit** (undo/redo naming what they undo, cut/copy/paste, duplicate, delete), **Create** (tracks, audio track, scenes, clips, a new AI chat), **View** (Session / Arrangement, computer keyboard, and show/hide the browser, the clip & devices panel and the AI panel), **Help** (shortcuts). Every item shows its shortcut; menus and keys run the same commands.
+- **Menu bar** (top): **File** (new, open, save, import MIDI, bounce, show the last bounce in its folder, settings), **Edit** (undo/redo naming what they undo, cut/copy/paste, duplicate, delete), **Create** (tracks, audio track, scenes, clips, a new AI chat), **View** (Session / Arrangement, computer keyboard, show/hide the browser, the clip & devices panel, the Session mixer and the AI panel, second window, full screen), **Help** (shortcuts). Every item shows its shortcut; menus and keys run the same commands.
+- **Panels and windows**, the way Ableton Live does them: panels stay in their places and are shown or hidden, from the View menu, the switches at the right of the status bar, or the shortcuts under **Keyboard**. Drag the edge of the browser, the AI panel or the clip and devices panel to resize it. **Second Window** (Ctrl+Shift+W) puts whichever of Session and Arrangement the main window is not showing on another monitor; Tab swaps the two, and keys act on the view in the focused window, so Space there plays what you are looking at. **Clip & Devices in Second Window** sends that panel across as well. Sizes, which panels are shown and the second window's place are all remembered; if its monitor has left the organization, it reopens somewhere reachable.
 - **Toolbar** (below it): Play/Stop (plus **⤺ Back to Arrangement** while session clips play over the song), BPM, **Swing** (50 straight to 75; see **Groove**), project title, the **Session / Arrangement** switch, a master **AI** switch, Settings (⚙), and a status chip showing the inference substrate ("● llama3 via Ollama" or "○ AI offline").
 - **Session view**: tracks are columns, scenes are rows. Each cell is a clip slot with a ▶ launch triangle; empty slots show a stop square, and double-clicking one creates a clip. Launches are **quantized to the next bar**, like a real DAW. The right-most column launches whole scenes (▶ per scene, editable scene names; right-click for *place in arrangement at cursor*, *duplicate*, *delete*) and holds the master fader and **Stop all clips**. Every track column ends in a **mixer strip**: stop button, pan knob, vertical volume fader with dB readout, Mute / Solo, a 🔒 **Protect from AI** lock, delete, and "✨ Name" (AI rename).
 - **Arrangement view**: the song, as one timeline with a lane per track. Clips sit at any step, at any length. See **Arrangement** below.
@@ -532,7 +533,11 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 |----------|--------|
 | Space | Play / stop. Session view launches the selected scene, Arrangement view plays the song from the cursor |
 | Shift+Space | Relaunch the selected scene right away (Arrangement: play from the cursor) |
-| Tab | Toggle Session / Arrangement |
+| Tab | Toggle Session / Arrangement (with two windows open: swap them) |
+| Ctrl+Alt+B / Ctrl+Alt+L | Show / hide the browser / the clip and devices panel |
+| Ctrl+Alt+M / Ctrl+Alt+I | Show / hide the Session view's mixer strips / the AI panel |
+| Ctrl+Shift+W | Open / close the second window |
+| F11 | Full screen for the focused window |
 | Enter / Shift+Enter | Launch the selected clip / scene |
 | ↑ ↓ ← → | Move the clip selection |
 | Ctrl+D / Ctrl+Shift+D | Duplicate the selected clip into the next scene / duplicate the scene |
