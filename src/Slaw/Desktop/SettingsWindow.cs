@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -40,7 +41,9 @@ internal sealed partial class SettingsWindow : Window
     private readonly NumericUpDown audioLatencyNumericUpDown;
     private readonly RecordingSettingsForm recordingSettingsForm;
 
-    private readonly List<string> workingSampleFolders;
+    // Observable, so the list box hears about removals: re-assigning a mutated List<string> as ItemsSource
+    // left its selection pointing past the end and crashed slaw on Remove.
+    private readonly ObservableCollection<string> workingSampleFolders;
     private readonly ListBox sampleFoldersListBox;
     private Button? removeSampleFolderButton;
 
@@ -50,7 +53,7 @@ internal sealed partial class SettingsWindow : Window
     public SettingsWindow(StudioPreferences currentPreferences)
     {
         workingPreferences = currentPreferences.Clone();
-        workingSampleFolders = new List<string>(workingPreferences.SampleFolders ?? new List<string>());
+        workingSampleFolders = new ObservableCollection<string>(workingPreferences.SampleFolders ?? new List<string>());
         sampleFoldersListBox = new ListBox
         {
             Height = 220,
@@ -399,19 +402,12 @@ internal sealed partial class SettingsWindow : Window
         }
     }
 
-    private void RefreshSampleFoldersListBox()
-    {
-        sampleFoldersListBox.ItemsSource = null;
-        sampleFoldersListBox.ItemsSource = workingSampleFolders;
-        RefreshRemoveSampleFolderEnablement();
-    }
-
     private void RemoveSelectedSampleFolder()
     {
         if (sampleFoldersListBox.SelectedItem is string selectedFolder)
         {
             workingSampleFolders.Remove(selectedFolder);
-            RefreshSampleFoldersListBox();
+            RefreshRemoveSampleFolderEnablement();
         }
     }
 
@@ -430,7 +426,6 @@ internal sealed partial class SettingsWindow : Window
                 workingSampleFolders.Add(localPath);
             }
         }
-        RefreshSampleFoldersListBox();
     }
 
     private static Control BuildAboutTab()

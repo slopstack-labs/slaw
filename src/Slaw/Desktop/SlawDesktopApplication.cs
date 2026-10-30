@@ -26,6 +26,8 @@ internal sealed class SlawDesktopApplication : Application
     public static int Launch(StudioLaunchParameters launchParameters, string[] rawArguments)
     {
         pendingLaunchParameters = launchParameters;
+        // Before Avalonia touches text: plugins and file dialogs load the system HarfBuzz later.
+        HarfBuzzSymbolPinning.PinBundledHarfBuzz();
         return AppBuilder.Configure<SlawDesktopApplication>()
             .UsePlatformDetect()
             .WithInterFont()
