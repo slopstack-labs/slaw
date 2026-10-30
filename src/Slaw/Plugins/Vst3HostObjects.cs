@@ -47,6 +47,19 @@ internal abstract unsafe class Vst3HostObject
     {
     }
 
+    /// <summary>A new reference for handing out, e.g. from another object's queryInterface.</summary>
+    public IntPtr AcquireReference()
+    {
+        AddReference();
+        return NativePointer;
+    }
+
+    /// <summary>
+    /// An interface this object answers for with a different object (whose own
+    /// vtable it is), already AddRef'd; or zero. The IPlugFrame lends its IRunLoop this way.
+    /// </summary>
+    protected virtual IntPtr DelegatedInterface(byte* interfaceId) => IntPtr.Zero;
+
     protected static T? Resolve<T>(IntPtr self) where T : class =>
         self == IntPtr.Zero ? null : GCHandle.FromIntPtr(((IntPtr*)self)[1]).Target as T;
 
@@ -80,6 +93,11 @@ internal abstract unsafe class Vst3HostObject
         {
             hostObject.AddReference();
             *queriedObject = self;
+            return Vst3Abi.ResultOk;
+        }
+        if (hostObject.DelegatedInterface(interfaceId) is var delegatedObject && delegatedObject != IntPtr.Zero)
+        {
+            *queriedObject = delegatedObject;
             return Vst3Abi.ResultOk;
         }
         return Vst3Abi.NoInterface;

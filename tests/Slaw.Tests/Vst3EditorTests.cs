@@ -117,7 +117,8 @@ public class Vst3EditorTests
     [MemberData(nameof(EditorPlugins))]
     public async Task InstalledPluginEditorsOpenWhileProcessingAndCloseWithTheirPlugin(string pluginName)
     {
-        if (EditorPluginNames.Count == 0 || !OperatingSystem.IsWindows())
+        var editorsCanOpen = OperatingSystem.IsWindows() || (OperatingSystem.IsLinux() && Vst3LinuxEditorWindow.UnavailabilityReason() is null);
+        if (EditorPluginNames.Count == 0 || !editorsCanOpen)
         {
             return;
         }

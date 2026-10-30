@@ -12,7 +12,10 @@ namespace SlopstackLabs.Slaw.Plugins;
 /// On Windows it is also a real UI thread: a single-threaded apartment that
 /// pumps window messages, because plugin editors are windows, and plugins
 /// (JUCE ones especially) run their timers and repaints through the message
-/// queue of the thread that created them. Tickers run every
+/// queue of the thread that created them. On Linux it is the run loop that
+/// VST3 makes hosts lend their editors: one poll() over a wake-up eventfd, the
+/// editors' X11 connection, and every descriptor and timer plugins register
+/// through Steinberg::Linux::IRunLoop. Tickers run every
 /// <see cref="TickInterval"/> on every platform.
 /// </summary>
 internal static class PluginHostThread
@@ -22,13 +25,16 @@ internal static class PluginHostThread
     private static readonly ConcurrentQueue<Action> PendingWork = new();
     private static readonly AutoResetEvent WorkAvailable = new(false);
     private static readonly List<Action> Tickers = new();
+    private static readonly int LinuxWakeDescriptor = OperatingSystem.IsLinux() ? X11Windowing.CreateWakeDescriptor() : -1;
     private static readonly Thread HostThread = StartHostThread();
 
     public static bool IsCurrent => Thread.CurrentThread == HostThread;
 
     private static Thread StartHostThread()
     {
-        var hostThread = new Thread(OperatingSystem.IsWindows() ? RunWindowsMessageLoop : RunWorkLoop)
+        var hostThread = new Thread(OperatingSystem.IsWindows() ? RunWindowsMessageLoop
+            : OperatingSystem.IsLinux() && LinuxWakeDescriptor >= 0 ? RunLinuxEventLoop
+            : RunWorkLoop)
         {
             IsBackground = true,
             Name = "slaw plugin host",
@@ -69,6 +75,85 @@ internal static class PluginHostThread
             }
             Win32Windowing.MsgWaitForMultipleObjectsEx(1, &workAvailableHandle, (uint)TickInterval.TotalMilliseconds,
                 Win32Windowing.QueueStatusAllInput, Win32Windowing.WaitInputAvailable);
+        }
+    }
+
+    [SupportedOSPlatform("linux")]
+    private static unsafe void RunLinuxEventLoop()
+    {
+        var watchedDescriptors = new List<int>();
+        var pollDescriptors = new X11Windowing.PollDescriptor[16];
+        var lastTickMilliseconds = Environment.TickCount64;
+        while (true)
+        {
+            RunPendingWork();
+            Vst3LinuxEditorWindow.DispatchPendingEvents();
+            Vst3LinuxRunLoop.FireDueTimers();
+            if (Environment.TickCount64 - lastTickMilliseconds >= (long)TickInterval.TotalMilliseconds)
+            {
+                lastTickMilliseconds = Environment.TickCount64;
+                RunTickers();
+            }
+
+            // Sleep until queued work, X traffic, a plugin descriptor, the nearest plugin timer, or the next tick.
+            watchedDescriptors.Clear();
+            watchedDescriptors.Add(LinuxWakeDescriptor);
+            if (Vst3LinuxEditorWindow.ConnectionDescriptor is var connectionDescriptor and >= 0)
+            {
+                watchedDescriptors.Add(connectionDescriptor);
+            }
+            Vst3LinuxRunLoop.CollectFileDescriptors(watchedDescriptors);
+            if (pollDescriptors.Length < watchedDescriptors.Count)
+            {
+                pollDescriptors = new X11Windowing.PollDescriptor[watchedDescriptors.Count * 2];
+            }
+            for (var descriptorIndex = 0; descriptorIndex < watchedDescriptors.Count; descriptorIndex++)
+            {
+                pollDescriptors[descriptorIndex] = new X11Windowing.PollDescriptor
+                {
+                    FileDescriptor = watchedDescriptors[descriptorIndex],
+                    RequestedEvents = X11Windowing.PollIn,
+                };
+            }
+            var untilTick = Math.Max(0, (long)TickInterval.TotalMilliseconds - (Environment.TickCount64 - lastTickMilliseconds));
+            var timeoutMilliseconds = (int)Math.Min(untilTick, Vst3LinuxRunLoop.MillisecondsUntilNextTimer() ?? long.MaxValue);
+            int readyCount;
+            fixed (X11Windowing.PollDescriptor* pollPointer = pollDescriptors)
+            {
+                readyCount = X11Windowing.PollDescriptors(pollPointer, (ulong)watchedDescriptors.Count, timeoutMilliseconds);
+            }
+            if (readyCount <= 0)
+            {
+                continue;
+            }
+            for (var descriptorIndex = 0; descriptorIndex < watchedDescriptors.Count; descriptorIndex++)
+            {
+                var returnedEvents = pollDescriptors[descriptorIndex].ReturnedEvents;
+                if ((returnedEvents & (X11Windowing.PollIn | X11Windowing.PollError | X11Windowing.PollHangUp)) == 0)
+                {
+                    continue;
+                }
+                var readyDescriptor = pollDescriptors[descriptorIndex].FileDescriptor;
+                if (readyDescriptor == LinuxWakeDescriptor)
+                {
+                    X11Windowing.DrainWakeDescriptor(LinuxWakeDescriptor);
+                }
+                else if (readyDescriptor != Vst3LinuxEditorWindow.ConnectionDescriptor)
+                {
+                    // X traffic on the editors' own connection is read at the top of the loop.
+                    Vst3LinuxRunLoop.DispatchReadyDescriptor(readyDescriptor);
+                }
+            }
+        }
+    }
+
+    /// <summary>Wakes the plugin host thread's wait early (new work, or a run-loop registration). Any thread.</summary>
+    public static void Wake()
+    {
+        WorkAvailable.Set();
+        if (OperatingSystem.IsLinux() && LinuxWakeDescriptor >= 0)
+        {
+            X11Windowing.SignalWakeDescriptor(LinuxWakeDescriptor);
         }
     }
 
@@ -128,7 +213,7 @@ internal static class PluginHostThread
                 completion.SetException(pluginRemediationOpportunity);
             }
         });
-        WorkAvailable.Set();
+        Wake();
         return completion.Task;
     }
 
