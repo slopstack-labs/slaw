@@ -27,6 +27,7 @@ internal sealed partial class StudioWindow
     private readonly Border browserPanel = new() { Background = StudioTheme.Surface, BorderBrush = StudioTheme.Border, BorderThickness = new Thickness(0, 0, 1, 0) };
     private readonly List<Action> panelSelectorRefreshes = new();
     private readonly StudioWorkspacePane mainPane;
+    private readonly Control detailColumn;
     private StudioSecondWindow? secondWindow;
     private bool mainWindowShowsArrangement;
     private bool studioWindowClosed;
@@ -166,7 +167,7 @@ internal sealed partial class StudioWindow
         {
             secondPane.View = otherView;
         }
-        detailPane.Detail = detailView;
+        detailPane.Detail = detailColumn;
         secondWindow?.Describe(mainWindowShowsArrangement ? "Session" : "Arrangement", preferences.DetailInSecondWindow);
     }
 

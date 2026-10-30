@@ -316,7 +316,7 @@ After years of generating vocals, slaw now also accepts them from humans. A pilo
 2. **Press ● Rec (F9).**
    - If the transport is stopped, slaw launches the selected scene and the take starts with it. In the Arrangement view it plays the arrangement from the cursor instead, and the take lands on the arrangement where you sang it (long takes are sliced into consecutive 4-bar clips).
    - If the transport is already playing, the take punches in on the next step. A clip that wasn't playing yet joins on the next bar.
-3. **Stop the transport, or press ● Rec again,** to end the take.
+3. **Stop the transport, or press ● Rec again,** to end the take. A bar above the clip panel offers **✂ Cut & play it →**, which opens the take in the sample editor (see **Play a piece on the keys**). Ignore it and it leaves after 30 seconds.
 
 The take is saved as a 24-bit WAV in `recordings/` next to the project (or next to `settings.json` if the project hasn't been saved yet). It's loaded into the armed track with a sampler that plays it unaltered, triggered on the step it was sung on. The clip grows in whole bars, up to 64 steps, so the take fits before the loop comes around. Ctrl+Z removes the whole take.
 
@@ -392,6 +392,7 @@ Open it from the sampler device (**✎ Edit**, or **⤢** for its own resizable 
 - **Waveform**: zoom with Ctrl+wheel, `+` / `−`, **Fit** or **Zoom to selection**, and scroll with the wheel or the overview strip. Drag to select. The green **S** and red **E** markers set the playable region.
 - **Edits**: **Trim**, **Delete**, **Silence**, **Reverse**, **Normalize**, **−3 dB / +3 dB**, **Fade in / Fade out** and **Duplicate** apply to the selection (some apply to the whole sample if nothing is selected). **Revert to original** discards them.
 - **Pitched mode**: the sample is repitched across the keyboard. Tick **Sustain loop** and drag the amber **L** markers: while a note is held (Note Length on), the loop repeats, then the release plays out.
+- **Play a piece on the keys**: drag across any part of the waveform and a small toolbar appears over the selection: **▶ Listen**, **🎹 Play on keys** and **Trim**. **Play on keys** puts that piece on a new track (`Lead · slice 1`, same mixer and effects), selects it, turns on the computer keyboard and opens the piano roll, so the piece plays pitched from the keyboard, a MIDI keyboard or the grid, with C4 at its original pitch. Pitch changes speed as well, as on a classic sampler; there is no time-stretching. The source track and the file stay as they were, and Ctrl+Z removes the new track. In Slice mode, right-click a slice for the same thing, or to remove a slice line.
 - **Slice mode**: chop the sample into slices. Slice 1 plays on the root note (C4), slice 2 on C#4, and so on. Use **÷ 4 / ÷ 8 / ÷ 16**, **Detect transients** (with a sensitivity slider), double-click the waveform to add a slice, drag slices to move them, and right-click a slice to remove it. **✨ Auto-chop** lets the model choose slice points from the detected transients. It considers them carefully, then chops on the beat anyway.
 - **Preview / export**: **▶ Selection** and **▶ All** play through the live engine with a playhead. **Save as WAV…** exports the edited sample. **Bake…** saves it and swaps it in as the track's sample.
 

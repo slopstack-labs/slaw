@@ -41,6 +41,18 @@ internal sealed class SampleEditorView : UserControl
     private readonly WrapPanel sliceRow;
     private readonly Slider sensitivitySlider = new() { Minimum = 0, Maximum = 1, Value = 0.5, Width = 120, VerticalAlignment = VerticalAlignment.Center };
     private readonly List<(Button Button, bool NeedsSelection)> editButtons = new();
+    private readonly Border selectionToolbar = new()
+    {
+        IsVisible = false,
+        Background = StudioTheme.SurfaceRaised,
+        BorderBrush = StudioTheme.Accent,
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(8),
+        Padding = new Thickness(5),
+        HorizontalAlignment = HorizontalAlignment.Left,
+        VerticalAlignment = VerticalAlignment.Bottom,
+        BoxShadow = new BoxShadows(new BoxShadow { Blur = 12, OffsetY = 3, Color = Color.FromArgb(150, 0, 0, 0) }),
+    };
     private Button revertButton = null!;
     private Button openLargeButton = null!;
 
@@ -164,11 +176,73 @@ internal sealed class SampleEditorView : UserControl
         footerRow.Children.Add(StudioUi.Button("Zoom to selection", () => waveform.ZoomToSelection(), "Fill the view with the selection", compact: true));
         DockPanel.SetDock(footerRow, Dock.Bottom);
 
+        selectionToolbar.Child = StudioUi.Row(4,
+            StudioUi.Button("▶ Listen", PreviewSelection, "Hear the selection", compact: true),
+            StudioUi.AccentButton("🎹 Play on keys", PlaySelectionOnKeys, "Put the selection on a new track and play it on the keyboard, pitched. The original stays as it is.", compact: true),
+            StudioUi.Button("Trim", () => ApplyOperation("trim", 0, "trim sample"), "Keep only the selection on this track", compact: true));
+
         waveform.MinHeight = 120;
         editorPanel.Children.Add(topPanel);
         editorPanel.Children.Add(footerRow);
-        editorPanel.Children.Add(waveform);
+        editorPanel.Children.Add(new Panel { Children = { waveform, selectionToolbar } });
     }
+
+    /// <summary>Keeps the floating toolbar centred under the selection, clear of the marker handles along the top, while either one moves.</summary>
+    private void PositionSelectionToolbar()
+    {
+        var hasSelection = selection is { } shownSelection && shownSelection.End - shownSelection.Start > MinimumRegionSeconds;
+        selectionToolbar.IsVisible = hasSelection;
+        if (selection is not { } activeSelection || !hasSelection)
+        {
+            return;
+        }
+        selectionToolbar.Measure(Size.Infinity);
+        var toolbarWidth = selectionToolbar.DesiredSize.Width;
+        var selectionCentre = (waveform.ViewXOf(activeSelection.Start) + waveform.ViewXOf(activeSelection.End)) / 2;
+        var toolbarLeft = Math.Clamp(selectionCentre - toolbarWidth / 2, 4, Math.Max(4, waveform.Bounds.Width - toolbarWidth - 4));
+        selectionToolbar.Margin = new Thickness(toolbarLeft, 0, 0, WaveformEditorControl.BodyBottomInset + 6);
+    }
+
+    private void PlaySelectionOnKeys()
+    {
+        if (selection is { } activeSelection && activeSelection.End - activeSelection.Start > MinimumRegionSeconds)
+        {
+            host.PlaySliceOnKeys(trackIdentifier, activeSelection.Start, activeSelection.End);
+        }
+    }
+
+    /// <summary>Right-click in Slice mode: what can be done with the slice under the pointer.</summary>
+    private void ShowSliceMenu(double positionSeconds, int? sliceLineIndex)
+    {
+        if (FindTrack() is not var (track, _) || track.SampleEditing is not { PlaybackMode: SampleEditSettings.SliceMode, SlicePointsSeconds.Count: > 0 } settings ||
+            SliceTrackAssembler.SliceAt(settings.SlicePointsSeconds, EditedDuration, positionSeconds) is not { } slice)
+        {
+            return;
+        }
+        MenuItem MenuEntry(string header, Action onClick)
+        {
+            var menuEntry = new MenuItem { Header = header };
+            menuEntry.Click += (_, _) => onClick();
+            return menuEntry;
+        }
+        var sliceMenu = new MenuFlyout();
+        sliceMenu.Items.Add(MenuEntry("🎹 Play this slice on keys", () => host.PlaySliceOnKeys(trackIdentifier, slice.Start, slice.End)));
+        sliceMenu.Items.Add(MenuEntry("▶ Listen to this slice", () => PreviewRegion(slice.Start, slice.End)));
+        if (sliceLineIndex is { } lineIndex)
+        {
+            sliceMenu.Items.Add(new Separator());
+            sliceMenu.Items.Add(MenuEntry("Remove this slice line", () => RemoveSliceLine(lineIndex)));
+        }
+        sliceMenu.ShowAt(waveform, showAtPointer: true);
+    }
+
+    private void RemoveSliceLine(int sliceIndex) => document.Edit("remove slice", project =>
+    {
+        if (FindTrack() is var (track, _) && track.SampleEditing is { } settings && sliceIndex >= 0 && sliceIndex < settings.SlicePointsSeconds.Count)
+        {
+            settings.SlicePointsSeconds.RemoveAt(sliceIndex);
+        }
+    });
 
     private double CurrentZoomAnchor() => waveform.VisibleStartSeconds + waveform.VisibleDurationSeconds / 2;
 
@@ -221,13 +295,10 @@ internal sealed class SampleEditorView : UserControl
             settings.SlicePointsSeconds.Add(Math.Clamp(slicePositionSeconds, 0, EditedDuration));
             settings.SlicePointsSeconds.Sort();
         });
-        waveform.SliceRemoveRequested += sliceIndex => document.Edit("remove slice", project =>
-        {
-            if (FindTrack() is var (track, _) && track.SampleEditing is { } settings && sliceIndex >= 0 && sliceIndex < settings.SlicePointsSeconds.Count)
-            {
-                settings.SlicePointsSeconds.RemoveAt(sliceIndex);
-            }
-        });
+        waveform.SliceRemoveRequested += RemoveSliceLine;
+        waveform.WaveformRightClicked += ShowSliceMenu;
+        waveform.ViewportChanged += PositionSelectionToolbar;
+        waveform.SizeChanged += (_, _) => PositionSelectionToolbar();
         waveform.SelectionChanged += newSelection =>
         {
             selection = newSelection;
@@ -372,7 +443,7 @@ internal sealed class SampleEditorView : UserControl
     {
         var text = selection is { } activeSelection
             ? string.Create(CultureInfo.InvariantCulture, $"selection {activeSelection.Start:0.000} – {activeSelection.End:0.000} s ({activeSelection.End - activeSelection.Start:0.000} s)")
-            : "no selection — drag on the waveform to select · ctrl+wheel zoom · double-click to add a slice";
+            : "no selection — drag on the waveform to select, then play it on the keys · ctrl+wheel zoom · double-click to add a slice";
         if (cursorSeconds is { } placedCursor)
         {
             text += string.Create(CultureInfo.InvariantCulture, $" · cursor {placedCursor:0.000} s");
@@ -388,6 +459,7 @@ internal sealed class SampleEditorView : UserControl
             editButton.IsEnabled = !needsSelection || hasSelection;
         }
         revertButton.IsEnabled = FindTrack() is var (track, _) && track.SampleEditing is { Operations.Count: > 0 };
+        PositionSelectionToolbar();
     }
 
     // ── Playback ──────────────────────────────────────────────────────────────

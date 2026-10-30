@@ -115,6 +115,13 @@ internal sealed partial class DetailView : UserControl
         Rebuild();
     }
 
+    /// <summary>Switches the left panel back to the clip editor, where the piano roll is.</summary>
+    public void ShowClipTab()
+    {
+        sampleTabActive = false;
+        Rebuild();
+    }
+
     private Control ComposeLeftPanel()
     {
         if (document.SelectedTrack is not { Instrument: "sampler" } samplerTrack)
@@ -666,7 +673,10 @@ internal sealed partial class DetailView : UserControl
         }
         try
         {
-            var sampleData = SampleLibrary.Load(track.Sample);
+            // Show what the device plays, so a slice's overview is the slice and not the whole take.
+            var sampleData = track.SampleEditing is { Operations.Count: > 0 }
+                ? SampleEditProcessor.LoadProcessedNative(track.Sample, track.SampleEditing)
+                : SampleLibrary.Load(track.Sample);
             sampleOverview.Present(SampleLibrary.ToStereoBuffer(sampleData),
                 FormattableString.Invariant($"{Path.GetFileName(track.Sample)} · {sampleData.DurationSeconds:0.00} s"), hallucinatedDeliverable: false);
         }

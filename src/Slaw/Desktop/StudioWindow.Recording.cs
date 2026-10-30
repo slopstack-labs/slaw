@@ -343,6 +343,7 @@ internal sealed partial class StudioWindow
         var takePosition = finishedTake.OnTimeline ? $"the arrangement at {FreeTimeline.FormatPosition(takePlacement.StartStep)}" : $"step {takePlacement.StartStep + 1}";
         SetStatus(StatusSeverity.Success, string.Create(CultureInfo.InvariantCulture,
             $"take recorded: {takeSeconds:0.0} s from {takePosition} → {Path.GetFileName(takePath)} — Ctrl+Z removes it"));
+        ShowTakeBar(takeTrack.Id, takeTrack.Sample ?? Path.GetFullPath(takePath), takeSeconds);
     }
 
     /// <summary>

@@ -116,6 +116,12 @@ internal sealed class WaveformEditorControl : Control
     public event Action<(double Start, double End)?>? SelectionChanged;
     public event Action<double>? CursorPlaced;
 
+    /// <summary>The visible range changed, so anything floating over the waveform has to follow.</summary>
+    public event Action? ViewportChanged;
+
+    /// <summary>Right-click: the position in seconds, and the slice line under the pointer if there is one.</summary>
+    public event Action<double, int?>? WaveformRightClicked;
+
     public double DurationSeconds => waveformSamples.Length / (double)waveformSampleRate;
 
     public double VisibleStartSeconds
@@ -128,6 +134,7 @@ internal sealed class WaveformEditorControl : Control
             {
                 visibleStartSeconds = clampedStart;
                 InvalidateVisual();
+                ViewportChanged?.Invoke();
             }
         }
     }
@@ -144,6 +151,7 @@ internal sealed class WaveformEditorControl : Control
                 visibleDurationSeconds = clampedDuration;
                 visibleStartSeconds = Math.Clamp(visibleStartSeconds, 0, Math.Max(0, DurationSeconds - visibleDurationSeconds));
                 InvalidateVisual();
+                ViewportChanged?.Invoke();
             }
         }
     }
@@ -246,6 +254,7 @@ internal sealed class WaveformEditorControl : Control
         visibleStartSeconds = 0;
         visibleDurationSeconds = DurationSeconds;
         InvalidateVisual();
+        ViewportChanged?.Invoke();
     }
 
     /// <summary>Scales the visible window by <paramref name="factor"/> (below 1 zooms in), pinning the anchor to its screen x.</summary>
@@ -333,6 +342,11 @@ internal sealed class WaveformEditorControl : Control
     private double BodyTop => RulerHeight;
     private double BodyBottom => Math.Max(RulerHeight + 1, Bounds.Height - OverviewHeight);
     private double OverviewTop => Bounds.Height - OverviewHeight;
+
+    /// <summary>Where a position sits across the control, for overlays. The overview strip runs along the bottom.</summary>
+    public double ViewXOf(double seconds) => SecondsToX(seconds);
+
+    public static double BodyBottomInset => OverviewHeight;
 
     private double SecondsToX(double seconds) =>
         visibleDurationSeconds <= 0 ? 0 : (seconds - visibleStartSeconds) / visibleDurationSeconds * Bounds.Width;
@@ -783,11 +797,9 @@ internal sealed class WaveformEditorControl : Control
 
         if (pointerProperties.IsRightButtonPressed)
         {
-            if (hitMarker is { Kind: WaveformMarkerKind.Slice } rightClickedSlice)
-            {
-                SliceRemoveRequested?.Invoke(rightClickedSlice.SliceIndex);
-                pointerEvent.Handled = true;
-            }
+            int? rightClickedSliceIndex = hitMarker is { Kind: WaveformMarkerKind.Slice } rightClickedSlice ? rightClickedSlice.SliceIndex : null;
+            WaveformRightClicked?.Invoke(Math.Clamp(XToSeconds(position.X), 0, DurationSeconds), rightClickedSliceIndex);
+            pointerEvent.Handled = true;
             return;
         }
         if (!pointerProperties.IsLeftButtonPressed)

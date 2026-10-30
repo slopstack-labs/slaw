@@ -161,6 +161,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         detailView = new DetailView(document, this);
         mainPane = new StudioWorkspacePane(preferences.DetailPanelHeight);
         detailView.MinimumHeightRequested += requestedHeight => DetailPane.GrowDetailTo(requestedHeight);
+        detailColumn = ComposeDetailColumn();
 
         Content = ComposeLayout();
         WireDocument();
