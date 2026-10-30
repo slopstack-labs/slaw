@@ -1,3 +1,5 @@
+using Avalonia.Controls;
+using Avalonia.Threading;
 using SlopstackLabs.Slaw.Plugins;
 using SlopstackLabs.Slaw.Session;
 
@@ -6,6 +8,82 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// <summary>VST3 bundles dropped from the file manager: instruments onto tracks, effects into chains.</summary>
 internal sealed partial class StudioWindow
 {
+    private readonly StackPanel pluginEntriesPanel = new() { Spacing = 3 };
+
+    /// <summary>
+    /// The browser's VST3 section: every scanned instrument (click: new track) and
+    /// effect (click: onto the selected track). Entries drag like a .vst3 bundle
+    /// from the file manager, so they drop onto tracks and device chains too.
+    /// </summary>
+    private void PopulatePluginEntries(bool rescan = false)
+    {
+        pluginEntriesPanel.Children.Clear();
+        if (!rescan && Vst3PluginCatalog.CachedPlugins is { } cachedPlugins)
+        {
+            FillPluginEntries(cachedPlugins);
+            return;
+        }
+        pluginEntriesPanel.Children.Add(StudioUi.Caption("scanning plugin folders…", 10));
+        _ = Task.Run(() => rescan ? Vst3PluginCatalog.Rescan() : Vst3PluginCatalog.Plugins())
+            .ContinueWith(scanTask => Dispatcher.UIThread.Post(() =>
+            {
+                pluginEntriesPanel.Children.Clear();
+                if (scanTask.IsCompletedSuccessfully)
+                {
+                    FillPluginEntries(scanTask.Result);
+                }
+                else
+                {
+                    pluginEntriesPanel.Children.Add(StudioUi.Caption($"plugin scan failed: {scanTask.Exception?.GetBaseException().Message}", 10, StudioTheme.Failure));
+                }
+            }), TaskScheduler.Default);
+    }
+
+    private void FillPluginEntries(IReadOnlyList<Vst3PluginDescriptor> scannedPlugins)
+    {
+        if (scannedPlugins.Count == 0)
+        {
+            pluginEntriesPanel.Children.Add(StudioUi.Caption("No VST3 plugins found. Add a folder in ⚙ Settings → Plugins.", 10));
+            return;
+        }
+        foreach (var (kindHeading, instruments) in new[] { ("instruments", true), ("effects", false) })
+        {
+            var pluginsOfKind = scannedPlugins.Where(plugin => plugin.IsInstrument == instruments).OrderBy(plugin => plugin.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            if (pluginsOfKind.Count == 0)
+            {
+                continue;
+            }
+            pluginEntriesPanel.Children.Add(StudioUi.Caption(kindHeading, 10));
+            foreach (var plugin in pluginsOfKind)
+            {
+                var pluginEntry = instruments
+                    ? BrowserEntry(plugin.Name, () => AddPluginInstrumentTrack(plugin),
+                        $"{plugin.Vendor} · VST3 instrument\nClick to add a track playing it, or drag it onto a track to swap its instrument\n{plugin.BundlePath}")
+                    : BrowserEntry(plugin.Name, () =>
+                    {
+                        if (document.SelectedTrack is { } selectedTrack)
+                        {
+                            detailView.AddPluginEffect(selectedTrack, PluginDeviceOperations.ToReference(plugin));
+                        }
+                    }, $"{plugin.Vendor} · VST3 effect\nClick to add it to the selected track, or drag it onto any track or into the device chain\n{plugin.BundlePath}");
+                StudioDragDrop.MakeDragSource(pluginEntry, () => new DragPayload(DragPayloadKind.Files, FilePaths: new[] { plugin.BundlePath }));
+                pluginEntriesPanel.Children.Add(pluginEntry);
+            }
+        }
+    }
+
+    private void AddPluginInstrumentTrack(Vst3PluginDescriptor plugin)
+    {
+        if (document.Project.Tracks.Count >= ProjectAlignmentRemediator.MaximumTrackCount)
+        {
+            SetStatus(StatusSeverity.Warning, "the track budget is exhausted. consolidate headcount before onboarding more plugins.");
+            return;
+        }
+        var sceneIndex = document.SelectedSceneIndex;
+        document.Edit($"added a {plugin.Name} track", project =>
+            project.Tracks.Add(PluginDeviceOperations.CreateInstrumentTrack(project, PluginDeviceOperations.ToReference(plugin), sceneIndex)), EditScope.Structure);
+        document.Select(document.Project.Tracks.Count - 1, sceneIndex);
+    }
     private static bool IsPluginBundle(string droppedPath) =>
         droppedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).EndsWith(".vst3", StringComparison.OrdinalIgnoreCase);
 

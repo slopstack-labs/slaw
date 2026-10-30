@@ -19,6 +19,18 @@ internal static class Vst3ParameterDirectory
         ParameterLists.GetOrAdd(CacheKey(pluginReference), _ => Task.Run(() => Probe(pluginReference)));
 
     /// <summary>The parameters if already known; otherwise null (and the probe is started).</summary>
+    /// <summary>
+    /// The parameters if a probe already finished, without ever starting one: for
+    /// code that runs while a project loads, when no plugin may be instantiated yet.
+    /// </summary>
+    public static IReadOnlyList<Vst3ParameterDescription>? Peek(PluginReference pluginReference) =>
+        ParameterLists.TryGetValue(CacheKey(pluginReference), out var parameterTask) && parameterTask.IsCompletedSuccessfully
+            ? parameterTask.Result
+            : null;
+
+    /// <summary>Whether anything has asked to probe this plugin yet (tests: loading a project must not).</summary>
+    internal static bool ProbeStarted(PluginReference pluginReference) => ParameterLists.ContainsKey(CacheKey(pluginReference));
+
     public static IReadOnlyList<Vst3ParameterDescription>? TryGet(PluginReference pluginReference)
     {
         var parameterTask = GetAsync(pluginReference);

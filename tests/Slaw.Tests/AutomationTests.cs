@@ -171,4 +171,20 @@ public class AutomationTests
         ClipAutomation.MakeRoomForEffectSlot(track, 1);
         Assert.Equal(new[] { "fx.0.mix", "fx.2.size", "fx.3.cutoff" }, track.Clips[0]!.Automation!.Keys.Order());
     }
+
+    [Fact]
+    public void RemediatingAProjectWithPluginsNeverInstantiatesThem()
+    {
+        // A plugin loaded during project load prints into `slaw mcp`'s stdout before the protocol claims it.
+        var pluginReference = new PluginReference { Path = "/nonexistent/Chatty.vst3", ClassId = new string('C', 32), Name = "Chatty" };
+        var project = OneClipProject("saw", "A2 . . .", new() { ["fx.0.p7"] = Ramp(0, 1) }, new EffectDevice { Type = "vst3", Plugin = pluginReference });
+        project.Tracks[0].Instrument = "vst3";
+        project.Tracks[0].Plugin = pluginReference;
+
+        ProjectAlignmentRemediator.Remediate(project);
+        ClipAutomation.TargetsFor(project.Tracks[0]);
+
+        Assert.False(SlopstackLabs.Slaw.Plugins.Vst3ParameterDirectory.ProbeStarted(pluginReference));
+        Assert.True(project.Tracks[0].Clips[0]!.Automation!.ContainsKey("fx.0.p7"));
+    }
 }

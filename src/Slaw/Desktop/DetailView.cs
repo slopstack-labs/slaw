@@ -487,18 +487,45 @@ internal sealed partial class DetailView : UserControl
 
     private Control ComposeInstrumentDevice(SlawTrack track, int trackIndex)
     {
+        // Built-ins first, then every scanned VST3 instrument, so plugins are picked where instruments are.
+        var instrumentChoices = InstrumentVoiceSynthesizer.SupportedInstruments.Select(instrumentName => (Label: instrumentName, Plugin: (Plugins.Vst3PluginDescriptor?)null)).ToList();
+        if (Plugins.Vst3PluginCatalog.CachedPlugins is { } scannedPlugins)
+        {
+            instrumentChoices.AddRange(scannedPlugins.Where(plugin => plugin.IsInstrument)
+                .OrderBy(plugin => plugin.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(plugin => (Label: $"{plugin.Name} (VST3)", Plugin: (Plugins.Vst3PluginDescriptor?)plugin)));
+        }
+        else
+        {
+            _ = Task.Run(Plugins.Vst3PluginCatalog.Plugins).ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(Rebuild), TaskScheduler.Default);
+        }
+        var currentChoice = track.Instrument == Plugins.DeviceTypes.Vst3
+            ? instrumentChoices.FindIndex(choice => choice.Plugin is { } plugin && track.Plugin is { } loadedPlugin && plugin.ClassId == loadedPlugin.ClassId)
+            : instrumentChoices.FindIndex(choice => choice.Plugin is null && choice.Label == track.Instrument);
         var instrumentSelector = new ComboBox
         {
-            ItemsSource = InstrumentVoiceSynthesizer.SupportedInstruments,
-            SelectedItem = track.Instrument,
+            ItemsSource = instrumentChoices.Select(choice => choice.Label).ToList(),
+            SelectedIndex = currentChoice,
+            PlaceholderText = track.Plugin?.Name ?? track.Instrument,
             FontSize = 12,
-            Width = 110,
+            Width = 130,
         };
+        ToolTip.SetTip(instrumentSelector, "Instrument: built-in synths and samplers, then your VST3 instruments");
         instrumentSelector.SelectionChanged += (_, _) =>
         {
-            if (instrumentSelector.SelectedItem is string selectedInstrument && selectedInstrument != track.Instrument)
+            if (instrumentSelector.SelectedIndex < 0 || instrumentSelector.SelectedIndex == currentChoice)
             {
-                document.Edit($"switched {track.Name} to {selectedInstrument}", _ => PatternEditingOperations.ChangeInstrument(track, selectedInstrument), EditScope.Structure);
+                return;
+            }
+            var (choiceLabel, choicePlugin) = instrumentChoices[instrumentSelector.SelectedIndex];
+            if (choicePlugin is { } pickedPlugin)
+            {
+                document.Edit($"loaded {pickedPlugin.Name} on {track.Name}",
+                    _ => PluginDeviceOperations.LoadInstrument(track, PluginDeviceOperations.ToReference(pickedPlugin)), EditScope.Structure);
+            }
+            else
+            {
+                document.Edit($"switched {track.Name} to {choiceLabel}", _ => PatternEditingOperations.ChangeInstrument(track, choiceLabel), EditScope.Structure);
             }
         };
 

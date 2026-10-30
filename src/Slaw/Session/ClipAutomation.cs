@@ -94,7 +94,9 @@ internal static class ClipAutomation
     /// </summary>
     private static List<ParameterSpecification> PluginParameterSpecifications(PluginReference pluginReference, Dictionary<string, double> storedValues)
     {
-        var parameterSpecifications = (Vst3ParameterDirectory.TryGet(pluginReference) ?? Array.Empty<Vst3ParameterDescription>())
+        // Peek, never probe: this runs during remediation, and loading a plugin there would let it
+        // print into `slaw mcp`'s protocol stream before stdout is claimed.
+        var parameterSpecifications = (Vst3ParameterDirectory.Peek(pluginReference) ?? Array.Empty<Vst3ParameterDescription>())
             .Where(parameter => parameter.IsUserFacing)
             .Select(parameter => new ParameterSpecification(parameter.Key, parameter.Title, 0, 1, parameter.DefaultValue, ""))
             .ToList();
