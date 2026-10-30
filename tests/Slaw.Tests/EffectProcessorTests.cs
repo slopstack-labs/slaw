@@ -125,6 +125,30 @@ public class EffectProcessorTests
         Assert.True(plainLeft[echoSpacing] > 0.5);
     }
 
+    [Theory]
+    [InlineData("lowpass", 15000.0, 0.0)]
+    [InlineData("lowpass", 19000.0, 0.3)]
+    [InlineData("highpass", 9000.0, 0.0)]
+    public void FiltersStayStableAtHighCutoffs(string filterType, double cutoffHz, double resonance)
+    {
+        // A 1 kHz tone through a lowpass far above it passes almost untouched; through a
+        // highpass far above it is mostly removed. Neither may blow up into the clamp.
+        const int sampleRate = 44100;
+        var left = Enumerable.Range(0, sampleRate / 2).Select(index => (float)(0.5 * Math.Sin(2 * Math.PI * 1000 * index / sampleRate))).ToArray();
+        var right = left.ToArray();
+        EffectProcessor.Create(filterType, sampleRate).Process(left, right,
+            new Dictionary<string, double> { ["cutoff"] = cutoffHz, ["resonance"] = resonance }, new EffectProcessingContext(sampleRate, 0.1));
+        var settledPeak = left.Skip(sampleRate / 10).Max(Math.Abs);
+        if (filterType == "lowpass")
+        {
+            Assert.InRange(settledPeak, 0.45, 0.56);
+        }
+        else
+        {
+            Assert.InRange(settledPeak, 0.0, 0.1);
+        }
+    }
+
     [Fact]
     public void FiltersKeepSeparateStateForEachChannel()
     {

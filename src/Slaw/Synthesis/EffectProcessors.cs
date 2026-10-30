@@ -74,12 +74,16 @@ internal sealed class PassthroughProcessor : EffectProcessor
         processingContext.MonoInput;
 }
 
-/// <summary>Chamberlin state-variable filter, oversampled ×2 for stability near Nyquist. One filter per channel.</summary>
+/// <summary>
+/// Zero-delay (trapezoidal) state-variable filter, per channel. Stable at every
+/// cutoff up to Nyquist, unlike the Chamberlin design it replaced, which blew
+/// up above roughly a quarter of the sample rate and clipped into its clamp.
+/// </summary>
 internal sealed class StateVariableFilterProcessor : EffectProcessor
 {
     private readonly bool highpassMode;
-    private readonly double[] lowpassStates = new double[2];
-    private readonly double[] bandpassStates = new double[2];
+    private readonly double[] firstIntegratorStates = new double[2];
+    private readonly double[] secondIntegratorStates = new double[2];
     private bool rightStateStale;
 
     public StateVariableFilterProcessor(string effectType, bool highpassMode)
@@ -90,11 +94,13 @@ internal sealed class StateVariableFilterProcessor : EffectProcessor
 
     public override bool Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double> parameterValues, EffectProcessingContext processingContext)
     {
-        var cutoffHz = Math.Min(Parameter(parameterValues, "cutoff"), processingContext.SampleRate * 0.45);
+        var cutoffHz = Math.Min(Parameter(parameterValues, "cutoff"), processingContext.SampleRate * 0.49);
         var resonance = Parameter(parameterValues, "resonance");
-        var frequencyCoefficient = 2 * Math.Sin(Math.PI * cutoffHz / (2.0 * processingContext.SampleRate));
+        // Same damping as before (2 at no resonance, 0.05 at full), so knobs keep their feel.
         var dampingCoefficient = 2 * (1 - resonance) + 0.05;
-        FilterChannel(leftBlock, 0, frequencyCoefficient, dampingCoefficient);
+        var warpedFrequency = Math.Tan(Math.PI * cutoffHz / processingContext.SampleRate);
+        var filterCoefficients = new FilterCoefficients(warpedFrequency, dampingCoefficient);
+        FilterChannel(leftBlock, 0, filterCoefficients, dampingCoefficient);
         if (processingContext.MonoInput)
         {
             rightStateStale = true;
@@ -103,34 +109,42 @@ internal sealed class StateVariableFilterProcessor : EffectProcessor
         if (rightStateStale)
         {
             // Mono until now: the right filter picks up where the left one is.
-            lowpassStates[1] = lowpassStates[0];
-            bandpassStates[1] = bandpassStates[0];
+            firstIntegratorStates[1] = firstIntegratorStates[0];
+            secondIntegratorStates[1] = secondIntegratorStates[0];
             rightStateStale = false;
         }
-        FilterChannel(rightBlock, 1, frequencyCoefficient, dampingCoefficient);
+        FilterChannel(rightBlock, 1, filterCoefficients, dampingCoefficient);
         return false;
     }
 
-    private void FilterChannel(Span<float> channelBlock, int channelIndex, double frequencyCoefficient, double dampingCoefficient)
+    private readonly record struct FilterCoefficients(double InputGain, double BandGain, double LowGain)
     {
-        var lowpassState = lowpassStates[channelIndex];
-        var bandpassState = bandpassStates[channelIndex];
+        public FilterCoefficients(double warpedFrequency, double dampingCoefficient)
+            : this(
+                1 / (1 + warpedFrequency * (warpedFrequency + dampingCoefficient)),
+                warpedFrequency / (1 + warpedFrequency * (warpedFrequency + dampingCoefficient)),
+                warpedFrequency * warpedFrequency / (1 + warpedFrequency * (warpedFrequency + dampingCoefficient)))
+        {
+        }
+    }
+
+    private void FilterChannel(Span<float> channelBlock, int channelIndex, FilterCoefficients filterCoefficients, double dampingCoefficient)
+    {
+        var firstIntegratorState = firstIntegratorStates[channelIndex];
+        var secondIntegratorState = secondIntegratorStates[channelIndex];
         for (var sampleIndex = 0; sampleIndex < channelBlock.Length; sampleIndex++)
         {
-            double highpassOutput = 0;
-            for (var oversamplingPass = 0; oversamplingPass < 2; oversamplingPass++)
-            {
-                lowpassState += frequencyCoefficient * bandpassState;
-                highpassOutput = channelBlock[sampleIndex] - lowpassState - dampingCoefficient * bandpassState;
-                bandpassState += frequencyCoefficient * highpassOutput;
-            }
-            // Denormal and runaway insurance; resonance is a privilege, not a right.
-            lowpassState = Math.Clamp(lowpassState, -8, 8);
-            bandpassState = Math.Clamp(bandpassState, -8, 8);
-            channelBlock[sampleIndex] = (float)(highpassMode ? highpassOutput : lowpassState);
+            double inputSample = channelBlock[sampleIndex];
+            var inputDifference = inputSample - secondIntegratorState;
+            var bandpassOutput = filterCoefficients.InputGain * firstIntegratorState + filterCoefficients.BandGain * inputDifference;
+            var lowpassOutput = secondIntegratorState + filterCoefficients.BandGain * firstIntegratorState + filterCoefficients.LowGain * inputDifference;
+            firstIntegratorState = 2 * bandpassOutput - firstIntegratorState;
+            secondIntegratorState = 2 * lowpassOutput - secondIntegratorState;
+            channelBlock[sampleIndex] = (float)(highpassMode ? inputSample - dampingCoefficient * bandpassOutput - lowpassOutput : lowpassOutput);
         }
-        lowpassStates[channelIndex] = lowpassState;
-        bandpassStates[channelIndex] = bandpassState;
+        // Denormal insurance only: this design does not run away.
+        firstIntegratorStates[channelIndex] = Math.Abs(firstIntegratorState) < 1e-20 ? 0 : firstIntegratorState;
+        secondIntegratorStates[channelIndex] = Math.Abs(secondIntegratorState) < 1e-20 ? 0 : secondIntegratorState;
     }
 }
 
