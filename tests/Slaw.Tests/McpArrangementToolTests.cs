@@ -35,7 +35,10 @@ public class McpArrangementToolTests
 
         var (placed, placeFailed) = await CallToolAsync(dispatcher, "arrangement_place_clip", new JsonObject
         {
-            ["track"] = "Synergy Kick", ["bar"] = 9, ["bars"] = 8, ["pattern"] = "x . . . x . . . x . . . x . . .",
+            ["track"] = "Synergy Kick",
+            ["bar"] = 9,
+            ["bars"] = 8,
+            ["pattern"] = "x . . . x . . . x . . . x . . .",
         });
         Assert.False(placeFailed, placed);
         var placedClip = Assert.Single(servedDocument.Project.Timeline);
@@ -62,7 +65,10 @@ public class McpArrangementToolTests
         var (dispatcher, servedDocument) = CreateHeadlessServer();
         await CallToolAsync(dispatcher, "arrangement_place_clip", new JsonObject
         {
-            ["track"] = "Bottom-Line Bass", ["start"] = 0, ["length"] = 128, ["pattern"] = string.Join(' ', Enumerable.Repeat("A1 .", 32)),
+            ["track"] = "Bottom-Line Bass",
+            ["start"] = 0,
+            ["length"] = 128,
+            ["pattern"] = string.Join(' ', Enumerable.Repeat("A1 .", 32)),
         });
         var bassClip = Assert.Single(servedDocument.Project.Timeline);
         Assert.Equal(64, bassClip.Clip.Pattern.Count);
@@ -70,7 +76,9 @@ public class McpArrangementToolTests
         // A ramp over the whole 128-step clip is kept as written, even though the pattern is 64 steps.
         var (written, _) = await CallToolAsync(dispatcher, "set_automation", new JsonObject
         {
-            ["clip"] = bassClip.Id, ["target"] = "fx.0.cutoff", ["points"] = JsonNode.Parse("[[0, 300], [128, 4000]]"),
+            ["clip"] = bassClip.Id,
+            ["target"] = "fx.0.cutoff",
+            ["points"] = JsonNode.Parse("[[0, 300], [128, 4000]]"),
         });
         Assert.Contains("spans steps 0..128", written);
         Assert.DoesNotContain("warnings", written);
@@ -79,7 +87,9 @@ public class McpArrangementToolTests
         // Past the end: moved, and said so.
         var (adjusted, _) = await CallToolAsync(dispatcher, "set_automation", new JsonObject
         {
-            ["clip"] = bassClip.Id, ["target"] = "fx.0.cutoff", ["points"] = JsonNode.Parse("[[0, 300], [200, 4000]]"),
+            ["clip"] = bassClip.Id,
+            ["target"] = "fx.0.cutoff",
+            ["points"] = JsonNode.Parse("[[0, 300], [200, 4000]]"),
         });
         Assert.Contains("warnings:", adjusted);
         Assert.Contains("step(s) 200 outside 0..128", adjusted);
