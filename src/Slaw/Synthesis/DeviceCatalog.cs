@@ -119,14 +119,112 @@ internal static class DeviceCatalog
         Humanize,
     };
 
+    // ── Organic instruments ───────────────────────────────────────────────────
+
+    private static readonly ParameterSpecification InstrumentFilter =
+        new("cutoff", "Filter", 80, 20000, 20000, "Hz", Logarithmic: true);
+
+    private static readonly ParameterSpecification InstrumentOctave =
+        new("octave", "Octave", -3, 3, 0, "oct", Integer: true);
+
+    private static readonly ParameterSpecification InstrumentDetune =
+        new("detune", "Detune", -100, 100, 0, "ct");
+
+    private static readonly IReadOnlyList<ParameterSpecification> ElectricPianoParameters = new[]
+    {
+        new ParameterSpecification("tine", "Tine", 0, 1, 0.5, "%"),
+        new ParameterSpecification("bark", "Bark", 0, 1, 0.35, "%"),
+        new ParameterSpecification("decay", "Decay", 300, 10000, 3000, "ms", Logarithmic: true),
+        new ParameterSpecification("release", "Release", 10, 2000, 180, "ms", Logarithmic: true),
+        new ParameterSpecification("tremolo", "Tremolo", 0, 1, 0, "%"),
+        new ParameterSpecification("rate", "Trem Rate", 0.5, 12, 4.5, "Hz", Logarithmic: true),
+        InstrumentFilter,
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
+    private static readonly IReadOnlyList<ParameterSpecification> OrganParameters = new[]
+    {
+        new ParameterSpecification("sub", "Sub 16'", 0, 1, 0.6, "%"),
+        new ParameterSpecification("body", "Body 8'", 0, 1, 1, "%"),
+        new ParameterSpecification("upper", "Upper 4'", 0, 1, 0.5, "%"),
+        new ParameterSpecification("sparkle", "Sparkle 1'", 0, 1, 0.15, "%"),
+        new ParameterSpecification("percussion", "Percussion", 0, 1, 0.3, "%"),
+        new ParameterSpecification("click", "Key Click", 0, 1, 0.35, "%"),
+        new ParameterSpecification("chorus", "Chorus", 0, 1, 0.35, "%"),
+        new ParameterSpecification("rate", "Chorus Rate", 0.5, 8, 6.8, "Hz", Logarithmic: true),
+        new ParameterSpecification("attack", "Attack", 1, 2000, 4, "ms", Logarithmic: true),
+        new ParameterSpecification("release", "Release", 5, 4000, 70, "ms", Logarithmic: true),
+        InstrumentFilter,
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
+    private static readonly IReadOnlyList<ParameterSpecification> MalletParameters = new[]
+    {
+        new ParameterSpecification("material", "Material", 0, 1, 0, "%"),
+        new ParameterSpecification("hardness", "Hardness", 0, 1, 0.5, "%"),
+        new ParameterSpecification("decay", "Decay", 100, 8000, 1400, "ms", Logarithmic: true),
+        InstrumentFilter,
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
+    private static readonly IReadOnlyList<ParameterSpecification> FluteParameters = new[]
+    {
+        new ParameterSpecification("breath", "Breath", 0, 1, 0.35, "%"),
+        new ParameterSpecification("overblow", "Overblow", 0, 1, 0.3, "%"),
+        new ParameterSpecification("vibrato", "Vibrato", 0, 1, 0.35, "%"),
+        new ParameterSpecification("rate", "Vib Rate", 3, 8, 5.2, "Hz"),
+        new ParameterSpecification("attack", "Attack", 5, 2000, 70, "ms", Logarithmic: true),
+        new ParameterSpecification("release", "Release", 10, 3000, 140, "ms", Logarithmic: true),
+        InstrumentFilter,
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
+    private static readonly IReadOnlyList<ParameterSpecification> GuitarParameters = new[]
+    {
+        new ParameterSpecification("length", "Ring", 200, 8000, 2400, "ms", Logarithmic: true),
+        new ParameterSpecification("brightness", "Brightness", 0, 1, 0.35, "%"),
+        new ParameterSpecification("pick", "Pick Position", 0.05, 0.5, 0.15, "%"),
+        new ParameterSpecification("body", "Body", 0, 1, 0.5, "%"),
+        new ParameterSpecification("strum", "Strum", 0, 80, 14, "ms"),
+        InstrumentFilter,
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
+    private static readonly IReadOnlyList<ParameterSpecification> CongaParameters = new[]
+    {
+        new ParameterSpecification("tone", "Tone", 0, 1, 0.5, "%"),
+        new ParameterSpecification("decay", "Decay", 0.25, 4, 1, "×", Logarithmic: true),
+        new ParameterSpecification("bend", "Bend", 0, 12, 1.5, "st"),
+        new ParameterSpecification("cutoff", "Tone Filter", 200, 20000, 20000, "Hz", Logarithmic: true),
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
     public static IReadOnlyList<ParameterSpecification> InstrumentParametersFor(string instrumentName) => instrumentName switch
     {
         Plugins.DeviceTypes.Vst3 => Array.Empty<ParameterSpecification>(),
         "sampler" => SamplerParameters,
         "soundfont" => SoundFontParameters,
-        "kick" or "snare" or "hat" or "clap" => DrumParameters,
+        "kick" or "snare" or "hat" or "clap" or "shaker" => DrumParameters,
         "pluck" => PluckParameters,
         "noise" => NoiseParameters,
+        "epiano" => ElectricPianoParameters,
+        "organ" => OrganParameters,
+        "mallet" => MalletParameters,
+        "flute" => FluteParameters,
+        "guitar" => GuitarParameters,
+        "conga" => CongaParameters,
         _ => OscillatorParameters,
     };
 
@@ -138,6 +236,13 @@ internal static class DeviceCatalog
         "clap" => "Clap Synthesizer",
         "pluck" => "Karplus–Strong Pluck",
         "noise" => "Generative Noise Engine",
+        "epiano" => "Tine Electric Piano",
+        "organ" => "Drawbar Alignment Organ",
+        "mallet" => "Modal Mallet Bar",
+        "flute" => "Breath-as-a-Service Flute",
+        "guitar" => "Nylon-String Guitar",
+        "conga" => "Hand Percussion Congas",
+        "shaker" => "Bead Shaker",
         "sampler" => "Sampler",
         "soundfont" => "SoundFont Player",
         Plugins.DeviceTypes.Vst3 => "VST3 Instrument",
@@ -150,6 +255,27 @@ internal static class DeviceCatalog
         "sine" or "square" or "saw" or "triangle" =>
             "Spread (unison detune, 0..50 cents): above 0 the note is two oscillators detuned by ±spread/2 cents, mixed at equal power so the level stays put. " +
             "A saw at 15–30 beats like a Reese bass; at 0 it is one oscillator, aligned with itself as always.",
+        "epiano" =>
+            "Two-operator FM Rhodes. Tine is the bell at the start of each note, Bark the growl of a hard strike; both follow velocity, " +
+            "so soft chords stay warm and accents bite. Decay is how long a held middle C rings (higher notes ring shorter). Tremolo is the suitcase amp's, for when the chords need to sway in a meeting.",
+        "organ" =>
+            "Tonewheel organ. Sub (16' and 5⅓'), Body (8'), Upper (4', 2⅔', 2') and Sparkle (1⅗', 1⅓', 1') are the drawbars; Percussion is a decaying 2⅔' on every key, " +
+            "Key Click the contacts closing, Chorus the scanner vibrato mixed with the dry signal (Rate: 6.8 Hz is the classic, around 1 Hz a slow rotary drift). " +
+            "Percussion high, Sparkle up and Attack 1 for house stabs; Percussion 0 and Attack 300+ for a pad nobody can schedule over.",
+        "mallet" =>
+            "Modal bar. Material morphs marimba (0) → kalimba (0.33) → vibraphone (0.67) → glass (1). Hardness and velocity both harden the mallet: " +
+            "soft strikes are mostly fundamental, hard ones ring the overtones. Rings out whatever the note length, like a bar would, and like a bar, it does not take feedback.",
+        "flute" =>
+            "Breathy flute: a sine core with a few overtones, breath noise tuned to the note, a soft scoop into pitch and vibrato that arrives after the attack. " +
+            "Velocity and Overblow add overtones and breath. For a pan flute, raise Breath and lower Vibrato.",
+        "guitar" =>
+            "Nylon-string guitar on a tuned Karplus–Strong string, with a body resonance and a pick-position comb (lower Pick Position is closer to the bridge and thinner). " +
+            "Chords strum low to high, Strum milliseconds apart. Notes ring for Ring unless they end sooner, when the finger lifts. Harder notes are brighter.",
+        "conga" =>
+            "Tuned hand drum: the note is the drum's pitch (\"x\" plays C4; G3 tumba, C4 conga, F4 quinto, C5 and up bongo). Tone morphs muted (0) → open (0.5) → slap (1). " +
+            "Bend is how far the skin starts sharp before it settles; harder hits bend further and crack louder. Rings out whatever the note length.",
+        "shaker" =>
+            "Bead shaker: random bead collisions in a resonant shell, each hit a shake. Accent with velocity (\"x@0.5 x@0.8\"): harder shakes are longer and brighter. Pitch tunes the shell.",
         _ => string.Empty,
     };
 

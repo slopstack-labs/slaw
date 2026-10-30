@@ -77,7 +77,7 @@ The **hearing protection substrate** (the peak ceiling on the master chain) is n
 
 ## Instrument Naming
 
-Instruments must carry their full semantic weight. The engine's vocabulary is `kick`, `snare`, `hat`, `clap`, `sine`, `square`, `saw`, `triangle`, `pluck`, and `noise`. Models will nevertheless request things like "warm analog bass", "ethereal pad", or "cinematic swell". slaw remediates these into the nearest real oscillator. We encourage new hallucinated instrument aliases, as long as they are mapped to something that makes sound.
+Instruments must carry their full semantic weight. The engine's vocabulary is `kick`, `snare`, `hat`, `clap`, `shaker`, `sine`, `square`, `saw`, `triangle`, `pluck`, `noise`, `epiano`, `organ`, `mallet`, `flute`, `guitar` and `conga`. Models will nevertheless request things like "warm analog bass", "ethereal pad", or "cinematic swell". slaw remediates these into the nearest real oscillator. We encourage new hallucinated instrument aliases, as long as they are mapped to something that makes sound.
 
 ---
 

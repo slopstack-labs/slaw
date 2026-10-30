@@ -405,7 +405,7 @@ internal static class MidiFileImporter
                     {
                         Name = string.IsNullOrWhiteSpace(midiTrackName) ? $"Drums: {drumName}" : $"{midiTrackName}: {drumName}",
                         Instrument = drumGroup.Key,
-                        Gain = drumGroup.Key == "hat" ? 0.4 : 0.85,
+                        Gain = drumGroup.Key is "hat" or "shaker" ? 0.4 : 0.85,
                         Percussive = true,
                     };
                     candidate.Notes.AddRange(drumGroup.Select(entry => entry.Quantized));
@@ -489,16 +489,17 @@ internal static class MidiFileImporter
     }
 
     /// <summary>
-    /// Maps General MIDI percussion onto slaw's four drum voices. Low drums of
+    /// Maps General MIDI percussion onto slaw's drum voices. Low drums of
     /// any tradition (toms, congas, bongos, timbales — a darbuka's doum) become
     /// the kick; high ones (the tek) the snare; wood and hand percussion the
-    /// clap; metal and shakers the hat.
+    /// clap; cabasa and maracas the shaker; metal the hat.
     /// </summary>
     private static string ClassifyDrum(int midiNote) => midiNote switch
     {
         35 or 36 or 41 or 43 or 45 or 61 or 64 or 66 => "kick",
         37 or 38 or 40 or 47 or 48 or 50 or 60 or 62 or 63 or 65 => "snare",
         39 or 54 or 75 or 76 or 77 or 78 or 79 => "clap",
+        69 or 70 => "shaker",
         _ => "hat",
     };
 
@@ -579,16 +580,20 @@ internal static class MidiFileImporter
     private static string InstrumentForProgram(int? program) => program switch
     {
         null => "triangle",
-        <= 15 => "pluck",
-        <= 23 => "square",
-        <= 31 => "pluck",
+        <= 7 => "epiano",
+        <= 15 => "mallet",
+        <= 23 => "organ",
+        <= 31 => "guitar",
         <= 47 => "saw",
         <= 55 => "triangle",
         <= 63 => "square",
-        <= 79 => "triangle",
+        <= 71 => "triangle",
+        <= 79 => "flute",
         <= 87 => "square",
         <= 95 => "triangle",
         <= 103 => "noise",
+        105 => "guitar",
+        108 or 112 or 114 => "mallet",
         _ => "pluck",
     };
 
