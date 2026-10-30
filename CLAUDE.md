@@ -13,6 +13,7 @@ dotnet src/Slaw/bin/Debug/net8.0/slaw.dll mcp song.slaw # headless MCP server ov
 
 - The user often has `slaw studio --mcp` running on `127.0.0.1:47115`. Never kill it, never overwrite `out/` while it runs, and don't change their open project without saying so (back it up via `get_project` `format: "json"` first).
 - Verify audio changes by rendering headlessly (`render` through `slaw mcp`, then measure the WAV). Verify UI changes by rendering the real `StudioWindow` with Avalonia.Headless in a scratch console project whose `AssemblyName` is `Slaw.Tests` (that is what `InternalsVisibleTo` allows) and looking at the PNG.
+- macOS live output (`MacAudioQueueAudioSink`) cannot be heard from a sandboxed shell: Core Audio refuses with OSStatus -66681 (`afplay` too). Test it unsandboxed with a scratch harness and time the writes (1 s of audio should take about 1 s).
 - Installed Linux VST3s live in `/usr/lib/vst3`; real-plugin tests skip when they are absent.
 - Commits go straight to `main` (the user authorized it), in the slaw commit voice, ending with the `Co-Authored-By` trailer.
 
@@ -31,7 +32,8 @@ Two views, like Ableton Live. The **Session** holds clips by scene (`SlawTrack.C
 | MCP | `src/Slaw/Mcp/` — `SlawMcpToolset.cs` (instructions, every tool), `ProtocolStandardOutput.cs` |
 | LLM prompts and workflows | `src/Slaw/Workflows/PromptLibrary.cs`, `ProductionWorkflows.cs` |
 | Studio UI | `src/Slaw/Desktop/` — `StudioWindow*.cs` partials (`StudioWindow.Timeline.cs` is the Arrangement's transport and keys), `SessionGridView.cs`, `ArrangementView.cs`, `DetailView*.cs`, `StudioShortcuts.cs` |
-| Audio/MIDI I/O | `src/Slaw/Playback/` |
+| Audio/MIDI I/O | `src/Slaw/Playback/` — live output per OS: `MacAudioQueueAudioSink` (Core Audio), `WindowsWaveOutAudioSink`, `PipedProcessAudioSink` (Linux, or a player picked in Settings) |
+| Installers | `installer/` — Windows: `slaw.wxs` (MSI), `bundle.wxs` + `SlawSetup/` (setup.exe with turntables, WiX v5), `New-InstallerAssets.ps1`; macOS: `installer/macos/` (`build-dmg.sh`, `dmg-settings.py`, `render-assets.swift`). Built only by the manual workflows `release-installer.yml` and `release-macos.yml` |
 
 ## Keep these in sync
 
@@ -50,6 +52,7 @@ Several places describe the same thing to different readers (humans, the autopil
 | **Level help** (`render levels:true`, `get_catalog` instrument levels) | instrument levels are measured at runtime (`BuiltInInstrumentLevels`), so new or retuned instruments update themselves; the balance warnings use a 12 dB distance from the median track — keep README "MCP" in step if that changes |
 | **Sidechains or the master chain** (`SidechainRouting`, `EffectDevice.SidechainSource`, `MasterChainParameters.Effects`, engine order in `MixTracks`) | `ServerInstructions` "SIDECHAIN AND MASTER" paragraph; `add_effect` and `apply_patch` descriptions and schema; `get_catalog` sidechain line (`PromptLibrary.DescribeDeviceCatalog`); `PromptLibrary` patch prompt bullet and listing; `ProjectChangeSummarizer`; remediator (`RemediateSidechains`, `RemediateEffectChain` for the master); README "Sidechains and the master chain"; `SidechainTests` |
 | **Keyboard shortcuts / commands** (`StudioShortcuts` table) | nothing else for the F1 sheet or the menu bar's shortcut labels (both read the table); the menu item in `StudioWindow.Menu.cs` if the command should be reachable from a menu; README "Keyboard" and "Window layout" sections; tooltips that mention the key |
+| **Installers** (`installer/`, `release-installer.yml`, `release-macos.yml`) | README "Installers"; the DMG icon positions and window size live in both `render-assets.swift` and `dmg-settings.py`; keep WiX at v5 unless the maintenance fee is settled (v6+ charges revenue-earning organizations) |
 | **CLI flags** (`CommandLineIntentParser`, `Program.cs`) | the flag lists in `CommandLineIntentParser`; `--help` text; README usage tables |
 | **Settings** (`StudioPreferences`, `SettingsWindow*`) | README "Settings" table |
 | **LLM prompts** (`PromptLibrary`) | keep them short: the default model is a 3B local one; examples beat prose. The default co-pilot model (qwen2.5:3b) copies example values literally: label each example with the request it answers, give examples for other songs with obviously different ids/values, and say "never copy". Measure prompt changes against the real local model (Ollama) with a scratch harness that runs the workflow and reports what each patch changed, not by reading the prompt |
