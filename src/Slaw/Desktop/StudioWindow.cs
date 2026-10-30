@@ -365,6 +365,13 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             browserContent.Children.Add(effectEntry);
         }
         browserContent.Children.Add(new Border { Height = 10 });
+        browserContent.Children.Add(StudioUi.SectionHeading("Plugins (VST3)"));
+        browserContent.Children.Add(StudioUi.Row(4,
+            StudioUi.Button("Folders…", () => _ = OpenSettingsAsync(), "Add or remove VST3 plugin folders (Settings → Plugins)", compact: true),
+            StudioUi.Button("⟳", () => PopulatePluginEntries(rescan: true), "Rescan plugin folders", compact: true)));
+        browserContent.Children.Add(Detached(pluginEntriesPanel));
+        PopulatePluginEntries();
+        browserContent.Children.Add(new Border { Height = 10 });
         browserContent.Children.Add(StudioUi.SectionHeading("Samples"));
         browserContent.Children.Add(StudioUi.Row(4,
             StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV files to the browser", compact: true),

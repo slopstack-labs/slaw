@@ -68,7 +68,11 @@ internal sealed class SequencerEngine
     private readonly Random noiseEntropySource;
     private readonly Random humanizationEntropySource;
     private readonly MasterBusProcessor masterBusProcessor;
-    private readonly float[] trackScratchBuffer = new float[MaximumBlockFrames];
+    // Each track renders into a stereo pair. While a track is still mono (built-in voices
+    // through mono-keeping effects) only the left buffer is used; see EffectProcessor.
+    private readonly float[] trackLeftScratchBuffer = new float[MaximumBlockFrames];
+    private readonly float[] trackRightScratchBuffer = new float[MaximumBlockFrames];
+    private readonly float[] voiceScratchBuffer = new float[MaximumBlockFrames];
     private readonly PluginInstancePool pluginPool;
 
     private SlawProject? publishedProject;
@@ -762,7 +766,9 @@ internal sealed class SequencerEngine
     {
         var soloEngaged = project.Tracks.Any(track => track.Solo);
         var processingContext = new EffectProcessingContext(sampleRate, project.StepDurationSeconds);
-        var trackBlock = trackScratchBuffer.AsSpan(0, leftChannel.Length);
+        var trackLeftBlock = trackLeftScratchBuffer.AsSpan(0, leftChannel.Length);
+        var trackRightBlock = trackRightScratchBuffer.AsSpan(0, leftChannel.Length);
+        var voiceBlock = voiceScratchBuffer.AsSpan(0, leftChannel.Length);
 
         var stepFrameCount = project.StepDurationSeconds * sampleRate;
         var stepProgress = transportMode == TransportMode.Stopped || stepFrameCount <= 0
@@ -773,7 +779,8 @@ internal sealed class SequencerEngine
         {
             var runtimeState = RuntimeStateFor(track.Id);
             var trackAudible = !track.Muted && (!soloEngaged || track.Solo);
-            trackBlock.Clear();
+            trackLeftBlock.Clear();
+            trackRightBlock.Clear();
 
             // Clip envelopes only move while their clip plays; otherwise the knobs rule.
             CompiledEnvelopes? envelopes = null;
@@ -789,12 +796,20 @@ internal sealed class SequencerEngine
                 ? Math.Pow(2, Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, clipPosition), -24, 24) / 12)
                 : 1.0;
 
-            RenderPluginInstrument(project, track, runtimeState, trackBlock, envelopes, clipPosition);
+            // A plugin instrument is stereo from the start; built-in voices are mono, so a
+            // track without one stays mono (left buffer only) until an effect widens it.
+            var trackIsMono = !RenderPluginInstrument(project, track, runtimeState, trackLeftBlock, trackRightBlock, envelopes, clipPosition);
+            var monoVoiceBlock = trackIsMono ? trackLeftBlock : voiceBlock;
+            var voicesSounded = runtimeState.ActiveVoices.Count > 0;
+            if (voicesSounded && !trackIsMono)
+            {
+                voiceBlock.Clear();
+            }
             for (var voiceIndex = runtimeState.ActiveVoices.Count - 1; voiceIndex >= 0; voiceIndex--)
             {
                 var activeVoice = runtimeState.ActiveVoices[voiceIndex];
                 // Muted voices still advance, so unmuting lands mid-note rather than restarting it.
-                if (activeVoice.MixInto(trackBlock, playbackRate, trackAudible))
+                if (activeVoice.MixInto(monoVoiceBlock, playbackRate, trackAudible))
                 {
                     runtimeState.ActiveVoices.RemoveAt(voiceIndex);
                 }
@@ -809,10 +824,23 @@ internal sealed class SequencerEngine
                 {
                     continue;
                 }
+                if (!voicesSounded && !trackIsMono)
+                {
+                    voiceBlock.Clear();
+                }
+                voicesSounded = true;
                 auditionOnThisTrack = true;
-                if (auditionVoice.MixInto(trackBlock))
+                if (auditionVoice.MixInto(monoVoiceBlock))
                 {
                     activeAuditions.RemoveAt(auditionIndex);
+                }
+            }
+            if (voicesSounded && !trackIsMono)
+            {
+                for (var frameIndex = 0; frameIndex < voiceBlock.Length; frameIndex++)
+                {
+                    trackLeftBlock[frameIndex] += voiceBlock[frameIndex];
+                    trackRightBlock[frameIndex] += voiceBlock[frameIndex];
                 }
             }
 
@@ -825,7 +853,8 @@ internal sealed class SequencerEngine
                     var effectParameters = envelopes is null
                         ? track.Effects[effectIndex].Parameters
                         : runtimeState.AutomatedEffectParameters(effectIndex, track.Effects[effectIndex].Parameters, envelopes, clipPosition);
-                    runtimeState.EffectChain[effectIndex].Process(trackBlock, effectParameters, processingContext);
+                    trackIsMono = runtimeState.EffectChain[effectIndex].Process(trackLeftBlock, trackRightBlock, effectParameters,
+                        processingContext with { MonoInput = trackIsMono });
                 }
             }
 
@@ -835,13 +864,16 @@ internal sealed class SequencerEngine
             }
             var trackGain = envelopes?.Gain is { } gainEnvelope ? Math.Clamp(ClipAutomation.Evaluate(gainEnvelope, clipPosition), 0, 1.5) : track.Gain;
             var trackPan = envelopes?.Pan is { } panEnvelope ? ClipAutomation.Evaluate(panEnvelope, clipPosition) : track.Pan;
+            // Constant-power balance: a mono source (equal channels) pans exactly as it always
+            // has, and a stereo source keeps its image, tilted toward the side it is panned to.
             var panAngle = (Math.Clamp(trackPan, -1, 1) + 1) * Math.PI / 4;
             var leftGain = (float)(trackGain * Math.Cos(panAngle));
             var rightGain = (float)(trackGain * Math.Sin(panAngle));
-            for (var frameIndex = 0; frameIndex < trackBlock.Length; frameIndex++)
+            var trackRightSource = trackIsMono ? trackLeftBlock : trackRightBlock;
+            for (var frameIndex = 0; frameIndex < trackLeftBlock.Length; frameIndex++)
             {
-                leftChannel[frameIndex] += trackBlock[frameIndex] * leftGain;
-                rightChannel[frameIndex] += trackBlock[frameIndex] * rightGain;
+                leftChannel[frameIndex] += trackLeftBlock[frameIndex] * leftGain;
+                rightChannel[frameIndex] += trackRightSource[frameIndex] * rightGain;
             }
         }
 
@@ -858,8 +890,11 @@ internal sealed class SequencerEngine
         }
     }
 
-    /// <summary>A VST3 instrument's block is its voice: rendered first, then through the track's device chain like any other.</summary>
-    private void RenderPluginInstrument(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, Span<float> trackBlock, CompiledEnvelopes? envelopes, double clipPosition)
+    /// <summary>
+    /// A VST3 instrument's block is its voice: rendered first, then through the track's
+    /// device chain like any other. Returns true if a plugin wrote the (stereo) block.
+    /// </summary>
+    private bool RenderPluginInstrument(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, Span<float> trackLeftBlock, Span<float> trackRightBlock, CompiledEnvelopes? envelopes, double clipPosition)
     {
         if (track.Instrument != DeviceTypes.Vst3)
         {
@@ -869,18 +904,19 @@ internal sealed class SequencerEngine
                 Array.Clear(runtimeState.PluginNoteCountdowns);
                 pluginPool.Release(PluginInstancePool.InstrumentSlot(track.Id));
             }
-            return;
+            return false;
         }
         runtimeState.HostsPluginInstrument = true;
         if (pluginPool.TryGet(PluginInstancePool.InstrumentSlot(track.Id), track.Plugin) is not { } pluginInstrument)
         {
-            return;
+            return false;
         }
         pluginInstrument.SetTransport(project.Bpm, transportMode != TransportMode.Stopped);
         // A plugin plays continuously, so its instrument envelopes move per chunk rather than per note.
-        pluginInstrument.Process(trackBlock, envelopes is { InstrumentEnvelopes.Count: > 0 }
+        pluginInstrument.Process(trackLeftBlock, trackRightBlock, envelopes is { InstrumentEnvelopes.Count: > 0 }
             ? runtimeState.AutomatedInstrumentParameters(track.InstrumentParameters, envelopes, clipPosition)
             : track.InstrumentParameters);
+        return true;
     }
 
     private TrackRuntimeState RuntimeStateFor(string trackIdentifier)

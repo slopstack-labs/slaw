@@ -473,6 +473,8 @@ internal static class Program
     /// </summary>
     private static async Task<int> RunMcpServerAsync(CommandLineIntent commandLineIntent)
     {
+        // First thing: loading the project can already instantiate plugins, and some print to stdout.
+        var protocolOutput = Mcp.ProtocolStandardOutput.Claim();
         var requestedProjectPath = commandLineIntent.PositionalArguments.FirstOrDefault();
         SlawProject servedProject;
         if (requestedProjectPath is not null && File.Exists(requestedProjectPath))
@@ -513,7 +515,7 @@ internal static class Program
         };
         try
         {
-            await Mcp.McpStdioTransport.RunAsync(mcpDispatcher, serverLifetime.Token);
+            await Mcp.McpStdioTransport.RunAsync(mcpDispatcher, protocolOutput, serverLifetime.Token);
         }
         catch (OperationCanceledException)
         {

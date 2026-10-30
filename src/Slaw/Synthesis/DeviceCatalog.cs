@@ -125,7 +125,7 @@ internal static class DeviceCatalog
 
     public static readonly IReadOnlyList<string> EffectTypes = new[]
     {
-        "lowpass", "highpass", "delay", "reverb", "drive", "bitcrush", "vibe",
+        "lowpass", "highpass", "delay", "reverb", "drive", "bitcrush", "vibe", "widen",
     };
 
     private static readonly Dictionary<string, IReadOnlyList<ParameterSpecification>> EffectParameterTable = new()
@@ -145,12 +145,14 @@ internal static class DeviceCatalog
             new ParameterSpecification("steps", "Time", 1, 16, 3, "steps", Integer: true),
             new ParameterSpecification("feedback", "Feedback", 0, 0.95, 0.35, "%"),
             new ParameterSpecification("mix", "Dry/Wet", 0, 1, 0.3, "%"),
+            new ParameterSpecification("pingpong", "Ping-Pong", 0, 1, 0, "%"),
         },
         ["reverb"] = new[]
         {
             new ParameterSpecification("size", "Size", 0, 1, 0.6, "%"),
             new ParameterSpecification("damping", "Damping", 0, 1, 0.4, "%"),
             new ParameterSpecification("mix", "Dry/Wet", 0, 1, 0.25, "%"),
+            new ParameterSpecification("width", "Width", 0, 1, 0.8, "%"),
         },
         ["drive"] = new[]
         {
@@ -169,6 +171,11 @@ internal static class DeviceCatalog
             new ParameterSpecification("disruption", "Disruption", 0, 1, 0, "%"),
             new ParameterSpecification("alignment", "Alignment", 0, 1, 1, "%"),
         },
+        ["widen"] = new[]
+        {
+            new ParameterSpecification("width", "Width", 0, 2, 1.4, "%"),
+            new ParameterSpecification("haas", "Haas", 0, 40, 8, "ms"),
+        },
     };
 
     public static IReadOnlyList<ParameterSpecification> EffectParametersFor(string effectType) =>
@@ -183,6 +190,7 @@ internal static class DeviceCatalog
         "drive" => "Warmth Saturator",
         "bitcrush" => "Lo-Fi Compliance Crusher",
         "vibe" => "Neural Vibe Enhancer™",
+        "widen" => "Stereo Alignment Widener",
         Plugins.DeviceTypes.Vst3 => "VST3 Effect",
         _ => effectType,
     };
@@ -191,7 +199,9 @@ internal static class DeviceCatalog
     {
         "vibe" => "Synergy adds saturation. Disruption adds noise. Alignment is a placebo, validated in user studies.",
         "bitcrush" => "Reduces bit depth until the mix complies with lo-fi playlist guidelines.",
-        "reverb" => "Places the track in a large, empty, cloud-hosted space.",
+        "reverb" => "Places the track in a large, empty, cloud-hosted space. Width spreads the tail across both channels.",
+        "delay" => "Tempo-synced echo. Ping-Pong sends each repeat to the other side of the room.",
+        "widen" => "Width 0 is mono, 1 leaves the image alone, 2 doubles the sides. Haas delays the right channel a few ms, so even a mono source finds both speakers.",
         _ => string.Empty,
     };
 

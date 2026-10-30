@@ -122,7 +122,9 @@ internal sealed class SlawMcpToolset
                 "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
                 "with normalized values 0..1; describe_plugin lists them with titles." +
                 "\nArrangement (apply_patch \"timeline\"): the song, as clips placed at any step on any track (16 steps per bar), independent of scenes. " +
-                "Play it with transport play_arrangement (from a bar); render bounces it."));
+                "Play it with transport play_arrangement (from a bar); render bounces it." +
+                "\nStereo: tracks are stereo end to end. Built-in voices start mono; widen (width, haas ms), reverb width and delay pingpong spread them, " +
+                "VST3 plugins process left and right, and pan is a constant-power balance."));
 
         Register("apply_patch",
             "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], " +
