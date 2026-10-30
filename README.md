@@ -51,7 +51,7 @@ Dependencies: zero beyond the UI toolkit. Every sample is synthesized, every HTT
 | macOS | `afplay` |
 | Windows | PowerShell `Media.SoundPlayer` |
 
-The studio does not use these. It runs its own live engine and streams audio continuously to your host's audio substrate (`pw-cat`, `pacat`, `aplay`, or sox `play` on Linux/macOS; winmm waveOut on Windows).
+The studio does not use these. It runs its own live engine and streams audio continuously to your host's audio substrate (Core Audio on macOS; `pw-cat`, `pacat`, `aplay`, or sox `play` on Linux; winmm waveOut on Windows).
 
 ## Requirements
 
@@ -100,7 +100,7 @@ pip install dmgbuild
 installer/macos/build-dmg.sh osx-arm64 v0.2.0 out/macos
 ```
 
-The app is ad-hoc signed, not notarized, because notarization costs a subscription and slaw's revenue model is still in remediation. The first launch therefore needs **System Settings → Privacy & Security → Open Anyway** (or `xattr -dr com.apple.quarantine /Applications/slaw.app`). Live playback streams through sox, so `brew install sox` first. The app looks in `/opt/homebrew/bin` and `/usr/local/bin` even when Finder starts it with a bare `PATH`. For `slaw` on the command line, link the binary inside the bundle: `ln -s /Applications/slaw.app/Contents/MacOS/slaw /usr/local/bin/slaw`.
+The app is ad-hoc signed, not notarized, because notarization costs a subscription and slaw's revenue model is still in remediation. The first launch therefore needs **System Settings → Privacy & Security → Open Anyway** (or `xattr -dr com.apple.quarantine /Applications/slaw.app`). Live playback goes straight to Core Audio, so there is nothing else to install. If you pick sox `play` under Settings → Audio instead, the app also looks for it in `/opt/homebrew/bin` and `/usr/local/bin`, because Finder starts apps with a bare `PATH`. For `slaw` on the command line, link the binary inside the bundle: `ln -s /Applications/slaw.app/Contents/MacOS/slaw /usr/local/bin/slaw`.
 
 ## Usage
 
@@ -211,7 +211,7 @@ The master chain is: feedback delay, one-pole lowpass, `tanh` saturation, gain, 
 
 ### The live engine
 
-A real-time, sample-accurate sequencer runs in-process and streams audio continuously (Linux and macOS via a pipe into `pw-cat`, `pacat`, `aplay`, or sox `play`; Windows via the winmm waveOut API). **Every edit is heard on the next step, without stopping or restarting playback**: a note, a knob, the BPM, a mute, or an AI rewriting the entire song. The same engine renders offline bounces, so what you hear is what you export. The **hearing protection substrate** is now a live peak limiter at about -1 dBFS.
+A real-time, sample-accurate sequencer runs in-process and streams audio continuously (macOS via Core Audio's AudioQueue, with nothing to install; Linux via a pipe into `pw-cat`, `pacat`, `aplay`, or sox `play`; Windows via the winmm waveOut API). **Every edit is heard on the next step, without stopping or restarting playback**: a note, a knob, the BPM, a mute, or an AI rewriting the entire song. The same engine renders offline bounces, so what you hear is what you export. The **hearing protection substrate** is now a live peak limiter at about -1 dBFS.
 
 ### Window layout
 

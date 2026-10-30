@@ -121,7 +121,9 @@ internal sealed class SettingsWindow : Window
 
         audioSubstrateComboBox = new ComboBox
         {
-            ItemsSource = new[] { "auto" }.Concat(PipedProcessAudioSink.SupportedSubstrateNames).ToArray(),
+            ItemsSource = new[] { "auto" }
+                .Concat(OperatingSystem.IsMacOS() ? new[] { MacAudioQueueAudioSink.CoreAudioSubstrateName } : Array.Empty<string>())
+                .Concat(PipedProcessAudioSink.SupportedSubstrateNames).ToArray(),
             MinWidth = 160,
         };
         audioSubstrateComboBox.SelectedItem = (audioSubstrateComboBox.ItemsSource as string[])!
@@ -276,7 +278,9 @@ internal sealed class SettingsWindow : Window
         var formGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("150,*"), RowSpacing = 10, ColumnSpacing = 8 };
         var substrateCaption = OperatingSystem.IsWindows()
             ? StudioUi.Caption("On Windows, waveOut is always used. This setting is decorative, like most settings.")
-            : null;
+            : OperatingSystem.IsMacOS()
+                ? StudioUi.Caption("auto uses Core Audio, which needs nothing installed. Pick a player only to route through it on purpose.")
+                : null;
         if (substrateCaption is not null)
         {
             substrateCaption.TextWrapping = TextWrapping.Wrap;

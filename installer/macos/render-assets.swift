@@ -270,7 +270,7 @@ func renderBackground(scale: CGFloat, to path: String) {
     drawNameplate(context, under: applicationsCentre, width: 104)
 
     drawText(context, "Drag slaw onto Applications, then drop the needle.", at: CGPoint(x: windowWidth / 2, y: 342), font: .systemFont(ofSize: 14, weight: .medium), color: text, centred: true)
-    drawText(context, "Live playback streams through sox:  brew install sox", at: CGPoint(x: windowWidth / 2, y: 366), font: .monospacedSystemFont(ofSize: 11, weight: .regular), color: textMuted, centred: true)
+    drawText(context, "First launch: System Settings → Privacy & Security → Open Anyway", at: CGPoint(x: windowWidth / 2, y: 366), font: .systemFont(ofSize: 11), color: textMuted, centred: true)
 
     savePNG(context, to: path)
 }
