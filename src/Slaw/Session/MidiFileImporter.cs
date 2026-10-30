@@ -1,4 +1,5 @@
 using System.Globalization;
+using SlopstackLabs.Slaw.SoundFonts;
 
 namespace SlopstackLabs.Slaw.Session;
 
@@ -8,11 +9,15 @@ namespace SlopstackLabs.Slaw.Session;
 /// </summary>
 internal sealed record MidiImportResult(SlawProject Project, IReadOnlyList<string> ImportLedger);
 
+/// <summary>A SoundFont to voice an imported MIDI file with: the file, parsed.</summary>
+internal sealed record MidiSoundFontChoice(string Path, SoundFontBank Bank);
+
 /// <summary>
 /// Converts Standard MIDI Files into slaw projects and patterns. Slaw's notation is
 /// monophonic per step, polyphonic per chord, and lossy by design: overlapping
-/// notes are approximated, velocities are synergized away, and pitch bend is
-/// left as an exercise for a future quarter.
+/// notes are approximated and velocities are synergized away. Pitch bends become
+/// clip pitch envelopes. With a SoundFont, every channel plays its General MIDI
+/// program from the font and the drum channel plays the font's kit, note for note.
 /// </summary>
 internal static class MidiFileImporter
 {
@@ -23,13 +28,17 @@ internal static class MidiFileImporter
 
     private sealed record ParsedNote(int MidiTrackIndex, int Channel, int MidiNote, long StartTick, long EndTick, int? Program);
 
+    /// <summary>A pitch bend: where, on which channel, and how far in semitones (bend range applied).</summary>
+    private sealed record ParsedPitchBend(int MidiTrackIndex, int Channel, long Tick, double Semitones);
+
     private sealed record ParsedMidiFile(
         int Format,
         int Division,
         double? TempoBpm,
         IReadOnlyList<ParsedNote> Notes,
         IReadOnlyDictionary<int, string> TrackNames,
-        int MidiTrackCount);
+        int MidiTrackCount,
+        IReadOnlyList<ParsedPitchBend> PitchBends);
 
     private sealed record StepNote(int StartStep, int LengthInSteps, int MidiNote);
 
@@ -39,7 +48,21 @@ internal static class MidiFileImporter
         public string Instrument { get; init; } = "triangle";
         public double Gain { get; init; } = 0.7;
         public bool Percussive { get; init; }
+        public SoundFontReference? SoundFont { get; init; }
         public List<StepNote> Notes { get; } = new();
+
+
+
+        /// <summary>Pitch bends in song steps (fractional) and semitones, in time order.</summary>
+        public List<(double Step, double Semitones)> Bends { get; } = new();
+
+        public SlawTrackCandidate CopyWith(string name, double gain)
+        {
+            var copy = new SlawTrackCandidate { Name = name, Instrument = Instrument, Gain = gain, Percussive = Percussive, SoundFont = SoundFont };
+            copy.Notes.AddRange(Notes);
+            copy.Bends.AddRange(Bends);
+            return copy;
+        }
     }
 
     /// <summary>True for .mid, .midi and .smf files, case-insensitively.</summary>
@@ -51,10 +74,26 @@ internal static class MidiFileImporter
             || extension.Equals(".smf", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static MidiImportResult Import(string path) =>
-        Import(File.ReadAllBytes(path), Path.GetFileNameWithoutExtension(path));
+    public static MidiImportResult Import(string path, MidiSoundFontChoice? soundFont = null) =>
+        Import(File.ReadAllBytes(path), Path.GetFileNameWithoutExtension(path), soundFont);
 
-    public static MidiImportResult Import(byte[] midiFileBytes, string projectName)
+    /// <summary>
+    /// The SoundFont that came with a MIDI file: a .sf2 with the same name in the
+    /// same folder, else the only .sf2 there. Null when there is none or several.
+    /// </summary>
+    public static string? FindCompanionSoundFont(string midiFilePath)
+    {
+        var midiFolder = Path.GetDirectoryName(Path.GetFullPath(midiFilePath));
+        if (midiFolder is null || !Directory.Exists(midiFolder))
+        {
+            return null;
+        }
+        var fontsInFolder = Directory.EnumerateFiles(midiFolder).Where(SoundFontBank.IsSoundFontFile).OrderBy(fontPath => fontPath, StringComparer.Ordinal).ToList();
+        return fontsInFolder.FirstOrDefault(fontPath => string.Equals(Path.GetFileNameWithoutExtension(fontPath), Path.GetFileNameWithoutExtension(midiFilePath), StringComparison.OrdinalIgnoreCase))
+               ?? (fontsInFolder.Count == 1 ? fontsInFolder[0] : null);
+    }
+
+    public static MidiImportResult Import(byte[] midiFileBytes, string projectName, MidiSoundFontChoice? soundFont = null)
     {
         var parsedMidiFile = Parse(midiFileBytes);
         var importLedger = new List<string>();
@@ -77,7 +116,10 @@ internal static class MidiFileImporter
         if (allStepNotes.Count == 0)
             throw new InvalidDataException("This MIDI file contains no notes. Silence is bold, but slaw needs at least one note to deliver value.");
 
-        var candidates = BuildTrackCandidates(allStepNotes, parsedMidiFile.TrackNames, out var foldedUnisonCount);
+        var bendsByChannel = BendsByChannel(parsedMidiFile.PitchBends, stepsPerTick);
+        var candidates = BuildTrackCandidates(allStepNotes, parsedMidiFile.TrackNames, soundFont, bendsByChannel, out var foldedUnisonCount);
+        var bendedTrackCount = candidates.Count(candidate => candidate.Bends.Count > 0);
+        var importedBendCount = candidates.Sum(candidate => candidate.Bends.Count);
         if (foldedUnisonCount > 0)
             importLedger.Add($"folded {foldedUnisonCount} unison double(s) into their twins (louder, not duplicated)");
 
@@ -111,7 +153,7 @@ internal static class MidiFileImporter
 
         foreach (var candidate in candidates)
         {
-            project.Tracks.Add(new SlawTrack { Name = candidate.Name, Instrument = candidate.Instrument, Gain = candidate.Gain });
+            project.Tracks.Add(new SlawTrack { Name = candidate.Name, Instrument = candidate.Instrument, Gain = candidate.Gain, SoundFont = candidate.SoundFont?.Copy() });
         }
 
         var sectionCount = Math.Max(1, (int)Math.Ceiling((songEndStep - songStartStep) / (double)StepsPerSection));
@@ -122,8 +164,13 @@ internal static class MidiFileImporter
             var sectionPatterns = fullPatterns
                 .Select(fullPattern => SlicePattern(fullPattern, sectionStartStep, StepsPerSection))
                 .ToList();
-            var sectionSignature = string.Join("##", sectionPatterns.Select(pattern =>
-                pattern.All(step => step == NotationResolver.RestSymbol) ? "<silent>" : string.Join(' ', pattern)));
+            var sectionBends = candidates
+                .Select(candidate => SliceBends(candidate.Bends, sectionStartStep, StepsPerSection))
+                .ToList();
+            // Bends are part of a section's identity: the same notes bent differently are a different section.
+            var sectionSignature = string.Join("##", sectionPatterns.Select((pattern, trackIndex) =>
+                (pattern.All(step => step == NotationResolver.RestSymbol) ? "<silent>" : string.Join(' ', pattern)) +
+                (sectionBends[trackIndex] is { } bendPoints ? "~" + ClipAutomation.Describe(ClipAutomation.PitchTarget, bendPoints) : string.Empty)));
 
             var sceneIndex = sceneSignatures.IndexOf(sectionSignature);
             if (sceneIndex < 0)
@@ -143,7 +190,14 @@ internal static class MidiFileImporter
                     var pattern = sectionPatterns[trackIndex];
                     project.Tracks[trackIndex].Clips.Add(pattern.All(step => step == NotationResolver.RestSymbol)
                         ? null
-                        : new SlawClip { Name = $"{project.Tracks[trackIndex].Name} {sceneIndex + 1}", Pattern = pattern });
+                        : new SlawClip
+                        {
+                            Name = $"{project.Tracks[trackIndex].Name} {sceneIndex + 1}",
+                            Pattern = pattern,
+                            Automation = sectionBends[trackIndex] is { } bendPoints
+                                ? new Dictionary<string, List<AutomationPoint>> { [ClipAutomation.PitchTarget] = bendPoints }
+                                : null,
+                        });
                 }
             }
 
@@ -156,6 +210,16 @@ internal static class MidiFileImporter
 
         var tempoDescription = project.Bpm.ToString("0.#", CultureInfo.InvariantCulture);
         importLedger.Insert(0, $"imported {allStepNotes.Count} notes from {parsedMidiFile.MidiTrackCount} MIDI tracks at BPM {tempoDescription}");
+        if (importedBendCount > 0)
+        {
+            importLedger.Insert(1, $"imported {importedBendCount} pitch bend(s) as pitch envelopes on {bendedTrackCount} track(s)");
+        }
+        if (soundFont is not null)
+        {
+            var voicedTracks = candidates.Where(candidate => candidate.SoundFont is not null)
+                .Select(candidate => $"{candidate.Name} → {candidate.SoundFont!.Bank}:{candidate.SoundFont.Program} {candidate.SoundFont.PresetName}");
+            importLedger.Insert(1, $"voiced with SoundFont {Path.GetFileName(soundFont.Path)}: {string.Join(", ", voicedTracks)}");
+        }
         importLedger.AddRange(ProjectAlignmentRemediator.Remediate(project));
         return new MidiImportResult(project, importLedger);
     }
@@ -178,6 +242,49 @@ internal static class MidiFileImporter
         var songEndStep = stepNotes.Max(note => note.StartStep + note.LengthInSteps);
         var firstBarStartStep = stepNotes.Min(note => note.StartStep) / StepsPerBar * StepsPerBar;
         return SlicePattern(RenderPattern(stepNotes, songEndStep, percussive), firstBarStartStep, Math.Max(0, stepCount));
+    }
+
+    /// <summary>
+    /// Pitch bends per (MIDI track, channel) in song steps, dropping channels that
+    /// never leave the centre. Drums never bend, whatever the file says.
+    /// </summary>
+    private static Dictionary<(int MidiTrackIndex, int Channel), List<(double Step, double Semitones)>> BendsByChannel(IReadOnlyList<ParsedPitchBend> pitchBends, double stepsPerTick) =>
+        pitchBends
+            .Where(bend => bend.Channel != DrumChannelIndex)
+            .GroupBy(bend => (bend.MidiTrackIndex, bend.Channel))
+            .Select(channelBends => (channelBends.Key, Bends: channelBends.OrderBy(bend => bend.Tick)
+                .Select(bend => (Step: bend.Tick * stepsPerTick, Semitones: Math.Round(bend.Semitones, 4)))
+                .ToList()))
+            .Where(channelBends => channelBends.Bends.Any(bend => Math.Abs(bend.Semitones) > 1e-6))
+            .ToDictionary(channelBends => channelBends.Key, channelBends => channelBends.Bends);
+
+    /// <summary>
+    /// The pitch envelope for one section: the bend in force at the section's start,
+    /// then a step at every bend event (two points on the same step, the later one
+    /// winning). Null when the section is never bent.
+    /// </summary>
+    private static List<AutomationPoint>? SliceBends(IReadOnlyList<(double Step, double Semitones)> bends, int sectionStartStep, int sectionLength)
+    {
+        if (bends.Count == 0)
+        {
+            return null;
+        }
+        var bendAtStart = bends.LastOrDefault(bend => bend.Step <= sectionStartStep).Semitones;
+        var bendsInside = bends.Where(bend => bend.Step > sectionStartStep && bend.Step < sectionStartStep + sectionLength).ToList();
+        if (bendsInside.Count == 0 && Math.Abs(bendAtStart) < 1e-6)
+        {
+            return null;
+        }
+        var points = new List<AutomationPoint> { new() { Step = 0, Value = bendAtStart } };
+        var previousSemitones = bendAtStart;
+        foreach (var (bendStep, semitones) in bendsInside)
+        {
+            var relativeStep = Math.Round(bendStep - sectionStartStep, 4);
+            points.Add(new AutomationPoint { Step = relativeStep, Value = previousSemitones });
+            points.Add(new AutomationPoint { Step = relativeStep, Value = semitones });
+            previousSemitones = semitones;
+        }
+        return points;
     }
 
     /// <summary>A single-track file's track name is the song title; otherwise use the file name.</summary>
@@ -250,6 +357,8 @@ internal static class MidiFileImporter
     private static List<SlawTrackCandidate> BuildTrackCandidates(
         IReadOnlyList<(ParsedNote Source, StepNote Quantized)> allStepNotes,
         IReadOnlyDictionary<int, string> midiTrackNames,
+        MidiSoundFontChoice? soundFont,
+        IReadOnlyDictionary<(int MidiTrackIndex, int Channel), List<(double Step, double Semitones)>> bendsByChannel,
         out int foldedUnisonCount)
     {
         var candidates = new List<SlawTrackCandidate>();
@@ -269,6 +378,20 @@ internal static class MidiFileImporter
             if (channelCountPerMidiTrack.GetValueOrDefault(group.Key.MidiTrackIndex) > 1)
             {
                 midiTrackName = null;
+            }
+            if (group.Key.Channel == DrumChannelIndex && soundFont?.Bank.DrumKit() is { } drumKit)
+            {
+                // The font's kit plays every drum note itself, so the channel stays one pitched track.
+                var kitCandidate = new SlawTrackCandidate
+                {
+                    Name = string.IsNullOrWhiteSpace(midiTrackName) ? "Drums" : $"{midiTrackName}: Drums",
+                    Instrument = "soundfont",
+                    Gain = 0.6,
+                    SoundFont = new SoundFontReference { Path = soundFont.Path, Bank = drumKit.Bank, Program = drumKit.Program, PresetName = drumKit.Name },
+                };
+                kitCandidate.Notes.AddRange(group.Select(entry => entry.Quantized));
+                candidates.Add(kitCandidate);
+                continue;
             }
             if (group.Key.Channel == DrumChannelIndex)
             {
@@ -292,12 +415,20 @@ internal static class MidiFileImporter
             }
 
             var program = group.OrderBy(entry => entry.Source.StartTick).First().Source.Program;
+            var fontPreset = soundFont?.Bank.FindPreset(0, program ?? 0);
             var melodic = new SlawTrackCandidate
             {
                 Name = string.IsNullOrWhiteSpace(midiTrackName) ? DescribeProgram(program) : midiTrackName,
-                Instrument = InstrumentForProgram(program),
+                Instrument = fontPreset is null ? InstrumentForProgram(program) : "soundfont",
+                SoundFont = fontPreset is null
+                    ? null
+                    : new SoundFontReference { Path = soundFont!.Path, Bank = fontPreset.Bank, Program = fontPreset.Program, PresetName = fontPreset.Name },
             };
             melodic.Notes.AddRange(group.Select(entry => entry.Quantized));
+            if (bendsByChannel.TryGetValue(group.Key, out var channelBends))
+            {
+                melodic.Bends.AddRange(channelBends);
+            }
             candidates.Add(melodic);
         }
 
@@ -313,15 +444,7 @@ internal static class MidiFileImporter
                 renamed.Add(candidate);
                 continue;
             }
-            var numbered = new SlawTrackCandidate
-            {
-                Name = $"{candidate.Name} {duplicates.IndexOf(candidate) + 1}",
-                Instrument = candidate.Instrument,
-                Gain = candidate.Gain,
-                Percussive = candidate.Percussive,
-            };
-            numbered.Notes.AddRange(candidate.Notes);
-            renamed.Add(numbered);
+            renamed.Add(candidate.CopyWith($"{candidate.Name} {duplicates.IndexOf(candidate) + 1}", candidate.Gain));
         }
         return renamed;
     }
@@ -333,8 +456,11 @@ internal static class MidiFileImporter
     /// </summary>
     private static List<SlawTrackCandidate> FoldUnisonDoubles(List<SlawTrackCandidate> candidates, out int foldedUnisonCount)
     {
-        static string NoteSignature(SlawTrackCandidate candidate) => string.Join(';',
-            candidate.Notes.OrderBy(note => note.StartStep).ThenBy(note => note.MidiNote).Select(note => $"{note.StartStep}:{note.MidiNote}:{note.LengthInSteps}"));
+        // Two channels only fold when they would also sound the same: same notes, same bends and, with a font, the same preset.
+        static string NoteSignature(SlawTrackCandidate candidate) =>
+            candidate.SoundFont?.Fingerprint + "|" +
+            string.Join(';', candidate.Bends.Select(bend => FormattableString.Invariant($"{bend.Step:R}:{bend.Semitones:R}"))) + "|" +
+            string.Join(';', candidate.Notes.OrderBy(note => note.StartStep).ThenBy(note => note.MidiNote).Select(note => $"{note.StartStep}:{note.MidiNote}:{note.LengthInSteps}"));
 
         var folded = new List<SlawTrackCandidate>();
         var foldedBySignature = new Dictionary<string, (SlawTrackCandidate Candidate, int Copies)>();
@@ -358,15 +484,7 @@ internal static class MidiFileImporter
             {
                 return candidate;
             }
-            var thickened = new SlawTrackCandidate
-            {
-                Name = $"{candidate.Name} ×{copies}",
-                Instrument = candidate.Instrument,
-                Gain = Math.Min(1.0, candidate.Gain * (1 + 0.25 * (copies - 1))),
-                Percussive = candidate.Percussive,
-            };
-            thickened.Notes.AddRange(candidate.Notes);
-            return thickened;
+            return candidate.CopyWith($"{candidate.Name} ×{copies}", Math.Min(1.0, candidate.Gain * (1 + 0.25 * (copies - 1))));
         }).ToList();
     }
 
@@ -513,6 +631,7 @@ internal static class MidiFileImporter
             throw new InvalidDataException("This MIDI file declares zero ticks per quarter note, which is a bold interpretation of time.");
 
         var notes = new List<ParsedNote>();
+        var pitchBends = new List<ParsedPitchBend>();
         var trackNames = new Dictionary<int, string>();
         double? tempoBpm = null;
         var midiTrackCount = 0;
@@ -526,7 +645,7 @@ internal static class MidiFileImporter
             var chunkEnd = (int)Math.Min(bytes.Length, chunkStart + chunkLength);
             if (isTrackChunk)
             {
-                ParseTrackChunk(bytes, chunkStart, chunkEnd, midiTrackCount, notes, trackNames, ref tempoBpm);
+                ParseTrackChunk(bytes, chunkStart, chunkEnd, midiTrackCount, notes, pitchBends, trackNames, ref tempoBpm);
                 midiTrackCount++;
             }
             position = chunkStart + chunkLength;
@@ -534,17 +653,21 @@ internal static class MidiFileImporter
 
         if (midiTrackCount == 0)
             throw new InvalidDataException("This MIDI file has no tracks. It is a header with aspirations.");
-        return new ParsedMidiFile(format, rawDivision, tempoBpm, notes, trackNames, midiTrackCount);
+        return new ParsedMidiFile(format, rawDivision, tempoBpm, notes, trackNames, midiTrackCount, pitchBends);
     }
 
     private static void ParseTrackChunk(
         byte[] bytes, int start, int end, int midiTrackIndex,
-        List<ParsedNote> notes, Dictionary<int, string> trackNames, ref double? tempoBpm)
+        List<ParsedNote> notes, List<ParsedPitchBend> pitchBends, Dictionary<int, string> trackNames, ref double? tempoBpm)
     {
         var cursor = start;
         long tick = 0;
         var runningStatus = 0;
         var currentPrograms = new int?[16];
+        // Pitch-bend sensitivity per channel (RPN 0): ±2 semitones unless the file says otherwise.
+        var bendRangeSemitones = Enumerable.Repeat(2.0, 16).ToArray();
+        var selectedParameterMsb = Enumerable.Repeat(127, 16).ToArray();
+        var selectedParameterLsb = Enumerable.Repeat(127, 16).ToArray();
         var openNotes = new Dictionary<(int Channel, int Note), Queue<(long StartTick, int? Program)>>();
 
         try
@@ -613,6 +736,31 @@ internal static class MidiFileImporter
 
                 var firstData = bytes[cursor++] & 0x7F;
                 var secondData = bytes[cursor++] & 0x7F;
+                if (messageType == 0xB0)
+                {
+                    switch (firstData)
+                    {
+                        case 101:
+                            selectedParameterMsb[channel] = secondData;
+                            break;
+                        case 100:
+                            selectedParameterLsb[channel] = secondData;
+                            break;
+                        case 6 when selectedParameterMsb[channel] == 0 && selectedParameterLsb[channel] == 0:
+                            bendRangeSemitones[channel] = secondData + bendRangeSemitones[channel] % 1;
+                            break;
+                        case 38 when selectedParameterMsb[channel] == 0 && selectedParameterLsb[channel] == 0:
+                            bendRangeSemitones[channel] = Math.Floor(bendRangeSemitones[channel]) + secondData / 100.0;
+                            break;
+                    }
+                    continue;
+                }
+                if (messageType == 0xE0)
+                {
+                    var bendAmount = ((secondData << 7) | firstData) - 8192;
+                    pitchBends.Add(new ParsedPitchBend(midiTrackIndex, channel, tick, bendAmount / 8192.0 * bendRangeSemitones[channel]));
+                    continue;
+                }
                 var isNoteOn = messageType == 0x90 && secondData > 0;
                 var isNoteOff = messageType == 0x80 || (messageType == 0x90 && secondData == 0);
                 var noteKey = (channel, firstData);

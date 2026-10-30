@@ -339,7 +339,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var browserContent = new StackPanel { Spacing = 3, Margin = new Thickness(10) };
 
         var instrumentsSection = AddCollapsibleBrowserSection(browserContent, "Instruments");
-        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments)
+        // "soundfont" gets its own entry below, which asks for the .sf2 straight away.
+        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName != "soundfont"))
         {
             var instrumentEntry = BrowserEntry(DeviceCatalog.InstrumentDisplayName(instrumentName), () => document.AddTrack(instrumentName),
                 "Click to add a track with this instrument, or drag it onto a track to swap its instrument");
@@ -347,6 +348,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             instrumentsSection.Children.Add(instrumentEntry);
         }
         instrumentsSection.Children.Add(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
+        instrumentsSection.Children.Add(BrowserEntry("SoundFont… (.sf2)", () => _ = AddSoundFontTrackFromPickerAsync(),
+            "Click to add a track playing a SoundFont preset (General MIDI banks, drum kits); you can also drop a .sf2 onto a track"));
 
         var effectsSection = AddCollapsibleBrowserSection(browserContent, "Audio Effects");
         foreach (var effectType in DeviceCatalog.EffectTypes)
@@ -902,13 +905,17 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         }
     }
 
-    /// <summary>Replaces the project with an imported MIDI file (undoable; Save asks for a new name).</summary>
-    private void ImportMidiFile(string midiFilePath)
+    /// <summary>
+    /// Replaces the project with an imported MIDI file (undoable; Save asks for a new name),
+    /// voiced with <paramref name="soundFontPath"/> or, if none is given, the .sf2 that came with it.
+    /// </summary>
+    private void ImportMidiFile(string midiFilePath, string? soundFontPath = null)
     {
         MidiImportResult importResult;
+        var soundFontChoice = SoundFontForMidiImport(midiFilePath, soundFontPath);
         try
         {
-            importResult = MidiFileImporter.Import(midiFilePath);
+            importResult = MidiFileImporter.Import(midiFilePath, soundFontChoice);
         }
         catch (Exception importRemediationOpportunity) when (importRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
         {
@@ -920,7 +927,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         document.FilePath = null;
         RefreshChrome();
         SetStatus(StatusSeverity.Success,
-            $"imported {Path.GetFileName(midiFilePath)}: {importResult.Project.Tracks.Count} tracks, {importResult.Project.Scenes.Count} scenes — Ctrl+Z restores the previous project");
+            $"imported {Path.GetFileName(midiFilePath)}: {importResult.Project.Tracks.Count} tracks" +
+            (soundFontChoice is null ? " on built-in instruments" : $" voiced with {Path.GetFileName(soundFontChoice.Path)}") +
+            " — Ctrl+Z restores the previous project");
         if (AiFeaturesEnabled)
         {
             AppendCopilotMessage("co-pilot", $"Imported {Path.GetFileName(midiFilePath)}. Notes:\n" +
@@ -1831,7 +1840,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             .ToList() ?? new List<string>();
         if (droppedPaths.FirstOrDefault(droppedPath => File.Exists(droppedPath) && MidiFileImporter.IsMidiFile(droppedPath)) is { } droppedMidiFile)
         {
-            ImportMidiFile(droppedMidiFile);
+            ImportMidiFile(droppedMidiFile, droppedPaths.FirstOrDefault(droppedPath => File.Exists(droppedPath) && SoundFonts.SoundFontBank.IsSoundFontFile(droppedPath)));
             dragEvent.Handled = true;
             return;
         }
@@ -2003,6 +2012,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                                       || (dropTarget.Kind is DropTargetKind.DeviceChain or DropTargetKind.EmptyArea && document.SelectedTrack is not null),
             DragPayloadKind.Files when DroppedPluginBundles(dragPayload).Count > 0 =>
                 dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain or DropTargetKind.EffectDevice,
+            DragPayloadKind.Files when DroppedSoundFonts(dragPayload).Count > 0 && DroppedMidiFiles(dragPayload).Count == 0 =>
+                dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Files when DroppedMidiFiles(dragPayload).Count > 0 =>
                 dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Sample or DragPayloadKind.Files =>
@@ -2035,6 +2046,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             return;
         }
 
+        var droppedSoundFonts = DroppedSoundFonts(dragPayload);
         if (DroppedMidiFiles(dragPayload) is { Count: > 0 } droppedMidiFiles)
         {
             if (dropTarget.Kind == DropTargetKind.ClipSlot && IsValidTrack(dropTarget.TrackIndex))
@@ -2043,8 +2055,14 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             }
             else
             {
-                ImportMidiFile(droppedMidiFiles[0]);
+                ImportMidiFile(droppedMidiFiles[0], droppedSoundFonts.FirstOrDefault());
             }
+            return;
+        }
+
+        if (droppedSoundFonts.Count > 0)
+        {
+            LoadDroppedSoundFont(droppedSoundFonts[0], dropTarget, targetTrackIndex);
             return;
         }
 

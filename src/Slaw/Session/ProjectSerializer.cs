@@ -38,6 +38,13 @@ internal static class ProjectSerializer
                 track.Sample = Path.GetFullPath(Path.Combine(projectDirectory, track.Sample!));
             }
         }
+        foreach (var track in loadedProject.Tracks.Where(track => track?.SoundFont is { Path.Length: > 0 }))
+        {
+            if (!Path.IsPathRooted(track.SoundFont!.Path))
+            {
+                track.SoundFont.Path = Path.GetFullPath(Path.Combine(projectDirectory, track.SoundFont.Path));
+            }
+        }
         ProjectAlignmentRemediator.Remediate(loadedProject);
         return loadedProject;
     }
@@ -57,6 +64,14 @@ internal static class ProjectSerializer
             if (!relativeSamplePath.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relativeSamplePath))
             {
                 track.Sample = relativeSamplePath;
+            }
+        }
+        foreach (var track in persistedProject.Tracks.Where(track => track.SoundFont is { Path.Length: > 0 } && Path.IsPathRooted(track.SoundFont.Path)))
+        {
+            var relativeSoundFontPath = Path.GetRelativePath(projectDirectory, track.SoundFont!.Path);
+            if (!relativeSoundFontPath.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relativeSoundFontPath))
+            {
+                track.SoundFont.Path = relativeSoundFontPath;
             }
         }
         File.WriteAllText(projectFilePath, Serialize(persistedProject) + Environment.NewLine);

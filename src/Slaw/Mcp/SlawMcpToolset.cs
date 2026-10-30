@@ -47,7 +47,14 @@ internal sealed class SlawMcpToolset
         "  {\"id\": \"new\", \"track\": \"Bass\", \"start\": 128, \"length\": 128, \"pattern\": \"F1:8 . . . . . . . G1:8 . . . . . . .\",\n" +
         "   \"automation\": {\"fx.0.cutoff\": [[0, 300], [128, 4000]]}}]}\n" +
         "Results say plainly what changed (with the ids of new clips), then list warnings for anything ignored or adjusted. " +
-        "Tracks marked LOCKED are protected from AI edits and must not be changed.";
+        "Tracks marked LOCKED are protected from AI edits and must not be changed.\n" +
+        SoundFontPrimer;
+
+    /// <summary>The SoundFont paragraph, shared by the instructions and get_catalog.</summary>
+    private const string SoundFontPrimer =
+        "SoundFonts: instrument \"soundfont\" plays one preset of a .sf2 file, chosen by MIDI bank and program (bank 128 is the drum kit, where every MIDI note is a different drum). " +
+        "describe_soundfont lists a file's presets; add_track {\"instrument\": \"soundfont\", \"soundfont\": {\"path\", \"bank\", \"program\"}} or apply_patch tracks[].soundfont loads one. " +
+        "import_midi voices every channel with the .sf2 next to the .mid (or the one you pass) and imports pitch bends as pitch envelopes.";
 
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
 
@@ -154,7 +161,8 @@ internal sealed class SlawMcpToolset
                 "\nStereo: tracks are stereo end to end. Built-in voices start mono; widen (width, haas ms), reverb width and delay pingpong spread them, " +
                 "VST3 plugins process left and right, and pan is a constant-power balance." +
                 "\n" + BuiltInInstrumentLevels.Value +
-                "\nVST3 instruments vary widely in output level (often 10–20 dB apart); after placing clips, render with levels:true and adjust gains."));
+                "\nVST3 instruments vary widely in output level (often 10–20 dB apart); after placing clips, render with levels:true and adjust gains." +
+                "\n" + SoundFontPrimer));
 
         Register("apply_patch",
             "Apply a patch describing only what should change; every key is optional. Best for many edits at once. " +
@@ -509,13 +517,14 @@ internal sealed class SlawMcpToolset
 
         Register("add_track",
             "Add a track. instrument is one of the catalog instruments (or \"sampler\" with a sample path from list_samples, " +
-            "or \"vst3\" with a plugin from list_plugins). Returns the new track id.",
+            "\"vst3\" with a plugin from list_plugins, or \"soundfont\" with a soundfont {path, bank, program} from describe_soundfont). Returns the new track id.",
             Schema(new JsonObject
             {
                 ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, sampler, vst3."),
                 ["name"] = Property("string", "Optional track name."),
                 ["sample"] = Property("string", "WAV path for sampler tracks."),
                 ["plugin"] = AnyProperty("VST3 instrument for vst3 tracks: {\"path\": bundle path, \"classId\": 32 hex chars} from list_plugins, or the plugin's name."),
+                ["soundfont"] = AnyProperty("SoundFont preset for soundfont tracks: {\"path\": \".sf2 path\", \"bank\": 0, \"program\": 40} (see describe_soundfont), or just the path for its first preset."),
             }, "instrument"),
             async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
             {
@@ -536,6 +545,25 @@ internal sealed class SlawMcpToolset
                     document.CommitEdit($"{clientName} added the track {pluginTrack.Name}", EditScope.Structure);
                     host.OnAgentEdit(clientName, $"added the track {pluginTrack.Name} ({instrumentPlugin.Name})");
                     return $"added track id \"{pluginTrack.Id}\" \"{pluginTrack.Name}\" (vst3 \"{instrumentPlugin.Name}\"). {NextStepsForNewTrack} See its knobs with describe_plugin.";
+                }
+                if (toolArguments["soundfont"] is not null || resolvedInstrument == "soundfont")
+                {
+                    SoundFontReference soundFontReference;
+                    try
+                    {
+                        soundFontReference = SoundFontDeviceOperations.ParseReference(toolArguments["soundfont"]);
+                    }
+                    catch (InvalidDataException soundFontRemediationOpportunity)
+                    {
+                        throw new McpInvalidParamsException(soundFontRemediationOpportunity.Message);
+                    }
+                    var soundFontTrack = SoundFontDeviceOperations.CreateTrack(document.Project, soundFontReference, ReadString(toolArguments["name"]));
+                    document.BeginEdit($"{clientName}: add track");
+                    document.Project.Tracks.Add(soundFontTrack);
+                    document.Project.AiProvenance = $"{clientName} via MCP";
+                    document.CommitEdit($"{clientName} added the track {soundFontTrack.Name}", EditScope.Structure);
+                    host.OnAgentEdit(clientName, $"added the track {soundFontTrack.Name} ({SoundFontDeviceOperations.Describe(soundFontReference)})");
+                    return $"added track id \"{soundFontTrack.Id}\" \"{soundFontTrack.Name}\" (soundfont {SoundFontDeviceOperations.Describe(soundFontReference)}). {NextStepsForNewTrack}";
                 }
                 var samplePath = ReadString(toolArguments["sample"]);
                 if (samplePath is not null && !File.Exists(samplePath))
@@ -785,13 +813,35 @@ internal sealed class SlawMcpToolset
             }));
 
         Register("import_midi",
-            "Replace the project with an imported Standard MIDI File (.mid): notes quantized to sixteenths, drums split into kick/snare/clap/hat, " +
-            "General MIDI programs mapped to slaw instruments, the song chunked into 4-bar scenes. Undoable in the studio.",
-            Schema(new JsonObject { ["path"] = Property("string", "Path to a .mid file.") }, "path"),
+            "Replace the project with an imported Standard MIDI File (.mid): notes quantized to sixteenths, pitch bends as pitch envelopes, the song placed on the arrangement. " +
+            "With a SoundFont (the .sf2 next to the .mid with the same name or the only one in its folder, or the one passed as soundfont), every channel plays its " +
+            "General MIDI program from the font and the drum channel plays the font's drum kit as one track; without one, programs map to built-in instruments and drums split " +
+            "into kick/snare/clap/hat. The result names the SoundFont used. Undoable in the studio.",
+            Schema(new JsonObject
+            {
+                ["path"] = Property("string", "Path to a .mid file."),
+                ["soundfont"] = Property("string", "Optional .sf2 path to voice the tracks with; \"none\" ignores a SoundFont next to the .mid. Default: the companion .sf2 if there is one."),
+            }, "path"),
             async (toolArguments, clientName, _) =>
             {
                 var midiFilePath = ReadString(toolArguments["path"]) ?? throw new McpInvalidParamsException("path is required");
-                var importResult = MidiFileImporter.Import(midiFilePath);
+                var requestedSoundFont = ReadString(toolArguments["soundfont"]);
+                var soundFontPath = requestedSoundFont is null
+                    ? MidiFileImporter.FindCompanionSoundFont(midiFilePath)
+                    : string.Equals(requestedSoundFont, "none", StringComparison.OrdinalIgnoreCase) ? null : requestedSoundFont;
+                MidiSoundFontChoice? soundFontChoice = null;
+                if (soundFontPath is not null)
+                {
+                    try
+                    {
+                        soundFontChoice = new MidiSoundFontChoice(Path.GetFullPath(soundFontPath), SoundFonts.SoundFontLibrary.Load(soundFontPath));
+                    }
+                    catch (Exception soundFontRemediationOpportunity) when (soundFontRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+                    {
+                        throw new McpInvalidParamsException($"cannot use SoundFont {soundFontPath}: {soundFontRemediationOpportunity.Message}");
+                    }
+                }
+                var importResult = MidiFileImporter.Import(midiFilePath, soundFontChoice);
                 return await host.InvokeAsync(() =>
                 {
                     importResult.Project.AiProvenance = $"{clientName} via MCP (MIDI import)";
@@ -799,6 +849,30 @@ internal sealed class SlawMcpToolset
                     host.OnAgentEdit(clientName, $"imported {Path.GetFileName(midiFilePath)}");
                     return string.Join("\n", importResult.ImportLedger) + "\n\n" + PromptLibrary.DescribeProjectForPatching(host.Document.Project);
                 });
+            });
+
+        Register("describe_soundfont",
+            "List the presets of a SoundFont (.sf2) file as \"bank:program name\" (bank 128 = drum kit), for add_track or apply_patch tracks[].soundfont.",
+            Schema(new JsonObject
+            {
+                ["path"] = Property("string", "Path to a .sf2 file."),
+                ["filter"] = Property("string", "Optional case-insensitive substring of the preset name."),
+            }, "path"),
+            (toolArguments, _, _) =>
+            {
+                var soundFontPath = ReadString(toolArguments["path"]) ?? throw new McpInvalidParamsException("path is required");
+                SoundFonts.SoundFontBank describedBank;
+                try
+                {
+                    describedBank = SoundFonts.SoundFontLibrary.Load(soundFontPath);
+                }
+                catch (Exception soundFontRemediationOpportunity) when (soundFontRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+                {
+                    throw new McpInvalidParamsException($"cannot read SoundFont {soundFontPath}: {soundFontRemediationOpportunity.Message}");
+                }
+                var presetLines = SoundFontDeviceOperations.DescribePresets(describedBank, ReadString(toolArguments["filter"]));
+                return Task.FromResult($"{Path.GetFileName(soundFontPath)} \"{describedBank.Name}\": {describedBank.Presets.Count} preset(s)\n" +
+                                       (presetLines.Length == 0 ? "no preset matches the filter" : presetLines));
             });
 
         Register("undo", "Undo the last edit (by anyone — agent or human).", Schema(new JsonObject()),

@@ -27,6 +27,7 @@ Two views, like Ableton Live. The **Session** holds clips by scene (`SlawTrack.C
 | Project model, notation, patches | `src/Slaw/Session/` — `SlawProject.cs`, `NotationResolver.cs`, `ClipNoteEditor.cs`, `ProjectPatchApplier.cs`, `ProjectAlignmentRemediator.cs`, `ClipAutomation.cs`, `FreeTimeline.cs`, `AudioTakeAssembler.cs` |
 | Engine and devices | `src/Slaw/Synthesis/` — `SequencerEngine.cs`, `InstrumentVoiceSynthesizer.cs`, `EffectProcessors.cs`, `DeviceCatalog.cs`, `OfflineArrangementRenderer.cs` |
 | VST3 hosting | `src/Slaw/Plugins/` |
+| SoundFonts | `src/Slaw/SoundFonts/` (SF2 parser, cache, voice renderer), `Session/SoundFontDeviceOperations.cs`, MIDI import in `Session/MidiFileImporter.cs` |
 | MCP | `src/Slaw/Mcp/` — `SlawMcpToolset.cs` (instructions, every tool), `ProtocolStandardOutput.cs` |
 | LLM prompts and workflows | `src/Slaw/Workflows/PromptLibrary.cs`, `ProductionWorkflows.cs` |
 | Studio UI | `src/Slaw/Desktop/` — `StudioWindow*.cs` partials (`StudioWindow.Timeline.cs` is the Arrangement's transport and keys), `SessionGridView.cs`, `ArrangementView.cs`, `DetailView*.cs`, `StudioShortcuts.cs` |
@@ -57,7 +58,7 @@ After any change to MCP-facing text, re-run a cold-start check: give a fresh age
 ## Rules learned the hard way
 
 - **Nothing may write to stdout under `slaw mcp` except the protocol.** VST3 plugins print to fd 1 (OB-Xf does). `slaw mcp` claims stdout first thing (`ProtocolStandardOutput.Claim`) and points fd 1 at stderr. Code that runs while a project loads or is remediated must never instantiate a plugin: use `Vst3ParameterDirectory.Peek`, not `TryGet`/`Get`.
-- **Never load plugins or touch the disk on the audio thread.** Use the background pools (`PluginInstancePool.TryGet`, `SampleEditProcessor.TryGetProcessed`) and render silence until ready. No per-block allocations in `MixTracks` or effect `Process`.
+- **Never load plugins or touch the disk on the audio thread.** Use the background pools (`PluginInstancePool.TryGet`, `SampleEditProcessor.TryGetProcessed`, `SoundFontLibrary.TryGetPreset`) and render silence until ready; bounces and auditions use the blocking `Load*` variants. No per-block allocations in `MixTracks` or effect `Process`.
 - **Effects are stereo** (`Process(left, right, …)`, with a mono fast path). Keep mono sources' levels identical to before when changing pan or gain laws.
 - **Envelopes and effect slots are indexed by chain position**: when moving, inserting or removing effects, remap lanes with `ClipAutomation.MoveEffectSlot` / `ForgetEffectSlot` / `MakeRoomForEffectSlot`.
 - **Envelope positions differ by clip kind.** Session clips: steps 0..pattern length, looping with the pattern. Arrangement clips: steps since the clip's start, 0..`LengthSteps`, once (`TrackRuntimeState.EnvelopeStep`, separate from the pattern step `CurrentClipStep`). Validate and tidy arrangement envelopes against `LengthSteps`, never the pattern. Whenever session material becomes an arrangement clip longer than its pattern, copy it with `FreeTimeline.ArrangementCopyOf` (it tiles the envelopes so the result sounds as it looped). Envelope values are absolute: `gain` replaces the fader, it does not scale it.

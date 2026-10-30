@@ -33,7 +33,7 @@ internal static class ProjectChangeSummarizer
         {
             if (!previousTracksById.TryGetValue(revisedTrack.Id, out var previousTrack))
             {
-                changeSummary.Add($"added track id \"{revisedTrack.Id}\" \"{revisedTrack.Name}\" ({(revisedTrack.Plugin is { } addedPlugin ? $"vst3 {addedPlugin.Name}" : revisedTrack.Instrument)})");
+                changeSummary.Add($"added track id \"{revisedTrack.Id}\" \"{revisedTrack.Name}\" ({DescribeInstrument(revisedTrack)})");
                 continue;
             }
             var trackChanges = new List<string>();
@@ -41,7 +41,8 @@ internal static class ProjectChangeSummarizer
             {
                 trackChanges.Add($"renamed to \"{revisedTrack.Name}\"");
             }
-            if (previousTrack.Instrument != revisedTrack.Instrument || previousTrack.Plugin?.ClassId != revisedTrack.Plugin?.ClassId)
+            if (previousTrack.Instrument != revisedTrack.Instrument || previousTrack.Plugin?.ClassId != revisedTrack.Plugin?.ClassId ||
+                previousTrack.SoundFont?.Fingerprint != revisedTrack.SoundFont?.Fingerprint)
             {
                 trackChanges.Add($"instrument {DescribeInstrument(previousTrack)} → {DescribeInstrument(revisedTrack)}");
             }
@@ -128,7 +129,12 @@ internal static class ProjectChangeSummarizer
         return changeSummary;
     }
 
-    private static string DescribeInstrument(SlawTrack track) => track.Plugin is { } plugin && track.Instrument == "vst3" ? $"vst3 {plugin.Name}" : track.Instrument;
+    private static string DescribeInstrument(SlawTrack track) => track switch
+    {
+        { Instrument: "vst3", Plugin: { } plugin } => $"vst3 {plugin.Name}",
+        { Instrument: "soundfont", SoundFont: { } soundFont } => $"soundfont {SoundFontDeviceOperations.Describe(soundFont)}",
+        _ => track.Instrument,
+    };
 
     private static string DescribeEffect(EffectDevice effect) => effect.Plugin is { } plugin ? $"vst3 {plugin.Name}" : effect.Type;
 

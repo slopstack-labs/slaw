@@ -62,6 +62,9 @@ internal static class ProjectAlignmentRemediator
         ["sample"] = "sampler",
         ["sampled"] = "sampler",
         ["one-shot"] = "sampler",
+        ["sf2"] = "soundfont",
+        ["sound font"] = "soundfont",
+        ["general midi"] = "soundfont",
     };
 
     private static readonly Dictionary<string, string> EffectSynonymResolutionTable = new(StringComparer.OrdinalIgnoreCase)
@@ -229,6 +232,17 @@ internal static class ProjectAlignmentRemediator
         if (track.Instrument == "sampler" && string.IsNullOrWhiteSpace(track.Sample))
         {
             remediationLedger.Add($"{track.Name}: sampler has no sample loaded yet");
+        }
+        if (track.SoundFont is { } soundFontReference)
+        {
+            soundFontReference.Path ??= string.Empty;
+            soundFontReference.PresetName ??= string.Empty;
+            soundFontReference.Bank = Math.Clamp(soundFontReference.Bank, 0, 128);
+            soundFontReference.Program = Math.Clamp(soundFontReference.Program, 0, 127);
+        }
+        if (track.Instrument == "soundfont" && string.IsNullOrWhiteSpace(track.SoundFont?.Path))
+        {
+            remediationLedger.Add($"{track.Name}: soundfont track has no .sf2 file loaded yet");
         }
         if (track.SampleEditing is { } sampleEditing)
         {

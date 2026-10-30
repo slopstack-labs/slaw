@@ -56,6 +56,7 @@ internal sealed partial class StudioWindow
                 CommandItem("Save _As…", StudioCommand.SaveAs),
                 new Separator(),
                 ActionItem("_Import MIDI…", () => _ = ImportMidiFromPickerAsync()),
+                ActionItem("Import MIDI with Sound_Font…", () => _ = ImportMidiWithSoundFontFromPickerAsync()),
                 new Separator(),
                 bounceItem,
                 CommandItem("Bounce _Options… (scene, stems, format)", StudioCommand.BounceAs),

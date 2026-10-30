@@ -110,6 +110,13 @@ internal sealed class SlawTrack
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SampleEditSettings? SampleEditing { get; set; }
 
+    /// <summary>
+    /// The SoundFont preset a "soundfont" track plays. Its path is absolute in memory and
+    /// written relative to the project file when the font lives next to (or below) it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SoundFontReference? SoundFont { get; set; }
+
     /// <summary>The VST3 plugin a "vst3" track plays. Its knobs live in <see cref="InstrumentParameters"/> as p&lt;id&gt;.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PluginReference? Plugin { get; set; }
@@ -229,6 +236,19 @@ internal sealed class PluginReference
         otherReference is not null &&
         string.Equals(Path, otherReference.Path, StringComparison.Ordinal) &&
         string.Equals(ClassId, otherReference.ClassId, StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>Which SoundFont preset a track plays: the .sf2 file, a MIDI bank and program, and the preset's name for humans.</summary>
+internal sealed class SoundFontReference
+{
+    public string Path { get; set; } = string.Empty;
+    public int Bank { get; set; }
+    public int Program { get; set; }
+    public string PresetName { get; set; } = string.Empty;
+
+    public SoundFontReference Copy() => new() { Path = Path, Bank = Bank, Program = Program, PresetName = PresetName };
+
+    public string Fingerprint => $"{Path}|{Bank}:{Program}";
 }
 
 /// <summary>One entry of the arrangement: play this scene this many times.</summary>

@@ -252,6 +252,10 @@ internal static class PromptLibrary
             {
                 projectListing.Append(CultureInfo.InvariantCulture, $" plugin \"{instrumentPlugin.Name}\"");
             }
+            if (track.Instrument == "soundfont" && track.SoundFont is { } soundFontReference)
+            {
+                projectListing.Append(CultureInfo.InvariantCulture, $" soundfont \"{SoundFontDeviceOperations.Describe(soundFontReference)}\"");
+            }
             if (track.InstrumentParameters.Count > 0)
             {
                 projectListing.Append(CultureInfo.InvariantCulture,
