@@ -16,7 +16,6 @@ internal enum DragPayloadKind
     Sample,
     Clip,
     Scene,
-    ArrangementSection,
     EffectDevice,
     Files,
 }
@@ -74,8 +73,6 @@ internal enum DropTargetKind
     /// <summary>The sample editor of a sampler track.</summary>
     SampleEditor,
 
-    /// <summary>An arrangement section header (drop before it).</summary>
-    ArrangementSection,
 
     /// <summary>The end of the arrangement, or the Arrangement view toggle.</summary>
     ArrangementEnd,

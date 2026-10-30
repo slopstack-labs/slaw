@@ -66,7 +66,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     // ── Views and controls ────────────────────────────────────────────────────
 
     private readonly SessionGridView sessionView;
-    private readonly ArrangementTimelineView arrangementView;
+    private readonly ArrangementView arrangementView;
+    private readonly Button backToArrangementButton;
     private readonly DetailView detailView;
     private readonly ContentControl mainViewHost = new();
     private readonly ContentControl browserHost = new();
@@ -114,6 +115,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
         playButton = StudioUi.AccentButton("▶  Play", TogglePlayback, "Play / stop (Space)");
+        backToArrangementButton = StudioUi.Button("⤺ Back to Arrangement", BackToArrangement,
+            "Session clips are playing over the arrangement. Hand every track back to it on the next bar.", compact: false);
+        backToArrangementButton.Foreground = StudioTheme.Warning;
+        backToArrangementButton.BorderBrush = StudioTheme.Warning;
+        backToArrangementButton.IsVisible = false;
         cancelInferenceButton = StudioUi.Button("✕ Cancel", CancelActiveInference, "Stop waiting for the model", compact: true);
         cancelInferenceButton.IsVisible = false;
         inferenceProgressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => RefreshInferenceProgress());
@@ -144,7 +150,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         };
 
         sessionView = new SessionGridView(document, this);
-        arrangementView = new ArrangementTimelineView(document, this);
+        arrangementView = new ArrangementView(document, this);
         detailView = new DetailView(document, this);
 
         Content = ComposeLayout();
@@ -152,7 +158,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         WireControls();
 
         transportTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => AdvanceTransportDisplay());
-        AddHandler(KeyDownEvent, HandleWindowKeyDown, RoutingStrategies.Tunnel);
+        WireKeyboard();
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, HandleDragOver);
         AddHandler(DragDrop.DropEvent, HandleDrop);
@@ -171,6 +177,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             transportTimer.Stop();
             mcpHttpTransport?.Dispose();
             midiInputSource?.Dispose();
+            CloseAudioInput();
             foreach (var sampleEditorWindow in openSampleEditorWindows.Values.ToList())
             {
                 sampleEditorWindow.Close();
@@ -196,15 +203,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         RefreshChrome();
         liveAudioSession.Engine.PublishProject(document.Project.DeepClone());
 
-        if (preferences.AiFeaturesEnabled)
+        InitializeChat();
+        if (preferences.AiFeaturesEnabled && inferenceProvider is null)
         {
-            AppendCopilotMessage("co-pilot", preferences.CopilotInterjectionsEnabled
-                ? CopilotGreetings[Random.Shared.Next(CopilotGreetings.Length)]
-                : "Unsolicited advice is disabled. I will only speak when spoken to, which is new for me.");
-            if (inferenceProvider is null)
-            {
-                AppendCopilotMessage("system", $"AI unavailable: {inferenceUnavailabilityReason}. Open ⚙ Settings to configure the inference substrate.");
-            }
+            AppendCopilotMessage("system", $"AI unavailable: {inferenceUnavailabilityReason}. Open ⚙ Settings to configure the inference substrate.");
         }
         SetStatus(StatusSeverity.Informational, "ready. launch a clip with its ▶, or press Space.");
         _ = RescanSampleLibraryAsync();
@@ -218,6 +220,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         var rootLayout = new DockPanel();
 
+        var menuBar = ComposeMenuBar();
+        DockPanel.SetDock(menuBar, Dock.Top);
+        rootLayout.Children.Add(menuBar);
+
         var transportBar = ComposeTransportBar();
         DockPanel.SetDock(transportBar, Dock.Top);
         rootLayout.Children.Add(transportBar);
@@ -226,8 +232,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         DockPanel.SetDock(statusBar, Dock.Bottom);
         rootLayout.Children.Add(statusBar);
 
-        var browserContainer = new Border
+        var browserContainer = browserPanel = new Border
         {
+            IsVisible = !preferences.BrowserHidden,
             Width = 196,
             Background = StudioTheme.Surface,
             BorderBrush = StudioTheme.Border,
@@ -242,6 +249,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         var workspaceLayout = new Grid { RowDefinitions = new RowDefinitions("*,5,330") };
         var detailRowDefinition = workspaceLayout.RowDefinitions[2];
+        detailPanelRow = detailRowDefinition;
         detailView.MinimumHeightRequested += requestedHeight =>
         {
             // Grow for the sample editor, but never shrink below what the user dragged it to,
@@ -254,14 +262,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 detailRowDefinition.Height = new GridLength(targetHeight, GridUnitType.Pixel);
             }
         };
-        var horizontalSplitter = new GridSplitter { Background = StudioTheme.Border, ResizeDirection = GridResizeDirection.Rows };
-        var detailContainer = new Border { Background = StudioTheme.Background, Child = detailView };
+        var horizontalSplitter = detailPanelSplitter = new GridSplitter { Background = StudioTheme.Border, ResizeDirection = GridResizeDirection.Rows };
+        var detailContainer = detailPanelContainer = new Border { Background = StudioTheme.Background, Child = detailView };
         Grid.SetRow(horizontalSplitter, 1);
         Grid.SetRow(detailContainer, 2);
         workspaceLayout.Children.Add(mainViewHost);
         workspaceLayout.Children.Add(horizontalSplitter);
         workspaceLayout.Children.Add(detailContainer);
         rootLayout.Children.Add(workspaceLayout);
+        ApplyPanelVisibility();
         return rootLayout;
     }
 
@@ -280,23 +289,14 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         }
 
         AddTransportControl(brandMark);
-        AddTransportControl(StudioUi.Button("New", () => _ = NewProjectAsync(), "New project (Ctrl+N)", compact: true));
-        AddTransportControl(StudioUi.Button("Open…", () => _ = OpenProjectAsync(), "Open (Ctrl+O)", compact: true));
-        AddTransportControl(StudioUi.Row(2,
-            StudioUi.Button("Save", () => _ = SaveProjectAsync(saveAs: false), "Save (Ctrl+S)", compact: true),
-            StudioUi.Button("Save As…", () => _ = SaveProjectAsync(saveAs: true), "Save under a new name (Ctrl+Shift+S)", compact: true)));
-        AddTransportControl(StudioUi.Row(2,
-            StudioUi.Button("Bounce", () => _ = BounceProjectAsync(), "Render the arrangement to the WAV next to the project (Ctrl+B)", compact: true),
-            StudioUi.Button("Bounce As…", () => _ = BounceAsAsync(), "Choose what to render (arrangement, a scene, or stems), the format, and where (Ctrl+Shift+B)", compact: true)));
-        AddTransportControl(StudioUi.VerticalSeparator());
-        AddTransportControl(StudioUi.Button("↶", PerformUndo, "Undo (Ctrl+Z)", compact: true));
-        AddTransportControl(StudioUi.Button("↷", PerformRedo, "Redo (Ctrl+Shift+Z)", compact: true));
-        AddTransportControl(StudioUi.VerticalSeparator());
+        // File, history and export live in the menu bar; the toolbar keeps what you touch while playing.
         AddTransportControl(StudioUi.Row(0, sessionViewToggle, arrangementViewToggle));
         AddTransportControl(StudioUi.VerticalSeparator());
         AddTransportControl(playButton);
         AddTransportControl(StudioUi.Button("■", StopPlayback, "Stop", compact: false));
+        AddTransportControl(backToArrangementButton);
         AddTransportControl(ComposeRecordControls());
+        AddTransportControl(ComposeComputerKeyboardControls());
         AddTransportControl(StudioUi.Row(6, StudioUi.Caption("BPM", 12), tempoInput));
         ToolTip.SetTip(projectNameInput, "Song title");
         AddTransportControl(projectNameInput);
@@ -337,16 +337,21 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private Control ComposeBrowser()
     {
         var browserContent = new StackPanel { Spacing = 3, Margin = new Thickness(10) };
-        browserContent.Children.Add(StudioUi.SectionHeading("Instruments"));
-        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments)
+
+        var instrumentsSection = AddCollapsibleBrowserSection(browserContent, "Instruments");
+        // "soundfont" gets its own entry below, which asks for the .sf2 straight away.
+        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName != "soundfont"))
         {
             var instrumentEntry = BrowserEntry(DeviceCatalog.InstrumentDisplayName(instrumentName), () => document.AddTrack(instrumentName),
                 "Click to add a track with this instrument, or drag it onto a track to swap its instrument");
             StudioDragDrop.MakeDragSource(instrumentEntry, () => new DragPayload(DragPayloadKind.Instrument, instrumentName));
-            browserContent.Children.Add(instrumentEntry);
+            instrumentsSection.Children.Add(instrumentEntry);
         }
-        browserContent.Children.Add(new Border { Height = 10 });
-        browserContent.Children.Add(StudioUi.SectionHeading("Audio Effects"));
+        instrumentsSection.Children.Add(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
+        instrumentsSection.Children.Add(BrowserEntry("SoundFont… (.sf2)", () => _ = AddSoundFontTrackFromPickerAsync(),
+            "Click to add a track playing a SoundFont preset (General MIDI banks, drum kits); you can also drop a .sf2 onto a track"));
+
+        var effectsSection = AddCollapsibleBrowserSection(browserContent, "Audio Effects");
         foreach (var effectType in DeviceCatalog.EffectTypes)
         {
             var effectEntry = BrowserEntry(DeviceCatalog.EffectDisplayName(effectType), () =>
@@ -357,30 +362,72 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 }
             }, "Click to add to the selected track, or drag it onto any track or into the device chain");
             StudioDragDrop.MakeDragSource(effectEntry, () => new DragPayload(DragPayloadKind.Effect, effectType));
-            browserContent.Children.Add(effectEntry);
+            effectsSection.Children.Add(effectEntry);
         }
-        browserContent.Children.Add(new Border { Height = 10 });
-        browserContent.Children.Add(StudioUi.SectionHeading("Samples"));
-        browserContent.Children.Add(StudioUi.Row(4,
+
+        var pluginsSection = AddCollapsibleBrowserSection(browserContent, "Plugins (VST3)");
+        pluginsSection.Children.Add(StudioUi.Row(4,
+            StudioUi.Button("Folders…", () => _ = OpenSettingsAsync(), "Add or remove VST3 plugin folders (Settings → Plugins)", compact: true),
+            StudioUi.Button("⟳", () => PopulatePluginEntries(rescan: true), "Rescan plugin folders", compact: true)));
+        pluginsSection.Children.Add(Detached(pluginEntriesPanel));
+        PopulatePluginEntries();
+
+        var samplesSection = AddCollapsibleBrowserSection(browserContent, "Samples");
+        samplesSection.Children.Add(StudioUi.Row(4,
             StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV files to the browser", compact: true),
             StudioUi.Button("⟳", () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true)));
-        browserContent.Children.Add(Detached(sampleFilterInput));
-        browserContent.Children.Add(Detached(sampleEntriesPanel));
+        samplesSection.Children.Add(Detached(sampleFilterInput));
+        samplesSection.Children.Add(Detached(sampleEntriesPanel));
         PopulateSampleEntries();
 
         if (AiFeaturesEnabled)
         {
-            browserContent.Children.Add(new Border { Height = 10 });
-            browserContent.Children.Add(StudioUi.SectionHeading("AI"));
-            browserContent.Children.Add(RegisterInference(StudioUi.AiButton("✨ Autopilot", () => LaunchAutopilot(aiInstructionInput.Text), "Let the AI edit the whole project", compact: false)));
-            browserContent.Children.Add(RegisterInference(StudioUi.AiButton("✨ Generate clip", () => GenerateClipWithAi(document.SelectedTrackIndex, document.SelectedSceneIndex), "Write the selected clip", compact: false)));
-            browserContent.Children.Add(RegisterInference(StudioUi.AiButton("✨ Vibe check", LaunchVibeCheck, "A world-renowned producer and LinkedIn thought leader reviews your song", compact: false)));
-            foreach (var aiBrowserButton in browserContent.Children.OfType<Button>().TakeLast(3))
+            var aiSection = AddCollapsibleBrowserSection(browserContent, "AI");
+            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Autopilot", () => LaunchAutopilot(aiInstructionInput.Text), "Let the AI edit the whole project", compact: false)));
+            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Generate clip", () => GenerateClipWithAi(document.SelectedTrackIndex, document.SelectedSceneIndex), "Write the selected clip", compact: false)));
+            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Vibe check", LaunchVibeCheck, "A world-renowned producer and LinkedIn thought leader reviews your song", compact: false)));
+            foreach (var aiBrowserButton in aiSection.Children.OfType<Button>())
             {
                 aiBrowserButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             }
         }
         return new ScrollViewer { Content = browserContent };
+    }
+
+    /// <summary>
+    /// A browser section whose heading folds it away; which sections are folded
+    /// is remembered across sessions. Returns the panel the section's entries go in.
+    /// </summary>
+    private StackPanel AddCollapsibleBrowserSection(StackPanel browserContent, string sectionTitle)
+    {
+        var sectionEntries = new StackPanel { Spacing = 3, IsVisible = !preferences.CollapsedBrowserSections.Contains(sectionTitle) };
+        var sectionHeading = new Button
+        {
+            Content = $"{(sectionEntries.IsVisible ? "▾" : "▸")}  {sectionTitle.ToUpperInvariant()}",
+            Background = Brushes.Transparent,
+            Foreground = StudioTheme.TextMuted,
+            FontSize = 10,
+            FontWeight = FontWeight.Bold,
+            Padding = new Thickness(2, 3),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, browserContent.Children.Count == 0 ? 0 : 8, 0, 0),
+        };
+        ToolTip.SetTip(sectionHeading, $"Show or hide {sectionTitle}");
+        sectionHeading.Click += (_, _) =>
+        {
+            sectionEntries.IsVisible = !sectionEntries.IsVisible;
+            sectionHeading.Content = $"{(sectionEntries.IsVisible ? "▾" : "▸")}  {sectionTitle.ToUpperInvariant()}";
+            preferences.CollapsedBrowserSections.Remove(sectionTitle);
+            if (!sectionEntries.IsVisible)
+            {
+                preferences.CollapsedBrowserSections.Add(sectionTitle);
+            }
+            preferences.Save();
+        };
+        browserContent.Children.Add(sectionHeading);
+        browserContent.Children.Add(sectionEntries);
+        return sectionEntries;
     }
 
     private static Button BrowserEntry(string caption, Action onClick, string toolTip)
@@ -410,6 +457,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 StudioUi.Caption("◆ AI Co-Pilot", 15, StudioTheme.Accent, FontWeight.Bold),
                 StudioUi.Caption($"Interjects every {preferences.EditsBetweenCopilotInterjections} edits. You cannot stop it, only disable it.", 10),
                 Detached(unsolicitedAdviceToggle),
+                ComposeChatSessionBar(),
             },
         };
 
@@ -548,7 +596,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         sessionViewToggle.Click += (_, _) => SelectMainView(arrangementView: false);
         StudioDragDrop.MakeDropTarget(arrangementViewToggle, this, () => new DropTarget(DropTargetKind.ArrangementEnd));
-        ToolTip.SetTip(arrangementViewToggle, "Arrangement view (Tab) — drop a scene here to append it to the song");
+        ToolTip.SetTip(arrangementViewToggle, "Arrangement view (Tab) — the song as one timeline; drop a scene here to add it at the end");
         arrangementViewToggle.Click += (_, _) => SelectMainView(arrangementView: true);
         tempoInput.ValueChanged += (_, _) =>
         {
@@ -604,7 +652,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         inferenceDependentControls.Clear();
         browserHost.Content = ComposeBrowser();
         aiPanelHost.Content = AiFeaturesEnabled ? ComposeAiPanel() : null;
-        aiPanelHost.IsVisible = AiFeaturesEnabled;
+        aiPanelHost.IsVisible = AiFeaturesEnabled && !preferences.AiPanelHidden;
         routingChipContainer.IsVisible = AiFeaturesEnabled;
         if (!AiFeaturesEnabled)
         {
@@ -636,6 +684,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private void RefreshChrome()
     {
+        SynchronizeChatWithProject();
         var projectLabel = document.FilePath is null ? document.Project.Name : Path.GetFileName(document.FilePath);
         Title = $"slaw — {projectLabel}{(document.UnsavedChanges ? " •" : string.Empty)}";
     }
@@ -652,35 +701,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         };
     }
 
-    private void AppendCopilotMessage(string speaker, string message)
-    {
-        var speakerBrush = speaker switch
-        {
-            "system" => StudioTheme.Warning,
-            "you" => StudioTheme.Drum,
-            _ => StudioTheme.Accent,
-        };
-        copilotTranscriptPanel.Children.Add(new Border
-        {
-            Background = StudioTheme.SurfaceRaised,
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(10, 8),
-            Child = new StackPanel
-            {
-                Spacing = 3,
-                Children =
-                {
-                    new TextBlock { Text = $"{speaker} · {DateTime.Now:HH:mm}", FontSize = 10, FontWeight = FontWeight.Bold, Foreground = speakerBrush },
-                    new SelectableTextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = StudioTheme.Text, FontSize = 12 },
-                },
-            },
-        });
-        while (copilotTranscriptPanel.Children.Count > 80)
-        {
-            copilotTranscriptPanel.Children.RemoveAt(0);
-        }
-        Dispatcher.UIThread.Post(() => copilotTranscriptScroller.ScrollToEnd(), DispatcherPriority.Background);
-    }
+    /// <summary>Posts to the active chat. Greetings and system notices are shown but not remembered.</summary>
+    private void AppendCopilotMessage(string speaker, string message, bool remembered = true) =>
+        RecordChatMessage(speaker, message, remembered);
 
     /// <summary>Never open larger than the screen it lands on.</summary>
     private void FitToWorkingArea()
@@ -740,26 +763,38 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var transportSnapshot = liveAudioSession.Engine.Transport;
         sessionView.UpdateTransport(transportSnapshot);
         arrangementView.UpdateTransport(transportSnapshot);
+        // Lit while session clips play over the arrangement; pulses as "queued" until the bar.
+        var arrangementOverridden = transportSnapshot.ArrangementOverridden || transportSnapshot.Tracks.Values.Any(trackState => trackState.QueuedScene is not null) && transportSnapshot.Mode == TransportMode.Timeline;
+        backToArrangementButton.IsVisible = arrangementOverridden;
+        backToArrangementButton.Opacity = transportSnapshot.ReturnToArrangementQueued ? 0.55 : 1;
         detailView.UpdateTransport(transportSnapshot);
         waveformScope.PlayheadFraction = transportSnapshot.PreviewProgress >= 0 ? transportSnapshot.PreviewProgress : null;
-        var nowPlaying = transportSnapshot.Mode != TransportMode.Stopped;
+        var nowPlaying = PlaybackToggle.IsAudiblyPlaying(transportSnapshot);
         var playCaption = nowPlaying ? "■  Stop" : "▶  Play";
         if (playButton.Content as string != playCaption)
         {
             playButton.Content = playCaption;
         }
+        AdvanceRecordingDisplay();
     }
 
     private void TogglePlayback()
     {
-        if (liveAudioSession.Engine.Transport.Mode != TransportMode.Stopped)
+        var transportSnapshot = liveAudioSession.Engine.Transport;
+        if (PlaybackToggle.IsAudiblyPlaying(transportSnapshot) || transportSnapshot.PreviewProgress >= 0)
         {
             StopPlayback();
             return;
         }
+        if (transportSnapshot.Mode != TransportMode.Stopped)
+        {
+            // A session clock still ticking over silent tracks would hold the launch
+            // until its next bar; stop it so the scene starts on this press.
+            liveAudioSession.Engine.Stop();
+        }
         if (arrangementViewActive)
         {
-            PlayArrangementFrom(0);
+            PlayTimelineFrom(arrangementView.CursorStep);
         }
         else
         {
@@ -806,16 +841,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     public void StopNoteAudition() => liveAudioSession.Engine.StopNoteAudition();
 
-    public void PlayArrangementFrom(int sectionIndex)
-    {
-        var project = document.Project;
-        var startStep = project.Arrangement
-            .Take(Math.Clamp(sectionIndex, 0, project.Arrangement.Count))
-            .Sum(section => (long)project.SceneLengthInSteps(section.Scene) * section.Repeats);
-        liveAudioSession.Engine.PlayArrangement(startStep, loop: true);
-        SetStatus(StatusSeverity.Informational, "♪ playing the arrangement — edits are live");
-    }
-
     // ── Undo ──────────────────────────────────────────────────────────────────
 
     private void PerformUndo()
@@ -838,6 +863,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         document.FilePath = null;
         document.ReplaceProject(ProjectSerializer.CreateStarterProject("untitled slop"), "new project", undoable: false);
         RefreshChrome();
+        StartNewChat();
         SetStatus(StatusSeverity.Informational, "new project scaffolded from legacy human authorship");
         await Task.CompletedTask;
     }
@@ -879,13 +905,17 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         }
     }
 
-    /// <summary>Replaces the project with an imported MIDI file (undoable; Save asks for a new name).</summary>
-    private void ImportMidiFile(string midiFilePath)
+    /// <summary>
+    /// Replaces the project with an imported MIDI file (undoable; Save asks for a new name),
+    /// voiced with <paramref name="soundFontPath"/> or, if none is given, the .sf2 that came with it.
+    /// </summary>
+    private void ImportMidiFile(string midiFilePath, string? soundFontPath = null)
     {
         MidiImportResult importResult;
+        var soundFontChoice = SoundFontForMidiImport(midiFilePath, soundFontPath);
         try
         {
-            importResult = MidiFileImporter.Import(midiFilePath);
+            importResult = MidiFileImporter.Import(midiFilePath, soundFontChoice);
         }
         catch (Exception importRemediationOpportunity) when (importRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
         {
@@ -897,7 +927,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         document.FilePath = null;
         RefreshChrome();
         SetStatus(StatusSeverity.Success,
-            $"imported {Path.GetFileName(midiFilePath)}: {importResult.Project.Tracks.Count} tracks, {importResult.Project.Scenes.Count} scenes — Ctrl+Z restores the previous project");
+            $"imported {Path.GetFileName(midiFilePath)}: {importResult.Project.Tracks.Count} tracks" +
+            (soundFontChoice is null ? " on built-in instruments" : $" voiced with {Path.GetFileName(soundFontChoice.Path)}") +
+            " — Ctrl+Z restores the previous project");
         if (AiFeaturesEnabled)
         {
             AppendCopilotMessage("co-pilot", $"Imported {Path.GetFileName(midiFilePath)}. Notes:\n" +
@@ -948,7 +980,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             {
                 return false;
             }
+            var previousFilePath = document.FilePath;
             document.FilePath = chosenPath;
+            CarryChatsToSavedPath(previousFilePath);
         }
         try
         {
@@ -965,53 +999,20 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         }
     }
 
-    private async Task BounceProjectAsync()
-    {
-        var bounceOutputPath = document.FilePath is null ? null : Path.ChangeExtension(document.FilePath, ".wav");
-        if (bounceOutputPath is null)
-        {
-            var chosenFile = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = "Bounce to WAV",
-                SuggestedFileName = SuggestedFileStem() + ".wav",
-                DefaultExtension = "wav",
-                FileTypeChoices = new[] { WaveFileType },
-            });
-            bounceOutputPath = chosenFile?.TryGetLocalPath();
-            if (bounceOutputPath is null)
-            {
-                return;
-            }
-        }
-        var projectSnapshot = document.Project.DeepClone();
-        SetStatus(StatusSeverity.Informational, "bouncing through the deterministic synthesis substrate…");
-        try
-        {
-            var renderedArrangement = await Task.Run(() =>
-            {
-                var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot);
-                WaveFileMaterializer.Write(bounceOutputPath, arrangementBuffer);
-                return arrangementBuffer;
-            });
-            waveformScope.Present(renderedArrangement, $"{Path.GetFileName(bounceOutputPath)} · {renderedArrangement.DurationSeconds:0.0} s", hallucinatedDeliverable: false);
-            SetStatus(StatusSeverity.Success, $"bounced to {bounceOutputPath} — radio-ready deliverable shipped to production");
-        }
-        catch (Exception bounceRemediationOpportunity) when (bounceRemediationOpportunity is IOException or UnauthorizedAccessException)
-        {
-            SetStatus(StatusSeverity.Failure, $"bounce failed: {bounceRemediationOpportunity.Message}");
-        }
-    }
+    /// <summary>Ctrl+B: the bounce dialog from the defaults (whole arrangement, next to the project), so you see where it goes first.</summary>
+    private Task BounceProjectAsync() => BounceAsAsync(startFromDefaults: true);
 
     private BounceRequest? lastBounceRequest;
 
-    private async Task BounceAsAsync()
+    /// <summary>Ctrl+Shift+B: the bounce dialog with the last bounce's settings.</summary>
+    private async Task BounceAsAsync(bool startFromDefaults = false)
     {
         var suggestedOutputPath = document.FilePath is { } projectPath
             ? Path.ChangeExtension(projectPath, ".wav")
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic, Environment.SpecialFolderOption.DoNotVerify) is { Length: > 0 } musicFolder
                 ? musicFolder
                 : Environment.CurrentDirectory, SuggestedFileStem() + ".wav");
-        var bounceWindow = new BounceOptionsWindow(document.Project, suggestedOutputPath, lastBounceRequest);
+        var bounceWindow = new BounceOptionsWindow(document.Project, suggestedOutputPath, startFromDefaults ? null : lastBounceRequest);
         await bounceWindow.ShowDialog(this);
         if (bounceWindow.Result is not { } bounceRequest)
         {
@@ -1060,6 +1061,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 return;
             }
             var (firstPath, firstBuffer) = writtenFiles[0];
+            lastBouncePath = firstPath;
             waveformScope.Present(firstBuffer, $"{Path.GetFileName(firstPath)} · {firstBuffer.DurationSeconds:0.0} s", hallucinatedDeliverable: false);
             SetStatus(StatusSeverity.Success, writtenFiles.Count == 1
                 ? $"bounced to {firstPath} — radio-ready deliverable shipped to production"
@@ -1105,6 +1107,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         synchronizingControls = false;
         ApplyMcpServerPreference();
         ApplyMidiInputPreference();
+        ApplyRecordingPreference();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();
         if (audioSettingsChanged)
@@ -1362,10 +1365,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         {
             return;
         }
-        var deviceName = targetingInstrument ? DeviceCatalog.InstrumentDisplayName(targetTrack.Instrument) : DeviceCatalog.EffectDisplayName(targetTrack.Effects[effectIndex].Type);
-        var parameterSpecifications = targetingInstrument
-            ? DeviceCatalog.InstrumentParametersFor(targetTrack.Instrument)
-            : DeviceCatalog.EffectParametersFor(targetTrack.Effects[effectIndex].Type);
+        var deviceName = targetingInstrument ? PluginDeviceOperations.DeviceName(targetTrack) : PluginDeviceOperations.DeviceName(targetTrack.Effects[effectIndex]);
+        var parameterSpecifications = PluginParameterSpecifications(targetingInstrument ? targetTrack.Plugin : targetTrack.Effects[effectIndex].Plugin)
+            ?? (targetingInstrument
+                ? DeviceCatalog.InstrumentParametersFor(targetTrack.Instrument)
+                : DeviceCatalog.EffectParametersFor(targetTrack.Effects[effectIndex].Type));
         var currentValues = parameterSpecifications.ToDictionary(
             specification => specification.Key,
             specification => DeviceCatalog.Resolve(targetingInstrument ? targetTrack.InstrumentParameters : targetTrack.Effects[effectIndex].Parameters, specification));
@@ -1426,16 +1430,20 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             };
         });
 
-    private void LaunchVibeCheck() =>
+    private void LaunchVibeCheck()
+    {
+        var conversationChat = activeChat;
+        var recentConversation = conversationChat.DescribeRecentConversation();
         LaunchInference("vibe check", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
-            var vibeAssessment = await ProductionWorkflows.VibeCheckAsync(operationProvider, projectSnapshot, Array.Empty<string>(), cancellationToken);
+            var vibeAssessment = await ProductionWorkflows.VibeCheckAsync(operationProvider, projectSnapshot, Array.Empty<string>(), cancellationToken, recentConversation);
             return () =>
             {
-                AppendCopilotMessage("vibe check", vibeAssessment);
+                RecordChatMessage("vibe check", vibeAssessment, remembered: true, conversationChat);
                 SetStatus(StatusSeverity.Success, "vibe checked");
             };
         });
+    }
 
     private void LaunchTempoNegotiation() =>
         LaunchInference("tempo negotiation", async (operationProvider, projectSnapshot, cancellationToken) =>
@@ -1454,6 +1462,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private void LaunchAutopilot(string? instruction)
     {
         var resolvedInstruction = string.IsNullOrWhiteSpace(instruction) ? "Make it radio-ready." : instruction.Trim();
+        // The model hears the chat so far plus this instruction; its reply lands in the chat it was asked in.
+        var conversationChat = activeChat;
+        var recentConversation = conversationChat.DescribeRecentConversation();
         if (fullSelfProducingSwitch.IsChecked != true || !string.IsNullOrWhiteSpace(instruction))
         {
             AppendCopilotMessage("you", resolvedInstruction);
@@ -1462,7 +1473,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         LaunchInference("autopilot", async (operationProvider, projectSnapshot, cancellationToken) =>
         {
             var autopilotDeliverable = await ProductionWorkflows.AutopilotAsync(
-                operationProvider, projectSnapshot, resolvedInstruction, preferences.AutopilotRemediationCycles, cancellationToken, availableSamplePaths);
+                operationProvider, projectSnapshot, resolvedInstruction, preferences.AutopilotRemediationCycles, cancellationToken, availableSamplePaths,
+                recentConversation: recentConversation);
             return () =>
             {
                 document.ReplaceProject(autopilotDeliverable.Project, "autopilot", undoable: true);
@@ -1470,8 +1482,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 document.CommitEdit("autopilot", EditScope.Structure, notifyCopilot: false);
                 document.Edited += RegisterEditForCopilot;
                 var changeLines = autopilotDeliverable.ChangeSummary.Take(12).Select(changeLine => $"• {changeLine}");
-                AppendCopilotMessage("autopilot", $"Done. Here's what I changed (Ctrl+Z to undo):\n{string.Join('\n', changeLines)}" +
-                    (autopilotDeliverable.RemediationLedger.Count > 0 ? $"\n({autopilotDeliverable.RemediationLedger.Count} of my own misalignments were remediated on the way in.)" : string.Empty));
+                RecordChatMessage("autopilot", $"Done. Here's what I changed (Ctrl+Z to undo):\n{string.Join('\n', changeLines)}" +
+                    (autopilotDeliverable.RemediationLedger.Count > 0 ? $"\n({autopilotDeliverable.RemediationLedger.Count} of my own misalignments were remediated on the way in.)" : string.Empty),
+                    remembered: true, conversationChat);
                 SetStatus(StatusSeverity.Success, $"autopilot applied {autopilotDeliverable.ChangeSummary.Count} change(s) — undoable");
                 aiInstructionInput.Text = string.Empty;
                 ScheduleFullSelfProducingPass();
@@ -1501,19 +1514,21 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             SetStatus(StatusSeverity.Warning, "type a vibe into the AI box first. the model needs something to misinterpret.");
             return;
         }
+        var conversationChat = activeChat;
+        var recentConversation = conversationChat.DescribeRecentConversation();
         AppendCopilotMessage("you", $"(compose) {creativeIntent.Trim()}");
         LaunchInference("composing", async (operationProvider, _, cancellationToken) =>
         {
             var composedDeliverable = await ProductionWorkflows.ComposeArrangementAsync(
                 operationProvider, creativeIntent.Trim(), preferences.AutopilotRemediationCycles, forcedImprovementCycles: 0,
-                progressStepsFor: _ => Array.Empty<string>(), cycleAnnouncer: null, cancellationToken);
+                progressStepsFor: _ => Array.Empty<string>(), cycleAnnouncer: null, cancellationToken, recentConversation);
             return () =>
             {
                 document.ReplaceProject(composedDeliverable.Project, "compose", undoable: true);
-                AppendCopilotMessage("co-pilot", $"I composed \"{document.Project.Name}\" at {document.Project.Bpm:0} BPM. " +
+                RecordChatMessage("co-pilot", $"I composed \"{document.Project.Name}\" at {document.Project.Bpm:0} BPM. " +
                     (composedDeliverable.RemediationLedger.Count > 0
                         ? $"{composedDeliverable.RemediationLedger.Count} misalignment(s) were remediated on the way in, which is fine."
-                        : "It was perfect on the first try, which is suspicious."));
+                        : "It was perfect on the first try, which is suspicious."), remembered: true, conversationChat);
                 SetStatus(StatusSeverity.Success, $"composed \"{document.Project.Name}\" — Ctrl+Z restores your previous project");
                 aiInstructionInput.Text = string.Empty;
             };
@@ -1550,12 +1565,14 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var projectSnapshot = document.Project.DeepClone();
         var sessionToken = sessionLifetimeCancellation.Token;
         var interjectingProvider = inferenceProvider;
+        var conversationChat = activeChat;
+        var recentConversation = conversationChat.DescribeRecentConversation();
         _ = Task.Run(async () =>
         {
             string unsolicitedAdvice;
             try
             {
-                unsolicitedAdvice = await ProductionWorkflows.InterjectAsync(interjectingProvider, projectSnapshot, editDescription, sessionToken);
+                unsolicitedAdvice = await ProductionWorkflows.InterjectAsync(interjectingProvider, projectSnapshot, editDescription, sessionToken, recentConversation);
             }
             catch (OperationCanceledException) when (sessionToken.IsCancellationRequested)
             {
@@ -1570,7 +1587,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 copilotInterjectionInFlight = false;
                 if (!string.IsNullOrWhiteSpace(unsolicitedAdvice) && AiFeaturesEnabled)
                 {
-                    AppendCopilotMessage("co-pilot", unsolicitedAdvice);
+                    RecordChatMessage("co-pilot", unsolicitedAdvice, remembered: true, conversationChat);
                 }
             });
         });
@@ -1823,7 +1840,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             .ToList() ?? new List<string>();
         if (droppedPaths.FirstOrDefault(droppedPath => File.Exists(droppedPath) && MidiFileImporter.IsMidiFile(droppedPath)) is { } droppedMidiFile)
         {
-            ImportMidiFile(droppedMidiFile);
+            ImportMidiFile(droppedMidiFile, droppedPaths.FirstOrDefault(droppedPath => File.Exists(droppedPath) && SoundFonts.SoundFontBank.IsSoundFontFile(droppedPath)));
             dragEvent.Handled = true;
             return;
         }
@@ -1913,6 +1930,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         public string HostDescription => "live slaw studio";
 
+        public void OpenProject(SlawProject openedProject, string projectFilePath)
+        {
+            studioWindow.StopPlayback();
+            studioWindow.document.FilePath = projectFilePath;
+            studioWindow.document.ReplaceProject(openedProject, "open project", undoable: false);
+            studioWindow.RefreshChrome();
+            studioWindow.SetStatus(StatusSeverity.Success, $"opened {projectFilePath} (via MCP)");
+        }
+
         public bool IsLive => true;
 
         public StudioDocument Document => studioWindow.document;
@@ -1920,6 +1946,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         public IReadOnlyList<string> SampleLibraryFiles => studioWindow.sampleLibraryFiles;
 
         public IInferenceSubstrateProvider? InferenceProvider => studioWindow.inferenceProvider;
+
+        public string? RecentConversation => studioWindow.activeChat.DescribeRecentConversation();
 
         public Task<T> InvokeAsync<T>(Func<T> projectWork) => Dispatcher.UIThread.InvokeAsync(projectWork).GetTask();
 
@@ -1932,7 +1960,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             }
         }
 
-        public string ControlTransport(string transportAction, int sceneIndex, int sectionIndex)
+        public string ControlTransport(string transportAction, int sceneIndex, int startBar)
         {
             switch (transportAction)
             {
@@ -1943,9 +1971,16 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                     }
                     studioWindow.LaunchScene(sceneIndex);
                     return $"playing scene {sceneIndex} (\"{studioWindow.document.Project.Scenes[sceneIndex]}\") — launches are quantized to the next bar";
-                case "play_arrangement":
-                    studioWindow.PlayArrangementFrom(sectionIndex);
-                    return $"playing the arrangement from section {sectionIndex}";
+                case "play_arrangement" or "play_timeline":
+                    if (studioWindow.document.Project.Timeline.Count == 0)
+                    {
+                        throw new Mcp.McpInvalidParamsException("the arrangement is empty, so there is nothing to play; place clips with arrangement_place_clip or apply_patch \"timeline\" first");
+                    }
+                    studioWindow.PlayTimelineFrom(Math.Max(0, startBar) * FreeTimeline.StepsPerBar);
+                    return $"playing the arrangement from bar {Math.Max(0, startBar) + 1}";
+                case "back_to_arrangement":
+                    studioWindow.BackToArrangement();
+                    return "every track returns to the arrangement on the next bar";
                 default:
                     studioWindow.StopPlayback();
                     return "stopped";
@@ -1963,7 +1998,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     };
 
     private static List<string> DroppedFolders(DragPayload dragPayload) =>
-        dragPayload.Kind == DragPayloadKind.Files ? dragPayload.FilePaths!.Where(Directory.Exists).ToList() : new List<string>();
+        dragPayload.Kind == DragPayloadKind.Files ? dragPayload.FilePaths!.Where(droppedPath => Directory.Exists(droppedPath) && !IsPluginBundle(droppedPath)).ToList() : new List<string>();
 
     private static List<string> DroppedMidiFiles(DragPayload dragPayload) =>
         dragPayload.Kind == DragPayloadKind.Files
@@ -1984,6 +2019,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             DragPayloadKind.Instrument => dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Effect => dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot or DropTargetKind.EffectDevice
                                       || (dropTarget.Kind is DropTargetKind.DeviceChain or DropTargetKind.EmptyArea && document.SelectedTrack is not null),
+            DragPayloadKind.Files when DroppedPluginBundles(dragPayload).Count > 0 =>
+                dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain or DropTargetKind.EffectDevice,
+            DragPayloadKind.Files when DroppedSoundFonts(dragPayload).Count > 0 && DroppedMidiFiles(dragPayload).Count == 0 =>
+                dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Files when DroppedMidiFiles(dragPayload).Count > 0 =>
                 dropTarget.Kind is DropTargetKind.ClipSlot or DropTargetKind.Track or DropTargetKind.EmptyArea or DropTargetKind.DeviceChain,
             DragPayloadKind.Sample or DragPayloadKind.Files =>
@@ -1994,9 +2033,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                                     IsValidTrack(dragPayload.TrackIndex) &&
                                     document.Project.ClipAt(dragPayload.TrackIndex, dragPayload.SceneIndex) is not null &&
                                     (dropTarget.TrackIndex, dropTarget.SceneIndex) != (dragPayload.TrackIndex, dragPayload.SceneIndex),
-            DragPayloadKind.Scene => dropTarget.Kind is DropTargetKind.ArrangementSection or DropTargetKind.ArrangementEnd,
-            DragPayloadKind.ArrangementSection => dropTarget.Kind is DropTargetKind.ArrangementEnd
-                                                  || (dropTarget.Kind == DropTargetKind.ArrangementSection && dropTarget.Index != dragPayload.Index),
+            DragPayloadKind.Scene => dropTarget.Kind == DropTargetKind.ArrangementEnd,
             DragPayloadKind.EffectDevice => IsValidTrack(dragPayload.TrackIndex) &&
                                             (dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot && dropTarget.TrackIndex != dragPayload.TrackIndex
                                              || dropTarget.Kind == DropTargetKind.EffectDevice && !(dropTarget.TrackIndex == dragPayload.TrackIndex && dropTarget.Index == dragPayload.Index)
@@ -2012,6 +2049,13 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             ? dropTarget.TrackIndex
             : document.SelectedTrackIndex;
 
+        if (DroppedPluginBundles(dragPayload) is { Count: > 0 } droppedPluginBundles)
+        {
+            _ = LoadDroppedPluginsAsync(droppedPluginBundles, dropTarget, targetTrackIndex);
+            return;
+        }
+
+        var droppedSoundFonts = DroppedSoundFonts(dragPayload);
         if (DroppedMidiFiles(dragPayload) is { Count: > 0 } droppedMidiFiles)
         {
             if (dropTarget.Kind == DropTargetKind.ClipSlot && IsValidTrack(dropTarget.TrackIndex))
@@ -2020,8 +2064,14 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             }
             else
             {
-                ImportMidiFile(droppedMidiFiles[0]);
+                ImportMidiFile(droppedMidiFiles[0], droppedSoundFonts.FirstOrDefault());
             }
+            return;
+        }
+
+        if (droppedSoundFonts.Count > 0)
+        {
+            LoadDroppedSoundFont(droppedSoundFonts[0], dropTarget, targetTrackIndex);
             return;
         }
 
@@ -2057,7 +2107,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                     }
                     var insertionIndex = dropTarget.Kind == DropTargetKind.EffectDevice ? Math.Clamp(dropTarget.Index, 0, targetTrack.Effects.Count) : targetTrack.Effects.Count;
                     document.Edit($"added {DeviceCatalog.EffectDisplayName(dragPayload.Value)} to {targetTrack.Name}",
-                        _ => targetTrack.Effects.Insert(insertionIndex, new EffectDevice { Type = dragPayload.Value }), EditScope.Structure);
+                        _ =>
+                        {
+                            targetTrack.Effects.Insert(insertionIndex, new EffectDevice { Type = dragPayload.Value });
+                            ClipAutomation.MakeRoomForEffectSlot(targetTrack, insertionIndex);
+                        }, EditScope.Structure);
                     document.Select(targetTrackIndex, document.SelectedSceneIndex);
                     break;
                 }
@@ -2120,27 +2174,12 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
             case DragPayloadKind.Scene:
                 {
-                    var insertionIndex = dropTarget.Kind == DropTargetKind.ArrangementSection
-                        ? Math.Clamp(dropTarget.Index, 0, project.Arrangement.Count)
-                        : project.Arrangement.Count;
-                    document.Edit($"added the scene {project.Scenes[dragPayload.SceneIndex]} to the arrangement",
-                        editedProject => editedProject.Arrangement.Insert(insertionIndex, new ArrangementSection { Scene = dragPayload.SceneIndex, Repeats = 2 }),
-                        EditScope.Structure);
-                    SetStatus(StatusSeverity.Success, $"\"{project.Scenes[dragPayload.SceneIndex]}\" added to the arrangement");
-                    break;
-                }
-
-            case DragPayloadKind.ArrangementSection:
-                {
-                    document.Edit("reordered the arrangement", editedProject =>
+                    // Dropped on the Arrangement button: the scene goes after the song, on the next bar line.
+                    var endStep = (FreeTimeline.LengthInSteps(project) + FreeTimeline.StepsPerBar - 1) / FreeTimeline.StepsPerBar * FreeTimeline.StepsPerBar;
+                    if (document.PlaceSceneInArrangement(dragPayload.SceneIndex, endStep) > 0)
                     {
-                        var movedSection = editedProject.Arrangement[dragPayload.Index];
-                        editedProject.Arrangement.RemoveAt(dragPayload.Index);
-                        var destinationIndex = dropTarget.Kind == DropTargetKind.ArrangementSection
-                            ? (dropTarget.Index > dragPayload.Index ? dropTarget.Index - 1 : dropTarget.Index)
-                            : editedProject.Arrangement.Count;
-                        editedProject.Arrangement.Insert(Math.Clamp(destinationIndex, 0, editedProject.Arrangement.Count), movedSection);
-                    }, EditScope.Structure);
+                        SetStatus(StatusSeverity.Success, $"\"{project.Scenes[dragPayload.SceneIndex]}\" added to the end of the arrangement at {FreeTimeline.FormatPosition(endStep)}");
+                    }
                     break;
                 }
 
@@ -2168,59 +2207,31 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                                 insertionIndex--;
                             }
                         }
-                        if (destinationTrack.Effects.Count < ProjectAlignmentRemediator.MaximumEffectsPerTrack)
+                        var effectInserted = destinationTrack.Effects.Count < ProjectAlignmentRemediator.MaximumEffectsPerTrack;
+                        if (effectInserted)
                         {
-                            destinationTrack.Effects.Insert(Math.Clamp(insertionIndex, 0, destinationTrack.Effects.Count), transferredEffect);
+                            insertionIndex = Math.Clamp(insertionIndex, 0, destinationTrack.Effects.Count);
+                            destinationTrack.Effects.Insert(insertionIndex, transferredEffect);
+                        }
+                        // Envelopes follow a device around its own chain; on another track they would address the wrong clips.
+                        if (!copyRequested && destinationTrack == sourceTrack)
+                        {
+                            ClipAutomation.MoveEffectSlot(sourceTrack, dragPayload.Index, insertionIndex);
+                        }
+                        else
+                        {
+                            if (!copyRequested)
+                            {
+                                ClipAutomation.ForgetEffectSlot(sourceTrack, dragPayload.Index);
+                            }
+                            if (effectInserted)
+                            {
+                                ClipAutomation.MakeRoomForEffectSlot(destinationTrack, insertionIndex);
+                            }
                         }
                     }, EditScope.Structure);
                     break;
                 }
-        }
-    }
-
-    // ── Window-level input ────────────────────────────────────────────────────
-
-    private void HandleWindowKeyDown(object? sender, KeyEventArgs keyEvent)
-    {
-        var commandModifierHeld = keyEvent.KeyModifiers.HasFlag(KeyModifiers.Control) || keyEvent.KeyModifiers.HasFlag(KeyModifiers.Meta);
-        var shiftHeld = keyEvent.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        if (commandModifierHeld)
-        {
-            Action? shortcutAction = keyEvent.Key switch
-            {
-                Key.S => () => _ = SaveProjectAsync(saveAs: shiftHeld),
-                Key.B when shiftHeld => () => _ = BounceAsAsync(),
-                Key.B => () => _ = BounceProjectAsync(),
-                Key.O => () => _ = OpenProjectAsync(),
-                Key.N => () => _ = NewProjectAsync(),
-                Key.Z when shiftHeld => PerformRedo,
-                Key.Z => PerformUndo,
-                Key.Y => PerformRedo,
-                Key.OemComma => () => _ = OpenSettingsAsync(),
-                _ => null,
-            };
-            if (shortcutAction is not null)
-            {
-                shortcutAction();
-                keyEvent.Handled = true;
-            }
-            return;
-        }
-
-        if (FocusManager?.GetFocusedElement() is TextBox)
-        {
-            return;
-        }
-        switch (keyEvent.Key)
-        {
-            case Key.Space:
-                TogglePlayback();
-                keyEvent.Handled = true;
-                break;
-            case Key.Tab:
-                SelectMainView(!arrangementViewActive);
-                keyEvent.Handled = true;
-                break;
         }
     }
 

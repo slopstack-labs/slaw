@@ -33,6 +33,9 @@ internal sealed class StudioPreferences
     /// <summary>Folders scanned for user samples (WAV files), shown in the browser.</summary>
     public List<string> SampleFolders { get; set; } = new();
 
+    /// <summary>Extra folders scanned for VST3 plugins, on top of the system folders and VST3_PATH.</summary>
+    public List<string> PluginFolders { get; set; } = new();
+
     /// <summary>
     /// Exposes the open project to MCP clients (Claude Code, etc.) over HTTP on
     /// 127.0.0.1. Off by default: an open port is a commitment.
@@ -46,6 +49,27 @@ internal sealed class StudioPreferences
     /// <summary>Preferred live audio substrate, or "auto".</summary>
     public string AudioSubstrate { get; set; } = "auto";
     public int AudioLatencyMilliseconds { get; set; } = 60;
+
+    /// <summary>Preferred recording tool ("auto", "pw-record", "parec", "arecord"); Windows always uses waveIn.</summary>
+    public string RecordingSubstrate { get; set; } = "auto";
+
+    /// <summary>PipeWire/PulseAudio source to record from; null records the system default.</summary>
+    public string? RecordingInputDevice { get; set; }
+
+    /// <summary>
+    /// Device and driver delay between a sound reaching the microphone and slaw
+    /// receiving it, trimmed from the head of every take. Output latency is
+    /// compensated separately: takes are placed where the performer heard the beat.
+    /// </summary>
+    public int RecordingInputLatencyMilliseconds { get; set; } = 20;
+
+    /// <summary>Browser sections folded away by their heading ("Instruments", "Audio Effects", …).</summary>
+    public List<string> CollapsedBrowserSections { get; set; } = new();
+
+    /// <summary>Panels hidden from the View menu, to give the arrangement more room.</summary>
+    public bool BrowserHidden { get; set; }
+    public bool AiPanelHidden { get; set; }
+    public bool DetailPanelHidden { get; set; }
 
     public static string PreferencesFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create),
@@ -83,6 +107,7 @@ internal sealed class StudioPreferences
     {
         var clonedPreferences = (StudioPreferences)MemberwiseClone();
         clonedPreferences.SampleFolders = SampleFolders.ToList();
+        clonedPreferences.PluginFolders = PluginFolders.ToList();
         return clonedPreferences;
     }
 

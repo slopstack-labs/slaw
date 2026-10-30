@@ -43,9 +43,11 @@ public class SmokeTests
         var remediatedPattern = remediatedTrack.Clips[0]!.Pattern;
         Assert.Equal(3, remediatedPattern.Count);
         Assert.Equal(new[] { "A1", "_", "." }, remediatedPattern.Take(3));
-        var migratedSection = Assert.Single(arrangementDeliverable.Project.Arrangement);
-        Assert.Equal(0, migratedSection.Scene);
-        Assert.Equal(2, migratedSection.Repeats);
+        // "loops": 2 becomes two plays of the scene on the arrangement timeline.
+        var composedProject = arrangementDeliverable.Project;
+        Assert.Empty(composedProject.Arrangement);
+        var arrangementClip = Assert.Single(composedProject.Timeline);
+        Assert.Equal(2 * composedProject.SceneLengthInSteps(0), arrangementClip.LengthSteps);
         Assert.NotEmpty(arrangementDeliverable.RemediationLedger);
     }
 
@@ -146,6 +148,21 @@ public class SmokeTests
     }
 
     [Fact]
+    public void KeepsMoreThanSixteenTracksThroughRemediation()
+    {
+        var crowdedProject = new SlawProject { Name = "all hands", Scenes = ["Kickoff"] };
+        for (var trackIndex = 0; trackIndex < 40; trackIndex++)
+        {
+            crowdedProject.Tracks.Add(new SlawTrack { Name = $"Stakeholder {trackIndex + 1}", Instrument = "sine", Clips = [SlawClip.Empty("Kickoff", 16)] });
+        }
+
+        var remediationLedger = ProjectAlignmentRemediator.Remediate(crowdedProject);
+
+        Assert.Equal(40, crowdedProject.Tracks.Count);
+        Assert.DoesNotContain(remediationLedger, entry => entry.Contains("tracks (the limit"));
+    }
+
+    [Fact]
     public void MigratesV1ProjectFilesToV2()
     {
         const string legacyProjectFile = """{"name":"old","bpm":120,"steps":16,"loops":3,"tracks":[{"name":"K","instrument":"kick","pattern":["x",".",".","."]}]}""";
@@ -155,9 +172,10 @@ public class SmokeTests
 
         Assert.Equal("slaw-project/v2", migratedProject.Format);
         Assert.Single(migratedProject.Scenes);
-        var migratedSection = Assert.Single(migratedProject.Arrangement);
-        Assert.Equal(0, migratedSection.Scene);
-        Assert.Equal(3, migratedSection.Repeats);
+        Assert.Empty(migratedProject.Arrangement);
+        var arrangementClip = Assert.Single(migratedProject.Timeline);
+        Assert.Equal(0, arrangementClip.StartStep);
+        Assert.Equal(3 * migratedProject.SceneLengthInSteps(0), arrangementClip.LengthSteps);
         Assert.False(string.IsNullOrEmpty(migratedProject.Tracks[0].Id));
     }
 

@@ -12,7 +12,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// melodic tracks, a step row for drums) and the selected track's device chain
 /// on the right — instrument, effects, and the master bus, all as knobs.
 /// </summary>
-internal sealed class DetailView : UserControl
+internal sealed partial class DetailView : UserControl
 {
     private static readonly int[] ClipLengthChoices = { 4, 8, 12, 16, 24, 32, 48, 64 };
 
@@ -22,6 +22,11 @@ internal sealed class DetailView : UserControl
     private readonly ContentControl deviceChainHost = new();
     private PianoRollControl? activePianoRoll;
     private StepRowControl? activeStepRow;
+
+    // Clip envelopes: whether the lane is open, and which target each track last showed.
+    private bool automationLaneVisible;
+    private readonly Dictionary<string, string> automationTargetByTrack = new();
+    private AutomationLaneControl? activeAutomationLane;
     private int pianoRollLowestNote = 48;
 
     // Sampler tracks get a Clip / Sample tab pair; the sample editor is kept
@@ -34,6 +39,7 @@ internal sealed class DetailView : UserControl
     public event Action<double>? MinimumHeightRequested;
 
     private const double SampleEditorPreferredHeight = 500;
+    private const double EnvelopeLanePreferredHeight = 470;
 
     public DetailView(StudioDocument document, IStudioHost host)
     {
@@ -52,6 +58,7 @@ internal sealed class DetailView : UserControl
         detailLayout.Children.Add(splitter);
         detailLayout.Children.Add(deviceChainHost);
         Content = detailLayout;
+        WarmUpPluginCatalog();
         Rebuild();
     }
 
@@ -66,18 +73,23 @@ internal sealed class DetailView : UserControl
         activeSampleEditor?.Refresh();
         activePianoRoll?.InvalidateVisual();
         activeStepRow?.InvalidateVisual();
+        activeAutomationLane?.InvalidateVisual();
     }
 
     public void UpdateTransport(TransportSnapshot transportSnapshot)
     {
         activeSampleEditor?.UpdatePreviewPlayhead();
         int? playheadStep = null;
+        int? envelopePlayheadStep = null;
         if (document.SelectedTrack is { } selectedTrack &&
             transportSnapshot.Mode != TransportMode.Stopped &&
             transportSnapshot.Tracks.TryGetValue(selectedTrack.Id, out var trackState) &&
-            trackState.PlayingScene == document.SelectedSceneIndex)
+            (document.SelectedTimelineClipId is { } selectedTimelineClipId
+                ? trackState.TimelineClipId == selectedTimelineClipId
+                : trackState.PlayingScene == document.SelectedSceneIndex))
         {
             playheadStep = trackState.ClipStep;
+            envelopePlayheadStep = trackState.EnvelopeStep;
         }
         if (activePianoRoll is not null)
         {
@@ -86,6 +98,11 @@ internal sealed class DetailView : UserControl
         if (activeStepRow is not null)
         {
             activeStepRow.PlayheadStep = playheadStep;
+        }
+        if (activeAutomationLane is not null)
+        {
+            // An arrangement clip's envelope runs over the whole clip, not the looping pattern.
+            activeAutomationLane.PlayheadStep = envelopePlayheadStep;
         }
     }
 
@@ -165,20 +182,24 @@ internal sealed class DetailView : UserControl
     {
         activePianoRoll = null;
         activeStepRow = null;
+        activeAutomationLane = null;
         var trackIndex = document.SelectedTrackIndex;
         var sceneIndex = document.SelectedSceneIndex;
         if (document.SelectedTrack is not { } track)
         {
             return StudioUi.Caption("No track selected.");
         }
-        var sceneName = sceneIndex < document.Project.Scenes.Count ? document.Project.Scenes[sceneIndex] : "?";
+        var selectedTimelineClip = document.SelectedTimelineClip;
+        var sceneName = selectedTimelineClip is not null
+            ? $"Arrangement @ {FreeTimeline.FormatPosition(selectedTimelineClip.StartStep)}"
+            : sceneIndex < document.Project.Scenes.Count ? document.Project.Scenes[sceneIndex] : "?";
         var headerRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
         var titleRow = StudioUi.Row(8,
             new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(5), Background = StudioTheme.TrackBrush(trackIndex) },
             StudioUi.Caption($"{track.Name}  ·  {sceneName}", 12, StudioTheme.Text, FontWeight.SemiBold));
         headerRow.Children.Add(titleRow);
 
-        if (track.ClipAt(sceneIndex) is not { } clip)
+        if (document.SelectedClip is not { } clip)
         {
             var emptyActions = StudioUi.Row(8,
                 StudioUi.AccentButton("Create clip", () => document.CreateClip(trackIndex, sceneIndex)));
@@ -235,7 +256,10 @@ internal sealed class DetailView : UserControl
             }
         };
 
-        var clipActions = StudioUi.Row(6,
+        // Wraps rather than clipping its last buttons when the panel is narrow.
+        var clipActions = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 6, LineSpacing = 4 };
+        foreach (var clipActionControl in new Control[]
+        {
             clipNameInput,
             lengthSelector,
             StudioUi.Button("Clear", () => document.Edit("cleared a clip", _ =>
@@ -245,8 +269,33 @@ internal sealed class DetailView : UserControl
                     clip.Pattern[stepIndex] = NotationResolver.RestSymbol;
                 }
             }, EditScope.Structure), "Silence every step", compact: true),
-            StudioUi.Button("▶ Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true));
-        if (host.AiFeaturesEnabled)
+            selectedTimelineClip is null
+                ? StudioUi.Button("▶ Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true)
+                : StudioUi.Button("▶ Here", () => host.PlayTimelineFrom(selectedTimelineClip.StartStep), "Play the arrangement from this clip", compact: true),
+        })
+        {
+            clipActions.Children.Add(clipActionControl);
+        }
+        var envelopeToggle = new Avalonia.Controls.Primitives.ToggleButton
+        {
+            Content = clip.Automation is { Count: > 0 } ? $"∿ Envelopes ({clip.Automation.Count})" : "∿ Envelopes",
+            IsChecked = automationLaneVisible,
+            Padding = new Thickness(8, 2),
+            FontSize = 12,
+        };
+        ToolTip.SetTip(envelopeToggle, "Clip envelopes: automate filters, pitch, gain, pan and any knob while this clip plays");
+        envelopeToggle.Click += (_, _) =>
+        {
+            automationLaneVisible = envelopeToggle.IsChecked == true;
+            if (automationLaneVisible)
+            {
+                MinimumHeightRequested?.Invoke(EnvelopeLanePreferredHeight);
+            }
+            Rebuild();
+        };
+        clipActions.Children.Add(envelopeToggle);
+        // The AI rewrites scene slots; a timeline clip is not one.
+        if (host.AiFeaturesEnabled && selectedTimelineClip is null)
         {
             clipActions.Children.Add(StudioUi.AiButton("✨ Rewrite", () => host.GenerateClipWithAi(trackIndex, sceneIndex), "Let the AI rewrite this clip"));
         }
@@ -256,10 +305,10 @@ internal sealed class DetailView : UserControl
         Control editorBody;
         if (InstrumentVoiceSynthesizer.IsPercussive(track.Instrument))
         {
-            activeStepRow = new StepRowControl(track, clip, clip.Pattern.Count) { Height = 64, VerticalAlignment = VerticalAlignment.Top };
+            activeStepRow = new StepRowControl(track, clip, clip.Pattern.Count) { Height = 64, VerticalAlignment = VerticalAlignment.Top, SelectsHits = true };
             activeStepRow.EditStarted += () => document.BeginEdit("drum step");
             activeStepRow.PatternEdited += description => document.CommitEdit(description);
-            editorBody = new StackPanel
+            var drumEditor = new StackPanel
             {
                 Spacing = 8,
                 Children =
@@ -268,6 +317,11 @@ internal sealed class DetailView : UserControl
                     StudioUi.Caption("click: hit · right-click: clear · drums are pitch-agnostic by design (tune them with the Pitch knob)", 10),
                 },
             };
+            if (automationLaneVisible)
+            {
+                drumEditor.Children.Add(ComposeAutomationSection(track, trackIndex, clip, leadingGutterWidth: 0, groupedDrumLayout: true));
+            }
+            editorBody = drumEditor;
         }
         else
         {
@@ -294,8 +348,17 @@ internal sealed class DetailView : UserControl
                 },
             };
             DockPanel.SetDock(octaveButtons, Dock.Right);
-            editorBody = new DockPanel { Children = { octaveButtons, activePianoRoll } };
+            var melodicEditor = new DockPanel { Children = { octaveButtons } };
+            if (automationLaneVisible)
+            {
+                // Docked after the octave buttons, so the lane spans exactly the piano roll's width.
+                melodicEditor.Children.Add(Docked(
+                    ComposeAutomationSection(track, trackIndex, clip, PianoRollControl.KeyboardGutterWidth, groupedDrumLayout: false), Dock.Bottom));
+            }
+            melodicEditor.Children.Add(activePianoRoll);
+            editorBody = melodicEditor;
         }
+        clipHeader.Children.Add(new NoteVelocityPanel(document, track, clip, activePianoRoll, activeStepRow));
 
         return new DockPanel
         {
@@ -305,6 +368,90 @@ internal sealed class DetailView : UserControl
                 editorBody,
             },
         };
+    }
+
+    // ── Clip envelopes ────────────────────────────────────────────────────────
+
+    private Control ComposeAutomationSection(SlawTrack track, int trackIndex, SlawClip clip, double leadingGutterWidth, bool groupedDrumLayout)
+    {
+        var availableTargets = ClipAutomation.TargetsFor(track);
+        var preferredTargetKey = automationTargetByTrack.GetValueOrDefault(track.Id)
+            ?? clip.Automation?.Keys.FirstOrDefault()
+            ?? availableTargets.FirstOrDefault(target => target.Key.StartsWith(ClipAutomation.EffectTargetPrefix, StringComparison.Ordinal))?.Key
+            ?? ClipAutomation.GainTarget;
+        var selectedTarget = availableTargets.FirstOrDefault(target => target.Key == preferredTargetKey) ?? availableTargets[0];
+
+        var targetSelector = new ComboBox
+        {
+            ItemsSource = availableTargets.Select(target => (clip.Automation?.ContainsKey(target.Key) == true ? "● " : "    ") + target.Label).ToList(),
+            SelectedIndex = availableTargets.ToList().IndexOf(selectedTarget),
+            FontSize = 12,
+            MinWidth = 220,
+        };
+        targetSelector.SelectionChanged += (_, _) =>
+        {
+            if (targetSelector.SelectedIndex >= 0 && availableTargets[targetSelector.SelectedIndex].Key != selectedTarget.Key)
+            {
+                automationTargetByTrack[track.Id] = availableTargets[targetSelector.SelectedIndex].Key;
+                Rebuild();
+            }
+        };
+        var laneHeader = StudioUi.Row(6,
+            targetSelector,
+            StudioUi.Button("Clear lane", () => document.Edit($"cleared the {selectedTarget.Label} envelope", _ =>
+            {
+                clip.Automation?.Remove(selectedTarget.Key);
+                if (clip.Automation is { Count: 0 })
+                {
+                    clip.Automation = null;
+                }
+            }, EditScope.Structure), "Remove this envelope; the knob takes over again", compact: true),
+            StudioUi.Caption(selectedTarget.AppliesAtNoteStart ? "sampled as each note starts" : "moves continuously while the clip plays", 10));
+
+        // Arrangement clips: the envelope spans the whole clip, while the pattern above loops inside it.
+        var envelopeLengthSteps = document.SelectedTimelineClip is { } arrangementClip && arrangementClip.LengthSteps != clip.Pattern.Count
+            ? arrangementClip.LengthSteps
+            : (int?)null;
+        if (envelopeLengthSteps is { } spannedSteps)
+        {
+            laneHeader.Children.Add(StudioUi.Caption(FormattableString.Invariant(
+                $"· spans the whole clip: {spannedSteps} steps ({spannedSteps / 16.0:0.##} bars); the pattern loops every {clip.Pattern.Count}"), 10));
+        }
+        activeAutomationLane = new AutomationLaneControl(
+            clip, selectedTarget, AutomationBaseValue(track, selectedTarget), leadingGutterWidth,
+            groupedDrumLayout && envelopeLengthSteps is null, StudioTheme.TrackBrush(trackIndex))
+        {
+            Height = 96,
+            Margin = new Thickness(0, 4, 0, 0),
+            EnvelopeLengthSteps = envelopeLengthSteps,
+        };
+        activeAutomationLane.EditStarted += () => document.BeginEdit("clip envelope");
+        // A lane's first point changes the target list's "●" markers, so it rebuilds; later drags only redraw.
+        activeAutomationLane.EnvelopeEdited += description => document.CommitEdit($"{description} on {track.Name}",
+            clip.Automation?.ContainsKey(selectedTarget.Key) == true && clip.Automation[selectedTarget.Key].Count > 1 ? EditScope.Content : EditScope.Structure);
+
+        laneHeader.Margin = new Thickness(leadingGutterWidth, 8, 0, 0);
+        return new StackPanel { Children = { laneHeader, activeAutomationLane } };
+    }
+
+    /// <summary>The value the target has without an envelope: its knob, fader, or zero bend.</summary>
+    private static double AutomationBaseValue(SlawTrack track, AutomationTarget target)
+    {
+        if (target.Key == ClipAutomation.GainTarget)
+        {
+            return track.Gain;
+        }
+        if (target.Key == ClipAutomation.PanTarget)
+        {
+            return track.Pan;
+        }
+        if (ClipAutomation.TryParseEffectTarget(target.Key, out var effectIndex, out _) && effectIndex < track.Effects.Count)
+        {
+            return DeviceCatalog.Resolve(track.Effects[effectIndex].Parameters, target.Specification);
+        }
+        return target.AppliesAtNoteStart
+            ? DeviceCatalog.Resolve(track.InstrumentParameters, target.Specification)
+            : target.Specification.Default;
     }
 
     private void ShiftPianoRoll(int semitoneOffset)
@@ -340,6 +487,11 @@ internal sealed class DetailView : UserControl
         }
         deviceRow.Children.Add(new Border { Width = 1, Background = StudioTheme.Border, Margin = new Thickness(4, 0) });
         deviceRow.Children.Add(ComposeMasterDevice());
+        for (var masterEffectIndex = 0; masterEffectIndex < document.Project.Master.Effects.Count; masterEffectIndex++)
+        {
+            deviceRow.Children.Add(ComposeMasterEffectDevice(masterEffectIndex));
+        }
+        deviceRow.Children.Add(ComposeAddMasterEffectButton());
 
         var deviceChainScroller = new ScrollViewer
         {
@@ -354,18 +506,45 @@ internal sealed class DetailView : UserControl
 
     private Control ComposeInstrumentDevice(SlawTrack track, int trackIndex)
     {
+        // Built-ins first, then every scanned VST3 instrument, so plugins are picked where instruments are.
+        var instrumentChoices = InstrumentVoiceSynthesizer.SupportedInstruments.Select(instrumentName => (Label: instrumentName, Plugin: (Plugins.Vst3PluginDescriptor?)null)).ToList();
+        if (Plugins.Vst3PluginCatalog.CachedPlugins is { } scannedPlugins)
+        {
+            instrumentChoices.AddRange(scannedPlugins.Where(plugin => plugin.IsInstrument)
+                .OrderBy(plugin => plugin.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(plugin => (Label: $"{plugin.Name} (VST3)", Plugin: (Plugins.Vst3PluginDescriptor?)plugin)));
+        }
+        else
+        {
+            _ = Task.Run(Plugins.Vst3PluginCatalog.Plugins).ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(Rebuild), TaskScheduler.Default);
+        }
+        var currentChoice = track.Instrument == Plugins.DeviceTypes.Vst3
+            ? instrumentChoices.FindIndex(choice => choice.Plugin is { } plugin && track.Plugin is { } loadedPlugin && plugin.ClassId == loadedPlugin.ClassId)
+            : instrumentChoices.FindIndex(choice => choice.Plugin is null && choice.Label == track.Instrument);
         var instrumentSelector = new ComboBox
         {
-            ItemsSource = InstrumentVoiceSynthesizer.SupportedInstruments,
-            SelectedItem = track.Instrument,
+            ItemsSource = instrumentChoices.Select(choice => choice.Label).ToList(),
+            SelectedIndex = currentChoice,
+            PlaceholderText = track.Plugin?.Name ?? track.Instrument,
             FontSize = 12,
-            Width = 110,
+            Width = 130,
         };
+        ToolTip.SetTip(instrumentSelector, "Instrument: built-in synths and samplers, then your VST3 instruments");
         instrumentSelector.SelectionChanged += (_, _) =>
         {
-            if (instrumentSelector.SelectedItem is string selectedInstrument && selectedInstrument != track.Instrument)
+            if (instrumentSelector.SelectedIndex < 0 || instrumentSelector.SelectedIndex == currentChoice)
             {
-                document.Edit($"switched {track.Name} to {selectedInstrument}", _ => PatternEditingOperations.ChangeInstrument(track, selectedInstrument), EditScope.Structure);
+                return;
+            }
+            var (choiceLabel, choicePlugin) = instrumentChoices[instrumentSelector.SelectedIndex];
+            if (choicePlugin is { } pickedPlugin)
+            {
+                document.Edit($"loaded {pickedPlugin.Name} on {track.Name}",
+                    _ => PluginDeviceOperations.LoadInstrument(track, PluginDeviceOperations.ToReference(pickedPlugin)), EditScope.Structure);
+            }
+            else
+            {
+                document.Edit($"switched {track.Name} to {choiceLabel}", _ => PatternEditingOperations.ChangeInstrument(track, choiceLabel), EditScope.Structure);
             }
         };
 
@@ -375,8 +554,17 @@ internal sealed class DetailView : UserControl
             () => track.InstrumentParameters,
             $"{track.Id}/instrument/{parameterSpecification.Key}",
             $"{track.Name} {parameterSpecification.Label}")).ToList();
+        if (track.Instrument == Plugins.DeviceTypes.Vst3 && track.Plugin is { } instrumentPlugin)
+        {
+            knobs = new List<Control> { ComposePluginParameterPanel(instrumentPlugin, () => track.InstrumentParameters,
+                $"{track.Id}/instrument", Plugins.PluginInstancePool.InstrumentSlot(track.Id)) };
+        }
 
-        var titleRow = StudioUi.Row(6, instrumentSelector);
+        var titleRow = StudioUi.Row(6, instrumentSelector, ComposeInstrumentPluginPicker(track));
+        if (track.Instrument == Plugins.DeviceTypes.Vst3 && track.Plugin is { } editablePlugin)
+        {
+            titleRow.Children.Add(ComposePluginEditorButton(editablePlugin, track.Id, -1));
+        }
         if (host.AiFeaturesEnabled)
         {
             titleRow.Children.Add(StudioUi.AiButton("✨", () => host.TuneDeviceWithAi(trackIndex, -1), "Let the AI design this sound"));
@@ -386,7 +574,11 @@ internal sealed class DetailView : UserControl
         {
             titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeSamplerSection(track, trackIndex) } };
         }
-        return ComposeDevicePanel(DeviceCatalog.InstrumentDisplayName(track.Instrument), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
+        else if (track.Instrument == "soundfont")
+        {
+            titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeSoundFontSection(track) } };
+        }
+        return ComposeDevicePanel(PluginDeviceOperations.DeviceName(track), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
     }
 
     private Control ComposeSamplerSection(SlawTrack track, int trackIndex)
@@ -456,7 +648,15 @@ internal sealed class DetailView : UserControl
             StudioUi.Button("◀", () => MoveEffect(track, effectIndex, -1), "Move left", compact: true),
             StudioUi.Button("▶", () => MoveEffect(track, effectIndex, 1), "Move right", compact: true),
             StudioUi.Button("✕", () => document.Edit($"removed {DeviceCatalog.EffectDisplayName(effectDevice.Type)}",
-                _ => track.Effects.RemoveAt(effectIndex), EditScope.Structure), "Remove device", compact: true));
+                _ =>
+                {
+                    track.Effects.RemoveAt(effectIndex);
+                    ClipAutomation.ForgetEffectSlot(track, effectIndex);
+                }, EditScope.Structure), "Remove device", compact: true));
+        if (effectDevice.Type == Plugins.DeviceTypes.Vst3 && effectDevice.Plugin is { } editablePlugin)
+        {
+            titleRow.Children.Add(ComposePluginEditorButton(editablePlugin, track.Id, effectIndex));
+        }
         if (host.AiFeaturesEnabled)
         {
             titleRow.Children.Add(StudioUi.AiButton("✨", () => host.TuneDeviceWithAi(trackIndex, effectIndex), "Let the AI dial this in"));
@@ -467,8 +667,16 @@ internal sealed class DetailView : UserControl
             () => effectDevice.Parameters,
             $"{track.Id}/fx{effectIndex}/{parameterSpecification.Key}",
             $"{DeviceCatalog.EffectDisplayName(effectDevice.Type)} {parameterSpecification.Label}")).ToList();
+        if (effectDevice.Type == Plugins.DeviceTypes.Vst3 && effectDevice.Plugin is { } effectPlugin)
+        {
+            knobs = new List<Control> { ComposePluginParameterPanel(effectPlugin, () => effectDevice.Parameters,
+                $"{track.Id}/fx{effectIndex}", Plugins.PluginInstancePool.EffectSlot(track.Id, effectIndex)) };
+        }
 
-        var devicePanel = ComposeDevicePanel(DeviceCatalog.EffectDisplayName(effectDevice.Type), titleRow, knobs, StudioTheme.Violet);
+        Control titleControls = ComposeSidechainSelector(effectDevice, track.Id, Plugins.PluginInstancePool.EffectSlot(track.Id, effectIndex)) is { } sidechainSelector
+            ? new StackPanel { Spacing = 4, Children = { titleRow, sidechainSelector } }
+            : titleRow;
+        var devicePanel = ComposeDevicePanel(PluginDeviceOperations.DeviceName(effectDevice), titleControls, knobs, StudioTheme.Violet);
         var effectDescription = DeviceCatalog.EffectDescription(effectDevice.Type);
         if (!string.IsNullOrEmpty(effectDescription))
         {
@@ -491,6 +699,7 @@ internal sealed class DetailView : UserControl
             var movedEffect = track.Effects[effectIndex];
             track.Effects.RemoveAt(effectIndex);
             track.Effects.Insert(destinationIndex, movedEffect);
+            ClipAutomation.MoveEffectSlot(track, effectIndex, destinationIndex);
         }, EditScope.Structure);
     }
 
@@ -510,6 +719,7 @@ internal sealed class DetailView : UserControl
             effectMenuItem.Click += (_, _) => AddEffect(track, effectType);
             effectMenu.Items.Add(effectMenuItem);
         }
+        effectMenu.Items.Add(ComposeEffectPluginSubmenu(track, effectMenu));
         addEffectButton.Flyout = effectMenu;
         addEffectButton.IsEnabled = track.Effects.Count < ProjectAlignmentRemediator.MaximumEffectsPerTrack;
         return addEffectButton;

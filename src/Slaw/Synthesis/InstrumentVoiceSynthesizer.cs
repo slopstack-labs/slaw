@@ -12,7 +12,7 @@ internal static class InstrumentVoiceSynthesizer
 {
     public static readonly IReadOnlyList<string> SupportedInstruments = new[]
     {
-        "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise", "sampler",
+        "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise", "sampler", "soundfont",
     };
 
     private static readonly HashSet<string> PercussiveInstruments = new(StringComparer.OrdinalIgnoreCase)
@@ -21,6 +21,12 @@ internal static class InstrumentVoiceSynthesizer
     };
 
     public static bool IsPercussive(string instrumentName) => PercussiveInstruments.Contains(instrumentName);
+
+    /// <summary>
+    /// Oscillator instruments take a pitch envelope at render time and keep their length.
+    /// Everything else (samples, plucks, drums) is bent tape-style during playback.
+    /// </summary>
+    public static bool BendsAtRender(string instrumentName) => instrumentName is "sine" or "square" or "saw" or "triangle" or "noise";
 
     /// <summary>
     /// Renders one voice. <paramref name="gateDurationSeconds"/> is how long the
@@ -35,7 +41,9 @@ internal static class InstrumentVoiceSynthesizer
         Random noiseEntropySource,
         IReadOnlyDictionary<string, double>? instrumentParameters = null,
         SampleData? samplerSource = null,
-        SampleEditSettings? sampleEditing = null)
+        SampleEditSettings? sampleEditing = null,
+        Func<double, double>? pitchBendSemitonesAt = null,
+        SoundFonts.SoundFontPreset? soundFontPreset = null)
     {
         var parameterSpecifications = DeviceCatalog.InstrumentParametersFor(instrumentName);
         double Parameter(string parameterKey) => DeviceCatalog.Resolve(instrumentParameters, parameterSpecifications, parameterKey);
@@ -47,6 +55,21 @@ internal static class InstrumentVoiceSynthesizer
             renderedVoice = SumChordVoices(chordNotes
                 .Select(midiNote => RenderSamplerVoice(samplerSource, midiNote, gateDurationSeconds, sampleRate, Parameter, sampleEditing))
                 .ToList());
+        }
+        else if (instrumentName == "soundfont")
+        {
+            // A font's zones may differ per key, so a chord is one rendering per note, summed.
+            var chordNotes = midiNotes.Count > 0 ? midiNotes : new[] { 60 };
+            renderedVoice = soundFontPreset is null
+                ? Array.Empty<float>()
+                : SumChordVoices(chordNotes
+                    .Select(midiNote => SoundFonts.SoundFontVoiceRenderer.RenderNote(soundFontPreset, midiNote, gateDurationSeconds, sampleRate, Parameter("transpose"), Parameter("release")))
+                    .ToList());
+            var soundFontGain = (float)Parameter("gain");
+            for (var sampleIndex = 0; sampleIndex < renderedVoice.Length; sampleIndex++)
+            {
+                renderedVoice[sampleIndex] *= soundFontGain;
+            }
         }
         else if (IsPercussive(instrumentName))
         {
@@ -71,7 +94,8 @@ internal static class InstrumentVoiceSynthesizer
                     gateDurationSeconds,
                     sampleRate,
                     noiseEntropySource,
-                    Parameter))
+                    Parameter,
+                    pitchBendSemitonesAt))
                 .ToList();
             renderedVoice = SumChordVoices(chordVoices);
         }
@@ -239,19 +263,22 @@ internal static class InstrumentVoiceSynthesizer
         double gateDurationSeconds,
         int sampleRate,
         Random noiseEntropySource,
-        Func<string, double> parameter) => instrumentName switch
+        Func<string, double> parameter,
+        Func<double, double>? pitchBendSemitonesAt) => instrumentName switch
         {
             "pluck" => RenderKarplusStrongPluck(frequencyHz, sampleRate, noiseEntropySource, parameter("length") / 1000.0, parameter("brightness")),
-            "noise" => RenderEnvelopedOscillator(_ => noiseEntropySource.NextDouble() * 2 - 1, frequencyHz, gateDurationSeconds, sampleRate, 0.25, parameter),
-            "square" => RenderEnvelopedOscillator(phase => phase < 0.5 ? 1 : -1, frequencyHz, gateDurationSeconds, sampleRate, 0.35, parameter),
-            "saw" => RenderEnvelopedOscillator(phase => 2 * phase - 1, frequencyHz, gateDurationSeconds, sampleRate, 0.4, parameter),
-            "triangle" => RenderEnvelopedOscillator(phase => 1 - 4 * Math.Abs(phase - 0.5), frequencyHz, gateDurationSeconds, sampleRate, 0.8, parameter),
-            _ => RenderEnvelopedOscillator(phase => Math.Sin(2 * Math.PI * phase), frequencyHz, gateDurationSeconds, sampleRate, 0.8, parameter),
+            "noise" => RenderEnvelopedOscillator(_ => noiseEntropySource.NextDouble() * 2 - 1, frequencyHz, gateDurationSeconds, sampleRate, 0.25, parameter, pitchBendSemitonesAt),
+            "square" => RenderEnvelopedOscillator(phase => phase < 0.5 ? 1 : -1, frequencyHz, gateDurationSeconds, sampleRate, 0.35, parameter, pitchBendSemitonesAt),
+            "saw" => RenderEnvelopedOscillator(phase => 2 * phase - 1, frequencyHz, gateDurationSeconds, sampleRate, 0.4, parameter, pitchBendSemitonesAt),
+            "triangle" => RenderEnvelopedOscillator(phase => 1 - 4 * Math.Abs(phase - 0.5), frequencyHz, gateDurationSeconds, sampleRate, 0.8, parameter, pitchBendSemitonesAt),
+            _ => RenderEnvelopedOscillator(phase => Math.Sin(2 * Math.PI * phase), frequencyHz, gateDurationSeconds, sampleRate, 0.8, parameter, pitchBendSemitonesAt),
         };
 
     /// <summary>
     /// A naive (aliasing, and proud of it) oscillator through a linear ADSR.
     /// <paramref name="waveformAtPhase"/> maps a phase in [0, 1) to a sample.
+    /// <paramref name="pitchBendSemitonesAt"/>, if given, bends the pitch by
+    /// seconds since the note started, without changing how long it lasts.
     /// </summary>
     private static float[] RenderEnvelopedOscillator(
         Func<double, double> waveformAtPhase,
@@ -259,7 +286,8 @@ internal static class InstrumentVoiceSynthesizer
         double gateDurationSeconds,
         int sampleRate,
         double voiceLevel,
-        Func<string, double> parameter)
+        Func<string, double> parameter,
+        Func<double, double>? pitchBendSemitonesAt)
     {
         var attackSeconds = parameter("attack") / 1000.0;
         var decaySeconds = parameter("decay") / 1000.0;
@@ -291,6 +319,11 @@ internal static class InstrumentVoiceSynthesizer
                 envelopeLevel = levelAtGateRelease * (1 - releaseProgress);
             }
 
+            // The bend is re-read every 32 samples; Math.Pow per sample is a luxury nobody budgeted for.
+            if (pitchBendSemitonesAt is not null && sampleIndex % 32 == 0)
+            {
+                phaseIncrementPerSample = frequencyHz * Math.Pow(2, pitchBendSemitonesAt(elapsedSeconds) / 12) / sampleRate;
+            }
             renderedVoice[sampleIndex] = (float)(waveformAtPhase(oscillatorPhase) * envelopeLevel * voiceLevel);
             oscillatorPhase += phaseIncrementPerSample;
             oscillatorPhase -= Math.Floor(oscillatorPhase);

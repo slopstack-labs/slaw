@@ -66,4 +66,16 @@ public class PayloadExtractionTests
         Assert.Equal(expectedPayload, extractedPayload);
         Assert.NotNull(System.Text.Json.Nodes.JsonNode.Parse(extractedPayload!));
     }
+
+    [Fact]
+    public void DuplicateKeysAreAParseErrorTheAutopilotCanRetry()
+    {
+        // qwen2.5:3b really did this: two "tracks" keys in one patch, which used to crash deep inside Apply.
+        var duplicatedPatch = """{"tracks": [{"id": "new", "instrument": "hat"}], "bpm": 100, "tracks": []}""";
+        var parseFailure = Assert.Throws<FormatException>(() => ProjectPatchApplier.ParsePatch(duplicatedPatch));
+        Assert.Contains("appears twice", parseFailure.Message);
+
+        var nestedDuplicate = """{"tracks": [{"id": "new", "gain": 0.5, "gain": 0.7}]}""";
+        Assert.Throws<FormatException>(() => ProjectPatchApplier.ParsePatch(nestedDuplicate));
+    }
 }

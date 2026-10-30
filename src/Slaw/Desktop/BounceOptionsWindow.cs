@@ -41,23 +41,23 @@ internal sealed class BounceOptionsWindow : Window
     public BounceOptionsWindow(SlawProject project, string suggestedOutputPath, BounceRequest? previousRequest)
     {
         this.project = project;
-        Title = "slaw — Bounce As…";
+        Title = "slaw — Bounce";
         Width = 560;
-        Height = 470;
+        Height = 510;
         CanResize = false;
         Background = StudioTheme.Background;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        var arrangementSeconds = project.ArrangementLengthInSteps() * project.StepDurationSeconds;
+        var arrangementSteps = FreeTimeline.LengthInSteps(project);
+        var arrangementSeconds = arrangementSteps * project.StepDurationSeconds;
         arrangementOption = new RadioButton
         {
             GroupName = "bounceScope",
             Content = FormattableString.Invariant(
-                $"Full arrangement  ({project.ArrangementLengthInSteps() / 16.0:0.#} bars · {(int)arrangementSeconds / 60}:{(int)arrangementSeconds % 60:00})"),
+                $"Full arrangement  ({arrangementSteps / 16.0:0.#} bars · {(int)arrangementSeconds / 60}:{(int)arrangementSeconds % 60:00})"),
         };
         sceneOption = new RadioButton { GroupName = "bounceScope", Content = "One scene, looped" };
         stemsOption = new RadioButton { GroupName = "bounceScope", Content = "Stems: one WAV per track (full arrangement)" };
-
         sceneSelector = new ComboBox
         {
             ItemsSource = project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}: {sceneName}").ToList(),
@@ -94,7 +94,10 @@ internal sealed class BounceOptionsWindow : Window
         }
 
         var cancelButton = StudioUi.Button("Cancel", Close);
+        cancelButton.IsCancel = true;
         var bounceButton = StudioUi.AccentButton("Bounce", CommitAndClose);
+        bounceButton.IsDefault = true;
+        outputPathInput.TextChanged += (_, _) => RefreshDependentControls();
         var buttonRow = StudioUi.Row(8, cancelButton, bounceButton);
         buttonRow.HorizontalAlignment = HorizontalAlignment.Right;
 
@@ -132,11 +135,44 @@ internal sealed class BounceOptionsWindow : Window
         RefreshDependentControls();
     }
 
+    /// <summary>Where the bounce will land, in full, and what it does to files already there.</summary>
+    private string DescribeDestination()
+    {
+        var requestedPath = outputPathInput.Text?.Trim();
+        if (string.IsNullOrEmpty(requestedPath))
+        {
+            return "Choose where the WAV goes.";
+        }
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(requestedPath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ? requestedPath : requestedPath + ".wav");
+        }
+        catch (Exception pathRemediationOpportunity) when (pathRemediationOpportunity is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return $"⚠ not a usable path: {pathRemediationOpportunity.Message}";
+        }
+        var destinationFolder = Path.GetDirectoryName(fullPath) ?? fullPath;
+        if (SelectedScope == BounceScope.Stems)
+        {
+            return $"→ {destinationFolder}{Path.DirectorySeparatorChar}{Path.GetFileNameWithoutExtension(fullPath)} - <track>.wav\n" +
+                   $"One file per track that plays anything ({project.Tracks.Count} tracks); existing stems with the same names are replaced.";
+        }
+        var existingFile = new FileInfo(fullPath);
+        var fileFate = existingFile.Exists
+            ? string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"Replaces the existing file ({existingFile.Length / 1048576.0:0.0} MB, {existingFile.LastWriteTime:yyyy-MM-dd HH:mm}).")
+            : Directory.Exists(destinationFolder) ? "New file." : "New file; the folder will be created.";
+        return $"→ {fullPath}\n{fileFate} Effects and the master bus included; the hearing protection substrate is non-negotiable.";
+    }
+
     /// <summary>The request, set when the user presses Bounce; null if they cancelled.</summary>
     public BounceRequest? Result { get; private set; }
 
     private BounceScope SelectedScope =>
-        sceneOption.IsChecked == true ? BounceScope.Scene : stemsOption.IsChecked == true ? BounceScope.Stems : BounceScope.Arrangement;
+        sceneOption.IsChecked == true ? BounceScope.Scene
+        : stemsOption.IsChecked == true ? BounceScope.Stems
+        : BounceScope.Arrangement;
 
     private static Control PlaceInColumn(Control placedControl, int columnIndex)
     {
@@ -149,9 +185,7 @@ internal sealed class BounceOptionsWindow : Window
         var sceneScope = SelectedScope == BounceScope.Scene;
         sceneSelector.IsEnabled = sceneScope;
         loopCountInput.IsEnabled = sceneScope;
-        destinationHint.Text = SelectedScope == BounceScope.Stems
-            ? $"Stems are written next to this path as \"{Path.GetFileNameWithoutExtension(outputPathInput.Text ?? "bounce")} - <track>.wav\", one per track that plays anything ({project.Tracks.Count} tracks)."
-            : "Each track's effects and the master bus are included. The hearing protection substrate is non-negotiable.";
+        destinationHint.Text = DescribeDestination();
     }
 
     private async Task BrowseAsync()

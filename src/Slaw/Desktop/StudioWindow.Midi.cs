@@ -54,11 +54,13 @@ internal sealed partial class StudioWindow
         };
         ToolTip.SetTip(recordToggle,
             "Record MIDI into the selected clip. While playing: notes land on the playhead (quantized to sixteenths). " +
-            "While stopped: step input — each note (or chord) fills the next step.");
+            "While stopped: step input — each note (or chord) fills the next step.\n" +
+            "With a track armed for audio (● on its mixer strip): records a take from the microphone until the transport stops.");
         recordToggle.IsCheckedChanged += (_, _) =>
         {
             var armed = recordToggle.IsChecked == true;
             recordToggle.Foreground = armed ? StudioTheme.Failure : StudioTheme.Text;
+            HandleAudioRecordToggle(armed);
             if (!armed)
             {
                 CloseRecordingTake();
@@ -76,7 +78,7 @@ internal sealed partial class StudioWindow
             midiStatusText.Foreground = StudioTheme.TextMuted;
             midiActivityTimer!.Stop();
         });
-        return StudioUi.Row(6, recordToggle, midiStatusText);
+        return StudioUi.Row(6, recordToggle, ComposeInputMeter(), midiStatusText);
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -158,7 +160,7 @@ internal sealed partial class StudioWindow
                 liveAudioSession.Engine.StartNoteAudition(targetTrack.Id, midiMessage.Data1, midiMessage.Data2 / 127.0);
                 if (recordToggle?.IsChecked == true)
                 {
-                    RecordNoteOn(targetTrack, midiMessage.Data1);
+                    RecordNoteOn(targetTrack, midiMessage.Data1, midiMessage.Data2 / 127.0);
                 }
                 break;
             case MidiMessageKind.NoteOff:
@@ -218,7 +220,7 @@ internal sealed partial class StudioWindow
         return ((position % clipLength) + clipLength) % clipLength;
     }
 
-    private void RecordNoteOn(SlawTrack targetTrack, int midiNote)
+    private void RecordNoteOn(SlawTrack targetTrack, int midiNote, double velocity)
     {
         var trackIndex = document.Project.Tracks.IndexOf(targetTrack);
         var transportSnapshot = liveAudioSession.Engine.Transport;
@@ -267,17 +269,18 @@ internal sealed partial class StudioWindow
             SetStatus(StatusSeverity.Informational, $"step input: step {targetStep + 1}/{targetClip.Pattern.Count} on {targetTrack.Name}");
         }
 
+        // Takes keep how hard each key was struck; it is the one thing a human still does better.
         if (percussive)
         {
-            targetClip.Pattern[targetStep] = NotationResolver.TriggerSymbol;
+            targetClip.Pattern[targetStep] = NotationResolver.FormatTrigger(velocity);
         }
         else if (appendsToChord)
         {
-            ClipNoteEditor.AddNote(targetClip.Pattern, targetStep, midiNote, length: 1);
+            ClipNoteEditor.AddNote(targetClip.Pattern, targetStep, midiNote, length: 1, velocity);
         }
         else
         {
-            ClipNoteEditor.WriteChord(targetClip.Pattern, targetStep, new[] { (midiNote, 1) });
+            ClipNoteEditor.WriteChord(targetClip.Pattern, targetStep, new[] { (midiNote, 1, NotationResolver.ClampVelocity(velocity)) });
         }
         heldRecordedNotes[midiNote] = new RecordedNote(targetClip, targetStep, midiNote, startPosition, percussive);
         document.CommitEdit($"recorded {NotationResolver.FormatMidiNote(midiNote)} on {targetTrack.Name}", EditScope.Content, notifyCopilot: false);

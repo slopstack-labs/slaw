@@ -14,12 +14,13 @@ internal static class MasterChainProcessor
     /// Scales a finished buffer down if any sample exceeds the ceiling. Offline
     /// bounces get this on top of the live limiter, for regulatory peace of mind.
     /// </summary>
-    public static void ApplyHearingProtection(StereoBuffer arrangementBuffer)
+    /// <returns>The scale applied: 1 when the buffer was already under the ceiling.</returns>
+    public static double ApplyHearingProtection(StereoBuffer arrangementBuffer)
     {
         var observedPeak = arrangementBuffer.PeakAmplitude();
         if (observedPeak <= HearingProtectionCeiling)
         {
-            return;
+            return 1;
         }
         var protectiveScale = HearingProtectionCeiling / observedPeak;
         for (var frameIndex = 0; frameIndex < arrangementBuffer.SampleFrameCount; frameIndex++)
@@ -27,7 +28,17 @@ internal static class MasterChainProcessor
             arrangementBuffer.Left[frameIndex] *= protectiveScale;
             arrangementBuffer.Right[frameIndex] *= protectiveScale;
         }
+        return protectiveScale;
     }
+}
+
+/// <summary>
+/// How hard hearing protection worked on a render: frames the limiter pulled down, its
+/// deepest reduction, and any whole-render scale-down applied afterwards (0 dB = none).
+/// </summary>
+internal sealed record HearingProtectionReport(int LimitedFrames, double DeepestLimiterReductionDecibels, double NormalizationDecibels)
+{
+    public bool Engaged => LimitedFrames > 0 || NormalizationDecibels < -0.01;
 }
 
 /// <summary>
@@ -93,6 +104,12 @@ internal sealed class MasterBusProcessor
         }
     }
 
+    /// <summary>Frames whose peak the limiter had to pull under the ceiling, since this bus was created.</summary>
+    public int LimitedFrameCount { get; private set; }
+
+    /// <summary>The smallest gain the limiter applied (1 = it never engaged).</summary>
+    public double DeepestGainReduction { get; private set; } = 1;
+
     /// <summary>Instant-attack peak limiter at <see cref="MasterChainProcessor.HearingProtectionCeiling"/>.</summary>
     public void ProtectHearing(Span<float> leftChannel, Span<float> rightChannel)
     {
@@ -102,9 +119,17 @@ internal sealed class MasterBusProcessor
             var requiredGain = framePeak > MasterChainProcessor.HearingProtectionCeiling
                 ? MasterChainProcessor.HearingProtectionCeiling / framePeak
                 : 1.0;
+            if (requiredGain < 1)
+            {
+                LimitedFrameCount++;
+            }
             limiterGainReduction = requiredGain < limiterGainReduction
                 ? requiredGain
                 : 1 - (1 - limiterGainReduction) * limiterReleaseCoefficient;
+            if (limiterGainReduction < DeepestGainReduction)
+            {
+                DeepestGainReduction = limiterGainReduction;
+            }
             leftChannel[frameIndex] = (float)Math.Clamp(leftChannel[frameIndex] * limiterGainReduction, -MasterChainProcessor.HearingProtectionCeiling, MasterChainProcessor.HearingProtectionCeiling);
             rightChannel[frameIndex] = (float)Math.Clamp(rightChannel[frameIndex] * limiterGainReduction, -MasterChainProcessor.HearingProtectionCeiling, MasterChainProcessor.HearingProtectionCeiling);
         }

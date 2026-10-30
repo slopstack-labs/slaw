@@ -109,8 +109,11 @@ public class MidiImportTests
         var project = MidiFileImporter.Import(file, "loopy").Project;
 
         Assert.Single(project.Scenes);
-        var section2 = Assert.Single(project.Arrangement);
-        Assert.Equal(2, section2.Repeats);
+        // Both repeats become one arrangement clip, eight bars of the one scene.
+        Assert.Empty(project.Arrangement);
+        var arrangementClip = Assert.Single(project.Timeline);
+        Assert.Equal(0, arrangementClip.StartStep);
+        Assert.Equal(2 * project.SceneLengthInSteps(0), arrangementClip.LengthSteps);
     }
 
     [Fact]

@@ -13,7 +13,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// publishes it through <see cref="Result"/> when the user commits to Save, which
 /// is more commitment than most roadmaps get.
 /// </summary>
-internal sealed class SettingsWindow : Window
+internal sealed partial class SettingsWindow : Window
 {
     private readonly StudioPreferences workingPreferences;
 
@@ -38,6 +38,7 @@ internal sealed class SettingsWindow : Window
 
     private readonly ComboBox audioSubstrateComboBox;
     private readonly NumericUpDown audioLatencyNumericUpDown;
+    private readonly RecordingSettingsForm recordingSettingsForm;
 
     private readonly List<string> workingSampleFolders;
     private readonly ListBox sampleFoldersListBox;
@@ -129,6 +130,7 @@ internal sealed class SettingsWindow : Window
         audioSubstrateComboBox.SelectedItem = (audioSubstrateComboBox.ItemsSource as string[])!
             .Contains(workingPreferences.AudioSubstrate) ? workingPreferences.AudioSubstrate : "auto";
         audioLatencyNumericUpDown = BuildNumericUpDown(workingPreferences.AudioLatencyMilliseconds, 20, 500);
+        recordingSettingsForm = new RecordingSettingsForm(workingPreferences);
 
         providerComboBox.SelectionChanged += (_, _) => RefreshDefaultModelCaption();
         aiFeaturesToggle.IsCheckedChanged += (_, _) => RefreshAiDependentEnablement();
@@ -141,6 +143,7 @@ internal sealed class SettingsWindow : Window
                 new TabItem { Header = "AI", Content = WrapInScrollViewer(BuildAiTab()) },
                 new TabItem { Header = "Audio", Content = WrapInScrollViewer(BuildAudioTab()) },
                 new TabItem { Header = "Samples", Content = WrapInScrollViewer(BuildSamplesTab()) },
+                new TabItem { Header = "Plugins", Content = WrapInScrollViewer(BuildPluginsTab()) },
                 new TabItem { Header = "Integrations", Content = WrapInScrollViewer(BuildIntegrationsTab()) },
                 new TabItem { Header = "About", Content = WrapInScrollViewer(BuildAboutTab()) },
             },
@@ -299,6 +302,7 @@ internal sealed class SettingsWindow : Window
         restartCaption.TextWrapping = TextWrapping.Wrap;
         restartCaption.TextTrimming = TextTrimming.None;
         tabPanel.Children.Add(restartCaption);
+        tabPanel.Children.Add(recordingSettingsForm.Compose());
         return tabPanel;
     }
 
@@ -361,7 +365,7 @@ internal sealed class SettingsWindow : Window
                 WrappedCaption("No window needed: slaw can also serve a project file over stdio, autosaving every edit."),
                 CommandLine("claude mcp add slaw -- slaw mcp /path/to/song.slaw"),
                 WrappedCaption("Tools: get_project, get_catalog, apply_patch, set_clip, add_track, update_track, add_effect, set_tempo, transport, " +
-                               "render, save_project, undo, redo, list_samples, ask_copilot. Tracks locked with 🔒 stay off-limits."),
+                               "render, save_project, undo, redo, list_samples, list_plugins, describe_plugin, ask_copilot. Tracks locked with 🔒 stay off-limits."),
             },
         };
     }
@@ -485,7 +489,9 @@ internal sealed class SettingsWindow : Window
         workingPreferences.AutopilotRemediationCycles = ReadWholeNumber(remediationCyclesNumericUpDown, workingPreferences.AutopilotRemediationCycles);
         workingPreferences.AudioSubstrate = audioSubstrateComboBox.SelectedItem as string ?? "auto";
         workingPreferences.AudioLatencyMilliseconds = ReadWholeNumber(audioLatencyNumericUpDown, workingPreferences.AudioLatencyMilliseconds);
+        recordingSettingsForm.ApplyTo(workingPreferences);
         workingPreferences.SampleFolders = new List<string>(workingSampleFolders);
+        ApplyPluginFoldersToWorkingPreferences();
         workingPreferences.McpServerEnabled = mcpServerCheckBox?.IsChecked == true;
         workingPreferences.MidiInputEnabled = midiInputCheckBox?.IsChecked != false;
         workingPreferences.McpServerPort = mcpPortNumericUpDown is null

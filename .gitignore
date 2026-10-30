@@ -2,8 +2,8 @@ bin/
 obj/
 out/
 *.wav
-slaw
-slaw.exe
+/slaw
+/slaw.exe
 .vs/
 *.user
 TestResults/

@@ -10,7 +10,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 
 /// <summary>
 /// One track's step grid, drawn directly rather than built from controls, so
-/// sixteen tracks of sixteen steps cost one render pass each. With no track
+/// a whole session of tracks costs one render pass per row. With no track
 /// assigned it draws the step-number ruler instead.
 /// </summary>
 internal sealed class StepRowControl : Control
@@ -22,9 +22,22 @@ internal sealed class StepRowControl : Control
     private static readonly Typeface CellLabelTypeface = new(StudioTheme.MonospaceFont, FontStyle.Normal, FontWeight.SemiBold);
     private static readonly IPen PlayheadPen = new Pen(StudioTheme.Playhead, 2);
     private static readonly IPen HoverPen = new Pen(StudioTheme.TextMuted, 1);
+    private static readonly IPen SelectionPen = new Pen(StudioTheme.Text, 2);
+
+    /// <summary>Vertical pixels a drag on a hit needs before it counts as a velocity change rather than a click.</summary>
+    private const double VelocityDragThreshold = 4;
+    private const double VelocityDragPixelsPerFullRange = 120;
 
     private int? playheadStep;
     private int hoveredStepIndex = -1;
+
+    // Hit selection and the drag-a-hit-for-velocity gesture (only when selection is enabled).
+    private int? selectedStepIndex;
+    private int pressedHitStepIndex = -1;
+    private bool velocityDragActive;
+    private bool velocityDragEditOpened;
+    private double velocityDragAnchorY;
+    private double velocityDragStartVelocity;
 
     public StepRowControl(SlawTrack? track, SlawClip? editedClip, int stepCount)
     {
@@ -46,6 +59,46 @@ internal sealed class StepRowControl : Control
     public SlawClip? EditedClip { get; }
 
     public int StepCount { get; }
+
+    /// <summary>
+    /// When true (the clip editor's drum row), hits can be selected for the
+    /// velocity slider and dragged up or down to change their velocity.
+    /// </summary>
+    public bool SelectsHits
+    {
+        get => selectsHits;
+        init
+        {
+            selectsHits = value;
+            if (value)
+            {
+                ToolTip.SetTip(this, "click: toggle · drag a hit up/down: velocity · shift+click: select (velocity slider above) · right-click: clear · ctrl+click: sustain · wheel: pitch (shift: octave)");
+            }
+        }
+    }
+
+    private readonly bool selectsHits;
+
+    /// <summary>Raised when the selected hit changes, or its velocity does.</summary>
+    public event Action? SelectionChanged;
+
+    /// <summary>The selected drum hit's step and velocity, if a hit is selected and still there.</summary>
+    public (int Step, double Velocity)? SelectedHit =>
+        selectedStepIndex is { } stepIndex && EditedClip is not null && stepIndex < EditedClip.Pattern.Count &&
+        NotationResolver.ResolveOrRest(EditedClip.Pattern[stepIndex]) is { Kind: StepEventKind.Trigger } selectedEvent
+            ? (stepIndex, selectedEvent.PeakVelocity)
+            : null;
+
+    private void SelectStep(int? stepIndex)
+    {
+        if (selectedStepIndex == stepIndex)
+        {
+            return;
+        }
+        selectedStepIndex = stepIndex;
+        InvalidateVisual();
+        SelectionChanged?.Invoke();
+    }
 
     /// <summary>Raised after any pointer edit, with a description for the co-pilot.</summary>
     public event Action<string>? PatternEdited;
@@ -112,7 +165,11 @@ internal sealed class StepRowControl : Control
             {
                 case StepEventKind.Trigger:
                     var triggerFill = playheadStep == stepIndex && !Track.Muted ? StudioTheme.Playhead : activeFill;
-                    drawingContext.DrawRectangle(triggerFill, null, cellRect, CellCornerRadius, CellCornerRadius);
+                    // Softer hits are paler.
+                    using (drawingContext.PushOpacity(0.3 + 0.7 * stepEvent.PeakVelocity))
+                    {
+                        drawingContext.DrawRectangle(triggerFill, null, cellRect, CellCornerRadius, CellCornerRadius);
+                    }
                     if (!percussiveInstrument)
                     {
                         DrawCenteredLabel(drawingContext, NotationResolver.FormatMidiNote(stepEvent.MidiNote), cellRect, StudioTheme.Background);
@@ -132,6 +189,10 @@ internal sealed class StepRowControl : Control
             if (playheadStep == stepIndex)
             {
                 drawingContext.DrawRectangle(null, PlayheadPen, cellRect.Deflate(1), CellCornerRadius, CellCornerRadius);
+            }
+            else if (SelectsHits && selectedStepIndex == stepIndex && stepEvent.Kind == StepEventKind.Trigger)
+            {
+                drawingContext.DrawRectangle(null, SelectionPen, cellRect.Deflate(1), CellCornerRadius, CellCornerRadius);
             }
             else if (hoveredStepIndex == stepIndex)
             {
@@ -181,8 +242,25 @@ internal sealed class StepRowControl : Control
         {
             return;
         }
-        EditStarted?.Invoke();
         var pointerProperties = pointerEvent.GetCurrentPoint(this).Properties;
+        var targetIsHit = NotationResolver.ResolveOrRest(EditedClip.Pattern[targetStepIndex]).Kind == StepEventKind.Trigger;
+        if (SelectsHits && pointerProperties.IsLeftButtonPressed && targetIsHit && !pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            // Shift+click only selects; a plain click becomes a toggle on release unless it turns into a velocity drag.
+            SelectStep(targetStepIndex);
+            if (!pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                pressedHitStepIndex = targetStepIndex;
+                velocityDragActive = false;
+                velocityDragEditOpened = false;
+                velocityDragAnchorY = pointerEvent.GetPosition(this).Y;
+                velocityDragStartVelocity = SelectedHit?.Velocity ?? 1;
+                pointerEvent.Pointer.Capture(this);
+            }
+            pointerEvent.Handled = true;
+            return;
+        }
+        EditStarted?.Invoke();
         var editDescription = pointerProperties switch
         {
             { IsRightButtonPressed: true } => PatternEditingOperations.Clear(Track, EditedClip, targetStepIndex),
@@ -190,8 +268,84 @@ internal sealed class StepRowControl : Control
             _ when pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Control) => PatternEditingOperations.Sustain(Track, EditedClip, targetStepIndex),
             _ => PatternEditingOperations.Toggle(Track, EditedClip, targetStepIndex),
         };
+        if (SelectsHits)
+        {
+            SelectStep(NotationResolver.ResolveOrRest(EditedClip.Pattern[targetStepIndex]).Kind == StepEventKind.Trigger ? targetStepIndex : null);
+        }
         PublishEdit(editDescription);
         pointerEvent.Handled = true;
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs pointerEvent)
+    {
+        base.OnPointerReleased(pointerEvent);
+        if (pressedHitStepIndex < 0)
+        {
+            return;
+        }
+        pointerEvent.Pointer.Capture(null);
+        FinishHitPress(toggleIfClicked: true);
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs captureLostEvent)
+    {
+        base.OnPointerCaptureLost(captureLostEvent);
+        FinishHitPress(toggleIfClicked: false);
+    }
+
+    private void FinishHitPress(bool toggleIfClicked)
+    {
+        if (pressedHitStepIndex < 0 || Track is null || EditedClip is null)
+        {
+            return;
+        }
+        var pressedStep = pressedHitStepIndex;
+        pressedHitStepIndex = -1;
+        if (velocityDragActive)
+        {
+            velocityDragActive = false;
+            if (velocityDragEditOpened && SelectedHit is { } editedHit)
+            {
+                velocityDragEditOpened = false;
+                PublishEdit(string.Create(CultureInfo.InvariantCulture, $"set a {Track.Name} hit at step {editedHit.Step + 1} to velocity {editedHit.Velocity * 100:0}%"));
+            }
+            return;
+        }
+        if (toggleIfClicked)
+        {
+            // A click that never became a drag is the classic toggle: the hit goes.
+            EditStarted?.Invoke();
+            var editDescription = PatternEditingOperations.Toggle(Track, EditedClip, pressedStep);
+            SelectStep(null);
+            PublishEdit(editDescription);
+        }
+    }
+
+    private void UpdateVelocityDrag(double pointerY)
+    {
+        if (EditedClip is null || SelectedHit is not { } draggedHit)
+        {
+            return;
+        }
+        if (!velocityDragActive && Math.Abs(pointerY - velocityDragAnchorY) < VelocityDragThreshold)
+        {
+            return;
+        }
+        velocityDragActive = true;
+        var draggedVelocity = NotationResolver.ClampVelocity(
+            Math.Round(velocityDragStartVelocity + (velocityDragAnchorY - pointerY) / VelocityDragPixelsPerFullRange, 2));
+        if (Math.Abs(draggedVelocity - draggedHit.Velocity) < 0.005)
+        {
+            return;
+        }
+        if (!velocityDragEditOpened)
+        {
+            EditStarted?.Invoke();
+            velocityDragEditOpened = true;
+        }
+        ClipNoteEditor.SetDrumHitVelocity(EditedClip.Pattern, draggedHit.Step, draggedVelocity);
+        InvalidateVisual();
+        SelectionChanged?.Invoke();
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs wheelEvent)
@@ -221,6 +375,11 @@ internal sealed class StepRowControl : Control
     protected override void OnPointerMoved(PointerEventArgs pointerEvent)
     {
         base.OnPointerMoved(pointerEvent);
+        if (pressedHitStepIndex >= 0)
+        {
+            UpdateVelocityDrag(pointerEvent.GetPosition(this).Y);
+            return;
+        }
         var newlyHoveredStepIndex = StepIndexAt(pointerEvent.GetPosition(this));
         if (newlyHoveredStepIndex != hoveredStepIndex)
         {

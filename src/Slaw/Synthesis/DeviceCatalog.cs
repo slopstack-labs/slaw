@@ -99,9 +99,20 @@ internal static class DeviceCatalog
         Humanize,
     };
 
+    private static readonly IReadOnlyList<ParameterSpecification> SoundFontParameters = new[]
+    {
+        new ParameterSpecification("gain", "Gain", 0, 2, 1, "×"),
+        new ParameterSpecification("transpose", "Transpose", -24, 24, 0, "st"),
+        new ParameterSpecification("release", "Release", 0.1, 4, 1, "×", Logarithmic: true),
+        new ParameterSpecification("cutoff", "Filter", 80, 20000, 20000, "Hz", Logarithmic: true),
+        Humanize,
+    };
+
     public static IReadOnlyList<ParameterSpecification> InstrumentParametersFor(string instrumentName) => instrumentName switch
     {
+        Plugins.DeviceTypes.Vst3 => Array.Empty<ParameterSpecification>(),
         "sampler" => SamplerParameters,
+        "soundfont" => SoundFontParameters,
         "kick" or "snare" or "hat" or "clap" => DrumParameters,
         "pluck" => PluckParameters,
         _ => OscillatorParameters,
@@ -116,6 +127,8 @@ internal static class DeviceCatalog
         "pluck" => "Karplus–Strong Pluck",
         "noise" => "Generative Noise Engine",
         "sampler" => "Sampler",
+        "soundfont" => "SoundFont Player",
+        Plugins.DeviceTypes.Vst3 => "VST3 Instrument",
         var oscillatorName => $"{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(oscillatorName)} Oscillator",
     };
 
@@ -123,7 +136,7 @@ internal static class DeviceCatalog
 
     public static readonly IReadOnlyList<string> EffectTypes = new[]
     {
-        "lowpass", "highpass", "delay", "reverb", "drive", "bitcrush", "vibe",
+        "lowpass", "highpass", "delay", "reverb", "drive", "bitcrush", "vibe", "widen", Session.SidechainRouting.DuckEffectType,
     };
 
     private static readonly Dictionary<string, IReadOnlyList<ParameterSpecification>> EffectParameterTable = new()
@@ -143,12 +156,14 @@ internal static class DeviceCatalog
             new ParameterSpecification("steps", "Time", 1, 16, 3, "steps", Integer: true),
             new ParameterSpecification("feedback", "Feedback", 0, 0.95, 0.35, "%"),
             new ParameterSpecification("mix", "Dry/Wet", 0, 1, 0.3, "%"),
+            new ParameterSpecification("pingpong", "Ping-Pong", 0, 1, 0, "%"),
         },
         ["reverb"] = new[]
         {
             new ParameterSpecification("size", "Size", 0, 1, 0.6, "%"),
             new ParameterSpecification("damping", "Damping", 0, 1, 0.4, "%"),
             new ParameterSpecification("mix", "Dry/Wet", 0, 1, 0.25, "%"),
+            new ParameterSpecification("width", "Width", 0, 1, 0.8, "%"),
         },
         ["drive"] = new[]
         {
@@ -167,6 +182,18 @@ internal static class DeviceCatalog
             new ParameterSpecification("disruption", "Disruption", 0, 1, 0, "%"),
             new ParameterSpecification("alignment", "Alignment", 0, 1, 1, "%"),
         },
+        ["widen"] = new[]
+        {
+            new ParameterSpecification("width", "Width", 0, 2, 1.4, "%"),
+            new ParameterSpecification("haas", "Haas", 0, 40, 8, "ms"),
+        },
+        [Session.SidechainRouting.DuckEffectType] = new[]
+        {
+            new ParameterSpecification("amount", "Depth", 0, 1, 0.7, "%"),
+            new ParameterSpecification("threshold", "Threshold", -60, 0, -30, "dB"),
+            new ParameterSpecification("attack", "Attack", 0.1, 100, 5, "ms", Logarithmic: true),
+            new ParameterSpecification("release", "Release", 10, 1000, 180, "ms", Logarithmic: true),
+        },
     };
 
     public static IReadOnlyList<ParameterSpecification> EffectParametersFor(string effectType) =>
@@ -181,6 +208,9 @@ internal static class DeviceCatalog
         "drive" => "Warmth Saturator",
         "bitcrush" => "Lo-Fi Compliance Crusher",
         "vibe" => "Neural Vibe Enhancer™",
+        "widen" => "Stereo Alignment Widener",
+        Session.SidechainRouting.DuckEffectType => "Stakeholder Ducking",
+        Plugins.DeviceTypes.Vst3 => "VST3 Effect",
         _ => effectType,
     };
 
@@ -188,7 +218,10 @@ internal static class DeviceCatalog
     {
         "vibe" => "Synergy adds saturation. Disruption adds noise. Alignment is a placebo, validated in user studies.",
         "bitcrush" => "Reduces bit depth until the mix complies with lo-fi playlist guidelines.",
-        "reverb" => "Places the track in a large, empty, cloud-hosted space.",
+        "reverb" => "Places the track in a large, empty, cloud-hosted space. Width spreads the tail across both channels.",
+        "delay" => "Tempo-synced echo. Ping-Pong sends each repeat to the other side of the room.",
+        Session.SidechainRouting.DuckEffectType => "Turns this track down whenever its sidechain source (pick one in the device header) is louder than the threshold: depth is how far, attack and release how fast. Without a source it does nothing, like most stakeholders.",
+        "widen" => "Width 0 is mono, 1 leaves the image alone, 2 doubles the sides. Haas delays the right channel a few ms, so even a mono source finds both speakers.",
         _ => string.Empty,
     };
 
@@ -203,6 +236,30 @@ internal static class DeviceCatalog
     {
         var parameterSpecification = parameterSpecifications.FirstOrDefault(candidate => candidate.Key == parameterKey);
         return parameterSpecification is null ? 0 : Resolve(parameterValues, parameterSpecification);
+    }
+
+    /// <summary>
+    /// VST3 devices store normalized plugin parameters as p&lt;id&gt; = 0..1. Drops any
+    /// other key and clamps the rest. Returns how many values had to be realigned.
+    /// </summary>
+    public static int RemediatePluginParameters(Dictionary<string, double> parameterValues)
+    {
+        var realignedValueCount = 0;
+        foreach (var storedKey in parameterValues.Keys.ToList())
+        {
+            var storedValue = parameterValues[storedKey];
+            if (!Plugins.Vst3ParameterDescription.TryParseKey(storedKey, out _) || !double.IsFinite(storedValue))
+            {
+                parameterValues.Remove(storedKey);
+                realignedValueCount++;
+            }
+            else if (storedValue is < 0 or > 1)
+            {
+                parameterValues[storedKey] = Math.Clamp(storedValue, 0, 1);
+                realignedValueCount++;
+            }
+        }
+        return realignedValueCount;
     }
 
     /// <summary>

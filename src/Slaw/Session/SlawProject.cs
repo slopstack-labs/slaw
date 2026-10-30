@@ -28,8 +28,39 @@ internal sealed class SlawProject
 
     public List<string> Scenes { get; set; } = new();
     public List<SlawTrack> Tracks { get; set; } = new();
+    /// <summary>
+    /// Legacy input only: the scene sequence older files (and models) write. Remediation
+    /// flattens it onto <see cref="Timeline"/> — the arrangement — and empties it, so it is
+    /// read but never written back.
+    /// </summary>
+    [JsonIgnore]
     public List<ArrangementSection> Arrangement { get; set; } = new();
+
+    [JsonPropertyName("arrangement")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ArrangementSection>? SerializedArrangement
+    {
+        get => Arrangement.Count > 0 ? Arrangement : null;
+        set => Arrangement = value ?? new List<ArrangementSection>();
+    }
     public MasterChainParameters Master { get; set; } = new();
+
+    /// <summary>The arrangement: clips placed freely in time, independent of scenes (see <see cref="FreeTimeline"/>).</summary>
+    [JsonIgnore]
+    public List<TimelineClip> Timeline { get; set; } = new();
+
+    /// <summary>The timeline as written to disk: omitted while empty, so scene-only projects stay unchanged.</summary>
+    [JsonPropertyName("timeline")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<TimelineClip>? SerializedTimeline
+    {
+        get => Timeline.Count > 0 ? Timeline : null;
+        set => Timeline = value ?? new List<TimelineClip>();
+    }
+
+    /// <summary>The arrangement's loop brace; null plays the whole timeline.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TimelineLoopRegion? TimelineLoop { get; set; }
 
     /// <summary>
     /// Which model touched this project last. Disclosed for transparency and to
@@ -57,9 +88,6 @@ internal sealed class SlawProject
             .Max();
         return longestClipLength > 0 ? longestClipLength : Steps;
     }
-
-    public int ArrangementLengthInSteps() =>
-        Arrangement.Sum(section => SceneLengthInSteps(section.Scene) * Math.Max(1, section.Repeats));
 }
 
 internal sealed class SlawTrack
@@ -81,6 +109,17 @@ internal sealed class SlawTrack
     /// <summary>Non-destructive edits, loop and slice points for the sampler's sample.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SampleEditSettings? SampleEditing { get; set; }
+
+    /// <summary>
+    /// The SoundFont preset a "soundfont" track plays. Its path is absolute in memory and
+    /// written relative to the project file when the font lives next to (or below) it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SoundFontReference? SoundFont { get; set; }
+
+    /// <summary>The VST3 plugin a "vst3" track plays. Its knobs live in <see cref="InstrumentParameters"/> as p&lt;id&gt;.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PluginReference? Plugin { get; set; }
     public List<EffectDevice> Effects { get; set; } = new();
     public double Gain { get; set; } = 0.8;
     public double Pan { get; set; }
@@ -114,6 +153,10 @@ internal sealed class SlawClip
     /// </summary>
     [JsonConverter(typeof(CompactPatternJsonConverter))]
     public List<string> Pattern { get; set; } = new();
+
+    /// <summary>Clip envelopes by target key (see <see cref="ClipAutomation"/>), each sorted by step. Null when the clip has none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, List<AutomationPoint>>? Automation { get; set; }
 
     public static SlawClip Empty(string clipName, int stepCount) => new()
     {
@@ -166,6 +209,55 @@ internal sealed class EffectDevice
     public string Type { get; set; } = "lowpass";
     public bool Enabled { get; set; } = true;
     public Dictionary<string, double> Parameters { get; set; } = new();
+
+    /// <summary>The VST3 plugin a "vst3" effect runs. Its knobs live in <see cref="Parameters"/> as p&lt;id&gt;.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PluginReference? Plugin { get; set; }
+
+    /// <summary>
+    /// The track whose audio keys this effect (a sidechain), by track id; null for none.
+    /// The ducker and VST3 effects with a sidechain input listen to it. The source is
+    /// tapped after its effects and before its fader, mute and solo, so a muted
+    /// "ghost" track can still pump the mix. See <see cref="SidechainRouting"/>.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SidechainSource { get; set; }
+}
+
+/// <summary>
+/// Which VST3 plugin a device hosts: the bundle, the factory class, a name for
+/// humans, and the plugin's own opaque state (base64), captured on save.
+/// </summary>
+internal sealed class PluginReference
+{
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>The factory class id, 32 hex characters.</summary>
+    public string ClassId { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? State { get; set; }
+
+    /// <summary>Same bundle and class: the same plugin, whatever its state.</summary>
+    public bool IsSamePlugin(PluginReference? otherReference) =>
+        otherReference is not null &&
+        string.Equals(Path, otherReference.Path, StringComparison.Ordinal) &&
+        string.Equals(ClassId, otherReference.ClassId, StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>Which SoundFont preset a track plays: the .sf2 file, a MIDI bank and program, and the preset's name for humans.</summary>
+internal sealed class SoundFontReference
+{
+    public string Path { get; set; } = string.Empty;
+    public int Bank { get; set; }
+    public int Program { get; set; }
+    public string PresetName { get; set; } = string.Empty;
+
+    public SoundFontReference Copy() => new() { Path = Path, Bank = Bank, Program = Program, PresetName = PresetName };
+
+    public string Fingerprint => $"{Path}|{Bank}:{Program}";
 }
 
 /// <summary>One entry of the arrangement: play this scene this many times.</summary>
@@ -193,4 +285,20 @@ internal sealed class MasterChainParameters
 
     /// <summary>Why the AI mastering engineer chose these settings, verbatim.</summary>
     public string? Rationale { get; set; }
+
+    /// <summary>
+    /// The master effect chain: any effects (VST3 included) on the sum of every track,
+    /// run before the fixed drive/lowpass/delay/gain stages above.
+    /// </summary>
+    [JsonIgnore]
+    public List<EffectDevice> Effects { get; set; } = new();
+
+    /// <summary><see cref="Effects"/> as written to disk: left out entirely while empty.</summary>
+    [JsonPropertyName("effects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<EffectDevice>? SerializedEffects
+    {
+        get => Effects.Count > 0 ? Effects : null;
+        set => Effects = value ?? new List<EffectDevice>();
+    }
 }

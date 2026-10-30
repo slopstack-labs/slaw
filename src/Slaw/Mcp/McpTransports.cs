@@ -11,11 +11,12 @@ namespace SlopstackLabs.Slaw.Mcp;
 /// </summary>
 internal static class McpStdioTransport
 {
-    public static async Task RunAsync(McpProtocolDispatcher dispatcher, CancellationToken cancellationToken)
+    /// <param name="protocolOutput">stdout as claimed by <see cref="ProtocolStandardOutput.Claim"/>, before anything could load a plugin.</param>
+    public static async Task RunAsync(McpProtocolDispatcher dispatcher, Stream protocolOutput, CancellationToken cancellationToken)
     {
         var utf8WithoutPreamble = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         using var standardInput = new StreamReader(Console.OpenStandardInput(), utf8WithoutPreamble);
-        await using var standardOutput = new StreamWriter(Console.OpenStandardOutput(), utf8WithoutPreamble) { AutoFlush = true, NewLine = "\n" };
+        await using var standardOutput = new StreamWriter(protocolOutput, utf8WithoutPreamble) { AutoFlush = true, NewLine = "\n" };
 
         while (!cancellationToken.IsCancellationRequested && await standardInput.ReadLineAsync(cancellationToken) is { } incomingLine)
         {

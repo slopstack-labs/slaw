@@ -44,7 +44,17 @@ internal sealed class StudioDocument
     public SlawTrack? SelectedTrack =>
         SelectedTrackIndex >= 0 && SelectedTrackIndex < Project.Tracks.Count ? Project.Tracks[SelectedTrackIndex] : null;
 
-    public SlawClip? SelectedClip => SelectedTrack?.ClipAt(SelectedSceneIndex);
+    /// <summary>
+    /// The arrangement clip being edited, if any. While set, <see cref="SelectedClip"/>
+    /// is that clip and <see cref="SelectedTrackIndex"/> its track, so every clip editor
+    /// works on it unchanged; selecting a scene slot clears it.
+    /// </summary>
+    public string? SelectedTimelineClipId { get; private set; }
+
+    public TimelineClip? SelectedTimelineClip =>
+        SelectedTimelineClipId is { } timelineClipId ? Project.Timeline.FirstOrDefault(timelineClip => timelineClip.Id == timelineClipId) : null;
+
+    public SlawClip? SelectedClip => SelectedTimelineClip?.Clip ?? SelectedTrack?.ClipAt(SelectedSceneIndex);
 
     /// <summary>Raised after every committed edit, undo, redo, or project replacement.</summary>
     public event Action<EditScope>? Changed;
@@ -143,18 +153,43 @@ internal sealed class StudioDocument
 
     public void Select(int trackIndex, int sceneIndex)
     {
-        if (trackIndex == SelectedTrackIndex && sceneIndex == SelectedSceneIndex)
+        if (trackIndex == SelectedTrackIndex && sceneIndex == SelectedSceneIndex && SelectedTimelineClipId is null)
         {
             return;
         }
+        SelectedTimelineClipId = null;
         SelectedTrackIndex = trackIndex;
         SelectedSceneIndex = sceneIndex;
         ClampSelection();
         SelectionChanged?.Invoke();
     }
 
+    /// <summary>Selects an arrangement clip (and its track) for editing; null clears the timeline selection.</summary>
+    public void SelectTimelineClip(string? timelineClipId)
+    {
+        var timelineClip = timelineClipId is null ? null : Project.Timeline.FirstOrDefault(candidate => candidate.Id == timelineClipId);
+        var trackIndex = timelineClip is null ? SelectedTrackIndex : Project.Tracks.FindIndex(track => track.Id == timelineClip.TrackId);
+        if (timelineClip?.Id == SelectedTimelineClipId && trackIndex == SelectedTrackIndex)
+        {
+            return;
+        }
+        SelectedTimelineClipId = timelineClip?.Id;
+        SelectedTrackIndex = Math.Max(0, trackIndex);
+        ClampSelection();
+        SelectionChanged?.Invoke();
+    }
+
     private void ClampSelection()
     {
+        if (SelectedTimelineClip is { } selectedTimelineClip)
+        {
+            // The clip may have moved to another track (or the tracks were reordered).
+            SelectedTrackIndex = Math.Max(0, Project.Tracks.FindIndex(track => track.Id == selectedTimelineClip.TrackId));
+        }
+        else
+        {
+            SelectedTimelineClipId = null;
+        }
         SelectedTrackIndex = Math.Clamp(SelectedTrackIndex, 0, Math.Max(0, Project.Tracks.Count - 1));
         SelectedSceneIndex = Math.Clamp(SelectedSceneIndex, 0, Math.Max(0, Project.Scenes.Count - 1));
     }
@@ -252,11 +287,7 @@ internal sealed class StudioDocument
         foreach (var track in Project.Tracks)
         {
             var sourceClip = track.ClipAt(sceneIndex);
-            track.Clips.Insert(sceneIndex + 1, sourceClip is null ? null : new SlawClip { Name = sourceClip.Name, Pattern = sourceClip.Pattern.ToList() });
-        }
-        foreach (var section in Project.Arrangement.Where(section => section.Scene > sceneIndex))
-        {
-            section.Scene++;
+            track.Clips.Insert(sceneIndex + 1, sourceClip is null ? null : FreeTimeline.CopyClip(sourceClip));
         }
         CommitEdit("duplicated a scene", EditScope.Structure);
     }
@@ -268,23 +299,8 @@ internal sealed class StudioDocument
             return;
         }
         BeginEdit("delete scene");
-        Project.Scenes.RemoveAt(sceneIndex);
-        foreach (var track in Project.Tracks)
-        {
-            if (sceneIndex < track.Clips.Count)
-            {
-                track.Clips.RemoveAt(sceneIndex);
-            }
-        }
-        Project.Arrangement.RemoveAll(section => section.Scene == sceneIndex);
-        foreach (var section in Project.Arrangement.Where(section => section.Scene > sceneIndex))
-        {
-            section.Scene--;
-        }
-        if (Project.Arrangement.Count == 0)
-        {
-            Project.Arrangement.Add(new ArrangementSection { Scene = 0, Repeats = 1 });
-        }
+        // Arrangement clips are copies, so the song keeps playing what this scene used to hold.
+        SceneOperations.RemoveScene(Project, sceneIndex);
         CommitEdit("deleted a scene", EditScope.Structure);
     }
 
@@ -297,8 +313,71 @@ internal sealed class StudioDocument
         var removedTrack = Project.Tracks[trackIndex];
         BeginEdit("delete track");
         Project.Tracks.RemoveAt(trackIndex);
+        Project.Timeline.RemoveAll(timelineClip => timelineClip.TrackId == removedTrack.Id);
+        SidechainRouting.ForgetSource(Project, removedTrack.Id);
         CommitEdit($"removed the track {removedTrack.Name}", EditScope.Structure);
         SelectionChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Duplicates a track right below itself: devices, mixer, session clips and its arrangement
+    /// clips, all with fresh ids. One undo step; the copy is selected.
+    /// </summary>
+    public void DuplicateTrack(int trackIndex)
+    {
+        if (trackIndex < 0 || trackIndex >= Project.Tracks.Count || Project.Tracks.Count >= ProjectAlignmentRemediator.MaximumTrackCount)
+        {
+            return;
+        }
+        var sourceTrack = Project.Tracks[trackIndex];
+        BeginEdit("duplicate track");
+        var duplicatedTrack = TrackOperations.Duplicate(Project, sourceTrack);
+        CommitEdit($"duplicated the track {sourceTrack.Name}", EditScope.Structure);
+        Select(Project.Tracks.IndexOf(duplicatedTrack), SelectedSceneIndex);
+    }
+
+    public void RenameTrack(int trackIndex, string requestedName)
+    {
+        var revisedName = requestedName.Trim();
+        if (trackIndex < 0 || trackIndex >= Project.Tracks.Count || revisedName.Length == 0 || revisedName == Project.Tracks[trackIndex].Name)
+        {
+            return;
+        }
+        Edit($"renamed a track to {revisedName}", project => project.Tracks[trackIndex].Name = revisedName, EditScope.Structure);
+    }
+
+    /// <summary>Places a scene's clips on the arrangement at <paramref name="startStep"/>, one undo step. Returns how many clips landed.</summary>
+    public int PlaceSceneInArrangement(int sceneIndex, int startStep)
+    {
+        if (sceneIndex < 0 || sceneIndex >= Project.Scenes.Count)
+        {
+            return 0;
+        }
+        var placedClips = FreeTimeline.PlaceScene(Project, sceneIndex, Math.Max(0, startStep));
+        if (placedClips.Count == 0)
+        {
+            return 0;
+        }
+        Edit($"placed the scene {Project.Scenes[sceneIndex]} in the arrangement", project => project.Timeline.AddRange(placedClips), EditScope.Structure);
+        return placedClips.Count;
+    }
+
+    /// <summary>Places one session clip on the arrangement at <paramref name="startStep"/>, one undo step.</summary>
+    public bool PlaceClipInArrangement(int trackIndex, int sceneIndex, int startStep)
+    {
+        if (Project.ClipAt(trackIndex, sceneIndex) is not { Pattern.Count: > 0 } sessionClip)
+        {
+            return false;
+        }
+        var placedClip = new TimelineClip
+        {
+            TrackId = Project.Tracks[trackIndex].Id,
+            StartStep = Math.Max(0, startStep),
+            LengthSteps = sessionClip.Pattern.Count,
+            Clip = FreeTimeline.CopyClip(sessionClip),
+        };
+        Edit($"placed a clip of {Project.Tracks[trackIndex].Name} in the arrangement", project => project.Timeline.Add(placedClip), EditScope.Structure);
+        return true;
     }
 
     public void CreateClip(int trackIndex, int sceneIndex)

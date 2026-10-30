@@ -54,9 +54,10 @@ internal static class ProductionWorkflows
         int forcedImprovementCycles,
         Func<string, IReadOnlyList<string>> progressStepsFor,
         Action<string>? cycleAnnouncer = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? recentConversation = null)
     {
-        var currentPrompt = PromptLibrary.ArrangementComposition(creativeIntent);
+        var currentPrompt = PromptLibrary.ArrangementComposition(creativeIntent, recentConversation);
         ArrangementDeliverable? currentDeliverable = null;
 
         for (var remediationCycleIndex = 0; ; remediationCycleIndex++)
@@ -124,6 +125,13 @@ internal static class ProductionWorkflows
         }
 
         var remediationLedger = ProjectAlignmentRemediator.Remediate(composedProject);
+        if (composedProject.Timeline.Count == 0)
+        {
+            // The model wrote scenes but no song order: play every scene twice, top to bottom.
+            composedProject.Timeline = FreeTimeline.FlattenSections(composedProject,
+                composedProject.Scenes.Select((_, sceneIndex) => new ArrangementSection { Scene = sceneIndex, Repeats = 2 }));
+            remediationLedger.Add("arrangement: none given, so every scene plays twice in order");
+        }
         if (!composedProject.Tracks.Any(track => track.Clips.OfType<SlawClip>().Any(clip => clip.Pattern.Any(step => NotationResolver.ResolveOrRest(step).Kind == StepEventKind.Trigger))))
         {
             throw new ArrangementMisalignmentException("arrangement contains no audible steps (every pattern is silence)");
@@ -166,8 +174,9 @@ internal static class ProductionWorkflows
         IInferenceSubstrateProvider inferenceProvider,
         SlawProject project,
         IReadOnlyList<string> progressSteps,
-        CancellationToken cancellationToken = default) =>
-        (await inferenceProvider.StreamCompletionAsync(PromptLibrary.VibeCheck(project), progressSteps, cancellationToken)).Trim();
+        CancellationToken cancellationToken = default,
+        string? recentConversation = null) =>
+        (await inferenceProvider.StreamCompletionAsync(PromptLibrary.VibeCheck(project, recentConversation), progressSteps, cancellationToken)).Trim();
 
     /// <summary>Asks the model to write one clip. Returns the canonicalized pattern.</summary>
     public static async Task<List<string>> AutocompletePatternAsync(
@@ -259,11 +268,12 @@ internal static class ProductionWorkflows
         int maximumRemediationCycles,
         CancellationToken cancellationToken = default,
         IReadOnlyList<string>? availableSamplePaths = null,
-        Func<string, IReadOnlyList<string>>? progressStepsFor = null)
+        Func<string, IReadOnlyList<string>>? progressStepsFor = null,
+        string? recentConversation = null)
     {
         availableSamplePaths ??= Array.Empty<string>();
         progressStepsFor ??= _ => Array.Empty<string>();
-        var currentPrompt = PromptLibrary.Autopilot(currentProject, instruction, availableSamplePaths);
+        var currentPrompt = PromptLibrary.Autopilot(currentProject, instruction, availableSamplePaths, recentConversation);
         for (var remediationCycleIndex = 0; ; remediationCycleIndex++)
         {
             var modelOutput = await inferenceProvider.StreamCompletionAsync(
@@ -427,6 +437,19 @@ internal static class ProductionWorkflows
                 lockEnforcementCount++;
             }
             revisedProject.Tracks[revisedTrackIndex] = preservedTrack;
+
+            // A locked track's part of the arrangement is protected as well.
+            var originalClips = originalProject.Timeline.Where(timelineClip => timelineClip.TrackId == lockedTrack.Id).ToList();
+            var revisedClips = revisedProject.Timeline.Where(timelineClip => timelineClip.TrackId == lockedTrack.Id).ToList();
+            static string Fingerprint(IEnumerable<TimelineClip> timelineClips) =>
+                string.Join("|", timelineClips.Select(timelineClip => System.Text.Json.JsonSerializer.Serialize(timelineClip, ProjectSerializer.LenientSerializationOptions)));
+            if (Fingerprint(originalClips) != Fingerprint(revisedClips))
+            {
+                lockEnforcementCount++;
+                revisedProject.Timeline.RemoveAll(timelineClip => timelineClip.TrackId == lockedTrack.Id);
+                revisedProject.Timeline.AddRange(originalClips.Select(timelineClip => System.Text.Json.JsonSerializer.Deserialize<TimelineClip>(
+                    System.Text.Json.JsonSerializer.Serialize(timelineClip, ProjectSerializer.LenientSerializationOptions), ProjectSerializer.LenientSerializationOptions)!));
+            }
         }
         return lockEnforcementCount;
     }
@@ -458,10 +481,11 @@ internal static class ProductionWorkflows
         IInferenceSubstrateProvider inferenceProvider,
         SlawProject project,
         string lastEditDescription,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default,
+        string? recentConversation = null) =>
         LanguageModelPayloadExtractor.ExtractSingleLine(
             await inferenceProvider.StreamCompletionAsync(
-                PromptLibrary.CopilotInterjection(project, lastEditDescription), Array.Empty<string>(), cancellationToken),
+                PromptLibrary.CopilotInterjection(project, lastEditDescription, recentConversation), Array.Empty<string>(), cancellationToken),
             maximumLength: 140);
 }
 

@@ -38,6 +38,13 @@ internal static class ProjectSerializer
                 track.Sample = Path.GetFullPath(Path.Combine(projectDirectory, track.Sample!));
             }
         }
+        foreach (var track in loadedProject.Tracks.Where(track => track?.SoundFont is { Path.Length: > 0 }))
+        {
+            if (!Path.IsPathRooted(track.SoundFont!.Path))
+            {
+                track.SoundFont.Path = Path.GetFullPath(Path.Combine(projectDirectory, track.SoundFont.Path));
+            }
+        }
         ProjectAlignmentRemediator.Remediate(loadedProject);
         return loadedProject;
     }
@@ -50,6 +57,7 @@ internal static class ProjectSerializer
     {
         var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath)) ?? Directory.GetCurrentDirectory();
         var persistedProject = project.DeepClone();
+        Plugins.PluginInstancePool.CaptureStates(persistedProject);
         foreach (var track in persistedProject.Tracks.Where(track => !string.IsNullOrEmpty(track.Sample) && Path.IsPathRooted(track.Sample)))
         {
             var relativeSamplePath = Path.GetRelativePath(projectDirectory, track.Sample!);
@@ -58,8 +66,29 @@ internal static class ProjectSerializer
                 track.Sample = relativeSamplePath;
             }
         }
+        foreach (var track in persistedProject.Tracks.Where(track => track.SoundFont is { Path.Length: > 0 } && Path.IsPathRooted(track.SoundFont.Path)))
+        {
+            var relativeSoundFontPath = Path.GetRelativePath(projectDirectory, track.SoundFont!.Path);
+            if (!relativeSoundFontPath.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relativeSoundFontPath))
+            {
+                track.SoundFont.Path = relativeSoundFontPath;
+            }
+        }
         File.WriteAllText(projectFilePath, Serialize(persistedProject) + Environment.NewLine);
     }
+
+    /// <summary>
+    /// A project with nothing in it: no tracks, an empty arrangement, one empty
+    /// scene and the default master bus. What `new_project` and patches with
+    /// <c>"reset": true</c> start from.
+    /// </summary>
+    public static SlawProject CreateBlankProject(string projectName, double bpm) => new()
+    {
+        Name = string.IsNullOrWhiteSpace(projectName) ? "untitled slop" : projectName,
+        Bpm = Math.Clamp(bpm, 40, 300),
+        Steps = 16,
+        Scenes = { "Scene 1" },
+    };
 
     /// <summary>
     /// The starter arrangement scaffolded by <c>slaw new</c> and by the studio

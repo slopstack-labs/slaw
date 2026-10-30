@@ -1,0 +1,3061 @@
+{
+  "format": "slaw-project/v2",
+  "name": "Quarterly Synergy",
+  "bpm": 124,
+  "steps": 16,
+  "scenes": [
+    "Jam A",
+    "Jam B",
+    "Jam C"
+  ],
+  "tracks": [
+    {
+      "id": "e033b398",
+      "name": "Kick",
+      "instrument": "kick",
+      "instrumentParameters": {},
+      "effects": [],
+      "gain": 0.9,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Kick",
+          "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
+        },
+        {
+          "name": "Kick",
+          "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "cc449853",
+      "name": "Clap",
+      "instrument": "clap",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.3,
+            "mix": 0.15,
+            "width": 1
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.3,
+            "haas": 8
+          }
+        }
+      ],
+      "gain": 1.3,
+      "pan": 0.08,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Clap",
+          "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+        },
+        {
+          "name": "Clap",
+          "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "cf5b9143",
+      "name": "Snare",
+      "instrument": "snare",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.5,
+            "mix": 0.25,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 0.75,
+      "pan": -0.05,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Snare",
+          "pattern": [".", ".", ".", ".", "x@0.55", ".", ".", ".", ".", ".", ".", ".", "x@0.55", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "b4feecd8",
+      "name": "Hats",
+      "instrument": "hat",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 6000
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.4,
+            "haas": 12
+          }
+        }
+      ],
+      "gain": 1.5,
+      "pan": 0.2,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Hats",
+          "pattern": ["x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.5"]
+        },
+        {
+          "name": "Hats",
+          "pattern": ["x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3"]
+        },
+        {
+          "name": "Hats",
+          "pattern": [".", ".", "x@0.8", ".", ".", ".", "x@0.8", ".", ".", ".", "x@0.8", ".", ".", ".", "x@0.8", "."]
+        }
+      ]
+    },
+    {
+      "id": "8018209d",
+      "name": "Shaker",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 1,
+        "decay": 60,
+        "sustain": 0.3,
+        "release": 70,
+        "cutoff": 10000
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 5000
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.35,
+            "mix": 0.25,
+            "pingpong": 1
+          }
+        }
+      ],
+      "gain": 1.5,
+      "pan": -0.25,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Shaker",
+          "pattern": ["C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15"]
+        },
+        {
+          "name": "Shaker",
+          "pattern": ["C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "004f1bd1",
+      "name": "Sub Bass",
+      "instrument": "saw",
+      "instrumentParameters": {
+        "attack": 5,
+        "decay": 250,
+        "sustain": 0.8,
+        "release": 90,
+        "cutoff": 700
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 700,
+            "resonance": 0.2
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 3,
+            "mix": 0.3
+          }
+        }
+      ],
+      "gain": 0.85,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Sub Bass",
+          "pattern": ["A1", "_", "_", ".", "A1", ".", ".", "A2@0.6", "A1", "_", "_", ".", ".", ".", "A1@0.8", ".", "F1", "_", "_", ".", "F1", ".", ".", "F2@0.6", "F1", "_", "_", ".", ".", ".", "F1@0.8", ".", "C2", "_", "_", ".", "C2", ".", ".", "C3@0.6", "C2", "_", "_", ".", ".", ".", "C2@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", "."]
+        },
+        {
+          "name": "Sub Bass",
+          "pattern": [".", ".", "A1", "_", ".", ".", "A1", "_", ".", ".", "A1", "_", ".", ".", "A2@0.7", "_", ".", ".", "F1", "_", ".", ".", "F1", "_", ".", ".", "F1", "_", ".", ".", "F2@0.7", "_", ".", ".", "C2", "_", ".", ".", "C2", "_", ".", ".", "C2", "_", ".", ".", "C3@0.7", "_", ".", ".", "G1", "_", ".", ".", "G1", "_", ".", ".", "G1", "_", ".", ".", "G2@0.7", "_"]
+        },
+        {
+          "name": "Sub Bass",
+          "pattern": ["D2", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        }
+      ]
+    },
+    {
+      "id": "1fcb471b",
+      "name": "Acid Bass",
+      "instrument": "vst3",
+      "instrumentParameters": {
+        "p2082": 1,
+        "p2084": 0.35,
+        "p2085": 0.6,
+        "p2086": 0.7,
+        "p2087": 0.3,
+        "p2088": 0.6,
+        "p2089": 0.9
+      },
+      "plugin": {
+        "path": "/usr/lib/vst3/Nekobi.vst3",
+        "classId": "2046504473616C636B654E4400000000",
+        "name": "Nekobi",
+        "state": "U0xWM5AAAABfX2RwZl9wYXJhbWV0ZXJzX2JlZ2luX18Ad2F2ZWZvcm0AMQB0dW5pbmcAMABjdXRvZmYAMzAuNzIzNTI3OTA4MwByZXNvbmFuY2UANTcAZW52X21vZAA3MABkZWNheQAzMABhY2NlbnQANjAAdm9sdW1lADkwAF9fZHBmX3BhcmFtZXRlcnNfZW5kX18A/gAAAAAA"
+      },
+      "effects": [
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 3,
+            "mix": 0.3
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.4,
+            "mix": 0.2,
+            "pingpong": 1
+          }
+        }
+      ],
+      "gain": 1.3,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Acid Bass",
+          "pattern": ["A2", ".", "A2", "A3@0.7", ".", "A2", ".", "A2", "A3@0.7", ".", "A2", ".", "A3@0.7", ".", "E3", ".", "F2", ".", "F2", "F3@0.7", ".", "F2", ".", "F2", "F3@0.7", ".", "F2", ".", "F3@0.7", ".", "C3", ".", "C3", ".", "C3", "C4@0.7", ".", "C3", ".", "C3", "C4@0.7", ".", "C3", ".", "C4@0.7", ".", "G3", ".", "G2", ".", "G2", "G3@0.7", ".", "G2", ".", "G2", "G3@0.7", ".", "G2", ".", "G3@0.7", ".", "D3", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "bae17236",
+      "name": "Pad",
+      "instrument": "vst3",
+      "instrumentParameters": {
+        "p390823618": 1,
+        "p343749979": 0.4,
+        "p483694633": 1,
+        "p2017657612": 0.3,
+        "p1840741797": 0.6,
+        "p1501559702": 0.15,
+        "p712176721": 0.35,
+        "p221111070": 0.5,
+        "p420467514": 0.35
+      },
+      "plugin": {
+        "path": "/usr/lib/vst3/OB-Xf.vst3",
+        "classId": "ABCDEF019182FAEB535354784F425846",
+        "name": "OB-Xf",
+        "state": "U0xWM5gJAABWQzIhUwkAADw/eG1sIHZlcnNpb249IjEuMCIgZW5jb2Rpbmc9IlVURi04Ij8\u002BIDxPQi1YZiBvYi14Zl92ZXJzaW9uPSIyMDI1LTEyLTEzIiBzaW5nbGUtcHJvZ3JhbS1mb3JtYXQ9IjEiPjxwcm9ncmFtIFZvbHVtZT0iMC4zNDk5OTk5OTQwMzk1MzU1IiBUcmFuc3Bvc2U9IjAuNSIgVHVuZT0iMC41IiBQb2x5cGhvbnk9IjAuMjI1ODA2NDQ0ODgzMzQ2NiIgSFFNb2RlPSIwLjAiIFVuaXNvblZvaWNlcz0iMC4yMjU4MDY0NDQ4ODMzNDY2IiBQb3J0YW1lbnRvPSIwLjAiIFVuaXNvbj0iMS4wIiBVbmlzb25EZXR1bmU9IjAuNDAwMDAwMDA1OTYwNDY0NSIgRW52TGVnYXRvTW9kZT0iMC4wIiBOb3RlUHJpb3JpdHk9IjAuMCIgT3NjMVBpdGNoPSIwLjUiIE9zYzJEZXR1bmU9IjAuMzAwMDAwMDExOTIwOTI5IiBPc2MyUGl0Y2g9IjAuNSIgT3NjMVNhd1dhdmU9IjEuMCIgT3NjMVB1bHNlV2F2ZT0iMC4wIiBPc2MyU2F3V2F2ZT0iMS4wIiBPc2MyUHVsc2VXYXZlPSIwLjAiIE9zY1BXPSIwLjAiIE9zYzJQV09mZnNldD0iMC4wIiBFbnZUb1BpdGNoQW1vdW50PSIwLjAiIEVudlRvUGl0Y2hCb3RoT3Njcz0iMS4wIiBFbnZUb1BpdGNoSW52ZXJ0PSIwLjAiIEVudlRvUFdBbW91bnQ9IjAuMCIgRW52VG9QV0JvdGhPc2NzPSIxLjAiIEVudlRvUFdJbnZlcnQ9IjAuMCIgT3NjQ3Jvc3Ntb2Q9IjAuMCIgT3NjU3luYz0iMC4wIiBPc2NCcmlnaHRuZXNzPSIxLjAiIE9zYzFNaXg9IjEuMCIgT3NjMk1peD0iMS4wIiBSaW5nTW9kTWl4PSIwLjAiIE5vaXNlTWl4PSIwLjAiIE5vaXNlQ29sb3I9IjAuMCIgUGl0Y2hCZW5kVXA9IjAuMDQxNjY2NjY3OTA4NDMwMSIgUGl0Y2hCZW5kRG93bj0iMC4wNDE2NjY2Njc5MDg0MzAxIiBCZW5kT3NjMk9ubHk9IjAuMCIgVmlicmF0b1dhdmU9IjAuMCIgVmlicmF0b1JhdGU9IjAuMjk5OTk5OTgyMTE4NjA2NiIgRmlsdGVyNFBvbGVNb2RlPSIwLjAiIEZpbHRlckN1dG9mZj0iMC42MDAwMDAwMjM4NDE4NTc5IiBGaWx0ZXJSZXNvbmFuY2U9IjAuMTUwMDAwMDA1OTYwNDY0NSIgRmlsdGVyRW52QW1vdW50PSIwLjAiIEZpbHRlcktleUZvbGxvdz0iMC4wIiBGaWx0ZXJNb2RlPSIwLjAiIEZpbHRlcjJQb2xlQlBCbGVuZD0iMC4wIiBGaWx0ZXIyUG9sZVB1c2g9IjAuMCIgRmlsdGVyNFBvbGVYcGFuZGVyPSIwLjAiIEZpbHRlclhwYW5kZXJNb2RlPSIwLjAiIExGTzFUZW1wb1N5bmM9IjAuMCIgTEZPMVJhdGU9IjAuNSIgTEZPMU1vZEFtb3VudDE9IjAuMCIgTEZPMU1vZEFtb3VudDI9IjAuMCIgTEZPMVdhdmUxPSIwLjAiIExGTzFXYXZlMj0iMC41IiBMRk8xV2F2ZTM9IjAuNSIgTEZPMVBXPSIwLjAiIExGTzFUb09zYzFQaXRjaD0iMC4wIiBMRk8xVG9Pc2MyUGl0Y2g9IjAuMCIgTEZPMVRvRmlsdGVyQ3V0b2ZmPSIwLjAiIExGTzFUb09zYzFQVz0iMC4wIiBMRk8xVG9Pc2MyUFc9IjAuMCIgTEZPMVRvVm9sdW1lPSIwLjAiIExGTzJUZW1wb1N5bmM9IjAuMCIgTEZPMlJhdGU9IjAuNSIgTEZPMk1vZEFtb3VudDE9IjAuMCIgTEZPMk1vZEFtb3VudDI9IjAuMCIgTEZPMldhdmUxPSIwLjAiIExGTzJXYXZlMj0iMC41IiBMRk8yV2F2ZTM9IjAuNSIgTEZPMlBXPSIwLjAiIExGTzJUb09zYzFQaXRjaD0iMC4wIiBMRk8yVG9Pc2MyUGl0Y2g9IjAuMCIgTEZPMlRvRmlsdGVyQ3V0b2ZmPSIwLjAiIExGTzJUb09zYzFQVz0iMC4wIiBMRk8yVG9Pc2MyUFc9IjAuMCIgTEZPMlRvVm9sdW1lPSIwLjAiIEZpbHRlckVudkludmVydD0iMC4wIiBGaWx0ZXJFbnZBdHRhY2s9IjAuMCIgRmlsdGVyRW52RGVjYXk9IjAuMCIgRmlsdGVyRW52U3VzdGFpbj0iMS4wIiBGaWx0ZXJFbnZSZWxlYXNlPSIwLjAiIEZpbHRlckVudkF0dGFja0N1cnZlPSIwLjAiIFZlbFRvRmlsdGVyRW52PSIwLjAiIEFtcEVudkF0dGFjaz0iMC4zNDk5OTk5OTQwMzk1MzU1IiBBbXBFbnZEZWNheT0iMC4wIiBBbXBFbnZTdXN0YWluPSIxLjAiIEFtcEVudlJlbGVhc2U9IjAuNSIgQW1wRW52QXR0YWNrQ3VydmU9IjAuMCIgVmVsVG9BbXBFbnY9IjAuMCIgUG9ydGFtZW50b1Nsb3A9IjAuMjUiIEZpbHRlclNsb3A9IjAuMjUiIEVudmVsb3BlU2xvcD0iMC4yNSIgTGV2ZWxTbG9wPSIwLjI1IiBQYW5Wb2ljZTE9IjAuNSIgUGFuVm9pY2UyPSIwLjUiIFBhblZvaWNlMz0iMC41IiBQYW5Wb2ljZTQ9IjAuNSIgUGFuVm9pY2U1PSIwLjUiIFBhblZvaWNlNj0iMC41IiBQYW5Wb2ljZTc9IjAuNSIgUGFuVm9pY2U4PSIwLjUiIHZvaWNlQ291bnQ9IjMyIiBwcm9ncmFtTmFtZT0iSW5pdCIgYXV0aG9yPSIiIGxpY2Vuc2U9IiIgY2F0ZWdvcnk9Ik5vbmUiIHByb2plY3Q9IiIvPjxkYXdFeHRyYVN0YXRlPjxEQVdFeHRyYVN0YXRlIHZlcnNpb249IjEiIHNlbGVjdGVkTEZPSW5kZXg9IjAiIGltcGxpZWRTY2FsZUZhY3Rvcj0iMS4wIi8\u002BPC9kYXdFeHRyYVN0YXRlPjwvT0ItWGY\u002BAAAAAAAAAAAASlVDRVByaXZhdGVEYXRhAAEBQnlwYXNzAAEBAwAdAAAAAAAAAEpVQ0VQcml2YXRlRGF0YQAAAAA="
+      },
+      "effects": [
+        {
+          "type": "vst3",
+          "enabled": true,
+          "parameters": {
+            "p3": 0.35,
+            "p4": 0.5,
+            "p5": 0.5
+          },
+          "plugin": {
+            "path": "/usr/lib/vst3/3BandEQ.vst3",
+            "classId": "2046504473616C635145334400000000",
+            "name": "3 Band EQ",
+            "state": "U0xWM4cAAABfX2RwZl9wcm9ncmFtX18AMABfX2RwZl9wYXJhbWV0ZXJzX2JlZ2luX18AbG93AC03LjE5OTk5OTgwOTI3AG1pZAAwAGhpZ2gAMABtYXN0ZXIAMABsb3dfbWlkADIyMABtaWRfaGlnaAAyMDAwAF9fZHBmX3BhcmFtZXRlcnNfZW5kX18A/gAAAAAA"
+          }
+        },
+        {
+          "type": "vst3",
+          "enabled": true,
+          "parameters": {
+            "p10": 0.3,
+            "p6": 0.7,
+            "p8": 0.8
+          },
+          "plugin": {
+            "path": "/usr/lib/vst3/MVerb.vst3",
+            "classId": "2046504473616C636272564D00000000",
+            "name": "MVerb",
+            "state": "U0xWM6sAAABfX2RwZl9wcm9ncmFtX18AMABfX2RwZl9wYXJhbWV0ZXJzX2JlZ2luX18AZGFtcGluZwA1MABkZW5zaXR5ADUwAGJhbmR3aWR0aAA1MABkZWNheQA3MABwcmVkZWxheQA1MABzaXplADgxAGdhaW4AMTAwAG1peAAyOS45OTk5OTgwOTI3AGVhcmx5bWl4ADUwAF9fZHBmX3BhcmFtZXRlcnNfZW5kX18A/gAAAAAA"
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.7,
+            "haas": 15
+          }
+        }
+      ],
+      "gain": 0.9,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Pad",
+          "pattern": ["A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        },
+        {
+          "name": "Pad",
+          "pattern": ["A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        },
+        {
+          "name": "Pad",
+          "pattern": ["A3\u002BD4\u002BF4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        }
+      ]
+    },
+    {
+      "id": "d75a7ff2",
+      "name": "Lead",
+      "instrument": "vst3",
+      "instrumentParameters": {
+        "p483694633": 0.8,
+        "p2017657612": 0.2,
+        "p1840741797": 0.75,
+        "p1226642157": 0.4,
+        "p1011920517": 0.3,
+        "p546566702": 0.3,
+        "p712176721": 0.03,
+        "p221111070": 0.3,
+        "p1573592378": 0.8,
+        "p420467514": 0.7
+      },
+      "plugin": {
+        "path": "/usr/lib/vst3/OB-Xf.vst3",
+        "classId": "ABCDEF019182FAEB535354784F425846",
+        "name": "OB-Xf",
+        "state": "U0xWM9EJAABWQzIhjAkAADw/eG1sIHZlcnNpb249IjEuMCIgZW5jb2Rpbmc9IlVURi04Ij8\u002BIDxPQi1YZiBvYi14Zl92ZXJzaW9uPSIyMDI1LTEyLTEzIiBzaW5nbGUtcHJvZ3JhbS1mb3JtYXQ9IjEiPjxwcm9ncmFtIFZvbHVtZT0iMC42OTk5OTk5ODgwNzkwNzEiIFRyYW5zcG9zZT0iMC41IiBUdW5lPSIwLjUiIFBvbHlwaG9ueT0iMC4yMjU4MDY0NDQ4ODMzNDY2IiBIUU1vZGU9IjAuMCIgVW5pc29uVm9pY2VzPSIwLjIyNTgwNjQ0NDg4MzM0NjYiIFBvcnRhbWVudG89IjAuMCIgVW5pc29uPSIwLjAiIFVuaXNvbkRldHVuZT0iMC4yNSIgRW52TGVnYXRvTW9kZT0iMC4wIiBOb3RlUHJpb3JpdHk9IjAuMCIgT3NjMVBpdGNoPSIwLjUiIE9zYzJEZXR1bmU9IjAuMjAwMDAwMDAyOTgwMjMyMiIgT3NjMlBpdGNoPSIwLjUiIE9zYzFTYXdXYXZlPSIxLjAiIE9zYzFQdWxzZVdhdmU9IjAuMCIgT3NjMlNhd1dhdmU9IjEuMCIgT3NjMlB1bHNlV2F2ZT0iMC4wIiBPc2NQVz0iMC4wIiBPc2MyUFdPZmZzZXQ9IjAuMCIgRW52VG9QaXRjaEFtb3VudD0iMC4wIiBFbnZUb1BpdGNoQm90aE9zY3M9IjEuMCIgRW52VG9QaXRjaEludmVydD0iMC4wIiBFbnZUb1BXQW1vdW50PSIwLjAiIEVudlRvUFdCb3RoT3Njcz0iMS4wIiBFbnZUb1BXSW52ZXJ0PSIwLjAiIE9zY0Nyb3NzbW9kPSIwLjAiIE9zY1N5bmM9IjAuMCIgT3NjQnJpZ2h0bmVzcz0iMS4wIiBPc2MxTWl4PSIxLjAiIE9zYzJNaXg9IjAuODAwMDAwMDExOTIwOTI5IiBSaW5nTW9kTWl4PSIwLjAiIE5vaXNlTWl4PSIwLjAiIE5vaXNlQ29sb3I9IjAuMCIgUGl0Y2hCZW5kVXA9IjAuMDQxNjY2NjY3OTA4NDMwMSIgUGl0Y2hCZW5kRG93bj0iMC4wNDE2NjY2Njc5MDg0MzAxIiBCZW5kT3NjMk9ubHk9IjAuMCIgVmlicmF0b1dhdmU9IjAuMCIgVmlicmF0b1JhdGU9IjAuMjk5OTk5OTgyMTE4NjA2NiIgRmlsdGVyNFBvbGVNb2RlPSIwLjAiIEZpbHRlckN1dG9mZj0iMC44Mjc1ODQwMjgyNDQwMTg2IiBGaWx0ZXJSZXNvbmFuY2U9IjAuMCIgRmlsdGVyRW52QW1vdW50PSIwLjQwMDAwMDAwNTk2MDQ2NDUiIEZpbHRlcktleUZvbGxvdz0iMC4wIiBGaWx0ZXJNb2RlPSIwLjAiIEZpbHRlcjJQb2xlQlBCbGVuZD0iMC4wIiBGaWx0ZXIyUG9sZVB1c2g9IjAuMCIgRmlsdGVyNFBvbGVYcGFuZGVyPSIwLjAiIEZpbHRlclhwYW5kZXJNb2RlPSIwLjAiIExGTzFUZW1wb1N5bmM9IjAuMCIgTEZPMVJhdGU9IjAuNSIgTEZPMU1vZEFtb3VudDE9IjAuMCIgTEZPMU1vZEFtb3VudDI9IjAuMCIgTEZPMVdhdmUxPSIwLjAiIExGTzFXYXZlMj0iMC41IiBMRk8xV2F2ZTM9IjAuNSIgTEZPMVBXPSIwLjAiIExGTzFUb09zYzFQaXRjaD0iMC4wIiBMRk8xVG9Pc2MyUGl0Y2g9IjAuMCIgTEZPMVRvRmlsdGVyQ3V0b2ZmPSIwLjAiIExGTzFUb09zYzFQVz0iMC4wIiBMRk8xVG9Pc2MyUFc9IjAuMCIgTEZPMVRvVm9sdW1lPSIwLjAiIExGTzJUZW1wb1N5bmM9IjAuMCIgTEZPMlJhdGU9IjAuNSIgTEZPMk1vZEFtb3VudDE9IjAuMCIgTEZPMk1vZEFtb3VudDI9IjAuMCIgTEZPMldhdmUxPSIwLjAiIExGTzJXYXZlMj0iMC41IiBMRk8yV2F2ZTM9IjAuNSIgTEZPMlBXPSIwLjAiIExGTzJUb09zYzFQaXRjaD0iMC4wIiBMRk8yVG9Pc2MyUGl0Y2g9IjAuMCIgTEZPMlRvRmlsdGVyQ3V0b2ZmPSIwLjAiIExGTzJUb09zYzFQVz0iMC4wIiBMRk8yVG9Pc2MyUFc9IjAuMCIgTEZPMlRvVm9sdW1lPSIwLjAiIEZpbHRlckVudkludmVydD0iMC4wIiBGaWx0ZXJFbnZBdHRhY2s9IjAuMCIgRmlsdGVyRW52RGVjYXk9IjAuMzAwMDAwMDExOTIwOTI5IiBGaWx0ZXJFbnZTdXN0YWluPSIwLjMwMDAwMDAxMTkyMDkyOSIgRmlsdGVyRW52UmVsZWFzZT0iMC4wIiBGaWx0ZXJFbnZBdHRhY2tDdXJ2ZT0iMC4wIiBWZWxUb0ZpbHRlckVudj0iMC4wIiBBbXBFbnZBdHRhY2s9IjAuMDI5OTk5OTk5MzI5NDQ3NzUiIEFtcEVudkRlY2F5PSIwLjAiIEFtcEVudlN1c3RhaW49IjAuODAwMDAwMDExOTIwOTI5IiBBbXBFbnZSZWxlYXNlPSIwLjMwMDAwMDAxMTkyMDkyOSIgQW1wRW52QXR0YWNrQ3VydmU9IjAuMCIgVmVsVG9BbXBFbnY9IjAuMCIgUG9ydGFtZW50b1Nsb3A9IjAuMjUiIEZpbHRlclNsb3A9IjAuMjUiIEVudmVsb3BlU2xvcD0iMC4yNSIgTGV2ZWxTbG9wPSIwLjI1IiBQYW5Wb2ljZTE9IjAuNSIgUGFuVm9pY2UyPSIwLjUiIFBhblZvaWNlMz0iMC41IiBQYW5Wb2ljZTQ9IjAuNSIgUGFuVm9pY2U1PSIwLjUiIFBhblZvaWNlNj0iMC41IiBQYW5Wb2ljZTc9IjAuNSIgUGFuVm9pY2U4PSIwLjUiIHZvaWNlQ291bnQ9IjMyIiBwcm9ncmFtTmFtZT0iSW5pdCIgYXV0aG9yPSIiIGxpY2Vuc2U9IiIgY2F0ZWdvcnk9Ik5vbmUiIHByb2plY3Q9IiIvPjxkYXdFeHRyYVN0YXRlPjxEQVdFeHRyYVN0YXRlIHZlcnNpb249IjEiIHNlbGVjdGVkTEZPSW5kZXg9IjAiIGltcGxpZWRTY2FsZUZhY3Rvcj0iMS4wIi8\u002BPC9kYXdFeHRyYVN0YXRlPjwvT0ItWGY\u002BAAAAAAAAAAAASlVDRVByaXZhdGVEYXRhAAEBQnlwYXNzAAEBAwAdAAAAAAAAAEpVQ0VQcml2YXRlRGF0YQAAAAA="
+      },
+      "effects": [
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.45,
+            "mix": 0.3,
+            "pingpong": 1
+          }
+        },
+        {
+          "type": "vst3",
+          "enabled": true,
+          "parameters": {
+            "p3": 0.5,
+            "p4": 0.9
+          },
+          "plugin": {
+            "path": "/usr/lib/vst3/PingPongPan.vst3",
+            "classId": "2046504473616C635050504400000000",
+            "name": "Ping Pong Pan",
+            "state": "U0xWM2AAAABfX2RwZl9wcm9ncmFtX18AMABfX2RwZl9wYXJhbWV0ZXJzX2JlZ2luX18AZnJlcQA1MAB3aWR0aAA3NS41MTY4MDc1NTYyAF9fZHBmX3BhcmFtZXRlcnNfZW5kX18A/gAAAAAA"
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.7,
+            "mix": 0.3,
+            "damping": 0.4,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 1.5,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Lead",
+          "pattern": ["A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "_", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "_", "_"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "4f7a9c92",
+      "name": "Pluck Arp",
+      "instrument": "vst3",
+      "instrumentParameters": {
+        "p2080": 0,
+        "p2082": 0.35
+      },
+      "plugin": {
+        "path": "/usr/lib/vst3/Kars.vst3",
+        "classId": "2046504473616C6373724B4400000000",
+        "name": "Kars",
+        "state": "U0xWM18AAABfX2RwZl9wYXJhbWV0ZXJzX2JlZ2luX18Ac3VzdGFpbgAwAHJlbGVhc2UAMC4wMDk5OTk5OTk3NzY0OAB2b2x1bWUAMzUAX19kcGZfcGFyYW1ldGVyc19lbmRfXwD\u002BAAAAAAA="
+      },
+      "effects": [
+        {
+          "type": "vst3",
+          "enabled": true,
+          "parameters": {
+            "p3": 0.4,
+            "p4": 0.9
+          },
+          "plugin": {
+            "path": "/usr/lib/vst3/PingPongPan.vst3",
+            "classId": "2046504473616C635050504400000000",
+            "name": "Ping Pong Pan",
+            "state": "U0xWM1UAAABfX2RwZl9wcm9ncmFtX18AMABfX2RwZl9wYXJhbWV0ZXJzX2JlZ2luX18AZnJlcQA0MAB3aWR0aAA5MABfX2RwZl9wYXJhbWV0ZXJzX2VuZF9fAP4AAAAAAA=="
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.4,
+            "mix": 0.3,
+            "pingpong": 1
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.5,
+            "haas": 10
+          }
+        }
+      ],
+      "gain": 0.9,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Pluck Arp",
+          "pattern": ["A3@0.7", "C4@0.32", "E4@0.49", "A4@0.32", "E4@0.7", "C4@0.32", "E4@0.49", "A4@0.32", "A3@0.7", "C4@0.32", "E4@0.49", "A4@0.32", "E4@0.7", "A4@0.32", "E4@0.49", "C4@0.32", "F3@0.7", "A3@0.32", "C4@0.49", "F4@0.32", "C4@0.7", "A3@0.32", "C4@0.49", "F4@0.32", "F3@0.7", "A3@0.32", "C4@0.49", "F4@0.32", "C4@0.7", "F4@0.32", "C4@0.49", "A3@0.32", "G3@0.7", "C4@0.32", "E4@0.49", "G4@0.32", "E4@0.7", "C4@0.32", "E4@0.49", "G4@0.32", "G3@0.7", "C4@0.32", "E4@0.49", "G4@0.32", "E4@0.7", "G4@0.32", "E4@0.49", "C4@0.32", "G3@0.7", "B3@0.32", "D4@0.49", "G4@0.32", "D4@0.7", "B3@0.32", "D4@0.49", "G4@0.32", "G3@0.7", "B3@0.32", "D4@0.49", "G4@0.32", "D4@0.7", "G4@0.32", "D4@0.49", "B3@0.32"]
+        },
+        {
+          "name": "Pluck Arp",
+          "pattern": ["A3", "C4@0.45", "E4@0.7", "A4@0.45", "E4", "C4@0.45", "E4@0.7", "A4@0.45", "A3", "C4@0.45", "E4@0.7", "A4@0.45", "E4", "A4@0.45", "E4@0.7", "C4@0.45", "F3", "A3@0.45", "C4@0.7", "F4@0.45", "C4", "A3@0.45", "C4@0.7", "F4@0.45", "F3", "A3@0.45", "C4@0.7", "F4@0.45", "C4", "F4@0.45", "C4@0.7", "A3@0.45", "G3", "C4@0.45", "E4@0.7", "G4@0.45", "E4", "C4@0.45", "E4@0.7", "G4@0.45", "G3", "C4@0.45", "E4@0.7", "G4@0.45", "E4", "G4@0.45", "E4@0.7", "C4@0.45", "G3", "B3@0.45", "D4@0.7", "G4@0.45", "D4", "B3@0.45", "D4@0.7", "G4@0.45", "G3", "B3@0.45", "D4@0.7", "G4@0.45", "D4", "G4@0.45", "D4@0.7", "B3@0.45"]
+        },
+        {
+          "name": "Pluck Arp",
+          "pattern": ["A3@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "F4@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "A3@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "F4@0.6", "A4@0.27", "F4@0.42", "D4@0.27", "A3@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "E4@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "A3@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "E4@0.6", "A4@0.27", "E4@0.42", "C4@0.27", "F3@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "C4@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "F3@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "C4@0.6", "F4@0.27", "C4@0.42", "A3@0.27", "G3@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "D4@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "G3@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "D4@0.6", "G4@0.27", "D4@0.42", "B3@0.27"]
+        }
+      ]
+    },
+    {
+      "id": "a496df79",
+      "name": "Lead Vocal",
+      "instrument": "sampler",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 100
+          }
+        },
+        {
+          "type": "vst3",
+          "enabled": true,
+          "parameters": {
+            "p3": 0.5,
+            "p4": 0.55,
+            "p5": 0.62,
+            "p6": 0.5
+          },
+          "plugin": {
+            "path": "/usr/lib/vst3/3BandEQ.vst3",
+            "classId": "2046504473616C635145334400000000",
+            "name": "3 Band EQ",
+            "state": "U0xWM5IAAABfX2RwZl9wcm9ncmFtX18AMABfX2RwZl9wYXJhbWV0ZXJzX2JlZ2luX18AbG93ADAAbWlkADIuNDAwMDAwMDk1MzcAaGlnaAA1Ljc2MDAwMDIyODg4AG1hc3RlcgAwAGxvd19taWQAMjIwAG1pZF9oaWdoADIwMDAAX19kcGZfcGFyYW1ldGVyc19lbmRfXwD\u002BAAAAAAA="
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 2,
+            "mix": 0.2
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.3,
+            "mix": 0.2,
+            "pingpong": 1
+          }
+        },
+        {
+          "type": "vst3",
+          "enabled": true,
+          "parameters": {
+            "p10": 0.25,
+            "p6": 0.6,
+            "p8": 0.6
+          },
+          "plugin": {
+            "path": "/usr/lib/vst3/MVerb.vst3",
+            "classId": "2046504473616C636272564D00000000",
+            "name": "MVerb",
+            "state": "U0xWM6sAAABfX2RwZl9wcm9ncmFtX18AMABfX2RwZl9wYXJhbWV0ZXJzX2JlZ2luX18AZGFtcGluZwA1MABkZW5zaXR5ADUwAGJhbmR3aWR0aAA1MABkZWNheQA1OS45OTk5OTYxODUzAHByZWRlbGF5ADUwAHNpemUANjIAZ2FpbgAxMDAAbWl4ADI1AGVhcmx5bWl4ADUwAF9fZHBmX3BhcmFtZXRlcnNfZW5kX18A/gAAAAAA"
+          }
+        }
+      ],
+      "gain": 1,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "id": "8863cc35",
+      "name": "Guide Melody",
+      "instrument": "triangle",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.4,
+            "mix": 0.2,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 0.5,
+      "pan": 0,
+      "muted": true,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Guide Melody",
+          "pattern": ["A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "_", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "_", "_"]
+        },
+        {
+          "name": "Guide Melody",
+          "pattern": [".", ".", "D5", "_", "A4", "_", "F4", "_", "A4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "C5", "_", "A4", "_", "E4", "_", "A4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "A4", "_", "C5", "_", "A4", "_", "F4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "B4", "_", "D5", "_", "B4", "_", "G4", "_", "_", "_", "_", "_", ".", "."]
+        }
+      ]
+    },
+    {
+      "id": "9b92bd8a",
+      "name": "Riser",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 2000,
+        "decay": 3000,
+        "sustain": 1,
+        "release": 300,
+        "cutoff": 12000
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 500,
+            "resonance": 0.4
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.8,
+            "mix": 0.4,
+            "width": 1
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.6,
+            "haas": 10
+          }
+        }
+      ],
+      "gain": 0.5,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Riser",
+          "pattern": ["C4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+        }
+      ]
+    }
+  ],
+  "master": {
+    "gain": 0.55,
+    "drive": 1,
+    "lowpassHz": 18000,
+    "delaySteps": 3,
+    "delayFeedback": 0.3,
+    "delayMix": 0.1,
+    "rationale": null
+  },
+  "timeline": [
+    {
+      "id": "bbb4f90f",
+      "trackId": "bae17236",
+      "startStep": 0,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Intro pad",
+        "pattern": ["A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.15
+            },
+            {
+              "step": 128,
+              "value": 0.9
+            }
+          ],
+          "inst.p1840741797": [
+            {
+              "step": 0,
+              "value": 0.25
+            },
+            {
+              "step": 128,
+              "value": 0.7
+            }
+          ]
+        }
+      },
+      "endStep": 128
+    },
+    {
+      "id": "68be6c48",
+      "trackId": "4f7a9c92",
+      "startStep": 0,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Intro arp",
+        "pattern": ["A3@0.55", "C4@0.25", "E4@0.39", "A4@0.25", "E4@0.55", "C4@0.25", "E4@0.39", "A4@0.25", "A3@0.55", "C4@0.25", "E4@0.39", "A4@0.25", "E4@0.55", "A4@0.25", "E4@0.39", "C4@0.25", "F3@0.55", "A3@0.25", "C4@0.39", "F4@0.25", "C4@0.55", "A3@0.25", "C4@0.39", "F4@0.25", "F3@0.55", "A3@0.25", "C4@0.39", "F4@0.25", "C4@0.55", "F4@0.25", "C4@0.39", "A3@0.25", "G3@0.55", "C4@0.25", "E4@0.39", "G4@0.25", "E4@0.55", "C4@0.25", "E4@0.39", "G4@0.25", "G3@0.55", "C4@0.25", "E4@0.39", "G4@0.25", "E4@0.55", "G4@0.25", "E4@0.39", "C4@0.25", "G3@0.55", "B3@0.25", "D4@0.39", "G4@0.25", "D4@0.55", "B3@0.25", "D4@0.39", "G4@0.25", "G3@0.55", "B3@0.25", "D4@0.39", "G4@0.25", "D4@0.55", "G4@0.25", "D4@0.39", "B3@0.25"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.4
+            },
+            {
+              "step": 64,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 128
+    },
+    {
+      "id": "0818a22a",
+      "trackId": "e033b398",
+      "startStep": 64,
+      "lengthSteps": 48,
+      "clip": {
+        "name": "Kick in",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "x@0.6"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.6
+            },
+            {
+              "step": 48,
+              "value": 0.6
+            }
+          ]
+        }
+      },
+      "endStep": 112
+    },
+    {
+      "id": "f367248e",
+      "trackId": "e033b398",
+      "startStep": 112,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Kick fill",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.6
+            },
+            {
+              "step": 16,
+              "value": 0.6
+            }
+          ]
+        }
+      },
+      "endStep": 128
+    },
+    {
+      "id": "ea205688",
+      "trackId": "b4feecd8",
+      "startStep": 64,
+      "lengthSteps": 48,
+      "clip": {
+        "name": "Offbeat hats",
+        "pattern": [".", ".", "x@0.8", ".", ".", ".", "x@0.8", ".", ".", ".", "x@0.8", ".", ".", ".", "x@0.8", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1
+            },
+            {
+              "step": 16,
+              "value": 1
+            }
+          ]
+        }
+      },
+      "endStep": 112
+    },
+    {
+      "id": "e3d265bd",
+      "trackId": "8018209d",
+      "startStep": 64,
+      "lengthSteps": 48,
+      "clip": {
+        "name": "Shaker in",
+        "pattern": ["C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1
+            },
+            {
+              "step": 16,
+              "value": 1
+            }
+          ]
+        }
+      },
+      "endStep": 112
+    },
+    {
+      "id": "90861866",
+      "trackId": "cf5b9143",
+      "startStep": 112,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Intro fill",
+        "pattern": ["x@0.4", ".", "x@0.5", ".", "x@0.6", ".", "x@0.7", ".", "x@0.8", "x@0.85", "x@0.9", "x@0.95", "x", "x", "x", "x"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "3a8f7b3b",
+      "trackId": "004f1bd1",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Long sub",
+        "pattern": ["A1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "C2", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.6
+            },
+            {
+              "step": 64,
+              "value": 0.6
+            }
+          ]
+        }
+      },
+      "endStep": 128
+    },
+    {
+      "id": "422ccab5",
+      "trackId": "bae17236",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Verse pad",
+        "pattern": ["A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.6
+            },
+            {
+              "step": 64,
+              "value": 0.6
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "ff013b9c",
+      "trackId": "4f7a9c92",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Verse arp",
+        "pattern": ["A3@0.7", "C4@0.32", "E4@0.49", "A4@0.32", "E4@0.7", "C4@0.32", "E4@0.49", "A4@0.32", "A3@0.7", "C4@0.32", "E4@0.49", "A4@0.32", "E4@0.7", "A4@0.32", "E4@0.49", "C4@0.32", "F3@0.7", "A3@0.32", "C4@0.49", "F4@0.32", "C4@0.7", "A3@0.32", "C4@0.49", "F4@0.32", "F3@0.7", "A3@0.32", "C4@0.49", "F4@0.32", "C4@0.7", "F4@0.32", "C4@0.49", "A3@0.32", "G3@0.7", "C4@0.32", "E4@0.49", "G4@0.32", "E4@0.7", "C4@0.32", "E4@0.49", "G4@0.32", "G3@0.7", "C4@0.32", "E4@0.49", "G4@0.32", "E4@0.7", "G4@0.32", "E4@0.49", "C4@0.32", "G3@0.7", "B3@0.32", "D4@0.49", "G4@0.32", "D4@0.7", "B3@0.32", "D4@0.49", "G4@0.32", "G3@0.7", "B3@0.32", "D4@0.49", "G4@0.32", "D4@0.7", "G4@0.32", "D4@0.49", "B3@0.32"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.7
+            },
+            {
+              "step": 64,
+              "value": 0.7
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "0f461f7e",
+      "trackId": "e033b398",
+      "startStep": 128,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Verse kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "x@0.6"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.62
+            },
+            {
+              "step": 64,
+              "value": 0.62
+            }
+          ]
+        }
+      },
+      "endStep": 368
+    },
+    {
+      "id": "35e6e71f",
+      "trackId": "e033b398",
+      "startStep": 368,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Verse fill kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.62
+            },
+            {
+              "step": 16,
+              "value": 0.62
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "2b246447",
+      "trackId": "cc449853",
+      "startStep": 128,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Verse clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.4"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 64,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 368
+    },
+    {
+      "id": "fa6ab005",
+      "trackId": "b4feecd8",
+      "startStep": 128,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Verse hats",
+        "pattern": ["x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.5"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1
+            },
+            {
+              "step": 16,
+              "value": 1
+            }
+          ]
+        }
+      },
+      "endStep": 368
+    },
+    {
+      "id": "a94c7559",
+      "trackId": "8018209d",
+      "startStep": 128,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Verse shaker",
+        "pattern": ["C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1
+            },
+            {
+              "step": 16,
+              "value": 1
+            }
+          ]
+        }
+      },
+      "endStep": 368
+    },
+    {
+      "id": "7d74baff",
+      "trackId": "cf5b9143",
+      "startStep": 256,
+      "lengthSteps": 112,
+      "clip": {
+        "name": "Ghost snare",
+        "pattern": [".", ".", ".", ".", "x@0.3", ".", ".", ".", ".", ".", ".", ".", "x@0.3", ".", ".", "x@0.3"]
+      },
+      "endStep": 368
+    },
+    {
+      "id": "5510d0ed",
+      "trackId": "cf5b9143",
+      "startStep": 368,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Verse fill",
+        "pattern": ["x@0.4", ".", "x@0.5", ".", "x@0.6", ".", "x@0.7", ".", "x@0.8", "x@0.85", "x@0.9", "x@0.95", "x", "x", "x", "x"]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "338c9dfb",
+      "trackId": "004f1bd1",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Verse sub",
+        "pattern": ["A1", "_", "_", ".", "A1", ".", ".", "A2@0.6", "A1", "_", "_", ".", ".", ".", "A1@0.8", ".", "F1", "_", "_", ".", "F1", ".", ".", "F2@0.6", "F1", "_", "_", ".", ".", ".", "F1@0.8", ".", "C2", "_", "_", ".", "C2", ".", ".", "C3@0.6", "C2", "_", "_", ".", ".", ".", "C2@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.55
+            },
+            {
+              "step": 64,
+              "value": 0.55
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "42b3e648",
+      "trackId": "8863cc35",
+      "startStep": 128,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Verse melody A",
+        "pattern": [".", ".", "A4", "_", "C5", "_", "B4", "_", "A4", "_", "_", "_", "E4", "_", "_", "_", ".", ".", "F4", "_", "A4", "_", "G4", "_", "F4", "_", "_", "_", ".", ".", ".", ".", ".", ".", "G4", "_", "C5", "_", "B4", "_", "G4", "_", "_", "_", "E4", "_", "_", "_", ".", ".", "D4", "_", "G4", "_", "B4", "_", "A4", "_", "_", "_", "_", "_", ".", "."]
+      },
+      "endStep": 256
+    },
+    {
+      "id": "e0ffdfe3",
+      "trackId": "8863cc35",
+      "startStep": 256,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Verse melody B",
+        "pattern": [".", ".", "A4", "_", "C5", "_", "B4", "_", "A4", "_", "_", "_", "E4", "_", "_", "_", ".", ".", "F4", "_", "A4", "_", "G4", "_", "F4", "_", "_", "_", ".", ".", ".", ".", ".", ".", "G4", "_", "C5", "_", "B4", "_", "G4", "_", "_", "_", "E4", "_", "_", "_", ".", ".", "D4", "_", "G4", "_", "B4", "_", "A4", "_", "G4", "_", "A4", "_", ".", "."]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "ed5bac1d",
+      "trackId": "bae17236",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Pre pad",
+        "pattern": ["F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "inst.p1840741797": [
+            {
+              "step": 0,
+              "value": 0.45
+            },
+            {
+              "step": 128,
+              "value": 1
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.65
+            },
+            {
+              "step": 128,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "249e4a35",
+      "trackId": "4f7a9c92",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Pre arp",
+        "pattern": ["F3@0.85", "A3@0.38", "C4@0.59", "F4@0.38", "C4@0.85", "A3@0.38", "C4@0.59", "F4@0.38", "F3@0.85", "A3@0.38", "C4@0.59", "F4@0.38", "C4@0.85", "F4@0.38", "C4@0.59", "A3@0.38", "G3@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "D4@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "G3@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "D4@0.85", "G4@0.38", "D4@0.59", "B3@0.38", "A3@0.85", "C4@0.38", "E4@0.59", "A4@0.38", "E4@0.85", "C4@0.38", "E4@0.59", "A4@0.38", "A3@0.85", "C4@0.38", "E4@0.59", "A4@0.38", "E4@0.85", "A4@0.38", "E4@0.59", "C4@0.38", "G3@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "D4@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "G3@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "D4@0.85", "G4@0.38", "D4@0.59", "B3@0.38", "F3@0.85", "A3@0.38", "C4@0.59", "F4@0.38", "C4@0.85", "A3@0.38", "C4@0.59", "F4@0.38", "F3@0.85", "A3@0.38", "C4@0.59", "F4@0.38", "C4@0.85", "F4@0.38", "C4@0.59", "A3@0.38", "G3@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "D4@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "G3@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "D4@0.85", "G4@0.38", "D4@0.59", "B3@0.38", "A3@0.85", "C4@0.38", "E4@0.59", "A4@0.38", "E4@0.85", "C4@0.38", "E4@0.59", "A4@0.38", "A3@0.85", "C4@0.38", "E4@0.59", "A4@0.38", "E4@0.85", "A4@0.38", "E4@0.59", "C4@0.38", "G3@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "D4@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "G3@0.85", "B3@0.38", "D4@0.59", "G4@0.38", "D4@0.85", "G4@0.38", "D4@0.59", "B3@0.38"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.8
+            },
+            {
+              "step": 128,
+              "value": 0.95
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "b6336dd0",
+      "trackId": "e033b398",
+      "startStep": 384,
+      "lengthSteps": 112,
+      "clip": {
+        "name": "Pre kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.8
+            },
+            {
+              "step": 16,
+              "value": 0.8
+            }
+          ]
+        }
+      },
+      "endStep": 496
+    },
+    {
+      "id": "8b2b10d7",
+      "trackId": "cc449853",
+      "startStep": 384,
+      "lengthSteps": 112,
+      "clip": {
+        "name": "Pre clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.1
+            },
+            {
+              "step": 16,
+              "value": 1.1
+            }
+          ]
+        }
+      },
+      "endStep": 496
+    },
+    {
+      "id": "a9a4b79d",
+      "trackId": "b4feecd8",
+      "startStep": 384,
+      "lengthSteps": 112,
+      "clip": {
+        "name": "Pre hats",
+        "pattern": ["x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.5"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.2
+            },
+            {
+              "step": 16,
+              "value": 1.2
+            }
+          ]
+        }
+      },
+      "endStep": 496
+    },
+    {
+      "id": "1f8baf30",
+      "trackId": "8018209d",
+      "startStep": 384,
+      "lengthSteps": 112,
+      "clip": {
+        "name": "Pre shaker",
+        "pattern": ["C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.2
+            },
+            {
+              "step": 16,
+              "value": 1.2
+            }
+          ]
+        }
+      },
+      "endStep": 496
+    },
+    {
+      "id": "cf8f5ab5",
+      "trackId": "004f1bd1",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Pre sub",
+        "pattern": ["F1", "_", "_", ".", "F1", ".", ".", "F2@0.6", "F1", "_", "_", ".", ".", ".", "F1@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", ".", "A1", "_", "_", ".", "A1", ".", ".", "A2@0.6", "A1", "_", "_", ".", ".", ".", "A1@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", ".", "F1", "_", "_", ".", "F1", ".", ".", "F2@0.6", "F1", "_", "_", ".", ".", ".", "F1@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", ".", "A1", "_", "_", ".", "A1", ".", ".", "A2@0.6", "A1", "_", "_", ".", ".", ".", "A1@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.65
+            },
+            {
+              "step": 128,
+              "value": 0.65
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "5d23ef2e",
+      "trackId": "1fcb471b",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Acid build",
+        "pattern": ["F2", ".", ".", ".", "F2", ".", ".", ".", "F2", ".", ".", ".", "F2@0.7", ".", "F3@0.6", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2@0.7", ".", "G3@0.6", ".", "A2", ".", ".", ".", "A2", ".", ".", ".", "A2", ".", ".", ".", "A2@0.7", ".", "A3@0.6", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2@0.7", ".", "G3@0.6", ".", "F2", ".", ".", ".", "F2", ".", ".", ".", "F2", ".", ".", ".", "F2@0.7", ".", "F3@0.6", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2@0.7", ".", "G3@0.6", ".", "A2", ".", ".", ".", "A2", ".", ".", ".", "A2", ".", ".", ".", "A2@0.7", ".", "A3@0.6", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2@0.7", ".", "G3@0.6", "."],
+        "automation": {
+          "inst.p2084": [
+            {
+              "step": 0,
+              "value": 0.15
+            },
+            {
+              "step": 128,
+              "value": 0.85
+            }
+          ],
+          "inst.p2085": [
+            {
+              "step": 0,
+              "value": 0.4
+            },
+            {
+              "step": 128,
+              "value": 0.8
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1
+            },
+            {
+              "step": 128,
+              "value": 1
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "207161d4",
+      "trackId": "cf5b9143",
+      "startStep": 448,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare roll",
+        "pattern": ["x@0.4", ".", ".", ".", "x@0.5", ".", ".", ".", "x@0.6", ".", ".", ".", "x@0.7", ".", ".", ".", "x@0.4", ".", "x@0.5", ".", "x@0.55", ".", "x@0.6", ".", "x@0.7", ".", "x@0.75", ".", "x@0.8", ".", "x@0.85", ".", "x@0.5", ".", "x@0.55", ".", "x@0.6", "x@0.65", "x@0.7", ".", "x@0.75", "x@0.8", "x@0.85", "x@0.9", "x@0.9", "x", "x", "x", "x@0.4", ".", "x@0.5", ".", "x@0.6", ".", "x@0.7", ".", "x@0.8", "x@0.85", "x@0.9", "x@0.95", "x", "x", "x", "x"]
+      },
+      "endStep": 512
+    },
+    {
+      "id": "7f3f9515",
+      "trackId": "9b92bd8a",
+      "startStep": 448,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Riser",
+        "pattern": ["C4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": -12
+            },
+            {
+              "step": 64,
+              "value": 24
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.1
+            },
+            {
+              "step": 64,
+              "value": 0.6
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 400
+            },
+            {
+              "step": 64,
+              "value": 14000
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "c56d2414",
+      "trackId": "8863cc35",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Pre-chorus melody",
+        "pattern": [".", ".", "A4", "_", "C5", "_", "A4", "_", "C5", "_", "_", "_", "D5", "_", "_", "_", ".", ".", "B4", "_", "D5", "_", "B4", "_", "D5", "_", "_", "_", "G4", "_", "_", "_", ".", ".", "A4", "_", "C5", "_", "A4", "_", "C5", "_", "_", "_", "D5", "_", "_", "_", "B4", "_", "B4", "_", "B4", "_", "D5", "_", "D5", "_", "_", "_", "_", "_", "_", "_", ".", ".", "A4", "_", "C5", "_", "A4", "_", "C5", "_", "_", "_", "D5", "_", "_", "_", ".", ".", "B4", "_", "D5", "_", "B4", "_", "D5", "_", "_", "_", "G4", "_", "_", "_", ".", ".", "A4", "_", "C5", "_", "A4", "_", "C5", "_", "_", "_", "D5", "_", "_", "_", "B4", "_", "B4", "_", "B4", "_", "D5", "_", "D5", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 512
+    },
+    {
+      "id": "15571304",
+      "trackId": "bae17236",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Chorus pad",
+        "pattern": ["A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.3
+            },
+            {
+              "step": 3,
+              "value": 0.9
+            },
+            {
+              "step": 4,
+              "value": 0.3
+            },
+            {
+              "step": 7,
+              "value": 0.9
+            },
+            {
+              "step": 8,
+              "value": 0.3
+            },
+            {
+              "step": 11,
+              "value": 0.9
+            },
+            {
+              "step": 12,
+              "value": 0.3
+            },
+            {
+              "step": 15,
+              "value": 0.9
+            },
+            {
+              "step": 16,
+              "value": 0.3
+            },
+            {
+              "step": 19,
+              "value": 0.9
+            },
+            {
+              "step": 20,
+              "value": 0.3
+            },
+            {
+              "step": 23,
+              "value": 0.9
+            },
+            {
+              "step": 24,
+              "value": 0.3
+            },
+            {
+              "step": 27,
+              "value": 0.9
+            },
+            {
+              "step": 28,
+              "value": 0.3
+            },
+            {
+              "step": 31,
+              "value": 0.9
+            },
+            {
+              "step": 32,
+              "value": 0.3
+            },
+            {
+              "step": 35,
+              "value": 0.9
+            },
+            {
+              "step": 36,
+              "value": 0.3
+            },
+            {
+              "step": 39,
+              "value": 0.9
+            },
+            {
+              "step": 40,
+              "value": 0.3
+            },
+            {
+              "step": 43,
+              "value": 0.9
+            },
+            {
+              "step": 44,
+              "value": 0.3
+            },
+            {
+              "step": 47,
+              "value": 0.9
+            },
+            {
+              "step": 48,
+              "value": 0.3
+            },
+            {
+              "step": 51,
+              "value": 0.9
+            },
+            {
+              "step": 52,
+              "value": 0.3
+            },
+            {
+              "step": 55,
+              "value": 0.9
+            },
+            {
+              "step": 56,
+              "value": 0.3
+            },
+            {
+              "step": 59,
+              "value": 0.9
+            },
+            {
+              "step": 60,
+              "value": 0.3
+            },
+            {
+              "step": 63,
+              "value": 0.9
+            },
+            {
+              "step": 64,
+              "value": 0.3
+            },
+            {
+              "step": 64,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "ea759d87",
+      "trackId": "4f7a9c92",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Chorus arp",
+        "pattern": ["A3@1.0", "C4@0.45", "E4@0.7", "A4@0.45", "E4@1.0", "C4@0.45", "E4@0.7", "A4@0.45", "A3@1.0", "C4@0.45", "E4@0.7", "A4@0.45", "E4@1.0", "A4@0.45", "E4@0.7", "C4@0.45", "F3@1.0", "A3@0.45", "C4@0.7", "F4@0.45", "C4@1.0", "A3@0.45", "C4@0.7", "F4@0.45", "F3@1.0", "A3@0.45", "C4@0.7", "F4@0.45", "C4@1.0", "F4@0.45", "C4@0.7", "A3@0.45", "G3@1.0", "C4@0.45", "E4@0.7", "G4@0.45", "E4@1.0", "C4@0.45", "E4@0.7", "G4@0.45", "G3@1.0", "C4@0.45", "E4@0.7", "G4@0.45", "E4@1.0", "G4@0.45", "E4@0.7", "C4@0.45", "G3@1.0", "B3@0.45", "D4@0.7", "G4@0.45", "D4@1.0", "B3@0.45", "D4@0.7", "G4@0.45", "G3@1.0", "B3@0.45", "D4@0.7", "G4@0.45", "D4@1.0", "G4@0.45", "D4@0.7", "B3@0.45"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.4
+            },
+            {
+              "step": 3,
+              "value": 0.95
+            },
+            {
+              "step": 4,
+              "value": 0.4
+            },
+            {
+              "step": 7,
+              "value": 0.95
+            },
+            {
+              "step": 8,
+              "value": 0.4
+            },
+            {
+              "step": 11,
+              "value": 0.95
+            },
+            {
+              "step": 12,
+              "value": 0.4
+            },
+            {
+              "step": 15,
+              "value": 0.95
+            },
+            {
+              "step": 16,
+              "value": 0.4
+            },
+            {
+              "step": 19,
+              "value": 0.95
+            },
+            {
+              "step": 20,
+              "value": 0.4
+            },
+            {
+              "step": 23,
+              "value": 0.95
+            },
+            {
+              "step": 24,
+              "value": 0.4
+            },
+            {
+              "step": 27,
+              "value": 0.95
+            },
+            {
+              "step": 28,
+              "value": 0.4
+            },
+            {
+              "step": 31,
+              "value": 0.95
+            },
+            {
+              "step": 32,
+              "value": 0.4
+            },
+            {
+              "step": 35,
+              "value": 0.95
+            },
+            {
+              "step": 36,
+              "value": 0.4
+            },
+            {
+              "step": 39,
+              "value": 0.95
+            },
+            {
+              "step": 40,
+              "value": 0.4
+            },
+            {
+              "step": 43,
+              "value": 0.95
+            },
+            {
+              "step": 44,
+              "value": 0.4
+            },
+            {
+              "step": 47,
+              "value": 0.95
+            },
+            {
+              "step": 48,
+              "value": 0.4
+            },
+            {
+              "step": 51,
+              "value": 0.95
+            },
+            {
+              "step": 52,
+              "value": 0.4
+            },
+            {
+              "step": 55,
+              "value": 0.95
+            },
+            {
+              "step": 56,
+              "value": 0.4
+            },
+            {
+              "step": 59,
+              "value": 0.95
+            },
+            {
+              "step": 60,
+              "value": 0.4
+            },
+            {
+              "step": 63,
+              "value": 0.95
+            },
+            {
+              "step": 64,
+              "value": 0.4
+            },
+            {
+              "step": 64,
+              "value": 0.95
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "12de6439",
+      "trackId": "e033b398",
+      "startStep": 512,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Chorus kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 16,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 752
+    },
+    {
+      "id": "1245d2d1",
+      "trackId": "e033b398",
+      "startStep": 752,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Chorus fill kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 16,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "691eeff8",
+      "trackId": "cc449853",
+      "startStep": 512,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Chorus clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.3
+            },
+            {
+              "step": 16,
+              "value": 1.3
+            }
+          ]
+        }
+      },
+      "endStep": 752
+    },
+    {
+      "id": "2d29cd47",
+      "trackId": "b4feecd8",
+      "startStep": 512,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Chorus hats",
+        "pattern": ["x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.5
+            },
+            {
+              "step": 16,
+              "value": 1.5
+            }
+          ]
+        }
+      },
+      "endStep": 752
+    },
+    {
+      "id": "78bbc661",
+      "trackId": "8018209d",
+      "startStep": 512,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Chorus shaker",
+        "pattern": ["C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.5
+            },
+            {
+              "step": 16,
+              "value": 1.5
+            }
+          ]
+        }
+      },
+      "endStep": 752
+    },
+    {
+      "id": "45b3518f",
+      "trackId": "cf5b9143",
+      "startStep": 512,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Snare layer",
+        "pattern": [".", ".", ".", ".", "x@0.55", ".", ".", ".", ".", ".", ".", ".", "x@0.55", ".", ".", "."]
+      },
+      "endStep": 752
+    },
+    {
+      "id": "a224384e",
+      "trackId": "cf5b9143",
+      "startStep": 752,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Chorus fill",
+        "pattern": ["x@0.4", ".", "x@0.5", ".", "x@0.6", ".", "x@0.7", ".", "x@0.8", "x@0.85", "x@0.9", "x@0.95", "x", "x", "x", "x"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "efff9664",
+      "trackId": "004f1bd1",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Chorus sub",
+        "pattern": [".", ".", "A1", "_", ".", ".", "A1", "_", ".", ".", "A1", "_", ".", ".", "A2@0.7", "_", ".", ".", "F1", "_", ".", ".", "F1", "_", ".", ".", "F1", "_", ".", ".", "F2@0.7", "_", ".", ".", "C2", "_", ".", ".", "C2", "_", ".", ".", "C2", "_", ".", ".", "C3@0.7", "_", ".", ".", "G1", "_", ".", ".", "G1", "_", ".", ".", "G1", "_", ".", ".", "G2@0.7", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.85
+            },
+            {
+              "step": 64,
+              "value": 0.85
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "d5ccec5e",
+      "trackId": "1fcb471b",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Acid riff",
+        "pattern": ["A2", ".", "A2", "A3@0.7", ".", "A2", ".", "A2", "A3@0.7", ".", "A2", ".", "A3@0.7", ".", "E3", ".", "F2", ".", "F2", "F3@0.7", ".", "F2", ".", "F2", "F3@0.7", ".", "F2", ".", "F3@0.7", ".", "C3", ".", "C3", ".", "C3", "C4@0.7", ".", "C3", ".", "C3", "C4@0.7", ".", "C3", ".", "C4@0.7", ".", "G3", ".", "G2", ".", "G2", "G3@0.7", ".", "G2", ".", "G2", "G3@0.7", ".", "G2", ".", "G3@0.7", ".", "D3", "."],
+        "automation": {
+          "inst.p2084": [
+            {
+              "step": 0,
+              "value": 0.3
+            },
+            {
+              "step": 64,
+              "value": 0.65
+            },
+            {
+              "step": 64,
+              "value": 0.3
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.3
+            },
+            {
+              "step": 64,
+              "value": 1.3
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "b3c62e80",
+      "trackId": "d75a7ff2",
+      "startStep": 512,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Hook A",
+        "pattern": ["A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "_", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "_", "_", "A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "_", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "_", "_"],
+        "automation": {
+          "inst.p1840741797": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 128,
+              "value": 0.9
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.4
+            },
+            {
+              "step": 128,
+              "value": 1.4
+            }
+          ]
+        }
+      },
+      "endStep": 640
+    },
+    {
+      "id": "32c5750f",
+      "trackId": "d75a7ff2",
+      "startStep": 640,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Hook B",
+        "pattern": ["A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "_", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "_", "_", "A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "B5", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "A5", "_"],
+        "automation": {
+          "inst.p1840741797": [
+            {
+              "step": 0,
+              "value": 0.7
+            },
+            {
+              "step": 128,
+              "value": 0.95
+            }
+          ],
+          "fx.1.p4": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 128,
+              "value": 1
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.4
+            },
+            {
+              "step": 128,
+              "value": 1.4
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "5060de47",
+      "trackId": "8863cc35",
+      "startStep": 512,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Chorus melody A",
+        "pattern": ["A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "_", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "_", "_", "A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "_", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "_", "_"]
+      },
+      "endStep": 640
+    },
+    {
+      "id": "b6c26102",
+      "trackId": "8863cc35",
+      "startStep": 640,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Chorus melody B",
+        "pattern": ["A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "_", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "_", "_", "A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "B4", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "A4", "_"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "952de9ba",
+      "trackId": "bae17236",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Bridge pad",
+        "pattern": ["A3\u002BD4\u002BF4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BD4\u002BF4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.1.p10": [
+            {
+              "step": 0,
+              "value": 0.3
+            },
+            {
+              "step": 128,
+              "value": 0.75
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.8
+            },
+            {
+              "step": 128,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "403ce31e",
+      "trackId": "4f7a9c92",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Bridge arp",
+        "pattern": ["A3@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "F4@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "A3@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "F4@0.6", "A4@0.27", "F4@0.42", "D4@0.27", "A3@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "E4@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "A3@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "E4@0.6", "A4@0.27", "E4@0.42", "C4@0.27", "F3@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "C4@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "F3@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "C4@0.6", "F4@0.27", "C4@0.42", "A3@0.27", "G3@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "D4@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "G3@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "D4@0.6", "G4@0.27", "D4@0.42", "B3@0.27", "A3@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "F4@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "A3@0.6", "D4@0.27", "F4@0.42", "A4@0.27", "F4@0.6", "A4@0.27", "F4@0.42", "D4@0.27", "A3@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "E4@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "A3@0.6", "C4@0.27", "E4@0.42", "A4@0.27", "E4@0.6", "A4@0.27", "E4@0.42", "C4@0.27", "F3@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "C4@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "F3@0.6", "A3@0.27", "C4@0.42", "F4@0.27", "C4@0.6", "F4@0.27", "C4@0.42", "A3@0.27", "G3@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "D4@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "G3@0.6", "B3@0.27", "D4@0.42", "G4@0.27", "D4@0.6", "G4@0.27", "D4@0.42", "B3@0.27"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.6
+            },
+            {
+              "step": 128,
+              "value": 0.8
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "7a8a6b7f",
+      "trackId": "b4feecd8",
+      "startStep": 832,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Bridge hats",
+        "pattern": [".", ".", "x@0.8", ".", ".", ".", "x@0.8", ".", ".", ".", "x@0.8", ".", ".", ".", "x@0.8", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.2
+            },
+            {
+              "step": 16,
+              "value": 1.2
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "685e128b",
+      "trackId": "004f1bd1",
+      "startStep": 832,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Bridge sub",
+        "pattern": ["D2", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.6
+            },
+            {
+              "step": 64,
+              "value": 0.6
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "274577bb",
+      "trackId": "8863cc35",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Bridge melody",
+        "pattern": [".", ".", "D5", "_", "A4", "_", "F4", "_", "A4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "C5", "_", "A4", "_", "E4", "_", "A4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "A4", "_", "C5", "_", "A4", "_", "F4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "B4", "_", "D5", "_", "B4", "_", "G4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "D5", "_", "A4", "_", "F4", "_", "A4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "C5", "_", "A4", "_", "E4", "_", "A4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "A4", "_", "C5", "_", "A4", "_", "F4", "_", "_", "_", "_", "_", ".", ".", ".", ".", "B4", "_", "D5", "_", "B4", "_", "G4", "_", "_", "_", "_", "_", ".", "."]
+      },
+      "endStep": 896
+    },
+    {
+      "id": "e8b95fde",
+      "trackId": "bae17236",
+      "startStep": 896,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Build pad",
+        "pattern": ["F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "inst.p1840741797": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 128,
+              "value": 1
+            }
+          ]
+        }
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "9de349bb",
+      "trackId": "4f7a9c92",
+      "startStep": 896,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Build arp",
+        "pattern": ["F3@0.9", "A3@0.41", "C4@0.63", "F4@0.41", "C4@0.9", "A3@0.41", "C4@0.63", "F4@0.41", "F3@0.9", "A3@0.41", "C4@0.63", "F4@0.41", "C4@0.9", "F4@0.41", "C4@0.63", "A3@0.41", "G3@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "D4@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "G3@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "D4@0.9", "G4@0.41", "D4@0.63", "B3@0.41", "A3@0.9", "C4@0.41", "E4@0.63", "A4@0.41", "E4@0.9", "C4@0.41", "E4@0.63", "A4@0.41", "A3@0.9", "C4@0.41", "E4@0.63", "A4@0.41", "E4@0.9", "A4@0.41", "E4@0.63", "C4@0.41", "G3@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "D4@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "G3@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "D4@0.9", "G4@0.41", "D4@0.63", "B3@0.41", "F3@0.9", "A3@0.41", "C4@0.63", "F4@0.41", "C4@0.9", "A3@0.41", "C4@0.63", "F4@0.41", "F3@0.9", "A3@0.41", "C4@0.63", "F4@0.41", "C4@0.9", "F4@0.41", "C4@0.63", "A3@0.41", "G3@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "D4@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "G3@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "D4@0.9", "G4@0.41", "D4@0.63", "B3@0.41", "A3@0.9", "C4@0.41", "E4@0.63", "A4@0.41", "E4@0.9", "C4@0.41", "E4@0.63", "A4@0.41", "A3@0.9", "C4@0.41", "E4@0.63", "A4@0.41", "E4@0.9", "A4@0.41", "E4@0.63", "C4@0.41", "G3@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "D4@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "G3@0.9", "B3@0.41", "D4@0.63", "G4@0.41", "D4@0.9", "G4@0.41", "D4@0.63", "B3@0.41"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.8
+            },
+            {
+              "step": 128,
+              "value": 1
+            }
+          ]
+        }
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "09ae0e5f",
+      "trackId": "e033b398",
+      "startStep": 896,
+      "lengthSteps": 112,
+      "clip": {
+        "name": "Build kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.8
+            },
+            {
+              "step": 16,
+              "value": 0.8
+            }
+          ]
+        }
+      },
+      "endStep": 1008
+    },
+    {
+      "id": "aead8504",
+      "trackId": "cc449853",
+      "startStep": 928,
+      "lengthSteps": 80,
+      "clip": {
+        "name": "Build clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.1
+            },
+            {
+              "step": 16,
+              "value": 1.1
+            }
+          ]
+        }
+      },
+      "endStep": 1008
+    },
+    {
+      "id": "f3fa142b",
+      "trackId": "b4feecd8",
+      "startStep": 896,
+      "lengthSteps": 112,
+      "clip": {
+        "name": "Build hats",
+        "pattern": ["x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.5"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.2
+            },
+            {
+              "step": 16,
+              "value": 1.2
+            }
+          ]
+        }
+      },
+      "endStep": 1008
+    },
+    {
+      "id": "82edc001",
+      "trackId": "8018209d",
+      "startStep": 896,
+      "lengthSteps": 112,
+      "clip": {
+        "name": "Build shaker",
+        "pattern": ["C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.2
+            },
+            {
+              "step": 16,
+              "value": 1.2
+            }
+          ]
+        }
+      },
+      "endStep": 1008
+    },
+    {
+      "id": "51654966",
+      "trackId": "004f1bd1",
+      "startStep": 896,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Build sub",
+        "pattern": ["F1", "_", "_", ".", "F1", ".", ".", "F2@0.6", "F1", "_", "_", ".", ".", ".", "F1@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", ".", "A1", "_", "_", ".", "A1", ".", ".", "A2@0.6", "A1", "_", "_", ".", ".", ".", "A1@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", ".", "F1", "_", "_", ".", "F1", ".", ".", "F2@0.6", "F1", "_", "_", ".", ".", ".", "F1@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", ".", "A1", "_", "_", ".", "A1", ".", ".", "A2@0.6", "A1", "_", "_", ".", ".", ".", "A1@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.7
+            },
+            {
+              "step": 128,
+              "value": 0.7
+            }
+          ]
+        }
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "a7a63a76",
+      "trackId": "1fcb471b",
+      "startStep": 896,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Acid build 2",
+        "pattern": ["F2", ".", ".", ".", "F2", ".", ".", ".", "F2", ".", ".", ".", "F2@0.7", ".", "F3@0.6", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2@0.7", ".", "G3@0.6", ".", "A2", ".", ".", ".", "A2", ".", ".", ".", "A2", ".", ".", ".", "A2@0.7", ".", "A3@0.6", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2@0.7", ".", "G3@0.6", ".", "F2", ".", ".", ".", "F2", ".", ".", ".", "F2", ".", ".", ".", "F2@0.7", ".", "F3@0.6", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2@0.7", ".", "G3@0.6", ".", "A2", ".", ".", ".", "A2", ".", ".", ".", "A2", ".", ".", ".", "A2@0.7", ".", "A3@0.6", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2", ".", ".", ".", "G2@0.7", ".", "G3@0.6", "."],
+        "automation": {
+          "inst.p2084": [
+            {
+              "step": 0,
+              "value": 0.2
+            },
+            {
+              "step": 128,
+              "value": 0.9
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.1
+            },
+            {
+              "step": 128,
+              "value": 1.1
+            }
+          ]
+        }
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "2769addd",
+      "trackId": "cf5b9143",
+      "startStep": 960,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare roll 2",
+        "pattern": ["x@0.4", ".", ".", ".", "x@0.5", ".", ".", ".", "x@0.6", ".", ".", ".", "x@0.7", ".", ".", ".", "x@0.4", ".", "x@0.5", ".", "x@0.55", ".", "x@0.6", ".", "x@0.7", ".", "x@0.75", ".", "x@0.8", ".", "x@0.85", ".", "x@0.5", ".", "x@0.55", ".", "x@0.6", "x@0.65", "x@0.7", ".", "x@0.75", "x@0.8", "x@0.85", "x@0.9", "x@0.9", "x", "x", "x", "x@0.4", ".", "x@0.5", ".", "x@0.6", ".", "x@0.7", ".", "x@0.8", "x@0.85", "x@0.9", "x@0.95", "x", "x", "x", "x"]
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "16340649",
+      "trackId": "9b92bd8a",
+      "startStep": 960,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Riser 2",
+        "pattern": ["C4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": -12
+            },
+            {
+              "step": 64,
+              "value": 24
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.1
+            },
+            {
+              "step": 64,
+              "value": 0.6
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 400
+            },
+            {
+              "step": 64,
+              "value": 14000
+            }
+          ]
+        }
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "2a43ce00",
+      "trackId": "8863cc35",
+      "startStep": 896,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Build melody",
+        "pattern": [".", ".", "A4", "_", "C5", "_", "A4", "_", "C5", "_", "_", "_", "D5", "_", "_", "_", ".", ".", "B4", "_", "D5", "_", "B4", "_", "D5", "_", "_", "_", "G4", "_", "_", "_", ".", ".", "A4", "_", "C5", "_", "A4", "_", "C5", "_", "_", "_", "D5", "_", "_", "_", "B4", "_", "B4", "_", "B4", "_", "D5", "_", "D5", "_", "_", "_", "_", "_", "_", "_", ".", ".", "A4", "_", "C5", "_", "A4", "_", "C5", "_", "_", "_", "D5", "_", "_", "_", ".", ".", "B4", "_", "D5", "_", "B4", "_", "D5", "_", "_", "_", "G4", "_", "_", "_", ".", ".", "A4", "_", "C5", "_", "A4", "_", "C5", "_", "_", "_", "D5", "_", "_", "_", "B4", "_", "B4", "_", "B4", "_", "D5", "_", "D5", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "b019d4f6",
+      "trackId": "bae17236",
+      "startStep": 1024,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Chorus pad",
+        "pattern": ["A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.3
+            },
+            {
+              "step": 3,
+              "value": 0.9
+            },
+            {
+              "step": 4,
+              "value": 0.3
+            },
+            {
+              "step": 7,
+              "value": 0.9
+            },
+            {
+              "step": 8,
+              "value": 0.3
+            },
+            {
+              "step": 11,
+              "value": 0.9
+            },
+            {
+              "step": 12,
+              "value": 0.3
+            },
+            {
+              "step": 15,
+              "value": 0.9
+            },
+            {
+              "step": 16,
+              "value": 0.3
+            },
+            {
+              "step": 19,
+              "value": 0.9
+            },
+            {
+              "step": 20,
+              "value": 0.3
+            },
+            {
+              "step": 23,
+              "value": 0.9
+            },
+            {
+              "step": 24,
+              "value": 0.3
+            },
+            {
+              "step": 27,
+              "value": 0.9
+            },
+            {
+              "step": 28,
+              "value": 0.3
+            },
+            {
+              "step": 31,
+              "value": 0.9
+            },
+            {
+              "step": 32,
+              "value": 0.3
+            },
+            {
+              "step": 35,
+              "value": 0.9
+            },
+            {
+              "step": 36,
+              "value": 0.3
+            },
+            {
+              "step": 39,
+              "value": 0.9
+            },
+            {
+              "step": 40,
+              "value": 0.3
+            },
+            {
+              "step": 43,
+              "value": 0.9
+            },
+            {
+              "step": 44,
+              "value": 0.3
+            },
+            {
+              "step": 47,
+              "value": 0.9
+            },
+            {
+              "step": 48,
+              "value": 0.3
+            },
+            {
+              "step": 51,
+              "value": 0.9
+            },
+            {
+              "step": 52,
+              "value": 0.3
+            },
+            {
+              "step": 55,
+              "value": 0.9
+            },
+            {
+              "step": 56,
+              "value": 0.3
+            },
+            {
+              "step": 59,
+              "value": 0.9
+            },
+            {
+              "step": 60,
+              "value": 0.3
+            },
+            {
+              "step": 63,
+              "value": 0.9
+            },
+            {
+              "step": 64,
+              "value": 0.3
+            },
+            {
+              "step": 64,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "c766045d",
+      "trackId": "4f7a9c92",
+      "startStep": 1024,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Chorus arp",
+        "pattern": ["A3@1.0", "C4@0.45", "E4@0.7", "A4@0.45", "E4@1.0", "C4@0.45", "E4@0.7", "A4@0.45", "A3@1.0", "C4@0.45", "E4@0.7", "A4@0.45", "E4@1.0", "A4@0.45", "E4@0.7", "C4@0.45", "F3@1.0", "A3@0.45", "C4@0.7", "F4@0.45", "C4@1.0", "A3@0.45", "C4@0.7", "F4@0.45", "F3@1.0", "A3@0.45", "C4@0.7", "F4@0.45", "C4@1.0", "F4@0.45", "C4@0.7", "A3@0.45", "G3@1.0", "C4@0.45", "E4@0.7", "G4@0.45", "E4@1.0", "C4@0.45", "E4@0.7", "G4@0.45", "G3@1.0", "C4@0.45", "E4@0.7", "G4@0.45", "E4@1.0", "G4@0.45", "E4@0.7", "C4@0.45", "G3@1.0", "B3@0.45", "D4@0.7", "G4@0.45", "D4@1.0", "B3@0.45", "D4@0.7", "G4@0.45", "G3@1.0", "B3@0.45", "D4@0.7", "G4@0.45", "D4@1.0", "G4@0.45", "D4@0.7", "B3@0.45"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.4
+            },
+            {
+              "step": 3,
+              "value": 0.95
+            },
+            {
+              "step": 4,
+              "value": 0.4
+            },
+            {
+              "step": 7,
+              "value": 0.95
+            },
+            {
+              "step": 8,
+              "value": 0.4
+            },
+            {
+              "step": 11,
+              "value": 0.95
+            },
+            {
+              "step": 12,
+              "value": 0.4
+            },
+            {
+              "step": 15,
+              "value": 0.95
+            },
+            {
+              "step": 16,
+              "value": 0.4
+            },
+            {
+              "step": 19,
+              "value": 0.95
+            },
+            {
+              "step": 20,
+              "value": 0.4
+            },
+            {
+              "step": 23,
+              "value": 0.95
+            },
+            {
+              "step": 24,
+              "value": 0.4
+            },
+            {
+              "step": 27,
+              "value": 0.95
+            },
+            {
+              "step": 28,
+              "value": 0.4
+            },
+            {
+              "step": 31,
+              "value": 0.95
+            },
+            {
+              "step": 32,
+              "value": 0.4
+            },
+            {
+              "step": 35,
+              "value": 0.95
+            },
+            {
+              "step": 36,
+              "value": 0.4
+            },
+            {
+              "step": 39,
+              "value": 0.95
+            },
+            {
+              "step": 40,
+              "value": 0.4
+            },
+            {
+              "step": 43,
+              "value": 0.95
+            },
+            {
+              "step": 44,
+              "value": 0.4
+            },
+            {
+              "step": 47,
+              "value": 0.95
+            },
+            {
+              "step": 48,
+              "value": 0.4
+            },
+            {
+              "step": 51,
+              "value": 0.95
+            },
+            {
+              "step": 52,
+              "value": 0.4
+            },
+            {
+              "step": 55,
+              "value": 0.95
+            },
+            {
+              "step": 56,
+              "value": 0.4
+            },
+            {
+              "step": 59,
+              "value": 0.95
+            },
+            {
+              "step": 60,
+              "value": 0.4
+            },
+            {
+              "step": 63,
+              "value": 0.95
+            },
+            {
+              "step": 64,
+              "value": 0.4
+            },
+            {
+              "step": 64,
+              "value": 0.95
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "e5ffca26",
+      "trackId": "e033b398",
+      "startStep": 1024,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Chorus kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.95
+            },
+            {
+              "step": 16,
+              "value": 0.95
+            }
+          ]
+        }
+      },
+      "endStep": 1264
+    },
+    {
+      "id": "aaa5cb26",
+      "trackId": "e033b398",
+      "startStep": 1264,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Chorus fill kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.95
+            },
+            {
+              "step": 16,
+              "value": 0.95
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "be0784bf",
+      "trackId": "cc449853",
+      "startStep": 1024,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Chorus clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.3
+            },
+            {
+              "step": 16,
+              "value": 1.3
+            }
+          ]
+        }
+      },
+      "endStep": 1264
+    },
+    {
+      "id": "66770680",
+      "trackId": "b4feecd8",
+      "startStep": 1024,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Chorus hats",
+        "pattern": ["x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3", "x@0.5", "x@0.25", "x@0.9", "x@0.3"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.5
+            },
+            {
+              "step": 16,
+              "value": 1.5
+            }
+          ]
+        }
+      },
+      "endStep": 1264
+    },
+    {
+      "id": "a7d04a20",
+      "trackId": "8018209d",
+      "startStep": 1024,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Chorus shaker",
+        "pattern": ["C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15", "C5@0.35", "C5@0.15", "C5@0.25", "C5@0.15"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.5
+            },
+            {
+              "step": 16,
+              "value": 1.5
+            }
+          ]
+        }
+      },
+      "endStep": 1264
+    },
+    {
+      "id": "5eba6b3c",
+      "trackId": "cf5b9143",
+      "startStep": 1024,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Snare layer",
+        "pattern": [".", ".", ".", ".", "x@0.55", ".", ".", ".", ".", ".", ".", ".", "x@0.55", ".", ".", "."]
+      },
+      "endStep": 1264
+    },
+    {
+      "id": "7c563e9c",
+      "trackId": "cf5b9143",
+      "startStep": 1264,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Chorus fill",
+        "pattern": ["x@0.4", ".", "x@0.5", ".", "x@0.6", ".", "x@0.7", ".", "x@0.8", "x@0.85", "x@0.9", "x@0.95", "x", "x", "x", "x"]
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "99c7e1f2",
+      "trackId": "004f1bd1",
+      "startStep": 1024,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Chorus sub",
+        "pattern": [".", ".", "A1", "_", ".", ".", "A1", "_", ".", ".", "A1", "_", ".", ".", "A2@0.7", "_", ".", ".", "F1", "_", ".", ".", "F1", "_", ".", ".", "F1", "_", ".", ".", "F2@0.7", "_", ".", ".", "C2", "_", ".", ".", "C2", "_", ".", ".", "C2", "_", ".", ".", "C3@0.7", "_", ".", ".", "G1", "_", ".", ".", "G1", "_", ".", ".", "G1", "_", ".", ".", "G2@0.7", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 64,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "6a338d8e",
+      "trackId": "1fcb471b",
+      "startStep": 1024,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Acid riff",
+        "pattern": ["A2", ".", "A2", "A3@0.7", ".", "A2", ".", "A2", "A3@0.7", ".", "A2", ".", "A3@0.7", ".", "E3", ".", "F2", ".", "F2", "F3@0.7", ".", "F2", ".", "F2", "F3@0.7", ".", "F2", ".", "F3@0.7", ".", "C3", ".", "C3", ".", "C3", "C4@0.7", ".", "C3", ".", "C3", "C4@0.7", ".", "C3", ".", "C4@0.7", ".", "G3", ".", "G2", ".", "G2", "G3@0.7", ".", "G2", ".", "G2", "G3@0.7", ".", "G2", ".", "G3@0.7", ".", "D3", "."],
+        "automation": {
+          "inst.p2084": [
+            {
+              "step": 0,
+              "value": 0.3
+            },
+            {
+              "step": 64,
+              "value": 0.65
+            },
+            {
+              "step": 64,
+              "value": 0.3
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.4
+            },
+            {
+              "step": 64,
+              "value": 1.4
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "7877fb2d",
+      "trackId": "d75a7ff2",
+      "startStep": 1024,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Hook A",
+        "pattern": ["A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "_", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "_", "_", "A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "_", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "_", "_"],
+        "automation": {
+          "inst.p1840741797": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 128,
+              "value": 0.9
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.5
+            },
+            {
+              "step": 128,
+              "value": 1.5
+            }
+          ]
+        }
+      },
+      "endStep": 1152
+    },
+    {
+      "id": "ecef08ad",
+      "trackId": "d75a7ff2",
+      "startStep": 1152,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Hook B",
+        "pattern": ["A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "_", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "_", "_", "A5", "_", "_", "_", "C6", "_", "D6", "_", "C6", "_", "_", "_", "A5", "_", "_", "_", "F5", "_", "_", "_", "A5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "E5", "_", "_", "_", "G5", "_", "C6", "_", "D6", "_", "_", "_", "C6", "_", "_", "_", "B5", "_", "B5", "_", "D6", "_", "B5", "_", "A5", "_", "_", "_", "G5", "_", "A5", "_"],
+        "automation": {
+          "inst.p1840741797": [
+            {
+              "step": 0,
+              "value": 0.7
+            },
+            {
+              "step": 128,
+              "value": 0.95
+            }
+          ],
+          "fx.1.p4": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 128,
+              "value": 1
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.5
+            },
+            {
+              "step": 128,
+              "value": 1.5
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "71139711",
+      "trackId": "8863cc35",
+      "startStep": 1024,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Chorus melody A",
+        "pattern": ["A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "_", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "_", "_", "A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "_", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "_", "_"]
+      },
+      "endStep": 1152
+    },
+    {
+      "id": "5ed0b4d3",
+      "trackId": "8863cc35",
+      "startStep": 1152,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Chorus melody B",
+        "pattern": ["A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "_", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "_", "_", "A4", "_", "_", "_", "C5", "_", "D5", "_", "C5", "_", "_", "_", "A4", "_", "_", "_", "F4", "_", "_", "_", "A4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "E4", "_", "_", "_", "G4", "_", "C5", "_", "D5", "_", "_", "_", "C5", "_", "_", "_", "B4", "_", "B4", "_", "D5", "_", "B4", "_", "A4", "_", "_", "_", "G4", "_", "A4", "_"]
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "627f2115",
+      "trackId": "bae17236",
+      "startStep": 1280,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Outro pad",
+        "pattern": ["A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "A3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "F3\u002BA3\u002BC4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BC4\u002BE4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3\u002BB3\u002BD4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 128,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "82c864c4",
+      "trackId": "4f7a9c92",
+      "startStep": 1280,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Outro arp",
+        "pattern": ["A3@0.8", "C4@0.36", "E4@0.56", "A4@0.36", "E4@0.8", "C4@0.36", "E4@0.56", "A4@0.36", "A3@0.8", "C4@0.36", "E4@0.56", "A4@0.36", "E4@0.8", "A4@0.36", "E4@0.56", "C4@0.36", "F3@0.8", "A3@0.36", "C4@0.56", "F4@0.36", "C4@0.8", "A3@0.36", "C4@0.56", "F4@0.36", "F3@0.8", "A3@0.36", "C4@0.56", "F4@0.36", "C4@0.8", "F4@0.36", "C4@0.56", "A3@0.36", "G3@0.8", "C4@0.36", "E4@0.56", "G4@0.36", "E4@0.8", "C4@0.36", "E4@0.56", "G4@0.36", "G3@0.8", "C4@0.36", "E4@0.56", "G4@0.36", "E4@0.8", "G4@0.36", "E4@0.56", "C4@0.36", "G3@0.8", "B3@0.36", "D4@0.56", "G4@0.36", "D4@0.8", "B3@0.36", "D4@0.56", "G4@0.36", "G3@0.8", "B3@0.36", "D4@0.56", "G4@0.36", "D4@0.8", "G4@0.36", "D4@0.56", "B3@0.36", "A3@0.8", "C4@0.36", "E4@0.56", "A4@0.36", "E4@0.8", "C4@0.36", "E4@0.56", "A4@0.36", "A3@0.8", "C4@0.36", "E4@0.56", "A4@0.36", "E4@0.8", "A4@0.36", "E4@0.56", "C4@0.36", "F3@0.8", "A3@0.36", "C4@0.56", "F4@0.36", "C4@0.8", "A3@0.36", "C4@0.56", "F4@0.36", "F3@0.8", "A3@0.36", "C4@0.56", "F4@0.36", "C4@0.8", "F4@0.36", "C4@0.56", "A3@0.36", "G3@0.8", "C4@0.36", "E4@0.56", "G4@0.36", "E4@0.8", "C4@0.36", "E4@0.56", "G4@0.36", "G3@0.8", "C4@0.36", "E4@0.56", "G4@0.36", "E4@0.8", "G4@0.36", "E4@0.56", "C4@0.36", "G3@0.8", "B3@0.36", "D4@0.56", "G4@0.36", "D4@0.8", "B3@0.36", "D4@0.56", "G4@0.36", "G3@0.8", "B3@0.36", "D4@0.56", "G4@0.36", "D4@0.8", "G4@0.36", "D4@0.56", "B3@0.36"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.95
+            },
+            {
+              "step": 128,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "a1b566d9",
+      "trackId": "e033b398",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Outro kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 16,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 1344
+    },
+    {
+      "id": "5dbca453",
+      "trackId": "b4feecd8",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Outro hats",
+        "pattern": ["x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.25", "x@0.3", ".", "x@0.8", "x@0.5"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.35
+            },
+            {
+              "step": 16,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 1344
+    },
+    {
+      "id": "240537ad",
+      "trackId": "004f1bd1",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Outro sub",
+        "pattern": ["A1", "_", "_", ".", "A1", ".", ".", "A2@0.6", "A1", "_", "_", ".", ".", ".", "A1@0.8", ".", "F1", "_", "_", ".", "F1", ".", ".", "F2@0.6", "F1", "_", "_", ".", ".", ".", "F1@0.8", ".", "C2", "_", "_", ".", "C2", ".", ".", "C3@0.6", "C2", "_", "_", ".", ".", ".", "C2@0.8", ".", "G1", "_", "_", ".", "G1", ".", ".", "G2@0.6", "G1", "_", "_", ".", ".", ".", "G1@0.8", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.55
+            },
+            {
+              "step": 64,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 1344
+    }
+  ],
+  "aiProvenance": "an MCP client via MCP",
+  "stepDurationSeconds": 0.12096774193548387
+}
