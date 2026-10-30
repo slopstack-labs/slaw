@@ -20,6 +20,23 @@ internal sealed class SlawProject
     public int Steps { get; set; } = 16;
 
     /// <summary>
+    /// MPC-style swing on the sixteenth grid, in percent, 50..75 (see <see cref="GrooveTiming"/>): every odd
+    /// sixteenth (the second of each eighth-note pair) starts (swing - 50) / 50 of a step late. 50 is straight,
+    /// 66.67 a triplet shuffle, 75 a dotted-sixteenth limp. Tracks may override it with <see cref="SlawTrack.Swing"/>.
+    /// </summary>
+    [JsonIgnore]
+    public double Swing { get; set; } = GrooveTiming.StraightSwing;
+
+    /// <summary><see cref="Swing"/> as written to disk: left out while straight, so existing files stay byte-identical.</summary>
+    [JsonPropertyName("swing")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? SerializedSwing
+    {
+        get => Swing == GrooveTiming.StraightSwing ? null : Swing;
+        set => Swing = value ?? GrooveTiming.StraightSwing;
+    }
+
+    /// <summary>
     /// Legacy v1 field: how often the single pattern repeated. Migrated into the
     /// arrangement on load and never written back.
     /// </summary>
@@ -123,6 +140,18 @@ internal sealed class SlawTrack
     public List<EffectDevice> Effects { get; set; } = new();
     public double Gain { get; set; } = 0.8;
     public double Pan { get; set; }
+
+    /// <summary>This track's own swing, in percent 50..75, overriding <see cref="SlawProject.Swing"/>; null follows the project.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Swing { get; set; }
+
+    /// <summary>
+    /// Timing humanize in milliseconds, 0..<see cref="GrooveTiming.MaximumTimingMilliseconds"/>: every step this
+    /// track strikes starts late by a seeded random 0..Timing ms. 0 is machine-tight.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double Timing { get; set; }
+
     public bool Muted { get; set; }
     public bool Solo { get; set; }
 

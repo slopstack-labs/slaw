@@ -23,6 +23,10 @@ internal static class ProjectChangeSummarizer
         {
             changeSummary.Add(string.Create(CultureInfo.InvariantCulture, $"tempo {previousProject.Bpm:0} → {revisedProject.Bpm:0} BPM"));
         }
+        if (Math.Abs(previousProject.Swing - revisedProject.Swing) > 0.005)
+        {
+            changeSummary.Add($"swing {GrooveTiming.FormatSwing(previousProject.Swing)} → {GrooveTiming.FormatSwing(revisedProject.Swing)} (project; tracks with their own swing keep it)");
+        }
         if (!previousProject.Scenes.SequenceEqual(revisedProject.Scenes))
         {
             changeSummary.Add($"session scenes are now ({revisedProject.Scenes.Count}): {string.Join(", ", revisedProject.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}=\"{sceneName}\""))}");
@@ -33,7 +37,9 @@ internal static class ProjectChangeSummarizer
         {
             if (!previousTracksById.TryGetValue(revisedTrack.Id, out var previousTrack))
             {
-                changeSummary.Add($"added track id \"{revisedTrack.Id}\" \"{revisedTrack.Name}\" ({DescribeInstrument(revisedTrack)})");
+                var addedGroove = (revisedTrack.Swing is { } addedSwing ? $", swing {GrooveTiming.FormatSwing(addedSwing)}" : string.Empty) +
+                                  (revisedTrack.Timing > 0 ? string.Create(CultureInfo.InvariantCulture, $", timing {revisedTrack.Timing:0.#} ms") : string.Empty);
+                changeSummary.Add($"added track id \"{revisedTrack.Id}\" \"{revisedTrack.Name}\" ({DescribeInstrument(revisedTrack)}{addedGroove})");
                 continue;
             }
             var trackChanges = new List<string>();
@@ -84,6 +90,14 @@ internal static class ProjectChangeSummarizer
             if (Math.Abs(previousTrack.Pan - revisedTrack.Pan) > 0.005)
             {
                 mixerChanges.Add(string.Create(CultureInfo.InvariantCulture, $"pan {previousTrack.Pan:0.00} → {revisedTrack.Pan:0.00}"));
+            }
+            if (previousTrack.Swing != revisedTrack.Swing)
+            {
+                mixerChanges.Add($"swing {DescribeTrackSwing(previousTrack.Swing)} → {DescribeTrackSwing(revisedTrack.Swing)}");
+            }
+            if (Math.Abs(previousTrack.Timing - revisedTrack.Timing) > 0.005)
+            {
+                mixerChanges.Add(string.Create(CultureInfo.InvariantCulture, $"timing {previousTrack.Timing:0.#} → {revisedTrack.Timing:0.#} ms"));
             }
             if (previousTrack.Muted != revisedTrack.Muted)
             {
@@ -151,6 +165,9 @@ internal static class ProjectChangeSummarizer
         }
         return changeSummary;
     }
+
+    private static string DescribeTrackSwing(double? trackSwing) =>
+        trackSwing is { } ownSwing ? GrooveTiming.FormatSwing(ownSwing) : "(project's)";
 
     private static string DescribeInstrument(SlawTrack track) => track switch
     {

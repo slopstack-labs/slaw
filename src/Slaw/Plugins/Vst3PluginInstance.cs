@@ -699,11 +699,12 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
         }
     }
 
-    public void NoteOff(int midiNote)
+    /// <summary>Queues a note-off for the next block, <paramref name="sampleOffset"/> frames into it (a note that ends on a swung step).</summary>
+    public void NoteOff(int midiNote, int sampleOffset = 0)
     {
         if (soundingNotes.Remove(midiNote))
         {
-            inputEvents.Add(Vst3Event.NoteOff(midiNote, 0));
+            inputEvents.Add(Vst3Event.NoteOff(midiNote, sampleOffset));
         }
     }
 
