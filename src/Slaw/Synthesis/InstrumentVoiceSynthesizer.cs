@@ -12,7 +12,7 @@ internal static class InstrumentVoiceSynthesizer
 {
     public static readonly IReadOnlyList<string> SupportedInstruments = new[]
     {
-        "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise", "sampler",
+        "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise", "sampler", "soundfont",
     };
 
     private static readonly HashSet<string> PercussiveInstruments = new(StringComparer.OrdinalIgnoreCase)
@@ -42,7 +42,8 @@ internal static class InstrumentVoiceSynthesizer
         IReadOnlyDictionary<string, double>? instrumentParameters = null,
         SampleData? samplerSource = null,
         SampleEditSettings? sampleEditing = null,
-        Func<double, double>? pitchBendSemitonesAt = null)
+        Func<double, double>? pitchBendSemitonesAt = null,
+        SoundFonts.SoundFontPreset? soundFontPreset = null)
     {
         var parameterSpecifications = DeviceCatalog.InstrumentParametersFor(instrumentName);
         double Parameter(string parameterKey) => DeviceCatalog.Resolve(instrumentParameters, parameterSpecifications, parameterKey);
@@ -54,6 +55,21 @@ internal static class InstrumentVoiceSynthesizer
             renderedVoice = SumChordVoices(chordNotes
                 .Select(midiNote => RenderSamplerVoice(samplerSource, midiNote, gateDurationSeconds, sampleRate, Parameter, sampleEditing))
                 .ToList());
+        }
+        else if (instrumentName == "soundfont")
+        {
+            // A font's zones may differ per key, so a chord is one rendering per note, summed.
+            var chordNotes = midiNotes.Count > 0 ? midiNotes : new[] { 60 };
+            renderedVoice = soundFontPreset is null
+                ? Array.Empty<float>()
+                : SumChordVoices(chordNotes
+                    .Select(midiNote => SoundFonts.SoundFontVoiceRenderer.RenderNote(soundFontPreset, midiNote, gateDurationSeconds, sampleRate, Parameter("transpose"), Parameter("release")))
+                    .ToList());
+            var soundFontGain = (float)Parameter("gain");
+            for (var sampleIndex = 0; sampleIndex < renderedVoice.Length; sampleIndex++)
+            {
+                renderedVoice[sampleIndex] *= soundFontGain;
+            }
         }
         else if (IsPercussive(instrumentName))
         {

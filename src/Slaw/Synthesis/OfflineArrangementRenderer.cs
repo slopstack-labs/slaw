@@ -49,6 +49,12 @@ internal static class OfflineArrangementRenderer
             }
         }
 
+        // SoundFonts too: a bounce waits for the parse instead of dropping the first notes.
+        foreach (var soundFontTrack in project.Tracks.Where(track => track.Instrument == "soundfont"))
+        {
+            SoundFonts.SoundFontLibrary.LoadPreset(soundFontTrack.SoundFont);
+        }
+
         // VST3 plugins load synchronously in a bounce: the first note waits for the synth rather than skipping it.
         var bounceEngine = new SequencerEngine(sampleRate, offlinePluginHosting: true);
         bounceEngine.PublishProject(project.DeepClone());

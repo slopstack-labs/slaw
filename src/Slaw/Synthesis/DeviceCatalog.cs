@@ -99,10 +99,20 @@ internal static class DeviceCatalog
         Humanize,
     };
 
+    private static readonly IReadOnlyList<ParameterSpecification> SoundFontParameters = new[]
+    {
+        new ParameterSpecification("gain", "Gain", 0, 2, 1, "×"),
+        new ParameterSpecification("transpose", "Transpose", -24, 24, 0, "st"),
+        new ParameterSpecification("release", "Release", 0.1, 4, 1, "×", Logarithmic: true),
+        new ParameterSpecification("cutoff", "Filter", 80, 20000, 20000, "Hz", Logarithmic: true),
+        Humanize,
+    };
+
     public static IReadOnlyList<ParameterSpecification> InstrumentParametersFor(string instrumentName) => instrumentName switch
     {
         Plugins.DeviceTypes.Vst3 => Array.Empty<ParameterSpecification>(),
         "sampler" => SamplerParameters,
+        "soundfont" => SoundFontParameters,
         "kick" or "snare" or "hat" or "clap" => DrumParameters,
         "pluck" => PluckParameters,
         _ => OscillatorParameters,
@@ -117,6 +127,7 @@ internal static class DeviceCatalog
         "pluck" => "Karplus–Strong Pluck",
         "noise" => "Generative Noise Engine",
         "sampler" => "Sampler",
+        "soundfont" => "SoundFont Player",
         Plugins.DeviceTypes.Vst3 => "VST3 Instrument",
         var oscillatorName => $"{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(oscillatorName)} Oscillator",
     };

@@ -287,6 +287,7 @@ internal sealed class SequencerEngine
                 return;
             }
         }
+        var auditionedSoundFont = auditionedTrack.Instrument == "soundfont" ? SoundFonts.SoundFontLibrary.LoadPreset(auditionedTrack.SoundFont) : null;
         var renderedVoice = InstrumentVoiceSynthesizer.RenderVoice(
             auditionedTrack.Instrument,
             new[] { midiNote },
@@ -295,7 +296,8 @@ internal sealed class SequencerEngine
             auditionEntropySource,
             auditionedTrack.InstrumentParameters,
             samplerSource,
-            auditionedTrack.SampleEditing);
+            auditionedTrack.SampleEditing,
+            soundFontPreset: auditionedSoundFont);
         if (renderedVoice.Length == 0)
         {
             return;
@@ -305,7 +307,10 @@ internal sealed class SequencerEngine
         var releaseSeconds = percussiveInstrument || auditionedTrack.Instrument == "pluck" ||
                              (auditionedTrack.Instrument == "sampler" && DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor("sampler"), "hold") < 0.5)
             ? 0
-            : DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(auditionedTrack.Instrument), "release") / 1000.0;
+            : auditionedTrack.Instrument == "soundfont"
+                // The font's release knob is a multiplier of each zone's own release, not milliseconds.
+                ? 0.25 * DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor("soundfont"), "release")
+                : DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(auditionedTrack.Instrument), "release") / 1000.0;
         // Same curve as recorded notes, so a take plays back as loud as it was played.
         var auditionVoice = new AuditionVoice(trackIdentifier, midiNote, (float)NotationResolver.VelocityToGain(Math.Max(0.05, velocity)),
             renderedVoice, Math.Max(1, (int)(releaseSeconds * sampleRate)), releaseSeconds > 0);
@@ -735,7 +740,7 @@ internal sealed class SequencerEngine
     private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, IReadOnlyDictionary<string, double> instrumentParameters, RenderedPitchBend? pitchBend, StepEvent stepEvent, int heldStepCount)
     {
         var parameterFingerprint = string.Join(',', instrumentParameters.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value:R}"));
-        var voiceCacheKey = $"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}";
+        var voiceCacheKey = $"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{track.SoundFont?.Fingerprint}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}";
         if (renderedVoiceCache.TryGetValue(voiceCacheKey, out var cachedVoice))
         {
             return cachedVoice;
@@ -747,6 +752,16 @@ internal sealed class SequencerEngine
             // decoded yet is requested in the background and skipped this time.
             samplerSource = string.IsNullOrEmpty(track.Sample) ? null : SampleEditProcessor.TryGetProcessed(track.Sample, track.SampleEditing, sampleRate);
             if (samplerSource is null)
+            {
+                return Array.Empty<float>();
+            }
+        }
+        SoundFonts.SoundFontPreset? soundFontPreset = null;
+        if (track.Instrument == "soundfont")
+        {
+            // Same rule as samples: a font still parsing in the background skips this note.
+            soundFontPreset = SoundFonts.SoundFontLibrary.TryGetPreset(track.SoundFont);
+            if (soundFontPreset is null)
             {
                 return Array.Empty<float>();
             }
@@ -764,7 +779,8 @@ internal sealed class SequencerEngine
             instrumentParameters,
             samplerSource,
             track.SampleEditing,
-            pitchBend?.SemitonesAt);
+            pitchBend?.SemitonesAt,
+            soundFontPreset);
         renderedVoiceCache[voiceCacheKey] = renderedVoice;
         return renderedVoice;
     }

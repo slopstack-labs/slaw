@@ -204,6 +204,17 @@ internal static class ProjectPatchApplier
         {
             PluginDeviceOperations.LoadInstrument(targetTrack, patchedPlugin);
         }
+        if (trackPatch["soundfont"] is { } soundFontNode)
+        {
+            try
+            {
+                SoundFontDeviceOperations.LoadIntoTrack(targetTrack, SoundFontDeviceOperations.ParseReference(soundFontNode));
+            }
+            catch (InvalidDataException soundFontRemediationOpportunity)
+            {
+                patchWarnings.Add($"{targetTrack.Name}: soundfont ignored: {soundFontRemediationOpportunity.Message}");
+            }
+        }
         targetTrack.Sample = ReadString(trackPatch["sample"]) ?? targetTrack.Sample;
         targetTrack.Gain = ReadDouble(trackPatch["gain"]) ?? targetTrack.Gain;
         targetTrack.Pan = ReadDouble(trackPatch["pan"]) ?? targetTrack.Pan;
