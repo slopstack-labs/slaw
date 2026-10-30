@@ -20,17 +20,21 @@ internal static class OfflineArrangementRenderer
     /// that still carries a legacy scene sequence (and nothing on its timeline) is flattened
     /// first, on a copy, so it renders exactly as it always did.
     /// </summary>
-    public static StereoBuffer Render(SlawProject project, int sampleRate = DefaultSampleRate)
+    public static StereoBuffer Render(SlawProject project, int sampleRate = DefaultSampleRate) =>
+        Render(project, sampleRate, out _);
+
+    /// <summary>As <see cref="Render(SlawProject, int)"/>, also saying how hard hearing protection had to work.</summary>
+    public static StereoBuffer Render(SlawProject project, int sampleRate, out HearingProtectionReport hearingProtection)
     {
         if (project.Timeline.Count == 0 && project.Arrangement.Count > 0)
         {
             project = project.DeepClone();
             FreeTimeline.MigrateLegacyArrangement(project);
         }
-        return RenderWith(project, sampleRate, FreeTimeline.LengthInSteps(project), bounceEngine => bounceEngine.PlayTimeline(loop: false));
+        return RenderWith(project, sampleRate, FreeTimeline.LengthInSteps(project), bounceEngine => bounceEngine.PlayTimeline(loop: false), out hearingProtection);
     }
 
-    private static StereoBuffer RenderWith(SlawProject project, int sampleRate, long lengthInSteps, Action<SequencerEngine> startTransport)
+    private static StereoBuffer RenderWith(SlawProject project, int sampleRate, long lengthInSteps, Action<SequencerEngine> startTransport, out HearingProtectionReport hearingProtection)
     {
         // Bounces must not skip a sample just because it was still decoding.
         foreach (var samplerTrack in project.Tracks.Where(track => track.Instrument == "sampler" && !string.IsNullOrEmpty(track.Sample)))
@@ -69,7 +73,9 @@ internal static class OfflineArrangementRenderer
             bounceEngine.ReleasePlugins();
         }
 
-        MasterChainProcessor.ApplyHearingProtection(renderedBuffer);
+        var normalizationScale = MasterChainProcessor.ApplyHearingProtection(renderedBuffer);
+        var (limitedFrames, deepestGainReduction) = bounceEngine.LimiterActivity;
+        hearingProtection = new HearingProtectionReport(limitedFrames, 20 * Math.Log10(deepestGainReduction), 20 * Math.Log10(normalizationScale));
         return renderedBuffer;
     }
 

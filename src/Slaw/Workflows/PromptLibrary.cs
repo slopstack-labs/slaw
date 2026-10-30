@@ -213,10 +213,10 @@ internal static class PromptLibrary
           ],
           "master": {"drive": 2.0}
         }
-        - "scenes" replaces the scene list; "clips" maps a scene index to a pattern string. "arrangement" lays scenes out as the song (it replaces the arrangement timeline); "timeline" places single clips at exact steps instead.
+        - "scenes" renames scenes in order ("removeScenes": [indices] deletes); "clips" maps a scene index to a pattern string. "arrangement" lays scenes out as the song (it replaces the arrangement timeline); "timeline" places single clips at exact steps instead (16 steps per bar, step 0 = bar 1).
         - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence; "@0.5" after a note or "x" sets its velocity (0..1, default 1).
         - Effects replace the track's whole effect list when given.
-        - Optional clip envelopes: "automation": {"<scene>": {"fx.0.cutoff": [[0, 300], [16, 6000]]} } on a track sweeps effect 0's cutoff over the clip ([step, value] pairs). Targets: gain, pan, pitch (semitones), fx.<effectIndex>.<param>, inst.<param>.
+        - Optional clip envelopes: "automation": {"<scene>": {"fx.0.cutoff": [[0, 300], [16, 6000]]} } on a track sweeps effect 0's cutoff over the clip ([step, value] pairs). On a "timeline" clip, "automation": {"fx.0.cutoff": [[0, 300], [128, 6000]]} spans the whole clip (steps from its start). Targets: gain, pan, pitch (semitones), fx.<effectIndex>.<param>, inst.<param>.
         - Never mention tracks marked LOCKED.
 
         {{DescribeDeviceCatalog()}}
@@ -238,7 +238,7 @@ internal static class PromptLibrary
         var projectListing = new StringBuilder();
         projectListing.Append(CultureInfo.InvariantCulture, $"name \"{project.Name}\", bpm {project.Bpm:0}\n");
         projectListing.Append(CultureInfo.InvariantCulture,
-            $"scenes: {string.Join(", ", project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}=\"{sceneName}\""))}\n");
+            $"session scenes (clip slots, not the song order): {string.Join(", ", project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}=\"{sceneName}\""))}\n");
         foreach (var track in project.Tracks)
         {
             projectListing.Append(CultureInfo.InvariantCulture,
@@ -266,7 +266,7 @@ internal static class PromptLibrary
             {
                 if (track.Clips[sceneIndex] is { } clip)
                 {
-                    projectListing.Append(CultureInfo.InvariantCulture, $"  clip {sceneIndex}: {string.Join(' ', clip.Pattern)}\n");
+                    projectListing.Append(CultureInfo.InvariantCulture, $"  session clip scene {sceneIndex}: {string.Join(' ', clip.Pattern)}\n");
                     foreach (var (targetKey, points) in clip.Automation ?? new Dictionary<string, List<AutomationPoint>>())
                     {
                         projectListing.Append(CultureInfo.InvariantCulture, $"    envelope {ClipAutomation.Describe(targetKey, points)}\n");
@@ -276,16 +276,19 @@ internal static class PromptLibrary
         }
         if (project.Timeline.Count == 0)
         {
-            projectListing.Append("arrangement timeline: empty\n");
+            projectListing.Append("arrangement (the song): empty\n");
         }
         else
         {
-            projectListing.Append(CultureInfo.InvariantCulture, $"arrangement timeline ({FreeTimeline.LengthInSteps(project) / 16.0:0.#} bars; start/length in steps, 16 per bar):\n");
+            var arrangementEnd = FreeTimeline.LengthInSteps(project);
+            projectListing.Append(CultureInfo.InvariantCulture,
+                $"arrangement (the song): {project.Timeline.Count} clip(s), ends at bar {FreeTimeline.FormatPosition(arrangementEnd)} = {arrangementEnd / 16.0:0.##} bars. ");
+            projectListing.Append("Positions: steps are 0-based sixteenths (16 per bar); bars are shown 1-based as bar.step; ends are exclusive. Envelope steps count from the clip's start.\n");
             foreach (var timelineClip in project.Timeline.OrderBy(timelineClip => timelineClip.StartStep))
             {
                 var trackName = project.Tracks.FirstOrDefault(track => track.Id == timelineClip.TrackId)?.Name ?? "?";
                 projectListing.Append(CultureInfo.InvariantCulture,
-                    $"  timeline clip id \"{timelineClip.Id}\" track \"{trackName}\" start {timelineClip.StartStep} (bar {FreeTimeline.FormatPosition(timelineClip.StartStep)}) length {timelineClip.LengthSteps}: {string.Join(' ', timelineClip.Clip.Pattern)}\n");
+                    $"  clip id \"{timelineClip.Id}\" track \"{trackName}\" {FreeTimeline.DescribeSpan(timelineClip)}: {string.Join(' ', timelineClip.Clip.Pattern)}\n");
                 foreach (var (targetKey, points) in timelineClip.Clip.Automation ?? new Dictionary<string, List<AutomationPoint>>())
                 {
                     projectListing.Append(CultureInfo.InvariantCulture, $"    envelope {ClipAutomation.Describe(targetKey, points)}\n");
@@ -293,7 +296,7 @@ internal static class PromptLibrary
             }
             if (project.TimelineLoop is { IsValid: true } loopRegion)
             {
-                projectListing.Append(CultureInfo.InvariantCulture, $"  loop {loopRegion.StartStep}–{loopRegion.EndStep}\n");
+                projectListing.Append(CultureInfo.InvariantCulture, $"  loop brace: steps {loopRegion.StartStep}–{loopRegion.EndStep} (bars {FreeTimeline.FormatPosition(loopRegion.StartStep)}–{FreeTimeline.FormatPosition(loopRegion.EndStep)})\n");
             }
         }
         var masterChain = project.Master;

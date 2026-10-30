@@ -80,7 +80,13 @@ internal sealed class AutomationLaneControl : Control
 
     // ── Geometry ──────────────────────────────────────────────────────────────
 
-    private int StepCount => Math.Max(1, clip.Pattern.Count);
+    /// <summary>
+    /// How many steps the envelope spans when that is not the pattern's length: an arrangement
+    /// clip's envelopes cover the whole clip while its pattern loops underneath. Null: the pattern.
+    /// </summary>
+    public int? EnvelopeLengthSteps { get; init; }
+
+    private int StepCount => Math.Max(1, EnvelopeLengthSteps ?? clip.Pattern.Count);
 
     private double GridWidth => Math.Max(1, Bounds.Width - leadingGutterWidth);
 

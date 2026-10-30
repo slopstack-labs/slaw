@@ -1019,7 +1019,7 @@ internal sealed class ArrangementCanvas : Control
                     {
                         if (track.ClipAt(sceneIndex) is { } sceneClip)
                         {
-                            editedProject.Timeline.Add(new TimelineClip { TrackId = track.Id, StartStep = dropStep, LengthSteps = sceneLength, Clip = FreeTimeline.CopyClip(sceneClip) });
+                            editedProject.Timeline.Add(new TimelineClip { TrackId = track.Id, StartStep = dropStep, LengthSteps = sceneLength, Clip = FreeTimeline.ArrangementCopyOf(sceneClip, sceneLength) });
                         }
                     }
                 }, EditScope.Structure);

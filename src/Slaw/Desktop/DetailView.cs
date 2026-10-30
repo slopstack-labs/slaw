@@ -80,6 +80,7 @@ internal sealed partial class DetailView : UserControl
     {
         activeSampleEditor?.UpdatePreviewPlayhead();
         int? playheadStep = null;
+        int? envelopePlayheadStep = null;
         if (document.SelectedTrack is { } selectedTrack &&
             transportSnapshot.Mode != TransportMode.Stopped &&
             transportSnapshot.Tracks.TryGetValue(selectedTrack.Id, out var trackState) &&
@@ -88,6 +89,7 @@ internal sealed partial class DetailView : UserControl
                 : trackState.PlayingScene == document.SelectedSceneIndex))
         {
             playheadStep = trackState.ClipStep;
+            envelopePlayheadStep = trackState.EnvelopeStep;
         }
         if (activePianoRoll is not null)
         {
@@ -99,7 +101,8 @@ internal sealed partial class DetailView : UserControl
         }
         if (activeAutomationLane is not null)
         {
-            activeAutomationLane.PlayheadStep = playheadStep;
+            // An arrangement clip's envelope runs over the whole clip, not the looping pattern.
+            activeAutomationLane.PlayheadStep = envelopePlayheadStep;
         }
     }
 
@@ -405,11 +408,22 @@ internal sealed partial class DetailView : UserControl
             }, EditScope.Structure), "Remove this envelope; the knob takes over again", compact: true),
             StudioUi.Caption(selectedTarget.AppliesAtNoteStart ? "sampled as each note starts" : "moves continuously while the clip plays", 10));
 
+        // Arrangement clips: the envelope spans the whole clip, while the pattern above loops inside it.
+        var envelopeLengthSteps = document.SelectedTimelineClip is { } arrangementClip && arrangementClip.LengthSteps != clip.Pattern.Count
+            ? arrangementClip.LengthSteps
+            : (int?)null;
+        if (envelopeLengthSteps is { } spannedSteps)
+        {
+            laneHeader.Children.Add(StudioUi.Caption(FormattableString.Invariant(
+                $"· spans the whole clip: {spannedSteps} steps ({spannedSteps / 16.0:0.##} bars); the pattern loops every {clip.Pattern.Count}"), 10));
+        }
         activeAutomationLane = new AutomationLaneControl(
-            clip, selectedTarget, AutomationBaseValue(track, selectedTarget), leadingGutterWidth, groupedDrumLayout, StudioTheme.TrackBrush(trackIndex))
+            clip, selectedTarget, AutomationBaseValue(track, selectedTarget), leadingGutterWidth,
+            groupedDrumLayout && envelopeLengthSteps is null, StudioTheme.TrackBrush(trackIndex))
         {
             Height = 96,
             Margin = new Thickness(0, 4, 0, 0),
+            EnvelopeLengthSteps = envelopeLengthSteps,
         };
         activeAutomationLane.EditStarted += () => document.BeginEdit("clip envelope");
         // A lane's first point changes the target list's "●" markers, so it rebuilds; later drags only redraw.

@@ -219,13 +219,13 @@ public class FreeTimelineTests
             ["patch"] = JsonNode.Parse("""{"timeline":[{"id":"new","track":"Synergy Kick","start":32,"length":16,"pattern":"x . . . x . . ."}]}"""),
         });
         Assert.Equal(32, Assert.Single(servedDocument.Project.Timeline).StartStep);
-        Assert.Contains("track \"Synergy Kick\" start 32 (bar 3.1) length 16", await CallToolAsync("get_project", new JsonObject()));
+        Assert.Contains("track \"Synergy Kick\" bars 3.1–4.1 (start 32, length 16 steps = 1 bars, ends before step 48); pattern 8 steps ×2", await CallToolAsync("get_project", new JsonObject()));
 
         var renderPath = Path.Combine(Path.GetTempPath(), $"slaw-timeline-test-{Environment.ProcessId}.wav");
         try
         {
             // 48 steps at the starter's 124 BPM plus the release tail.
-            Assert.Contains("rendered 7.3 s", await CallToolAsync("render", new JsonObject { ["path"] = renderPath, ["source"] = "timeline" }));
+            Assert.Contains("= 7.3 s, 44.1 kHz", await CallToolAsync("render", new JsonObject { ["path"] = renderPath, ["source"] = "timeline" }));
         }
         finally
         {

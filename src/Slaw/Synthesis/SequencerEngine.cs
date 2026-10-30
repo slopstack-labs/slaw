@@ -21,7 +21,8 @@ internal enum TransportMode
 /// while an arrangement clip plays. <paramref name="OverridesArrangement"/> is set while the
 /// arrangement plays but this track follows a launched session clip (or a stop) instead.
 /// </summary>
-internal readonly record struct TrackTransportState(int? PlayingScene, int? ClipStep, int? QueuedScene, string? TimelineClipId = null, bool OverridesArrangement = false);
+/// <param name="EnvelopeStep">Where the playing clip's envelopes are: the pattern step in the session, steps since the clip's start in the arrangement.</param>
+internal readonly record struct TrackTransportState(int? PlayingScene, int? ClipStep, int? QueuedScene, string? TimelineClipId = null, bool OverridesArrangement = false, int? EnvelopeStep = null);
 
 /// <summary>An immutable picture of the transport, republished after every step.</summary>
 internal sealed record TransportSnapshot(
@@ -115,6 +116,10 @@ internal sealed class SequencerEngine
     }
 
     public int SampleRate => sampleRate;
+
+    /// <summary>How much the master limiter has worked since this engine started (bounces read it when they finish).</summary>
+    public (int LimitedFrames, double DeepestGainReduction) LimiterActivity =>
+        (masterBusProcessor.LimitedFrameCount, masterBusProcessor.DeepestGainReduction);
 
     /// <summary>The VST3 instances this engine plays (for the device view's knobs and load errors).</summary>
     public PluginInstancePool Plugins => pluginPool;
@@ -473,6 +478,7 @@ internal sealed class SequencerEngine
             runtimeState.QueuedScene = null;
             runtimeState.HasQueuedLaunch = false;
             runtimeState.CurrentClipStep = null;
+            runtimeState.EnvelopeStep = null;
             runtimeState.PlayingClip = null;
             runtimeState.PlayingTimelineClipId = null;
             runtimeState.OverridesArrangement = false;
@@ -498,6 +504,7 @@ internal sealed class SequencerEngine
                     runtimeState.QueuedScene = null;
                 }
                 runtimeState.CurrentClipStep = null;
+                runtimeState.EnvelopeStep = null;
                 runtimeState.PlayingClip = null;
                 if (runtimeState.PlayingScene is not { } playingScene || track.ClipAt(playingScene) is not { Pattern.Count: > 0 } playingClip)
                 {
@@ -505,8 +512,9 @@ internal sealed class SequencerEngine
                 }
                 var clipStep = (int)((sessionStep - runtimeState.ClipOriginStep) % playingClip.Pattern.Count);
                 runtimeState.CurrentClipStep = clipStep;
+                runtimeState.EnvelopeStep = clipStep;
                 runtimeState.PlayingClip = playingClip;
-                TriggerStep(project, track, runtimeState, playingClip, clipStep);
+                TriggerStep(project, track, runtimeState, playingClip, clipStep, clipStep, playingClip.Pattern.Count);
             }
         }
         else if (transportMode == TransportMode.Timeline && !AdvanceTimelineStep(project))
@@ -614,6 +622,7 @@ internal sealed class SequencerEngine
                 runtimeState.QueuedScene = null;
             }
             runtimeState.CurrentClipStep = null;
+            runtimeState.EnvelopeStep = null;
             runtimeState.PlayingClip = null;
             runtimeState.PlayingTimelineClipId = null;
             if (runtimeState.OverridesArrangement)
@@ -622,8 +631,9 @@ internal sealed class SequencerEngine
                 {
                     var sessionClipStep = (int)((timelineTickCount - runtimeState.ClipOriginStep) % sessionClip.Pattern.Count);
                     runtimeState.CurrentClipStep = sessionClipStep;
+                    runtimeState.EnvelopeStep = sessionClipStep;
                     runtimeState.PlayingClip = sessionClip;
-                    TriggerStep(project, track, runtimeState, sessionClip, sessionClipStep);
+                    TriggerStep(project, track, runtimeState, sessionClip, sessionClipStep, sessionClipStep, sessionClip.Pattern.Count);
                 }
                 continue;
             }
@@ -632,16 +642,21 @@ internal sealed class SequencerEngine
             {
                 continue;
             }
+            // The pattern loops inside the clip; its envelopes do not: they span the whole clip.
             var clipStep = FreeTimeline.PatternStepAt(timelineClip, timelineStep);
+            var stepsIntoClip = (int)(timelineStep - timelineClip.StartStep);
             runtimeState.CurrentClipStep = clipStep;
+            runtimeState.EnvelopeStep = stepsIntoClip;
             runtimeState.PlayingClip = timelineClip.Clip;
             runtimeState.PlayingTimelineClipId = timelineClip.Id;
-            TriggerStep(project, track, runtimeState, timelineClip.Clip, clipStep);
+            TriggerStep(project, track, runtimeState, timelineClip.Clip, clipStep, stepsIntoClip, timelineClip.LengthSteps);
         }
         return true;
     }
 
-    private void TriggerStep(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, SlawClip clip, int clipStep)
+    /// <param name="envelopeStep">Where the clip's envelopes are: the pattern step for session clips, steps since the clip's start for arrangement clips.</param>
+    /// <param name="envelopeLength">How long the envelopes run before they come around again.</param>
+    private void TriggerStep(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, SlawClip clip, int clipStep, int envelopeStep, int envelopeLength)
     {
         var stepEvent = NotationResolver.ResolveOrRest(clip.Pattern[clipStep]);
         if (stepEvent.Kind != StepEventKind.Trigger)
@@ -662,17 +677,17 @@ internal sealed class SequencerEngine
                 var automatedParameters = new Dictionary<string, double>(track.InstrumentParameters);
                 foreach (var (parameterKey, points) in envelopes.InstrumentEnvelopes)
                 {
-                    automatedParameters[parameterKey] = ClipAutomation.Evaluate(points, clipStep);
+                    automatedParameters[parameterKey] = ClipAutomation.Evaluate(points, envelopeStep);
                 }
                 instrumentParameters = automatedParameters;
             }
             if (bendsAtRender && envelopes.Pitch is { } pitchEnvelope)
             {
-                var clipLength = clip.Pattern.Count;
+                var envelopeWrap = Math.Max(1, envelopeLength);
                 var stepSeconds = project.StepDurationSeconds;
                 pitchBend = new RenderedPitchBend(
-                    elapsedSeconds => Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, (clipStep + elapsedSeconds / stepSeconds) % clipLength), -24, 24),
-                    FormattableString.Invariant($"{clipStep}@{envelopes.PitchFingerprint}"));
+                    elapsedSeconds => Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, (envelopeStep + elapsedSeconds / stepSeconds) % envelopeWrap), -24, 24),
+                    FormattableString.Invariant($"{envelopeStep}/{envelopeWrap}@{envelopes.PitchFingerprint}"));
             }
         }
 
@@ -786,11 +801,11 @@ internal sealed class SequencerEngine
             CompiledEnvelopes? envelopes = null;
             var clipPosition = 0.0;
             if (transportMode != TransportMode.Stopped &&
-                runtimeState.CurrentClipStep is { } currentClipStep &&
+                runtimeState.EnvelopeStep is { } envelopeStep &&
                 runtimeState.PlayingClip is { Automation.Count: > 0 } automatedClip)
             {
                 envelopes = runtimeState.EnvelopesFor(automatedClip);
-                clipPosition = currentClipStep + stepProgress;
+                clipPosition = envelopeStep + stepProgress;
             }
             var playbackRate = envelopes?.Pitch is { } pitchEnvelope
                 ? Math.Pow(2, Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, clipPosition), -24, 24) / 12)
@@ -934,7 +949,7 @@ internal sealed class SequencerEngine
         var trackStates = trackRuntimeStates.ToDictionary(
             pair => pair.Key,
             pair => new TrackTransportState(pair.Value.PlayingScene, pair.Value.CurrentClipStep, pair.Value.HasQueuedLaunch ? pair.Value.QueuedScene ?? -1 : null,
-                pair.Value.PlayingTimelineClipId, pair.Value.OverridesArrangement));
+                pair.Value.PlayingTimelineClipId, pair.Value.OverridesArrangement, pair.Value.EnvelopeStep));
         var previewProgress = previewLeft is null ? -1 : (double)previewPosition / previewLeft.Length;
         var project = Volatile.Read(ref publishedProject);
         Volatile.Write(ref publishedTransport, new TransportSnapshot(
@@ -1119,6 +1134,9 @@ internal sealed class SequencerEngine
         public bool HasQueuedLaunch { get; set; }
         public long ClipOriginStep { get; set; }
         public int? CurrentClipStep { get; set; }
+
+        /// <summary>The playing clip's envelope position: equals <see cref="CurrentClipStep"/> in the session, steps since the start of an arrangement clip.</summary>
+        public int? EnvelopeStep { get; set; }
 
         /// <summary>The clip whose step <see cref="CurrentClipStep"/> is, in any transport mode; envelopes follow it.</summary>
         public SlawClip? PlayingClip { get; set; }

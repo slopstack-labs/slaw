@@ -187,4 +187,66 @@ public class AutomationTests
         Assert.False(SlopstackLabs.Slaw.Plugins.Vst3ParameterDirectory.ProbeStarted(pluginReference));
         Assert.True(project.Tracks[0].Clips[0]!.Automation!.ContainsKey("fx.0.p7"));
     }
+
+    private static SlawProject ArrangementProject(params TimelineClip[] timelineClips)
+    {
+        var project = OneClipProject("saw", "A2:16 . . . . . . . . . . . . . . .", null,
+            new EffectDevice { Type = "lowpass", Parameters = new() { ["cutoff"] = 200, ["resonance"] = 0.2 } });
+        project.Arrangement.Clear();
+        foreach (var timelineClip in timelineClips)
+        {
+            timelineClip.TrackId = project.Tracks[0].Id;
+            project.Timeline.Add(timelineClip);
+        }
+        return project;
+    }
+
+    [Fact]
+    public void ArrangementClipEnvelopesSpanTheWholeClipInsteadOfLoopingWithThePattern()
+    {
+        // A one-bar drone looped twice by a two-bar clip, with the cutoff opening over both bars.
+        var sweepingClip = new TimelineClip
+        {
+            StartStep = 0,
+            LengthSteps = 32,
+            Clip = new SlawClip
+            {
+                Pattern = CompactPatternJsonConverter.SplitStepString("A2:16 . . . . . . . . . . . . . . ."),
+                // Kept well inside the filter's stable range: these tests are about where the envelope is, not how far it goes.
+                Automation = new() { ["fx.0.cutoff"] = Ramp(200, 2500, endStep: 32) },
+            },
+        };
+        const int stableSampleRate = 44100;
+        var render = OfflineArrangementRenderer.Render(ArrangementProject(sweepingClip), stableSampleRate).Left;
+
+        // The same late window of each bar: had the envelope looped, both would be equally dark.
+        var stepFrames = (int)(0.125 * stableSampleRate);
+        var firstBarLate = DifferenceEnergy(render, 11 * stepFrames, 4 * stepFrames);
+        var secondBarLate = DifferenceEnergy(render, 27 * stepFrames, 4 * stepFrames);
+        Assert.True(secondBarLate > firstBarLate * 1.6, $"second bar {secondBarLate:0.###} vs first bar {firstBarLate:0.###}");
+    }
+
+    [Fact]
+    public void SessionEnvelopesFlattenedIntoLongerArrangementClipsSoundExactlyAsTheyLooped()
+    {
+        var loopingEnvelope = new Dictionary<string, List<AutomationPoint>>
+        {
+            ["fx.0.cutoff"] = new() { new() { Step = 4, Value = 300 }, new() { Step = 12, Value = 2500 } },
+        };
+        var sessionClip = new SlawClip { Pattern = CompactPatternJsonConverter.SplitStepString("A2:16 . . . . . . . . . . . . . . ."), Automation = loopingEnvelope };
+
+        // Two bars of the looping session clip, flattened into one 32-step arrangement clip...
+        var flattened = new TimelineClip { StartStep = 0, LengthSteps = 32, Clip = FreeTimeline.ArrangementCopyOf(sessionClip, 32) };
+        // ...against the same bar placed twice, where envelope and pattern line up by construction.
+        var placedTwice = new[]
+        {
+            new TimelineClip { StartStep = 0, LengthSteps = 16, Clip = FreeTimeline.CopyClip(sessionClip) },
+            new TimelineClip { StartStep = 16, LengthSteps = 16, Clip = FreeTimeline.CopyClip(sessionClip) },
+        };
+
+        var flattenedRender = OfflineArrangementRenderer.Render(ArrangementProject(flattened), 44100);
+        var placedTwiceRender = OfflineArrangementRenderer.Render(ArrangementProject(placedTwice), 44100);
+        Assert.Equal(placedTwiceRender.Left, flattenedRender.Left);
+        Assert.Equal(placedTwiceRender.Right, flattenedRender.Right);
+    }
 }

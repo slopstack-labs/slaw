@@ -18,16 +18,30 @@ namespace SlopstackLabs.Slaw.Mcp;
 internal sealed class SlawMcpToolset
 {
     public const string ServerInstructions =
-        "slaw is an AI-native step-sequencing DAW with two places for music, like Ableton Live. " +
-        "TRACKS each have an instrument, effects and mixer settings. " +
-        "The SESSION holds clips by scene: every track has one clip slot per scene (a grid of loops to jam with and launch). " +
-        "The ARRANGEMENT is the song: one linear timeline, measured in sixteenth-note steps, 16 steps per bar (bar 1 starts at step 0, bar 2 at step 16). " +
-        "An arrangement clip sits on one track at a start step for a length in steps; its pattern loops to fill that length " +
-        "(a 16-step drum pattern with length 128 plays 8 bars). Scenes are NOT the song order any more: only the arrangement is played and rendered. " +
-        "A pattern is a space-separated string of steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \"C4:8\" a note held 8 steps, " +
-        "\"_\" hold the previous note, \".\" silence; \"C4@0.5\" or \"x@0.5\" sets a velocity (0..1, default 1). " +
-        "Start with get_project and get_catalog. Write session clips with set_clip or apply_patch \"tracks\"/\"clips\"; place clips in the arrangement with " +
-        "apply_patch \"timeline\" (track, start, length, pattern). Prefer apply_patch for multi-part edits. " +
+        "slaw is a step-sequencing DAW. Music lives in two places, like Ableton Live.\n" +
+        "- SESSION: a grid of loops, one clip slot per track per scene. Tools: set_clip, remove_scene, apply_patch tracks[].clips. Scenes are NOT the song order.\n" +
+        "- ARRANGEMENT: the song. Clips placed on tracks along one timeline. render bounces it; Play in the studio plays it. " +
+        "Tools: arrangement_place_clip, arrangement_edit_clip, arrangement_remove_clips, or apply_patch \"timeline\" for many clips at once.\n" +
+        "UNITS: positions and lengths are sixteenth-note STEPS, 0-based: step 0 is the start of bar 1, 16 steps per bar, bar N starts at step (N-1)*16. " +
+        "Arguments named start/length/step take steps; arguments named bar/bars take 1-based bars / bar counts. Listings print both, e.g. " +
+        "\"bars 9.1–17.1 (start 128, length 128 steps = 8 bars, ends before step 256); pattern 64 steps ×2\". Ends are exclusive.\n" +
+        "ARRANGEMENT CLIP = track + start + length + pattern. The pattern loops to fill the length (a 16-step beat with length 128 plays 8 bars). " +
+        "Where clips overlap on one track, the later-starting clip plays.\n" +
+        "PATTERN: space-separated steps. \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \".\" rest, \"_\" holds the previous step's note one more step, " +
+        "\"C4:8\" holds C4 for 8 steps by itself (follow it with \".\" or with other notes, which sound on top), \"C4@0.5\" / \"x@0.5\" velocity 0..1 (default 1).\n" +
+        "ENVELOPES (set_automation, or \"automation\" in a clip): [step, value] points joined linearly. On an ARRANGEMENT clip the steps count from the clip's " +
+        "start across its whole length (0..length) and do not repeat with the pattern; on a SESSION clip they span the pattern (0..pattern length) and loop with it. " +
+        "Values are absolute: a gain envelope (0..1.5) replaces the track's gain while the clip plays, it does not multiply it.\n" +
+        "WORKFLOW: get_catalog → add_track / apply_patch tracks (instruments, effects) → place arrangement clips → set_automation → " +
+        "render with levels:true (writes a WAV and reports each track's level) → get_project to check positions.\n" +
+        "EXAMPLE apply_patch, an 8-bar verse then an 8-bar chorus with a filter opening across the chorus:\n" +
+        "{\"bpm\": 100, \"tracks\": [{\"id\": \"new\", \"name\": \"Kick\", \"instrument\": \"kick\"},\n" +
+        "  {\"id\": \"new\", \"name\": \"Bass\", \"instrument\": \"saw\", \"effects\": [{\"type\": \"lowpass\", \"parameters\": {\"cutoff\": 400}}]}],\n" +
+        " \"timeline\": [{\"id\": \"new\", \"track\": \"Kick\", \"start\": 0, \"length\": 256, \"pattern\": \"x . . . x . . . x . . . x . . .\"},\n" +
+        "  {\"id\": \"new\", \"track\": \"Bass\", \"start\": 0, \"length\": 128, \"pattern\": \"A1:4 . . . A1:4 . . . C2:4 . . . G1:4 . . .\"},\n" +
+        "  {\"id\": \"new\", \"track\": \"Bass\", \"start\": 128, \"length\": 128, \"pattern\": \"F1:8 . . . . . . . G1:8 . . . . . . .\",\n" +
+        "   \"automation\": {\"fx.0.cutoff\": [[0, 300], [128, 4000]]}}]}\n" +
+        "Results say plainly what changed (with the ids of new clips), then list warnings for anything ignored or adjusted. " +
         "Tracks marked LOCKED are protected from AI edits and must not be changed.";
 
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
@@ -83,8 +97,8 @@ internal sealed class SlawMcpToolset
     private void RegisterTools()
     {
         Register("get_project",
-            "Describe the open project: tempo, scenes, arrangement, every track with its id, instrument, effects, mixer settings and clip patterns. " +
-            "Use format \"json\" for the complete project file.",
+            "Describe the open project: tempo, session scenes, every track (id, instrument, effects, mixer, session clips) and the arrangement " +
+            "(every clip with its id, track, bars, start/length in steps, pattern loops and envelopes). Use format \"json\" for the complete project file as pure JSON.",
             Schema(new JsonObject { ["format"] = EnumProperty("listing (compact, default) or json (full project file)", "listing", "json") }),
             async (toolArguments, _, _) =>
             {
@@ -103,8 +117,9 @@ internal sealed class SlawMcpToolset
                 {
                     var openProject = host.Document.Project;
                     var hostHeader = $"[{host.HostDescription}{(host.Document.FilePath is { } filePath ? $" · {filePath}" : string.Empty)}{(host.Document.UnsavedChanges ? " · unsaved changes" : string.Empty)}]\n";
+                    // JSON stays parseable: the header only goes on the listing.
                     return requestedFormat == "json"
-                        ? hostHeader + ProjectSerializer.Serialize(openProject)
+                        ? ProjectSerializer.Serialize(openProject)
                         : hostHeader + PromptLibrary.DescribeProjectForPatching(openProject);
                 });
             });
@@ -113,30 +128,35 @@ internal sealed class SlawMcpToolset
             "List every instrument and audio effect with its parameter keys and ranges, plus the pattern step vocabulary.",
             Schema(new JsonObject()),
             (_, _, _) => Task.FromResult(PromptLibrary.DescribeDeviceCatalog() +
-                "\nPattern steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \"C4:8\" note held 8 steps, \"_\" hold previous note, \".\" silence. " +
+                "\nPattern steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \".\" silence, \"_\" holds the previous step's note one more step, " +
+                "\"C4:8\" holds C4 for 8 steps by itself (the next steps may be \".\" or other notes, which sound on top; \"_\" only extends notes written without :length). " +
                 "Append \"@<velocity>\" (0..1, default 1) to a note or hit for dynamics: \"x@0.4\" ghost hit, \"C4:8@0.6+E4\" soft root under a full third. Clips are usually 16 steps (one bar of sixteenths)." +
                 "\nClip envelopes (set_automation, or \"automation\" in apply_patch) move a parameter while a clip plays, as [step, value] breakpoints joined linearly. " +
-                "Targets: gain (0..1.5), pan (-1..1), pitch (semitones -24..24; oscillators bend in place, samples/plucks/drums bend tape-style), " +
+                "Arrangement clips: steps 0..clip length, counted from the clip's start, played once across the clip. Session clips: steps 0..pattern length, looping with the pattern. " +
+                "Targets: gain (the track's volume, absolute 0..1.5: it REPLACES the track's gain while the clip plays, it does not multiply it), pan (absolute -1..1, replaces the track's pan), " +
+                "pitch (semitones -24..24; oscillators bend in place, samples/plucks/drums bend tape-style), " +
                 "fx.<effectIndex>.<param> (an effect parameter, continuous), inst.<param> (an instrument parameter, sampled as each note starts). Values use the catalog's units; plugin instruments follow inst.<param> continuously." +
                 "\nVST3 plugins: instrument \"vst3\" and effect type \"vst3\" host the user's installed plugins (see list_plugins). " +
                 "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
                 "with normalized values 0..1; describe_plugin lists them with titles." +
-                "\nArrangement (apply_patch \"timeline\"): the song, as clips placed at any step on any track (16 steps per bar), independent of scenes. " +
-                "Play it with transport play_arrangement (from a bar); render bounces it." +
+                "\nArrangement: the song, as clips placed at any step on any track (0-based steps, 16 per bar; bar N starts at step (N-1)*16), independent of scenes. " +
+                "Place clips with arrangement_place_clip or apply_patch \"timeline\"; render bounces it; transport play_arrangement plays it from a 1-based bar in the live studio." +
                 "\nStereo: tracks are stereo end to end. Built-in voices start mono; widen (width, haas ms), reverb width and delay pingpong spread them, " +
                 "VST3 plugins process left and right, and pan is a constant-power balance."));
 
         Register("apply_patch",
-            "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], " +
-            "tracks [{id (existing id or \"new\"), name, instrument, sample, gain, pan, muted, solo, instrumentParameters {key: number}, " +
-            "effects [{type, enabled, parameters}] (replaces the list), clips {\"<sceneIndex>\": \"x . . . x . . .\" or null}, " +
-            "automation {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}} (merged into that clip's envelopes, see get_catalog), remove: true}], " +
-            "timeline [{id (existing timeline clip id or \"new\"), track (id, name or index), start (steps, 16 per bar), length (steps; the pattern loops to fill it), " +
-            "pattern, name, automation {\"<target>\": [[step, value], ...]}, remove: true}] (the arrangement: the song as clips anywhere in time, independent of scenes; " +
-            "where clips overlap on a track the later-starting one plays), " +
-            "arrangement [{scene, repeats}] (shortcut: lays those session scenes end to end and REPLACES the whole arrangement timeline with them), " +
-            "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix}. Undoable in the studio.",
-            Schema(new JsonObject { ["patch"] = Property("object", "The patch object.") }, "patch"),
+            "Apply a patch describing only what should change; every key is optional. Best for many edits at once. " +
+            "Keys: bpm, name, scenes [names] (renames scenes in order; never deletes), removeScenes [0-based scene indices], " +
+            "tracks [{id (existing id, or \"new\" to add), name, instrument, plugin (vst3 instrument: name or {path, classId}), sample, gain, pan, muted, solo, " +
+            "instrumentParameters {key: number}, effects [{type, enabled, parameters, plugin}] (replaces the whole chain), " +
+            "clips {\"<sceneIndex>\": pattern or null} (SESSION clips), automation {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}}, remove: true}], " +
+            "timeline [{id (existing arrangement clip id, or \"new\"), track (id, name or index; may name a track added earlier in this patch), " +
+            "start (0-based step, 16 per bar), length (steps; the pattern loops to fill it), pattern, name, automation {\"<target>\": [[step, value], ...]} " +
+            "(steps 0..length from the clip's start), remove: true}] (ARRANGEMENT clips), " +
+            "arrangement [{scene, repeats}] (legacy shortcut: lays those session scenes end to end and REPLACES the whole arrangement), " +
+            "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix}. " +
+            "The result lists what changed (with new clip ids) and warnings for anything ignored or adjusted. Undoable in the studio.",
+            Schema(new JsonObject { ["patch"] = PatchSchema() }, "patch"),
             async (toolArguments, clientName, _) =>
             {
                 var projectPatch = toolArguments["patch"] as JsonObject
@@ -148,18 +168,19 @@ internal sealed class SlawMcpToolset
                     var previousProject = host.Document.Project;
                     var patchOutcome = ProjectPatchApplier.Apply(previousProject, projectPatch);
                     var lockEnforcementCount = ProductionWorkflows.EnforceAiLocks(previousProject, patchOutcome.Project) + patchOutcome.LockedTrackEditsIgnored;
-                    var remediationLedger = ProjectAlignmentRemediator.Remediate(patchOutcome.Project);
+                    var remediationLedger = NewRemediations(previousProject, ProjectAlignmentRemediator.Remediate(patchOutcome.Project));
                     patchOutcome.Project.AiProvenance = $"{clientName} via MCP";
                     var changeSummary = ProjectChangeSummarizer.Summarize(previousProject, patchOutcome.Project);
                     host.Document.ReplaceProject(patchOutcome.Project, $"{clientName}: patch", undoable: true);
                     var editDescription = patchOutcome.ModelSummary ?? string.Join("; ", changeSummary.Take(3));
                     host.OnAgentEdit(clientName, editDescription);
-                    return DescribeOutcome(changeSummary, remediationLedger, lockEnforcementCount);
+                    return DescribeOutcome(changeSummary, remediationLedger, lockEnforcementCount, patchOutcome.Warnings);
                 });
             });
 
         Register("set_clip",
-            "Write (or clear) the clip of one track in one scene. scene may equal the scene count to append a new scene.",
+            "SESSION only: write (or clear) the clip of one track in one scene of the session grid. scene may equal the scene count to append a new scene. " +
+            "This does not touch the arrangement (the song): place song clips with arrangement_place_clip.",
             Schema(new JsonObject
             {
                 ["track"] = AnyProperty(TrackReferenceDescription),
@@ -212,41 +233,235 @@ internal sealed class SlawMcpToolset
             }));
 
         Register("set_automation",
-            "Write (or clear) a clip envelope: a parameter that moves while the clip plays. Targets: gain, pan, pitch, " +
-            "fx.<effectIndex>.<param>, inst.<param> (see get_catalog). Points are [step, value] pairs, step 0..clip length, joined linearly; " +
-            "values hold before the first and after the last point. E.g. a dubstep filter wobble: target \"fx.0.cutoff\", " +
-            "points [[0,300],[2,2500],[4,300],[6,2500],[8,300]].",
+            "Write (or clear) a clip envelope: a parameter that moves while the clip plays. Address an ARRANGEMENT clip by `clip` (its id from get_project " +
+            "or arrangement_place_clip) or a SESSION clip by `track` + `scene`. Targets: gain, pan, pitch, fx.<effectIndex>.<param>, inst.<param> (see get_catalog). " +
+            "Values are absolute in the target's units: a gain envelope (0..1.5) replaces the track's gain while the clip plays, it does not multiply it. " +
+            "Points are [step, value] pairs joined linearly; values hold before the first and after the last point. " +
+            "Arrangement clip: steps 0..clip length from the clip's start, once across the clip. Session clip: steps 0..pattern length, looping with the pattern. " +
+            "E.g. a filter opening over an 8-bar arrangement clip: target \"fx.0.cutoff\", points [[0,300],[128,4000]].",
             Schema(new JsonObject
             {
-                ["track"] = AnyProperty(TrackReferenceDescription),
-                ["scene"] = Property("integer", "0-based scene index of an existing clip."),
+                ["clip"] = Property("string", "Arrangement clip id. Use this OR track + scene."),
+                ["track"] = AnyProperty(TrackReferenceDescription + " For session clips (with scene)."),
+                ["scene"] = Property("integer", "0-based session scene index (with track)."),
                 ["target"] = Property("string", "Target key, e.g. \"fx.0.cutoff\", \"pitch\", \"gain\", \"inst.attack\"."),
                 ["points"] = AnyProperty("Array of [step, value] pairs (or {step, value} objects); null or [] removes the envelope."),
-            }, "track", "scene", "target", "points"),
+            }, "target", "points"),
             async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
             {
                 var document = host.Document;
-                var (_, targetTrack) = ResolveTrack(toolArguments["track"]);
+                var (targetTrack, automatedClip, envelopeLength, clipLabel) = ResolveAutomatedClip(toolArguments);
                 RejectLocked(targetTrack);
-                var sceneIndex = (int)(ReadDouble(toolArguments["scene"]) ?? throw new McpInvalidParamsException("scene is required"));
-                if (targetTrack.ClipAt(sceneIndex) is not { } automatedClip)
-                {
-                    throw new McpInvalidParamsException($"{targetTrack.Name} has no clip in scene {sceneIndex}; write one with set_clip first");
-                }
                 var targetKey = ReadString(toolArguments["target"]) ?? throw new McpInvalidParamsException("target is required");
                 if (ClipAutomation.ResolveTarget(targetTrack, targetKey) is not { } automationTarget)
                 {
                     var validTargets = string.Join(", ", ClipAutomation.TargetsFor(targetTrack).Select(target => target.Key));
                     throw new McpInvalidParamsException($"{targetTrack.Name} has no automation target \"{targetKey}\". valid: {validTargets}");
                 }
+                var envelopeWarnings = new List<string>();
                 document.BeginEdit($"{clientName}: envelope");
-                ProjectPatchApplier.ApplyClipAutomation(targetTrack, automatedClip, new JsonObject { [targetKey] = toolArguments["points"]?.DeepClone() });
+                ProjectPatchApplier.ApplyClipAutomation(targetTrack, automatedClip, new JsonObject { [targetKey] = toolArguments["points"]?.DeepClone() }, envelopeLength, envelopeWarnings);
                 document.Project.AiProvenance = $"{clientName} via MCP";
                 document.CommitEdit($"{clientName} automated {automationTarget.Label} on {targetTrack.Name}", EditScope.Structure);
                 host.OnAgentEdit(clientName, $"automated {automationTarget.Label} on {targetTrack.Name}");
-                return automatedClip.Automation?.GetValueOrDefault(targetKey) is { } writtenPoints
-                    ? $"{targetTrack.Name} · scene {sceneIndex}: {ClipAutomation.Describe(targetKey, writtenPoints)} ({automationTarget.Label})"
-                    : $"removed the {automationTarget.Label} envelope from {targetTrack.Name} · scene {sceneIndex}";
+                var envelopeResult = automatedClip.Automation?.GetValueOrDefault(targetKey) is { } writtenPoints
+                    ? $"set envelope on {clipLabel} (spans steps 0..{envelopeLength}): {ClipAutomation.Describe(targetKey, writtenPoints)} ({automationTarget.Label})"
+                    : $"removed the {automationTarget.Label} envelope from {clipLabel}";
+                return AppendWarnings(envelopeResult, envelopeWarnings);
+            }));
+
+        Register("remove_scene",
+            "Delete one SESSION scene and every track's clip slot in it; later scenes move up one index. Arrangement clips are copies and keep playing. " +
+            "The last remaining scene cannot be deleted. To delete several, call it from the highest index down, or use apply_patch removeScenes.",
+            Schema(new JsonObject { ["scene"] = Property("integer", "0-based scene index.") }, "scene"),
+            async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
+            {
+                var document = host.Document;
+                var sceneIndex = (int)(ReadDouble(toolArguments["scene"]) ?? throw new McpInvalidParamsException("scene is required"));
+                if (document.Project.Scenes.Count <= 1)
+                {
+                    throw new McpInvalidParamsException("the project has only one scene left; it cannot be deleted");
+                }
+                if (sceneIndex < 0 || sceneIndex >= document.Project.Scenes.Count)
+                {
+                    throw new McpInvalidParamsException($"there is no scene {sceneIndex}; scenes are 0..{document.Project.Scenes.Count - 1}");
+                }
+                if (document.Project.Tracks.FirstOrDefault(track => track.AiLocked && track.ClipAt(sceneIndex) is not null) is { } lockedTrack)
+                {
+                    throw new McpInvalidParamsException($"scene {sceneIndex} holds a clip of the LOCKED track \"{lockedTrack.Name}\"; it cannot be deleted");
+                }
+                var removedSceneName = document.Project.Scenes[sceneIndex];
+                document.BeginEdit($"{clientName}: delete scene");
+                SceneOperations.RemoveScene(document.Project, sceneIndex);
+                document.Project.AiProvenance = $"{clientName} via MCP";
+                document.CommitEdit($"{clientName} deleted the scene {removedSceneName}", EditScope.Structure);
+                host.OnAgentEdit(clientName, $"deleted the scene {removedSceneName}");
+                return $"removed scene {sceneIndex} (\"{removedSceneName}\"). Session scenes are now: " +
+                       string.Join(", ", document.Project.Scenes.Select((sceneName, remainingIndex) => $"{remainingIndex}=\"{sceneName}\""));
+            }));
+
+        Register("arrangement_place_clip",
+            "Place a clip in the ARRANGEMENT (the song): on a track, at a start, for a length, playing a pattern that loops to fill the length. " +
+            "Give the start as `start` (0-based step) or `bar` (1-based bar); the length as `length` (steps) or `bars` (default: one pattern). " +
+            "E.g. an 8-bar beat from bar 9: {\"track\": \"Kick\", \"bar\": 9, \"bars\": 8, \"pattern\": \"x . . . x . . . x . . . x . . .\"}. " +
+            "Returns the new clip's id and where it sits. Optional automation {\"<target>\": [[step, value], ...]} spans the whole clip (steps 0..length).",
+            Schema(new JsonObject
+            {
+                ["track"] = AnyProperty(TrackReferenceDescription),
+                ["start"] = Property("integer", "0-based start step (16 per bar). Use this or bar."),
+                ["bar"] = Property("number", "1-based bar to start at (bar 1 = step 0). Use this or start."),
+                ["length"] = Property("integer", "Length in steps. Use this or bars; default is the pattern's length."),
+                ["bars"] = Property("number", "Length in bars (16 steps each). Use this or length."),
+                ["pattern"] = AnyProperty("Space-separated steps (see get_catalog), or an array of steps. Loops to fill the length."),
+                ["name"] = Property("string", "Optional clip name."),
+                ["automation"] = Property("object", "Optional envelopes: {\"<target>\": [[step, value], ...]}, steps 0..length from the clip's start."),
+            }, "track", "pattern"),
+            async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
+            {
+                var document = host.Document;
+                var (_, targetTrack) = ResolveTrack(toolArguments["track"]);
+                RejectLocked(targetTrack);
+                var placedPattern = ReadPattern(toolArguments["pattern"]) ?? throw new McpInvalidParamsException("pattern is required, e.g. \"x . . . x . . .\"");
+                var startStep = ReadStartStep(toolArguments) ?? 0;
+                var lengthSteps = ReadLengthSteps(toolArguments) ?? placedPattern.Count;
+                ValidatePlacement(startStep, lengthSteps);
+                var placedClip = new TimelineClip
+                {
+                    TrackId = targetTrack.Id,
+                    StartStep = startStep,
+                    LengthSteps = lengthSteps,
+                    Clip = new SlawClip { Name = ReadString(toolArguments["name"]) ?? targetTrack.Name, Pattern = placedPattern },
+                };
+                var envelopeWarnings = new List<string>();
+                if (toolArguments["automation"] is JsonObject envelopes)
+                {
+                    ProjectPatchApplier.ApplyClipAutomation(targetTrack, placedClip.Clip, envelopes.DeepClone(), placedClip.LengthSteps, envelopeWarnings);
+                }
+                document.BeginEdit($"{clientName}: place clip");
+                document.Project.Timeline.Add(placedClip);
+                document.Project.AiProvenance = $"{clientName} via MCP";
+                document.CommitEdit($"{clientName} placed a clip on {targetTrack.Name}", EditScope.Structure);
+                host.OnAgentEdit(clientName, $"placed a clip on {targetTrack.Name} at bar {FreeTimeline.FormatPosition(startStep)}");
+                return AppendWarnings($"placed clip id \"{placedClip.Id}\" on \"{targetTrack.Name}\": {FreeTimeline.DescribeSpan(placedClip)}" +
+                    DescribeClipEnvelopes(placedClip.Clip), envelopeWarnings);
+            }));
+
+        Register("arrangement_edit_clip",
+            "Change an ARRANGEMENT clip by id: move it (`start` step or `bar`), resize it (`length` steps or `bars`), replace its pattern, rename it, " +
+            "or move it to another track. Only the given fields change; its envelopes stay (and still count from the clip's start).",
+            Schema(new JsonObject
+            {
+                ["clip"] = Property("string", "Arrangement clip id (from get_project or arrangement_place_clip)."),
+                ["start"] = Property("integer", "New 0-based start step."),
+                ["bar"] = Property("number", "New 1-based start bar."),
+                ["length"] = Property("integer", "New length in steps."),
+                ["bars"] = Property("number", "New length in bars."),
+                ["pattern"] = AnyProperty("New pattern (string or array of steps)."),
+                ["name"] = Property("string", "New clip name."),
+                ["track"] = AnyProperty("Move the clip to this track. " + TrackReferenceDescription),
+            }, "clip"),
+            async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
+            {
+                var document = host.Document;
+                var editedClip = ResolveArrangementClip(toolArguments["clip"]);
+                var owningTrack = document.Project.Tracks.First(track => track.Id == editedClip.TrackId);
+                RejectLocked(owningTrack);
+                var destinationTrack = toolArguments["track"] is null ? owningTrack : ResolveTrack(toolArguments["track"]).Track;
+                RejectLocked(destinationTrack);
+                var revisedStart = ReadStartStep(toolArguments) ?? editedClip.StartStep;
+                var revisedLength = ReadLengthSteps(toolArguments) ?? editedClip.LengthSteps;
+                ValidatePlacement(revisedStart, revisedLength);
+                var revisedPattern = toolArguments["pattern"] is null ? null : ReadPattern(toolArguments["pattern"]) ?? throw new McpInvalidParamsException("pattern must not be empty");
+                document.BeginEdit($"{clientName}: edit clip");
+                editedClip.StartStep = revisedStart;
+                editedClip.LengthSteps = revisedLength;
+                editedClip.TrackId = destinationTrack.Id;
+                if (revisedPattern is not null)
+                {
+                    editedClip.Clip.Pattern = revisedPattern;
+                }
+                editedClip.Clip.Name = ReadString(toolArguments["name"]) ?? editedClip.Clip.Name;
+                var envelopeWarnings = new List<string>();
+                if (editedClip.Clip.Automation is { Count: > 0 } envelopes && envelopes.Values.SelectMany(points => points).Any(point => point.Step > revisedLength))
+                {
+                    envelopeWarnings.Add($"envelope points past the new length ({revisedLength} steps) are kept but never reached; the value holds at the clip's end");
+                }
+                if (destinationTrack != owningTrack && editedClip.Clip.Automation is { Count: > 0 } movedEnvelopes)
+                {
+                    var droppedTargets = movedEnvelopes.Keys.Where(targetKey => ClipAutomation.ResolveTarget(destinationTrack, targetKey) is null).ToList();
+                    foreach (var droppedTarget in droppedTargets)
+                    {
+                        movedEnvelopes.Remove(droppedTarget);
+                    }
+                    if (droppedTargets.Count > 0)
+                    {
+                        envelopeWarnings.Add($"removed envelopes {string.Join(", ", droppedTargets)}: \"{destinationTrack.Name}\" has no such target");
+                    }
+                }
+                document.Project.AiProvenance = $"{clientName} via MCP";
+                document.CommitEdit($"{clientName} edited a clip on {destinationTrack.Name}", EditScope.Structure);
+                host.OnAgentEdit(clientName, $"edited a clip on {destinationTrack.Name}");
+                return AppendWarnings($"clip id \"{editedClip.Id}\" on \"{destinationTrack.Name}\" is now {FreeTimeline.DescribeSpan(editedClip)}" +
+                    DescribeClipEnvelopes(editedClip.Clip), envelopeWarnings);
+            }));
+
+        Register("arrangement_remove_clips",
+            "Remove ARRANGEMENT clips: by `clips` (array of ids) or `clip` (one id), or every clip on a `track` that starts within an optional bar range " +
+            "(`fromBar` inclusive, `toBar` exclusive, 1-based). Session clips are not touched.",
+            Schema(new JsonObject
+            {
+                ["clip"] = Property("string", "One arrangement clip id."),
+                ["clips"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["description"] = "Several arrangement clip ids." },
+                ["track"] = AnyProperty("Remove this track's arrangement clips (optionally only those starting in fromBar..toBar). " + TrackReferenceDescription),
+                ["fromBar"] = Property("number", "1-based bar; with track, only clips starting at or after it."),
+                ["toBar"] = Property("number", "1-based bar; with track, only clips starting before it."),
+            }),
+            async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
+            {
+                var document = host.Document;
+                var timeline = document.Project.Timeline;
+                List<TimelineClip> removedClips;
+                if (toolArguments["clip"] is not null || toolArguments["clips"] is JsonArray)
+                {
+                    var requestedIds = (toolArguments["clips"] as JsonArray)?.Select(ReadString).OfType<string>().ToList() ?? new List<string>();
+                    if (ReadString(toolArguments["clip"]) is { } singleId)
+                    {
+                        requestedIds.Add(singleId);
+                    }
+                    var unknownIds = requestedIds.Where(clipId => timeline.All(timelineClip => timelineClip.Id != clipId)).ToList();
+                    if (unknownIds.Count > 0)
+                    {
+                        throw new McpInvalidParamsException($"no arrangement clip with id {string.Join(", ", unknownIds.Select(clipId => $"\"{clipId}\""))}; see get_project for ids");
+                    }
+                    removedClips = timeline.Where(timelineClip => requestedIds.Contains(timelineClip.Id)).ToList();
+                }
+                else if (toolArguments["track"] is not null)
+                {
+                    var (_, targetTrack) = ResolveTrack(toolArguments["track"]);
+                    var fromStep = ReadDouble(toolArguments["fromBar"]) is { } fromBar ? (int)Math.Round((fromBar - 1) * FreeTimeline.StepsPerBar) : int.MinValue;
+                    var toStep = ReadDouble(toolArguments["toBar"]) is { } toBar ? (int)Math.Round((toBar - 1) * FreeTimeline.StepsPerBar) : int.MaxValue;
+                    removedClips = timeline.Where(timelineClip => timelineClip.TrackId == targetTrack.Id && timelineClip.StartStep >= fromStep && timelineClip.StartStep < toStep).ToList();
+                }
+                else
+                {
+                    throw new McpInvalidParamsException("pass clip, clips, or track (with optional fromBar/toBar)");
+                }
+                if (removedClips.Select(timelineClip => document.Project.Tracks.First(track => track.Id == timelineClip.TrackId)).FirstOrDefault(track => track.AiLocked) is { } lockedTrack)
+                {
+                    throw new McpInvalidParamsException($"\"{lockedTrack.Name}\" is LOCKED: the user protected it from AI edits");
+                }
+                if (removedClips.Count == 0)
+                {
+                    return "removed 0 arrangement clips: none matched";
+                }
+                var removalLines = removedClips.Select(timelineClip =>
+                    $"- id \"{timelineClip.Id}\" on \"{document.Project.Tracks.First(track => track.Id == timelineClip.TrackId).Name}\" {FreeTimeline.DescribeSpan(timelineClip)}").ToList();
+                document.BeginEdit($"{clientName}: remove clips");
+                timeline.RemoveAll(removedClips.Contains);
+                document.Project.AiProvenance = $"{clientName} via MCP";
+                document.CommitEdit($"{clientName} removed {removedClips.Count} arrangement clip(s)", EditScope.Structure);
+                host.OnAgentEdit(clientName, $"removed {removedClips.Count} arrangement clip(s)");
+                return $"removed {removedClips.Count} arrangement clip(s):\n{string.Join("\n", removalLines)}";
             }));
 
         Register("add_track",
@@ -277,7 +492,7 @@ internal sealed class SlawMcpToolset
                     document.Project.AiProvenance = $"{clientName} via MCP";
                     document.CommitEdit($"{clientName} added the track {pluginTrack.Name}", EditScope.Structure);
                     host.OnAgentEdit(clientName, $"added the track {pluginTrack.Name} ({instrumentPlugin.Name})");
-                    return $"added track id \"{pluginTrack.Id}\" \"{pluginTrack.Name}\" (vst3 \"{instrumentPlugin.Name}\"). Write clips with set_clip; see its knobs with describe_plugin.";
+                    return $"added track id \"{pluginTrack.Id}\" \"{pluginTrack.Name}\" (vst3 \"{instrumentPlugin.Name}\"). {NextStepsForNewTrack} See its knobs with describe_plugin.";
                 }
                 var samplePath = ReadString(toolArguments["sample"]);
                 if (samplePath is not null && !File.Exists(samplePath))
@@ -297,7 +512,7 @@ internal sealed class SlawMcpToolset
                 document.Project.AiProvenance = $"{clientName} via MCP";
                 document.CommitEdit($"{clientName} added the track {addedTrack.Name}", EditScope.Structure);
                 host.OnAgentEdit(clientName, $"added the track {addedTrack.Name}");
-                return $"added track id \"{addedTrack.Id}\" \"{addedTrack.Name}\" ({addedTrack.Instrument}). Write clips with set_clip.";
+                return $"added track id \"{addedTrack.Id}\" \"{addedTrack.Name}\" ({addedTrack.Instrument}). {NextStepsForNewTrack}";
             }));
 
         Register("update_track",
@@ -327,7 +542,7 @@ internal sealed class SlawMcpToolset
                 var changeSummary = ProjectChangeSummarizer.Summarize(document.Project, patchOutcome.Project);
                 document.ReplaceProject(patchOutcome.Project, $"{clientName}: update track", undoable: true);
                 host.OnAgentEdit(clientName, $"updated {targetTrack.Name}");
-                return string.Join("\n", changeSummary);
+                return AppendWarnings(string.Join("\n", changeSummary), patchOutcome.Warnings);
             }));
 
         Register("add_effect",
@@ -390,32 +605,36 @@ internal sealed class SlawMcpToolset
             });
 
         Register("transport",
-            "Control playback in the running studio: play_arrangement (the song, from a bar), play_scene (launch a session scene; while the arrangement plays, " +
-            "the scene's clips take their tracks over from the next bar), back_to_arrangement (return those tracks to the arrangement), or stop. Live studio only.",
+            "LIVE STUDIO ONLY (the headless server has no audio output; use render instead). Control playback: play_arrangement (the song, from a 1-based bar), " +
+            "play_scene (launch a session scene; while the arrangement plays, the scene's clips take their tracks over from the next bar), " +
+            "back_to_arrangement (return those tracks to the arrangement), or stop.",
             Schema(new JsonObject
             {
                 ["action"] = EnumProperty("What to do. play_timeline is an alias of play_arrangement.", "play_arrangement", "play_scene", "back_to_arrangement", "stop", "play_timeline"),
                 ["scene"] = Property("integer", "Scene index for play_scene."),
-                ["bar"] = Property("integer", "0-based bar to start play_arrangement from (default 0)."),
+                ["bar"] = Property("integer", "1-based bar to start play_arrangement from (default 1 = the start)."),
             }, "action"),
             async (toolArguments, _, _) =>
             {
                 if (!host.IsLive)
                 {
-                    throw new McpInvalidParamsException("transport needs the live studio; this is the headless server. Use render to hear the result as a WAV.");
+                    throw new McpInvalidParamsException("transport only works in the live studio (slaw studio --mcp); this is the headless server, which has no audio output. Use render to bounce the arrangement to a WAV.");
                 }
                 var transportAction = ReadString(toolArguments["action"]) ?? "stop";
                 var sceneIndex = (int)(ReadDouble(toolArguments["scene"]) ?? 0);
-                var startBar = (int)(ReadDouble(toolArguments["bar"]) ?? 0);
+                var startBar = Math.Max(1, (int)(ReadDouble(toolArguments["bar"]) ?? 1)) - 1;
                 return await host.InvokeAsync(() => host.ControlTransport(transportAction, sceneIndex, startBar));
             });
 
         Register("render",
-            "Bounce the arrangement (the song timeline) to a 16-bit WAV file and report its duration and peak level.",
+            "Bounce the ARRANGEMENT (the song) to a 16-bit stereo WAV and report its musical length, the release tail, and the peak level. " +
+            "A hearing-protection limiter caps peaks at -1 dBFS; the result says whether it engaged and by how much (a -1.0 dBFS peak is the ceiling, not headroom). " +
+            "With levels:true it also renders every track soloed and reports each one's RMS and peak (slower; finds tracks that are too quiet or too loud).",
             Schema(new JsonObject
             {
                 ["path"] = Property("string", "Output .wav path (default: next to the project, or a temp file)."),
-                ["source"] = EnumProperty("What to render: the arrangement (timeline is an alias).", "arrangement", "timeline"),
+                ["levels"] = Property("boolean", "Also report each track's level (renders each track soloed)."),
+                ["source"] = EnumProperty("Optional; the arrangement is always what is rendered (timeline is an alias).", "arrangement", "timeline"),
             }),
             async (toolArguments, _, cancellationToken) =>
             {
@@ -427,17 +646,56 @@ internal sealed class SlawMcpToolset
                 var outputPath = Path.GetFullPath(ReadString(toolArguments["path"]) ?? defaultOutputPath);
                 if (projectSnapshot.Timeline.Count == 0)
                 {
-                    throw new McpInvalidParamsException("the arrangement is empty; place clips with apply_patch {\"timeline\": [{\"track\": ..., \"start\": 0, \"length\": 64, \"pattern\": ...}]} first");
+                    throw new McpInvalidParamsException("the arrangement is empty, so there is nothing to render; place clips with arrangement_place_clip or apply_patch \"timeline\" first");
                 }
-                var renderedArrangement = await Task.Run(() =>
+                var (renderedArrangement, hearingProtection) = await Task.Run(() =>
                 {
-                    var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot);
+                    var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot, OfflineArrangementRenderer.DefaultSampleRate, out var protectionReport);
                     WaveFileMaterializer.Write(outputPath, arrangementBuffer);
-                    return arrangementBuffer;
+                    return (arrangementBuffer, protectionReport);
                 }, cancellationToken);
-                var peakDecibels = 20 * Math.Log10(Math.Max(1e-6, renderedArrangement.PeakAmplitude()));
-                return FormattableString.Invariant(
-                    $"rendered {renderedArrangement.DurationSeconds:0.0} s to {outputPath} (peak {peakDecibels:0.0} dBFS, 44.1 kHz stereo). Radio-ready deliverable shipped to production.");
+                var arrangementSteps = FreeTimeline.LengthInSteps(projectSnapshot);
+                var musicalSeconds = arrangementSteps * projectSnapshot.StepDurationSeconds;
+                var peakDecibels = AmplitudeToDecibels(renderedArrangement.PeakAmplitude());
+                var renderReport = new StringBuilder();
+                renderReport.Append(CultureInfo.InvariantCulture,
+                    $"rendered {outputPath}: {arrangementSteps / (double)FreeTimeline.StepsPerBar:0.##} bars at {projectSnapshot.Bpm:0} BPM = {musicalSeconds:0.0} s of music ");
+                renderReport.Append(CultureInfo.InvariantCulture,
+                    $"+ {renderedArrangement.DurationSeconds - musicalSeconds:0.0} s release tail = {renderedArrangement.DurationSeconds:0.0} s, 44.1 kHz 16-bit stereo. ");
+                renderReport.Append(CultureInfo.InvariantCulture,
+                    $"Peak {peakDecibels:0.0} dBFS, RMS {AmplitudeToDecibels(RootMeanSquare(renderedArrangement)):0.0} dBFS. ");
+                // A peak of -1.0 is the ceiling, not headroom: say how much it took to get there.
+                if (hearingProtection.Engaged)
+                {
+                    renderReport.Append(CultureInfo.InvariantCulture,
+                        $"Hearing protection engaged: the limiter pulled {hearingProtection.LimitedFrames} frames ({hearingProtection.LimitedFrames * 1000.0 / OfflineArrangementRenderer.DefaultSampleRate:0} ms) down by up to {-hearingProtection.DeepestLimiterReductionDecibels:0.0} dB");
+                    if (hearingProtection.NormalizationDecibels < -0.01)
+                    {
+                        renderReport.Append(CultureInfo.InvariantCulture, $", then the whole render was scaled down {-hearingProtection.NormalizationDecibels:0.0} dB");
+                    }
+                    renderReport.Append(". The mix is louder than the -1 dBFS ceiling; lower track or master gain for clean peaks.");
+                }
+                else
+                {
+                    renderReport.Append("Hearing protection did not engage (no peak reached the -1 dBFS ceiling).");
+                }
+                if (toolArguments["levels"] is JsonValue levelsValue && levelsValue.TryGetValue<bool>(out var levelsRequested) && levelsRequested)
+                {
+                    var trackLevels = await Task.Run(() => OfflineArrangementRenderer.RenderStems(projectSnapshot, stemProject => OfflineArrangementRenderer.Render(stemProject))
+                        .Select(stem => (stem.Track.Name, Rms: AmplitudeToDecibels(RootMeanSquare(stem.Stem)), Peak: AmplitudeToDecibels(stem.Stem.PeakAmplitude())))
+                        .ToList(), cancellationToken);
+                    renderReport.Append("\ntrack levels (each track soloed through the master bus, RMS over the whole render, loudest first):");
+                    foreach (var (trackName, trackRms, trackPeak) in trackLevels.OrderByDescending(level => level.Rms))
+                    {
+                        renderReport.Append(CultureInfo.InvariantCulture, $"\n- \"{trackName}\": RMS {trackRms:0.0} dBFS, peak {trackPeak:0.0} dBFS");
+                    }
+                    var silentTracks = projectSnapshot.Tracks.Select(track => track.Name).Except(trackLevels.Select(level => level.Name)).ToList();
+                    if (silentTracks.Count > 0)
+                    {
+                        renderReport.Append($"\n- not playing in the arrangement: {string.Join(", ", silentTracks.Select(trackName => $"\"{trackName}\""))}");
+                    }
+                }
+                return renderReport.ToString();
             });
 
         Register("save_project",
@@ -645,7 +903,7 @@ internal sealed class SlawMcpToolset
         }
     }
 
-    private static string DescribeOutcome(IReadOnlyList<string> changeSummary, IReadOnlyList<string> remediationLedger, int lockEnforcementCount)
+    private static string DescribeOutcome(IReadOnlyList<string> changeSummary, IReadOnlyList<string> remediationLedger, int lockEnforcementCount, IReadOnlyList<string> warnings)
     {
         var outcomeDescription = new StringBuilder();
         outcomeDescription.AppendLine("applied:");
@@ -661,8 +919,176 @@ internal sealed class SlawMcpToolset
         {
             outcomeDescription.AppendLine($"ignored edits to {lockEnforcementCount} LOCKED track(s)");
         }
-        return outcomeDescription.ToString().TrimEnd();
+        return AppendWarnings(outcomeDescription.ToString().TrimEnd(), warnings);
     }
+
+    /// <summary>
+    /// Only what this call caused: conditions the project already had (an empty sampler
+    /// waiting for its sample, say) are not news on every call.
+    /// </summary>
+    private static List<string> NewRemediations(SlawProject previousProject, IReadOnlyList<string> remediationLedger)
+    {
+        var standingConditions = ProjectAlignmentRemediator.Remediate(previousProject.DeepClone()).ToHashSet();
+        return remediationLedger.Where(remediation => !standingConditions.Contains(remediation)).ToList();
+    }
+
+    private static string AppendWarnings(string result, IReadOnlyCollection<string> warnings) =>
+        warnings.Count == 0 ? result : $"{result}\nwarnings:\n{string.Join("\n", warnings.Select(warning => $"- {warning}"))}";
+
+    private const string NextStepsForNewTrack =
+        "Place it in the arrangement (the song) with arrangement_place_clip; session clips go in with set_clip.";
+
+    private static double AmplitudeToDecibels(double amplitude) => 20 * Math.Log10(Math.Max(1e-6, amplitude));
+
+    private static double RootMeanSquare(StereoBuffer renderedBuffer)
+    {
+        double energy = 0;
+        for (var frameIndex = 0; frameIndex < renderedBuffer.SampleFrameCount; frameIndex++)
+        {
+            energy += renderedBuffer.Left[frameIndex] * renderedBuffer.Left[frameIndex] + renderedBuffer.Right[frameIndex] * renderedBuffer.Right[frameIndex];
+        }
+        return Math.Sqrt(energy / Math.Max(1, 2 * renderedBuffer.SampleFrameCount));
+    }
+
+    private static string DescribeClipEnvelopes(SlawClip clip) =>
+        clip.Automation is { Count: > 0 } envelopes
+            ? "; envelopes: " + string.Join("; ", envelopes.Select(envelope => ClipAutomation.Describe(envelope.Key, envelope.Value)))
+            : string.Empty;
+
+    private static List<string>? ReadPattern(JsonNode? patternNode)
+    {
+        var steps = patternNode switch
+        {
+            JsonArray stepArray => stepArray.Select(stepNode => ReadString(stepNode) ?? NotationResolver.RestSymbol).ToList(),
+            JsonValue => CompactPatternJsonConverter.SplitStepString(ReadString(patternNode)),
+            _ => null,
+        };
+        return steps is { Count: > 0 } ? steps : null;
+    }
+
+    /// <summary>`start` (0-based step) or `bar` (1-based); null when neither is given.</summary>
+    private static int? ReadStartStep(JsonObject toolArguments)
+    {
+        if (ReadDouble(toolArguments["start"]) is { } startStep)
+        {
+            return (int)Math.Round(startStep);
+        }
+        return ReadDouble(toolArguments["bar"]) is { } startBar
+            ? (int)Math.Round((startBar - 1) * FreeTimeline.StepsPerBar)
+            : null;
+    }
+
+    /// <summary>`length` (steps) or `bars`; null when neither is given.</summary>
+    private static int? ReadLengthSteps(JsonObject toolArguments)
+    {
+        if (ReadDouble(toolArguments["length"]) is { } lengthSteps)
+        {
+            return (int)Math.Round(lengthSteps);
+        }
+        return ReadDouble(toolArguments["bars"]) is { } lengthBars
+            ? (int)Math.Round(lengthBars * FreeTimeline.StepsPerBar)
+            : null;
+    }
+
+    private static void ValidatePlacement(int startStep, int lengthSteps)
+    {
+        if (startStep < 0 || startStep > FreeTimeline.MaximumStep)
+        {
+            throw new McpInvalidParamsException($"start must be a step between 0 and {FreeTimeline.MaximumStep} (bar 1 = step 0); got {startStep}");
+        }
+        if (lengthSteps < 1 || lengthSteps > FreeTimeline.MaximumClipLength)
+        {
+            throw new McpInvalidParamsException($"length must be between 1 and {FreeTimeline.MaximumClipLength} steps (16 per bar); got {lengthSteps}");
+        }
+    }
+
+    private TimelineClip ResolveArrangementClip(JsonNode? clipReference)
+    {
+        var clipId = ReadString(clipReference) ?? throw new McpInvalidParamsException("clip (an arrangement clip id) is required");
+        return host.Document.Project.Timeline.FirstOrDefault(timelineClip => timelineClip.Id == clipId)
+            ?? throw new McpInvalidParamsException($"no arrangement clip with id \"{clipId}\"; get_project lists every clip id");
+    }
+
+    /// <summary>The clip an envelope tool addresses: an arrangement clip by id, or a session clip by track + scene.</summary>
+    private (SlawTrack Track, SlawClip Clip, int EnvelopeLength, string Label) ResolveAutomatedClip(JsonObject toolArguments)
+    {
+        if (toolArguments["clip"] is not null)
+        {
+            var arrangementClip = ResolveArrangementClip(toolArguments["clip"]);
+            var owningTrack = host.Document.Project.Tracks.First(track => track.Id == arrangementClip.TrackId);
+            return (owningTrack, arrangementClip.Clip, arrangementClip.LengthSteps,
+                $"arrangement clip id \"{arrangementClip.Id}\" on \"{owningTrack.Name}\" (bars {FreeTimeline.FormatPosition(arrangementClip.StartStep)}–{FreeTimeline.FormatPosition(arrangementClip.EndStep)})");
+        }
+        var (_, sessionTrack) = ResolveTrack(toolArguments["track"]);
+        var sceneIndex = (int)(ReadDouble(toolArguments["scene"]) ?? throw new McpInvalidParamsException("pass clip (an arrangement clip id), or track + scene for a session clip"));
+        var sessionClip = sessionTrack.ClipAt(sceneIndex)
+            ?? throw new McpInvalidParamsException($"{sessionTrack.Name} has no session clip in scene {sceneIndex}; write one with set_clip, or pass clip for an arrangement clip");
+        return (sessionTrack, sessionClip, sessionClip.Pattern.Count, $"session clip {sessionTrack.Name} · scene {sceneIndex}");
+    }
+
+    private static JsonObject ArrayOf(JsonObject itemSchema, string description) => new()
+    {
+        ["type"] = "array",
+        ["description"] = description,
+        ["items"] = itemSchema,
+    };
+
+    private static JsonObject ObjectOf(JsonObject properties, string description) => new()
+    {
+        ["type"] = "object",
+        ["description"] = description,
+        ["properties"] = properties,
+    };
+
+    /// <summary>apply_patch's patch, typed, so agents see every key without reading the description twice.</summary>
+    private static JsonObject PatchSchema() => ObjectOf(new JsonObject
+    {
+        ["bpm"] = Property("number", "Tempo, 40..300."),
+        ["name"] = Property("string", "Project name."),
+        ["summary"] = Property("string", "Optional one-line description of the change, shown to the user."),
+        ["scenes"] = ArrayOf(new JsonObject { ["type"] = "string" }, "Renames session scenes in order (never deletes)."),
+        ["removeScenes"] = ArrayOf(new JsonObject { ["type"] = "integer" }, "0-based session scene indices to delete."),
+        ["tracks"] = ArrayOf(ObjectOf(new JsonObject
+        {
+            ["id"] = Property("string", "Existing track id, or \"new\" to add a track."),
+            ["name"] = Property("string", "Track name; arrangement clips in the same patch may refer to it."),
+            ["instrument"] = Property("string", "kick, snare, hat, clap, sine, square, saw, triangle, pluck, noise, sampler or vst3 (see get_catalog)."),
+            ["plugin"] = AnyProperty("VST3 instrument: its name or {path, classId} from list_plugins."),
+            ["sample"] = Property("string", "WAV path for sampler tracks."),
+            ["gain"] = Property("number", "0..1.5."),
+            ["pan"] = Property("number", "-1..1."),
+            ["muted"] = Property("boolean", "Mute."),
+            ["solo"] = Property("boolean", "Solo."),
+            ["instrumentParameters"] = Property("object", "Parameter key → number (see get_catalog; p<id> → 0..1 for vst3)."),
+            ["effects"] = ArrayOf(ObjectOf(new JsonObject
+            {
+                ["type"] = Property("string", "Effect type from get_catalog, or vst3."),
+                ["enabled"] = Property("boolean", "Default true."),
+                ["parameters"] = Property("object", "Parameter key → number."),
+                ["plugin"] = AnyProperty("VST3 effect: name or {path, classId}."),
+            }, "One effect."), "Replaces the whole effect chain, in order (effect index 0 first)."),
+            ["clips"] = Property("object", "SESSION clips: {\"<sceneIndex>\": pattern string, or null to clear}."),
+            ["automation"] = Property("object", "SESSION clip envelopes: {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}}."),
+            ["remove"] = Property("boolean", "true deletes the track."),
+        }, "One track."), "Tracks to add, change or remove."),
+        ["timeline"] = ArrayOf(ObjectOf(new JsonObject
+        {
+            ["id"] = Property("string", "Existing arrangement clip id, or \"new\"."),
+            ["track"] = Property("string", "Track id, name or index."),
+            ["start"] = Property("integer", "0-based start step (16 per bar; bar N starts at (N-1)*16)."),
+            ["length"] = Property("integer", "Length in steps; the pattern loops to fill it. Default: the pattern's length."),
+            ["pattern"] = Property("string", "Space-separated steps (required for new clips)."),
+            ["name"] = Property("string", "Clip name."),
+            ["automation"] = Property("object", "{\"<target>\": [[step, value], ...]} with steps 0..length from the clip's start."),
+            ["remove"] = Property("boolean", "true deletes the clip."),
+        }, "One arrangement clip."), "ARRANGEMENT (song) clips to place, change or remove."),
+        ["arrangement"] = ArrayOf(ObjectOf(new JsonObject
+        {
+            ["scene"] = Property("integer", "0-based session scene."),
+            ["repeats"] = Property("integer", "How many times."),
+        }, "One section."), "Legacy: REPLACES the whole arrangement with these session scenes end to end."),
+        ["master"] = Property("object", "{gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix}."),
+    }, "The patch: only the keys you want to change.");
 
     private static string? ReadString(JsonNode? node) => node is JsonValue jsonValue
         ? jsonValue.TryGetValue<string>(out var stringValue) ? stringValue : jsonValue.ToJsonString().Trim('"')
