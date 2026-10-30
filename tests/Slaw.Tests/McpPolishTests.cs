@@ -52,7 +52,10 @@ public class McpPolishTests
 
         var (placed, _) = await CallToolAsync(dispatcher, "arrangement_place_clip", new JsonObject
         {
-            ["track"] = "Thought Leader Chords", ["bar"] = 1, ["bars"] = 2, ["pattern"] = "A3+C4+E4@0.7 . . . . . . . . . . . . . . .",
+            ["track"] = "Thought Leader Chords",
+            ["bar"] = 1,
+            ["bars"] = 2,
+            ["pattern"] = "A3+C4+E4@0.7 . . . . . . . . . . . . . . .",
         });
         Assert.Contains("for the whole chord write \"A3@0.7+C4@0.7+E4@0.7\"", placed);
 
@@ -65,7 +68,11 @@ public class McpPolishTests
             {
                 ["timeline"] = new JsonArray(new JsonObject
                 {
-                    ["id"] = "new", ["track"] = "Bottom-Line Bass", ["start"] = 64, ["length"] = 128, ["pattern"] = "A1+E2@0.6 . . .",
+                    ["id"] = "new",
+                    ["track"] = "Bottom-Line Bass",
+                    ["start"] = 64,
+                    ["length"] = 128,
+                    ["pattern"] = "A1+E2@0.6 . . .",
                     ["automation"] = new JsonObject { ["fx.0.cutoff"] = JsonNode.Parse("[[0, 700], [128, 6000]]") },
                 }),
             },
@@ -117,7 +124,8 @@ public class McpPolishTests
         {
             ["patch"] = new JsonObject
             {
-                ["reset"] = true, ["bpm"] = 100,
+                ["reset"] = true,
+                ["bpm"] = 100,
                 ["tracks"] = new JsonArray(new JsonObject { ["id"] = "new", ["name"] = "Kick", ["instrument"] = "kick" }),
                 ["timeline"] = new JsonArray(new JsonObject { ["id"] = "new", ["track"] = "Kick", ["start"] = 0, ["length"] = 64, ["pattern"] = "x . . . x . . . x . . . x . . ." }),
             },
@@ -157,7 +165,9 @@ public class McpPolishTests
         {
             await CallToolAsync(dispatcher, "arrangement_place_clip", new JsonObject
             {
-                ["track"] = track.Name, ["bar"] = 1, ["bars"] = 8,
+                ["track"] = track.Name,
+                ["bar"] = 1,
+                ["bars"] = 8,
                 ["pattern"] = InstrumentVoiceSynthesizer.IsPercussive(track.Instrument) ? "x . . . x . . . x . . . x . . ." : "A2:4 . . . C3:4 . . . E3:4 . . . A2:4 . . .",
             });
         }
@@ -211,7 +221,9 @@ public class McpPolishTests
             var project = ProjectSerializer.CreateBlankProject("fallback", 120);
             var drone = new SlawTrack
             {
-                Name = "Drone", Instrument = "saw", Gain = 1,
+                Name = "Drone",
+                Instrument = "saw",
+                Gain = 1,
                 InstrumentParameters = new Dictionary<string, double> { ["sustain"] = 1, ["release"] = 5 },
                 Effects = new List<EffectDevice> { new() { Type = "lowpass", Parameters = { ["cutoff"] = 400, ["resonance"] = 0.2 } } },
             };
