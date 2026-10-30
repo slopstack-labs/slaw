@@ -117,26 +117,28 @@ internal sealed partial class DetailView
     /// </summary>
     private Control ComposePluginParameterPanel(PluginReference pluginReference, Func<Dictionary<string, double>> parameterTable, string addressPrefix, string slotKey)
     {
-        var panel = new StackPanel { Spacing = 4, Width = 6 * 68 };
+        var panel = new PluginParameterPanel();
         if (PluginInstancePool.Live?.LoadProblem(slotKey) is { } loadProblem)
         {
-            panel.Children.Add(WrappedPluginCaption($"⚠ {loadProblem}", StudioTheme.Failure));
+            panel.AddHeader(WrappedPluginCaption($"⚠ {loadProblem}", StudioTheme.Failure));
         }
         var pluginParameters = Vst3ParameterDirectory.TryGet(pluginReference);
         if (pluginParameters is null)
         {
             if (Vst3ParameterDirectory.ProbeProblem(pluginReference) is { } probeProblem)
             {
-                panel.Children.Add(WrappedPluginCaption($"⚠ could not load {pluginReference.Name}: {probeProblem}", StudioTheme.Failure));
+                panel.AddHeader(WrappedPluginCaption($"⚠ could not load {pluginReference.Name}: {probeProblem}", StudioTheme.Failure));
                 return panel;
             }
-            panel.Children.Add(StudioUi.Caption("asking the plugin about its knobs…", 10));
+            panel.AddHeader(StudioUi.Caption("asking the plugin about its knobs…", 10));
             _ = Vst3ParameterDirectory.GetAsync(pluginReference).ContinueWith(_ => Dispatcher.UIThread.Post(Rebuild), TaskScheduler.Default);
             return panel;
         }
 
         var userFacingParameters = pluginParameters.Where(parameter => parameter.IsUserFacing).ToList();
-        var knobGrid = new WrapPanel { Orientation = Orientation.Vertical, MaxHeight = 140 };
+        // Rows of knobs that wrap at the panel's width and scroll vertically: a column-first wrap
+        // with a height cap grew sideways and drew its knobs underneath the next device.
+        var knobGrid = new WrapPanel { Orientation = Orientation.Horizontal };
         void ShowMatchingKnobs(string filterText)
         {
             knobGrid.Children.Clear();
@@ -156,7 +158,7 @@ internal sealed partial class DetailView
 
         if (userFacingParameters.Count == 0)
         {
-            panel.Children.Add(StudioUi.Caption($"{pluginReference.Name} exposes no automatable knobs", 10));
+            panel.AddHeader(StudioUi.Caption($"{pluginReference.Name} exposes no automatable knobs", 10));
             return panel;
         }
         if (userFacingParameters.Count > MaximumVisiblePluginKnobs)
@@ -172,11 +174,46 @@ internal sealed partial class DetailView
                 pluginParameterFilters[addressPrefix] = filterBox.Text ?? string.Empty;
                 ShowMatchingKnobs(filterBox.Text ?? string.Empty);
             };
-            panel.Children.Add(filterBox);
+            filterBox.Margin = new Thickness(0, 0, 0, 4);
+            panel.AddHeader(filterBox);
         }
         ShowMatchingKnobs(pluginParameterFilters.GetValueOrDefault(addressPrefix, string.Empty));
-        panel.Children.Add(knobGrid);
+        panel.SetKnobArea(new ScrollViewer
+        {
+            Content = knobGrid,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        });
         return panel;
+    }
+
+    /// <summary>
+    /// A plugin's knob area: captions and the filter box on top, the knobs filling the rest
+    /// of the device card's height. <see cref="ComposeDevicePanel"/> gives it the whole card
+    /// instead of the capped wrap it uses for built-in knobs.
+    /// </summary>
+    private sealed class PluginParameterPanel : DockPanel
+    {
+        /// <summary>Six 64 px knobs with their 2 px margins, plus room for the scroll bar.</summary>
+        private const double PanelWidth = PluginKnobsPerRow * 68 + 14;
+        private const int PluginKnobsPerRow = 6;
+
+        public PluginParameterPanel()
+        {
+            Width = PanelWidth;
+            LastChildFill = true;
+            ClipToBounds = true;
+        }
+
+        /// <summary>A caption or the filter box, stacked at the top in the order added.</summary>
+        public void AddHeader(Control headerControl)
+        {
+            SetDock(headerControl, Dock.Top);
+            Children.Add(headerControl);
+        }
+
+        /// <summary>The knob scroller: added last, it fills the rest of the card.</summary>
+        public void SetKnobArea(Control knobArea) => Children.Add(knobArea);
     }
 
     private static TextBlock WrappedPluginCaption(string captionText, IBrush foreground)

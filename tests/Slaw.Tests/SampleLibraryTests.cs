@@ -80,4 +80,32 @@ public class SampleLibraryTests : IDisposable
         File.WriteAllText(fake, "definitely not a RIFF header, just vibes");
         Assert.Throws<InvalidDataException>(() => SampleLibrary.Load(fake));
     }
+
+    [Fact]
+    public void Samples_are_grouped_by_folder_relative_to_the_most_specific_sample_folder()
+    {
+        var packFolder = Path.Combine(scratchDirectory, "909 Pack");
+        var customFolder = Path.Combine(scratchDirectory, "custom");
+        foreach (var folder in new[] { Path.Combine(packFolder, "clean"), Path.Combine(packFolder, "cassette 1"), customFolder })
+        {
+            Directory.CreateDirectory(folder);
+        }
+        var cleanKick = Path.Combine(packFolder, "clean", "bd01.wav");
+        var cassetteKick = Path.Combine(packFolder, "cassette 1", "bd01.wav");
+        var cleanClap = Path.Combine(packFolder, "clean", "cp01.wav");
+        var customTom = Path.Combine(customFolder, "tom.wav");
+        foreach (var path in new[] { cleanKick, cassetteKick, cleanClap, customTom })
+        {
+            WriteWave(Path.GetRelativePath(scratchDirectory, path), 1, 1, 44100, 16, new byte[2]);
+        }
+
+        // The parent and a folder inside it are both registered: "custom" wins for its own files.
+        var registeredFolders = new[] { scratchDirectory, packFolder, customFolder };
+        var groups = SampleLibrary.GroupByFolder(SampleLibrary.Scan(registeredFolders), registeredFolders);
+
+        Assert.Equal(new[] { "909 Pack / cassette 1", "909 Pack / clean", "custom" }, groups.Select(group => group.Label));
+        Assert.Equal(new[] { cassetteKick }, groups[0].SamplePaths);
+        Assert.Equal(new[] { cleanKick, cleanClap }, groups[1].SamplePaths);
+        Assert.Equal(new[] { customTom }, groups[2].SamplePaths);
+    }
 }

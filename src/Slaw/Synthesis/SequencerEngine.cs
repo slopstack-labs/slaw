@@ -68,6 +68,9 @@ internal sealed class SequencerEngine
     private readonly Dictionary<string, float[]> renderedVoiceCache = new();
     private readonly Random noiseEntropySource;
     private readonly Random humanizationEntropySource;
+    // Timing humanize draws from its own seeded source, and only for tracks with timing above 0,
+    // so the gain humanize sequence (and every existing render) is untouched.
+    private readonly Random grooveTimingEntropySource;
     private readonly MasterBusProcessor masterBusProcessor;
     // Each track renders into a stereo pair. While a track is still mono (built-in voices
     // through mono-keeping effects) only the left buffer is used; see EffectProcessor.
@@ -111,6 +114,7 @@ internal sealed class SequencerEngine
         this.sampleRate = sampleRate;
         noiseEntropySource = new Random(noiseSeed);
         humanizationEntropySource = new Random(noiseSeed ^ 0x2A);
+        grooveTimingEntropySource = new Random(noiseSeed ^ 0x7E1A);
         masterBusProcessor = new MasterBusProcessor(sampleRate);
         pluginPool = new PluginInstancePool(sampleRate, offlinePluginHosting);
     }
@@ -297,7 +301,8 @@ internal sealed class SequencerEngine
             auditionedTrack.InstrumentParameters,
             samplerSource,
             auditionedTrack.SampleEditing,
-            soundFontPreset: auditionedSoundFont);
+            soundFontPreset: auditionedSoundFont,
+            noteVelocity: Math.Max(0.05, velocity));
         if (renderedVoice.Length == 0)
         {
             return;
@@ -478,6 +483,7 @@ internal sealed class SequencerEngine
             {
                 pluginPool.Current(PluginInstancePool.InstrumentSlot(trackIdentifier))?.AllNotesOff();
                 Array.Clear(runtimeState.PluginNoteCountdowns);
+                runtimeState.PendingPluginStrikeCount = 0;
             }
             runtimeState.PlayingScene = null;
             runtimeState.QueuedScene = null;
@@ -493,10 +499,10 @@ internal sealed class SequencerEngine
 
     private void AdvanceStep(SlawProject project)
     {
-        AdvancePluginNoteCountdowns();
         if (transportMode == TransportMode.Session)
         {
             sessionStep++;
+            AdvancePluginNoteCountdowns(sessionStep);
             var launchBoundaryReached = sessionStep % LaunchQuantizationSteps == 0;
             foreach (var track in project.Tracks)
             {
@@ -519,7 +525,7 @@ internal sealed class SequencerEngine
                 runtimeState.CurrentClipStep = clipStep;
                 runtimeState.EnvelopeStep = clipStep;
                 runtimeState.PlayingClip = playingClip;
-                TriggerStep(project, track, runtimeState, playingClip, clipStep, clipStep, playingClip.Pattern.Count);
+                TriggerStep(project, track, runtimeState, playingClip, clipStep, clipStep, playingClip.Pattern.Count, sessionStep);
             }
         }
         else if (transportMode == TransportMode.Timeline && !AdvanceTimelineStep(project))
@@ -529,9 +535,14 @@ internal sealed class SequencerEngine
         PublishTransport();
     }
 
-    /// <summary>Plugin instruments hear about note ends as events: one step closer for every held note, note-off at zero.</summary>
-    private void AdvancePluginNoteCountdowns()
+    /// <summary>
+    /// Plugin instruments hear about note ends as events: one step closer for every held note, note-off at zero.
+    /// A note that ends on a swung step (<paramref name="gridStep"/> odd) ends where that step really starts,
+    /// the swing delay into it, so legato lines stay legato under swing.
+    /// </summary>
+    private void AdvancePluginNoteCountdowns(long gridStep)
     {
+        var swungStep = GrooveTiming.IsSwungStep(gridStep);
         foreach (var (trackIdentifier, runtimeState) in trackRuntimeStates)
         {
             if (!runtimeState.HostsPluginInstrument)
@@ -539,11 +550,17 @@ internal sealed class SequencerEngine
                 continue;
             }
             Vst3PluginInstance? pluginInstrument = null;
+            var noteOffDelayFrames = swungStep ? runtimeState.PluginSwingDelayFrames : 0;
             var countdowns = runtimeState.PluginNoteCountdowns;
             for (var midiNote = 0; midiNote < countdowns.Length; midiNote++)
             {
                 if (countdowns[midiNote] > 0 && --countdowns[midiNote] == 0)
                 {
+                    if (noteOffDelayFrames > 0)
+                    {
+                        runtimeState.QueuePluginEvent(noteOffDelayFrames, midiNote, 0, noteOff: true);
+                        continue;
+                    }
                     pluginInstrument ??= pluginPool.Current(PluginInstancePool.InstrumentSlot(trackIdentifier));
                     pluginInstrument?.NoteOff(midiNote);
                 }
@@ -551,17 +568,100 @@ internal sealed class SequencerEngine
         }
     }
 
-    private void TriggerPluginStep(SlawTrack track, TrackRuntimeState runtimeState, SlawClip clip, int clipStep, float humanizedGain)
+    /// <summary>
+    /// Sends a step's notes to a plugin instrument. A strike at offset 0 goes out now; later ones (a ratchet's
+    /// re-strikes, a swung step, timing humanize) are queued as note-ons at their sample offsets (each
+    /// re-strike ends the previous one at the same offset). The note-off still comes when the note's length
+    /// runs out; a queued note-on is never pushed past it, so no note can hang.
+    /// </summary>
+    private void TriggerPluginStep(SlawTrack track, TrackRuntimeState runtimeState, SlawClip clip, int clipStep, float humanizedGain, int strikeCount, double stepFrameCount, StepGroove stepGroove)
     {
         runtimeState.HostsPluginInstrument = true;
+        runtimeState.PluginSwingDelayFrames = (int)Math.Round(stepGroove.SwingDelaySteps * stepFrameCount);
         if (pluginPool.TryGet(PluginInstancePool.InstrumentSlot(track.Id), track.Plugin) is not { } pluginInstrument)
         {
             return;
         }
-        foreach (var placedNote in ClipNoteEditor.NotesStartingAt(clip.Pattern, clipStep))
+        var placedNotes = ClipNoteEditor.NotesStartingAt(clip.Pattern, clipStep);
+        var latestOnsetFrames = int.MaxValue;
+        foreach (var placedNote in placedNotes)
         {
-            pluginInstrument.NoteOn(placedNote.MidiNote, PluginNoteVelocity * humanizedGain);
             runtimeState.PluginNoteCountdowns[Math.Clamp(placedNote.MidiNote, 0, 127)] = Math.Max(1, placedNote.Length);
+            // The countdown sends the note-off at the (swung) start of the step after the note; stay a little before it.
+            latestOnsetFrames = Math.Min(latestOnsetFrames, (int)(stepGroove.NoteEndSteps(Math.Max(1, placedNote.Length)) * stepFrameCount) - 2);
+        }
+        for (var strikeIndex = 0; strikeIndex < strikeCount; strikeIndex++)
+        {
+            var strikeOffsetFrames = Math.Min(stepGroove.StrikeOffsetFrames(strikeIndex, strikeCount, stepFrameCount), Math.Max(0, latestOnsetFrames));
+            foreach (var placedNote in placedNotes)
+            {
+                if (strikeOffsetFrames == 0)
+                {
+                    runtimeState.ForgetPendingNoteOffs(placedNote.MidiNote, 0);
+                    pluginInstrument.NoteOn(placedNote.MidiNote, PluginNoteVelocity * humanizedGain);
+                }
+                else
+                {
+                    runtimeState.QueuePluginEvent(strikeOffsetFrames, placedNote.MidiNote, PluginNoteVelocity * humanizedGain);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Where strike <paramref name="strikeIndex"/> of a ratchet starts, in frames from the start of its step:
+    /// the step split into <paramref name="strikeCount"/> equal parts, rounded to the nearest frame.
+    /// </summary>
+    internal static int StrikeOffsetFrames(int strikeIndex, int strikeCount, double stepFrameCount) =>
+        (int)Math.Round(strikeIndex * stepFrameCount / strikeCount);
+
+    /// <summary>
+    /// How one triggered step sits against the straight grid: swing and timing humanize. Positions are
+    /// measured in steps (or frames) from the straight start of the step. Straight and without timing it
+    /// reproduces the pre-swing arithmetic exactly, so existing projects render the same bytes.
+    /// </summary>
+    /// <param name="SwingDelaySteps">How late an odd step starts, in steps (0 = straight).</param>
+    /// <param name="GridStep">The step on the song's grid (the arrangement's step, or the session clock).</param>
+    /// <param name="TimingDelayFrames">This step's random timing-humanize delay, in frames.</param>
+    internal readonly record struct StepGroove(double SwingDelaySteps, long GridStep, int TimingDelayFrames)
+    {
+        public bool Straight => SwingDelaySteps == 0;
+
+        /// <summary>Where the grid step <paramref name="stepsAhead"/> after this one really starts, in steps from this step's straight start.</summary>
+        private double SwungStart(int stepsAhead) =>
+            stepsAhead + (GrooveTiming.IsSwungStep(GridStep + stepsAhead) ? SwingDelaySteps : 0);
+
+        /// <summary>Where this step really starts: 0, or the swing delay on an odd step.</summary>
+        public double StartSteps => Straight ? 0 : SwungStart(0);
+
+        /// <summary>How long this step really lasts: 1 - delay on an odd step, 1 + delay on the even step before one.</summary>
+        public double SpanSteps => Straight ? 1 : SwungStart(1) - SwungStart(0);
+
+        /// <summary>Where a note held for <paramref name="heldStepCount"/> steps ends: the (swung) start of the step after it.</summary>
+        public double NoteEndSteps(int heldStepCount) => Straight ? heldStepCount : SwungStart(heldStepCount);
+
+        /// <summary>Where a ratchet strike starts, in steps: evenly spaced across the step's swung span.</summary>
+        public double StrikeStartSteps(int strikeIndex, int strikeCount) =>
+            Straight ? strikeIndex / (double)strikeCount : StartSteps + strikeIndex * SpanSteps / strikeCount;
+
+        /// <summary>A strike's sample offset from the straight step start, timing humanize included.</summary>
+        public int StrikeOffsetFrames(int strikeIndex, int strikeCount, double stepFrameCount) =>
+            (Straight
+                ? SequencerEngine.StrikeOffsetFrames(strikeIndex, strikeCount, stepFrameCount)
+                : (int)Math.Round(StrikeStartSteps(strikeIndex, strikeCount) * stepFrameCount)) + TimingDelayFrames;
+
+        /// <summary>
+        /// How long a melodic strike is held, in steps: every strike but the last until the next one,
+        /// the last until the note's (swung) end.
+        /// </summary>
+        public double HeldSteps(int heldStepCount, int strikeIndex, int strikeCount)
+        {
+            var finalStrike = strikeIndex == strikeCount - 1;
+            if (Straight)
+            {
+                return strikeCount == 1 ? heldStepCount : finalStrike ? heldStepCount - strikeIndex / (double)strikeCount : 1.0 / strikeCount;
+            }
+            return finalStrike ? NoteEndSteps(heldStepCount) - StrikeStartSteps(strikeIndex, strikeCount) : SpanSteps / strikeCount;
         }
     }
 
@@ -595,6 +695,7 @@ internal sealed class SequencerEngine
             }
         }
 
+        AdvancePluginNoteCountdowns(timelineStep);
         if (!ReferenceEquals(project, timelineIndexedProject))
         {
             timelineIndexedProject = project;
@@ -638,7 +739,7 @@ internal sealed class SequencerEngine
                     runtimeState.CurrentClipStep = sessionClipStep;
                     runtimeState.EnvelopeStep = sessionClipStep;
                     runtimeState.PlayingClip = sessionClip;
-                    TriggerStep(project, track, runtimeState, sessionClip, sessionClipStep, sessionClipStep, sessionClip.Pattern.Count);
+                    TriggerStep(project, track, runtimeState, sessionClip, sessionClipStep, sessionClipStep, sessionClip.Pattern.Count, timelineStep);
                 }
                 continue;
             }
@@ -654,14 +755,15 @@ internal sealed class SequencerEngine
             runtimeState.EnvelopeStep = stepsIntoClip;
             runtimeState.PlayingClip = timelineClip.Clip;
             runtimeState.PlayingTimelineClipId = timelineClip.Id;
-            TriggerStep(project, track, runtimeState, timelineClip.Clip, clipStep, stepsIntoClip, timelineClip.LengthSteps);
+            TriggerStep(project, track, runtimeState, timelineClip.Clip, clipStep, stepsIntoClip, timelineClip.LengthSteps, timelineStep);
         }
         return true;
     }
 
     /// <param name="envelopeStep">Where the clip's envelopes are: the pattern step for session clips, steps since the clip's start for arrangement clips.</param>
     /// <param name="envelopeLength">How long the envelopes run before they come around again.</param>
-    private void TriggerStep(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, SlawClip clip, int clipStep, int envelopeStep, int envelopeLength)
+    /// <param name="gridStep">The step on the song's grid (the arrangement's step, or the session clock): swing delays the odd ones.</param>
+    private void TriggerStep(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, SlawClip clip, int clipStep, int envelopeStep, int envelopeLength, long gridStep)
     {
         var stepEvent = NotationResolver.ResolveOrRest(clip.Pattern[clipStep]);
         if (stepEvent.Kind != StepEventKind.Trigger)
@@ -674,6 +776,7 @@ internal sealed class SequencerEngine
         IReadOnlyDictionary<string, double> instrumentParameters = track.InstrumentParameters;
         var bendsAtRender = InstrumentVoiceSynthesizer.BendsAtRender(track.Instrument);
         RenderedPitchBend? pitchBend = null;
+        Func<double, RenderedPitchBend>? pitchBendFromStep = null;
         if (clip.Automation is { Count: > 0 })
         {
             var envelopes = runtimeState.EnvelopesFor(clip);
@@ -690,9 +793,12 @@ internal sealed class SequencerEngine
             {
                 var envelopeWrap = Math.Max(1, envelopeLength);
                 var stepSeconds = project.StepDurationSeconds;
-                pitchBend = new RenderedPitchBend(
-                    elapsedSeconds => Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, (envelopeStep + elapsedSeconds / stepSeconds) % envelopeWrap), -24, 24),
-                    FormattableString.Invariant($"{envelopeStep}/{envelopeWrap}@{envelopes.PitchFingerprint}"));
+                var pitchFingerprint = envelopes.PitchFingerprint;
+                // A ratchet's later strikes start partway into the step, and so does their bend.
+                pitchBendFromStep = bendStartStep => new RenderedPitchBend(
+                    elapsedSeconds => Math.Clamp(ClipAutomation.Evaluate(pitchEnvelope, (bendStartStep + elapsedSeconds / stepSeconds) % envelopeWrap), -24, 24),
+                    FormattableString.Invariant($"{bendStartStep:R}/{envelopeWrap}@{pitchFingerprint}"));
+                pitchBend = pitchBendFromStep(envelopeStep);
             }
         }
 
@@ -700,47 +806,74 @@ internal sealed class SequencerEngine
         var humanizeAmount = DeviceCatalog.Resolve(
             instrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument), "humanize");
         var humanizedGain = (float)(1 - humanizeAmount * 0.35 * humanizationEntropySource.NextDouble());
+        var strikeCount = stepEvent.StrikeCount;
+        var stepFrameCount = project.StepDurationSeconds * sampleRate;
+        // Swing delays odd grid steps; timing humanize delays every step by a seeded random amount.
+        // Envelopes stay on the straight grid: instrument envelopes are still sampled at the step.
+        var timingDelayFrames = track.Timing > 0
+            ? (int)Math.Round(grooveTimingEntropySource.NextDouble() * Math.Min(track.Timing, GrooveTiming.MaximumTimingMilliseconds) / 1000 * sampleRate)
+            : 0;
+        var stepGroove = new StepGroove(GrooveTiming.SwingDelaySteps(GrooveTiming.EffectiveSwing(project, track)), gridStep, timingDelayFrames);
         if (track.Instrument == DeviceTypes.Vst3)
         {
-            TriggerPluginStep(track, runtimeState, clip, clipStep, humanizedGain);
+            TriggerPluginStep(track, runtimeState, clip, clipStep, humanizedGain, strikeCount, stepFrameCount, stepGroove);
             return;
         }
 
         // Notes struck together may be held for different lengths and struck at
         // different velocities: render one voice per distinct (length, velocity),
-        // each with its share of the chord. Velocity is only a gain, so it never splits the
-        // voice cache.
+        // each with its share of the chord. Velocity is a gain, and splits the voice cache
+        // only for instruments whose timbre follows it (InstrumentVoiceSynthesizer.ShapesTimbreByVelocity).
         var noteGroups = percussiveInstrument
             ? new[] { (Length: 1, Velocity: stepEvent.PeakVelocity, Notes: stepEvent.MidiNotes.ToArray()) }
             : ClipNoteEditor.NotesStartingAt(clip.Pattern, clipStep)
                 .GroupBy(placedNote => (placedNote.Length, placedNote.Velocity))
                 .Select(noteGroup => (noteGroup.Key.Length, noteGroup.Key.Velocity, Notes: noteGroup.Select(placedNote => placedNote.MidiNote).ToArray()))
                 .ToArray();
-        foreach (var (heldStepCount, noteVelocity, chordNotes) in noteGroups)
+        // A ratchet ("*N") strikes the step N times, evenly spaced inside it (inside its swung
+        // length under swing), each strike a voice that waits its sample offset. Every strike but
+        // the last lasts until the next one; the last is held to where the note would have ended
+        // anyway (the swung start of the step after it). Drums are one-shots, so all their strikes
+        // share one cached voice.
+        for (var strikeIndex = 0; strikeIndex < strikeCount; strikeIndex++)
         {
-            var renderedVoice = RenderOrRecallVoice(project, track, instrumentParameters, pitchBend, StepEvent.Trigger(chordNotes), heldStepCount);
-            if (renderedVoice.Length == 0)
+            var strikeOffsetFrames = stepGroove.StrikeOffsetFrames(strikeIndex, strikeCount, stepFrameCount);
+            var strikeStartSteps = stepGroove.StrikeStartSteps(strikeIndex, strikeCount);
+            foreach (var (heldStepCount, noteVelocity, chordNotes) in noteGroups)
             {
-                continue;
+                var heldSteps = percussiveInstrument ? heldStepCount : stepGroove.HeldSteps(heldStepCount, strikeIndex, strikeCount);
+                // A baked pitch bend starts where the strike really sounds (timing humanize aside, so voices stay cacheable).
+                var strikePitchBend = strikeStartSteps > 0 && pitchBendFromStep is not null
+                    ? pitchBendFromStep(envelopeStep + strikeStartSteps)
+                    : pitchBend;
+                var renderedVoice = RenderOrRecallVoice(project, track, instrumentParameters, strikePitchBend, StepEvent.Trigger(chordNotes), heldSteps, noteVelocity);
+                if (renderedVoice.Length == 0)
+                {
+                    continue;
+                }
+                if (runtimeState.ActiveVoices.Count >= MaximumVoicesPerTrack)
+                {
+                    runtimeState.ActiveVoices.RemoveAt(0);
+                }
+                // Each voice normalizes its own notes by 1/sqrt(k); rescale so every
+                // note in the full chord sits at 1/sqrt(n), as if rendered together.
+                var velocityGain = (float)NotationResolver.VelocityToGain(noteVelocity);
+                runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, velocityGain * humanizedGain * (float)Math.Sqrt(chordNotes.Length / (double)Math.Max(1, stepEvent.MidiNotes.Count)),
+                    followsPitchEnvelope: !bendsAtRender, startDelayFrames: strikeOffsetFrames));
             }
-            if (runtimeState.ActiveVoices.Count >= MaximumVoicesPerTrack)
-            {
-                runtimeState.ActiveVoices.RemoveAt(0);
-            }
-            // Each voice normalizes its own notes by 1/sqrt(k); rescale so every
-            // note in the full chord sits at 1/sqrt(n), as if rendered together.
-            var velocityGain = (float)NotationResolver.VelocityToGain(noteVelocity);
-            runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, velocityGain * humanizedGain * (float)Math.Sqrt(chordNotes.Length / (double)Math.Max(1, stepEvent.MidiNotes.Count)), followsPitchEnvelope: !bendsAtRender));
         }
     }
 
     /// <summary>A pitch envelope rendered into a voice, with a signature for the voice cache.</summary>
     private sealed record RenderedPitchBend(Func<double, double> SemitonesAt, string Signature);
 
-    private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, IReadOnlyDictionary<string, double> instrumentParameters, RenderedPitchBend? pitchBend, StepEvent stepEvent, int heldStepCount)
+    /// <param name="heldSteps">How long the note is held, in steps; fractional for a ratchet's strikes.</param>
+    /// <param name="noteVelocity">How hard the notes are struck. Only instruments whose timbre follows velocity hear it (and split the cache by it); the rest stay a gain.</param>
+    private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, IReadOnlyDictionary<string, double> instrumentParameters, RenderedPitchBend? pitchBend, StepEvent stepEvent, double heldSteps, double noteVelocity = 1)
     {
+        var timbreVelocity = InstrumentVoiceSynthesizer.ShapesTimbreByVelocity(track.Instrument) ? NotationResolver.ClampVelocity(noteVelocity) : 1.0;
         var parameterFingerprint = string.Join(',', instrumentParameters.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value:R}"));
-        var voiceCacheKey = $"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{track.SoundFont?.Fingerprint}|{string.Join('+', stepEvent.MidiNotes)}|{heldStepCount}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}";
+        var voiceCacheKey = FormattableString.Invariant($"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{track.SoundFont?.Fingerprint}|{string.Join('+', stepEvent.MidiNotes)}|{heldSteps:R}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}|{timbreVelocity:R}");
         if (renderedVoiceCache.TryGetValue(voiceCacheKey, out var cachedVoice))
         {
             return cachedVoice;
@@ -773,14 +906,15 @@ internal sealed class SequencerEngine
         var renderedVoice = InstrumentVoiceSynthesizer.RenderVoice(
             track.Instrument,
             stepEvent.MidiNotes,
-            heldStepCount * project.StepDurationSeconds * 0.92,
+            heldSteps * project.StepDurationSeconds * 0.92,
             sampleRate,
             noiseEntropySource,
             instrumentParameters,
             samplerSource,
             track.SampleEditing,
             pitchBend?.SemitonesAt,
-            soundFontPreset);
+            soundFontPreset,
+            timbreVelocity);
         renderedVoiceCache[voiceCacheKey] = renderedVoice;
         return renderedVoice;
     }
@@ -1020,6 +1154,7 @@ internal sealed class SequencerEngine
             {
                 runtimeState.HostsPluginInstrument = false;
                 Array.Clear(runtimeState.PluginNoteCountdowns);
+                runtimeState.PendingPluginStrikeCount = 0;
                 pluginPool.Release(PluginInstancePool.InstrumentSlot(track.Id));
             }
             return false;
@@ -1029,6 +1164,7 @@ internal sealed class SequencerEngine
         {
             return false;
         }
+        runtimeState.SendDuePluginStrikes(pluginInstrument, Math.Min(trackLeftBlock.Length, Vst3PluginInstance.MaximumBlockFrames));
         pluginInstrument.SetTransport(project.Bpm, transportStep);
         // A plugin plays continuously, so its instrument envelopes move per chunk rather than per note.
         pluginInstrument.Process(trackLeftBlock, trackRightBlock, envelopes is { InstrumentEnvelopes.Count: > 0 }
@@ -1085,20 +1221,34 @@ internal sealed class SequencerEngine
         private readonly float gain;
         private readonly bool followsPitchEnvelope;
         private double position;
+        private int startDelayFrames;
 
-        public ActiveVoice(float[] samples, float gain, bool followsPitchEnvelope)
+        /// <param name="startDelayFrames">Frames of silence before the voice starts: a ratchet strike's offset inside its step.</param>
+        public ActiveVoice(float[] samples, float gain, bool followsPitchEnvelope, int startDelayFrames = 0)
         {
             this.samples = samples;
             this.gain = gain;
             this.followsPitchEnvelope = followsPitchEnvelope;
+            this.startDelayFrames = Math.Max(0, startDelayFrames);
         }
 
         /// <summary>
         /// Adds the next block. Voices that did not bake the pitch envelope in play at
-        /// <paramref name="playbackRate"/>, tape-style. Returns true once the voice has finished.
+        /// <paramref name="playbackRate"/>, tape-style. A voice still waiting for its start
+        /// offset only counts the block down (or starts partway into it). Returns true once the voice has finished.
         /// </summary>
         public bool MixInto(Span<float> trackBlock, double playbackRate, bool audible)
         {
+            if (startDelayFrames > 0)
+            {
+                if (startDelayFrames >= trackBlock.Length)
+                {
+                    startDelayFrames -= trackBlock.Length;
+                    return false;
+                }
+                trackBlock = trackBlock[startDelayFrames..];
+                startDelayFrames = 0;
+            }
             if (!followsPitchEnvelope)
             {
                 playbackRate = 1.0;
@@ -1341,6 +1491,84 @@ internal sealed class SequencerEngine
 
         /// <summary>Steps until each MIDI note's note-off, for plugin instruments; zero is not sounding.</summary>
         public int[] PluginNoteCountdowns { get; } = new int[128];
+
+        private const int PendingPluginStrikeCapacity = 256;
+        private readonly (int FramesUntil, int MidiNote, float Velocity, bool NoteOff)[] pendingPluginStrikes = new (int, int, float, bool)[PendingPluginStrikeCapacity];
+
+        /// <summary>Note events queued for a plugin instrument (ratchet re-strikes, swung or humanized notes, swung note-offs), in time order; 0 clears the queue.</summary>
+        public int PendingPluginStrikeCount { get; set; }
+
+        /// <summary>How late this track's odd steps start, in frames, as of its last triggered step (swung note-offs use it).</summary>
+        public int PluginSwingDelayFrames { get; set; }
+
+        /// <summary>
+        /// Queues a note-on (or note-off) <paramref name="framesUntil"/> frames from the start of the current chunk, kept
+        /// in time order (events at the same frame stay in the order queued). Events beyond the capacity are dropped.
+        /// </summary>
+        public void QueuePluginEvent(int framesUntil, int midiNote, float velocity, bool noteOff = false)
+        {
+            if (!noteOff)
+            {
+                ForgetPendingNoteOffs(midiNote, framesUntil);
+            }
+            if (PendingPluginStrikeCount >= PendingPluginStrikeCapacity)
+            {
+                return;
+            }
+            var insertionIndex = PendingPluginStrikeCount;
+            while (insertionIndex > 0 && pendingPluginStrikes[insertionIndex - 1].FramesUntil > framesUntil)
+            {
+                pendingPluginStrikes[insertionIndex] = pendingPluginStrikes[insertionIndex - 1];
+                insertionIndex--;
+            }
+            pendingPluginStrikes[insertionIndex] = (framesUntil, midiNote, velocity, noteOff);
+            PendingPluginStrikeCount++;
+        }
+
+        /// <summary>
+        /// Drops queued (swung) note-offs of <paramref name="midiNote"/> at or after <paramref name="fromFrames"/>: a new
+        /// note-on there already ends the previous note, and a later note-off would cut the new one short
+        /// (the swing changed between the note's start and its end).
+        /// </summary>
+        public void ForgetPendingNoteOffs(int midiNote, int fromFrames)
+        {
+            var keptEventCount = 0;
+            for (var eventIndex = 0; eventIndex < PendingPluginStrikeCount; eventIndex++)
+            {
+                var pendingEvent = pendingPluginStrikes[eventIndex];
+                if (!(pendingEvent.NoteOff && pendingEvent.MidiNote == midiNote && pendingEvent.FramesUntil >= fromFrames))
+                {
+                    pendingPluginStrikes[keptEventCount++] = pendingEvent;
+                }
+            }
+            PendingPluginStrikeCount = keptEventCount;
+        }
+
+        /// <summary>
+        /// Hands the plugin every queued event that falls inside the next <paramref name="chunkFrameCount"/>
+        /// frames, at its sample offset, and moves the rest closer. No allocation: the queue is a fixed array.
+        /// </summary>
+        public void SendDuePluginStrikes(Vst3PluginInstance pluginInstrument, int chunkFrameCount)
+        {
+            var keptStrikeCount = 0;
+            for (var strikeIndex = 0; strikeIndex < PendingPluginStrikeCount; strikeIndex++)
+            {
+                var (framesUntil, midiNote, velocity, noteOff) = pendingPluginStrikes[strikeIndex];
+                if (framesUntil >= chunkFrameCount)
+                {
+                    pendingPluginStrikes[keptStrikeCount++] = (framesUntil - chunkFrameCount, midiNote, velocity, noteOff);
+                }
+                else if (noteOff)
+                {
+                    pluginInstrument.NoteOff(midiNote, Math.Max(0, framesUntil));
+                }
+                else
+                {
+                    pluginInstrument.NoteOn(midiNote, velocity, Math.Max(0, framesUntil));
+                }
+            }
+            PendingPluginStrikeCount = keptStrikeCount;
+        }
 
         /// <summary>
         /// Keeps one processor per effect slot. A slot is only rebuilt when its

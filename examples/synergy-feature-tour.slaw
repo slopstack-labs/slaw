@@ -1,0 +1,980 @@
+{
+  "format": "slaw-project/v2",
+  "name": "Synergy Feature Tour (Mandatory Onboarding)",
+  "bpm": 120,
+  "steps": 16,
+  "scenes": [
+    "Jam: launch over the song",
+    "Jam: half-time offsite"
+  ],
+  "tracks": [
+    {
+      "id": "76d58022",
+      "name": "Kick \u00B7 keys the bass (sidechain)",
+      "instrument": "kick",
+      "instrumentParameters": {
+        "decay": 1
+      },
+      "effects": [],
+      "gain": 0.36,
+      "pan": 0,
+      "swing": 50,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Kick",
+          "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
+        },
+        {
+          "name": "Half-time Kick",
+          "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+        }
+      ]
+    },
+    {
+      "id": "713ae3cd",
+      "name": "Ghost Kick (muted, still gates the pad)",
+      "instrument": "kick",
+      "instrumentParameters": {},
+      "effects": [],
+      "gain": 0.36,
+      "pan": 0,
+      "muted": true,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Ghost 8ths",
+          "pattern": ["x", ".", "x", ".", "x", ".", "x", ".", "x", ".", "x", ".", "x", ".", "x", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "870df558",
+      "name": "Snare \u00B7 ghost notes (@), ratchet roll (*N), timing 8 ms",
+      "instrument": "snare",
+      "instrumentParameters": {},
+      "effects": [],
+      "gain": 0.42,
+      "pan": -0.05,
+      "timing": 8,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Snare",
+          "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.35", ".", "x@0.35", ".", ".", "x", ".", ".", "x@0.35"]
+        },
+        {
+          "name": "Half-time Snare",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x@0.35"]
+        }
+      ]
+    },
+    {
+      "id": "7bedaa74",
+      "name": "Clap \u00B7 reverb throw (fx.0.mix envelope)",
+      "instrument": "clap",
+      "instrumentParameters": {},
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.7,
+            "damping": 0.4,
+            "mix": 0.08,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 0.7,
+      "pan": 0.05,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Clap",
+          "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "11f8436d",
+      "name": "Hats \u00B7 swing 62 over a straight kick, pan envelope",
+      "instrument": "hat",
+      "instrumentParameters": {
+        "decay": 0.8
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 5000
+          }
+        }
+      ],
+      "gain": 0.9,
+      "pan": 0,
+      "swing": 62,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Hats",
+          "pattern": ["x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.8"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "4e959ba3",
+      "name": "Sub \u00B7 note lengths (:n), ducked by Kick",
+      "instrument": "sine",
+      "instrumentParameters": {
+        "attack": 2,
+        "decay": 300,
+        "sustain": 0.8,
+        "release": 60
+      },
+      "effects": [
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 2,
+            "mix": 0.25
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.75,
+            "threshold": -30,
+            "attack": 1,
+            "release": 140
+          },
+          "sidechainSource": "76d58022"
+        }
+      ],
+      "gain": 0.55,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Sub",
+          "pattern": ["D2:6", ".", ".", ".", ".", ".", ".", "D2:2@0.6", ".", ".", "D2:3@0.85", ".", ".", ".", "D3:2@0.7", ".", "A#1:6", ".", ".", ".", ".", ".", ".", "A#1:2@0.6", ".", ".", "A#1:3@0.85", ".", ".", ".", "A#2:2@0.7", ".", "F1:6", ".", ".", ".", ".", ".", ".", "F1:2@0.6", ".", ".", "F1:3@0.85", ".", ".", ".", "F2:2@0.7", ".", "C2:6", ".", ".", ".", ".", ".", ".", "C2:2@0.6", ".", ".", "C2:3@0.85", ".", ".", ".", "C3:2@0.7", "."]
+        },
+        {
+          "name": "Half-time Sub",
+          "pattern": ["D2:12", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A#1:12", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:12", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:12", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+        }
+      ]
+    },
+    {
+      "id": "5c3329c7",
+      "name": "Pad \u00B7 chords (\u002B), saw spread 18 ct, gated by Ghost Kick, filter sweep",
+      "instrument": "saw",
+      "instrumentParameters": {
+        "attack": 30,
+        "decay": 400,
+        "sustain": 0.8,
+        "release": 300,
+        "cutoff": 6000,
+        "spread": 18
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 2500,
+            "resonance": 0.3
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.7,
+            "threshold": -36,
+            "attack": 1,
+            "release": 90
+          },
+          "sidechainSource": "713ae3cd"
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.5,
+            "haas": 12
+          }
+        }
+      ],
+      "gain": 1.1,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Pad",
+          "pattern": ["A3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A#3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A3:16@0.8\u002BC4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3:16@0.8\u002BC4:16@0.8\u002BE4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "1cb5204a",
+      "name": "Vibes Arp (mallet) \u00B7 velocity shapes timbre, inst.hardness envelope",
+      "instrument": "mallet",
+      "instrumentParameters": {
+        "material": 0.67,
+        "hardness": 0.5,
+        "decay": 900
+      },
+      "effects": [
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.3,
+            "mix": 0.18,
+            "pingpong": 1
+          }
+        }
+      ],
+      "gain": 0.25,
+      "pan": 0.25,
+      "timing": 5,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Arp",
+          "pattern": ["D4@0.9", "F4@0.6", "A4@0.6", "D5@0.6", "A4@0.9", "F4@0.6", "D4@0.6", "F4@0.6", "A4@0.9", "D5@0.6", "A4@0.6", "F4@0.6", "D4@0.9", "F4@0.6", "A4@0.6", "D5@0.6", "D4@0.9", "F4@0.6", "A#4@0.6", "D5@0.6", "A#4@0.9", "F4@0.6", "D4@0.6", "F4@0.6", "A#4@0.9", "D5@0.6", "A#4@0.6", "F4@0.6", "D4@0.9", "F4@0.6", "A#4@0.6", "D5@0.6", "C4@0.9", "F4@0.6", "A4@0.6", "C5@0.6", "A4@0.9", "F4@0.6", "C4@0.6", "F4@0.6", "A4@0.9", "C5@0.6", "A4@0.6", "F4@0.6", "C4@0.9", "F4@0.6", "A4@0.6", "C5@0.6", "C4@0.9", "E4@0.6", "G4@0.6", "C5@0.6", "G4@0.9", "E4@0.6", "C4@0.6", "E4@0.6", "G4@0.9", "C5@0.6", "G4@0.6", "E4@0.6", "C4@0.9", "E4@0.6", "G4@0.6", "C5@0.6"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "cbc449b0",
+      "name": "Lead \u00B7 pitch envelope, ping-pong delay",
+      "instrument": "square",
+      "instrumentParameters": {
+        "attack": 4,
+        "decay": 250,
+        "sustain": 0.55,
+        "release": 120,
+        "cutoff": 3200,
+        "detune": 7
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 4500,
+            "resonance": 0.15
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.4,
+            "mix": 0.22,
+            "pingpong": 1
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.55,
+            "damping": 0.5,
+            "mix": 0.15,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 0.32,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Lead (stab variation)",
+          "pattern": ["D5:2", ".", ".", "D5:2@0.7", ".", ".", "F5:2", ".", ".", ".", "A5:4", ".", ".", ".", ".", ".", "D5:2", ".", ".", "D5:2@0.7", ".", ".", "F5:2", ".", ".", ".", "A#5:4", ".", ".", ".", ".", ".", "C5:2", ".", ".", "C5:2@0.7", ".", ".", "F5:2", ".", ".", ".", "A5:4", ".", ".", ".", ".", ".", "C5:2", ".", ".", "E5:2@0.7", ".", ".", "G5:2", ".", ".", ".", "C6:4", ".", ".", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "04cfcfe8",
+      "name": "Flute counter-melody \u00B7 held notes (_), Haas-widened",
+      "instrument": "flute",
+      "instrumentParameters": {
+        "breath": 0.35,
+        "vibrato": 0.4,
+        "attack": 60,
+        "release": 400
+      },
+      "effects": [
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.6,
+            "haas": 18
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.6,
+            "damping": 0.5,
+            "mix": 0.2,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 0.47,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "eba2620c",
+      "name": "Riser \u00B7 gain, pitch and filter envelopes",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 5,
+        "sustain": 1,
+        "release": 300,
+        "cutoff": 14000
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 500,
+            "resonance": 0.4
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.6,
+            "haas": 10
+          }
+        }
+      ],
+      "gain": 0.9,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    }
+  ],
+  "master": {
+    "gain": 0.8,
+    "drive": 1,
+    "lowpassHz": 19000,
+    "delaySteps": 3,
+    "delayFeedback": 0.3,
+    "delayMix": 0,
+    "rationale": null,
+    "effects": [
+      {
+        "type": "highpass",
+        "enabled": true,
+        "parameters": {
+          "cutoff": 25,
+          "resonance": 0
+        }
+      },
+      {
+        "type": "drive",
+        "enabled": true,
+        "parameters": {
+          "amount": 1.5,
+          "mix": 0.2
+        }
+      },
+      {
+        "type": "widen",
+        "enabled": true,
+        "parameters": {
+          "width": 1.15,
+          "haas": 0
+        }
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "id": "1b2ce99d",
+      "trackId": "5c3329c7",
+      "startStep": 0,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad: fx.0.cutoff 250 \u2192 2500 over 4 bars",
+        "pattern": ["A3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A3:16@0.8\u002BC4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3:16@0.8\u002BC4:16@0.8\u002BE4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 250
+            },
+            {
+              "step": 64,
+              "value": 2500
+            }
+          ]
+        }
+      },
+      "endStep": 64
+    },
+    {
+      "id": "d372a075",
+      "trackId": "713ae3cd",
+      "startStep": 0,
+      "lengthSteps": 352,
+      "clip": {
+        "name": "Ghost 8ths (1 bar looped \u00D722)",
+        "pattern": ["x", ".", "x", ".", "x", ".", "x", ".", "x", ".", "x", ".", "x", ".", "x", "."]
+      },
+      "endStep": 352
+    },
+    {
+      "id": "62b660d7",
+      "trackId": "1cb5204a",
+      "startStep": 0,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Arp: inst.hardness 0.1 \u2192 0.8",
+        "pattern": ["D4:1@0.9", "F4:1@0.6", "A4:1@0.6", "D5:1@0.6", "A4:1@0.9", "F4:1@0.6", "D4:1@0.6", "F4:1@0.6", "A4:1@0.9", "D5:1@0.6", "A4:1@0.6", "F4:1@0.6", "D4:1@0.9", "F4:1@0.6", "A4:1@0.6", "D5:1@0.6", "D4:1@0.9", "F4:1@0.6", "Bb4:1@0.6", "D5:1@0.6", "Bb4:1@0.9", "F4:1@0.6", "D4:1@0.6", "F4:1@0.6", "Bb4:1@0.9", "D5:1@0.6", "Bb4:1@0.6", "F4:1@0.6", "D4:1@0.9", "F4:1@0.6", "Bb4:1@0.6", "D5:1@0.6", "C4:1@0.9", "F4:1@0.6", "A4:1@0.6", "C5:1@0.6", "A4:1@0.9", "F4:1@0.6", "C4:1@0.6", "F4:1@0.6", "A4:1@0.9", "C5:1@0.6", "A4:1@0.6", "F4:1@0.6", "C4:1@0.9", "F4:1@0.6", "A4:1@0.6", "C5:1@0.6", "C4:1@0.9", "E4:1@0.6", "G4:1@0.6", "C5:1@0.6", "G4:1@0.9", "E4:1@0.6", "C4:1@0.6", "E4:1@0.6", "G4:1@0.9", "C5:1@0.6", "G4:1@0.6", "E4:1@0.6", "C4:1@0.9", "E4:1@0.6", "G4:1@0.6", "C5:1@0.6"],
+        "automation": {
+          "inst.hardness": [
+            {
+              "step": 0,
+              "value": 0.1
+            },
+            {
+              "step": 64,
+              "value": 0.8
+            }
+          ]
+        }
+      },
+      "endStep": 64
+    },
+    {
+      "id": "ea256c56",
+      "trackId": "76d58022",
+      "startStep": 64,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Kick (1 bar looped \u00D78)",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 192
+    },
+    {
+      "id": "ac5b1bb7",
+      "trackId": "11f8436d",
+      "startStep": 64,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Hats: pan L \u2192 R \u2192 L",
+        "pattern": ["x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.8"],
+        "automation": {
+          "pan": [
+            {
+              "step": 0,
+              "value": -0.6
+            },
+            {
+              "step": 64,
+              "value": 0.6
+            },
+            {
+              "step": 128,
+              "value": -0.6
+            }
+          ]
+        }
+      },
+      "endStep": 192
+    },
+    {
+      "id": "0357c957",
+      "trackId": "4e959ba3",
+      "startStep": 64,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["D2:6", ".", ".", ".", ".", ".", ".", "D2:2@0.6", ".", ".", "D2:3@0.85", ".", ".", ".", "D3:2@0.7", ".", "Bb1:6", ".", ".", ".", ".", ".", ".", "Bb1:2@0.6", ".", ".", "Bb1:3@0.85", ".", ".", ".", "Bb2:2@0.7", ".", "F1:6", ".", ".", ".", ".", ".", ".", "F1:2@0.6", ".", ".", "F1:3@0.85", ".", ".", ".", "F2:2@0.7", ".", "C2:6", ".", ".", ".", ".", ".", ".", "C2:2@0.6", ".", ".", "C2:3@0.85", ".", ".", ".", "C3:2@0.7", "."]
+      },
+      "endStep": 192
+    },
+    {
+      "id": "a8e34a16",
+      "trackId": "5c3329c7",
+      "startStep": 64,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Pad",
+        "pattern": ["A3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A3:16@0.8\u002BC4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3:16@0.8\u002BC4:16@0.8\u002BE4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 192
+    },
+    {
+      "id": "1c58ae43",
+      "trackId": "1cb5204a",
+      "startStep": 64,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Arp",
+        "pattern": ["D4:1@0.9", "F4:1@0.6", "A4:1@0.6", "D5:1@0.6", "A4:1@0.9", "F4:1@0.6", "D4:1@0.6", "F4:1@0.6", "A4:1@0.9", "D5:1@0.6", "A4:1@0.6", "F4:1@0.6", "D4:1@0.9", "F4:1@0.6", "A4:1@0.6", "D5:1@0.6", "D4:1@0.9", "F4:1@0.6", "Bb4:1@0.6", "D5:1@0.6", "Bb4:1@0.9", "F4:1@0.6", "D4:1@0.6", "F4:1@0.6", "Bb4:1@0.9", "D5:1@0.6", "Bb4:1@0.6", "F4:1@0.6", "D4:1@0.9", "F4:1@0.6", "Bb4:1@0.6", "D5:1@0.6", "C4:1@0.9", "F4:1@0.6", "A4:1@0.6", "C5:1@0.6", "A4:1@0.9", "F4:1@0.6", "C4:1@0.6", "F4:1@0.6", "A4:1@0.9", "C5:1@0.6", "A4:1@0.6", "F4:1@0.6", "C4:1@0.9", "F4:1@0.6", "A4:1@0.6", "C5:1@0.6", "C4:1@0.9", "E4:1@0.6", "G4:1@0.6", "C5:1@0.6", "G4:1@0.9", "E4:1@0.6", "C4:1@0.6", "E4:1@0.6", "G4:1@0.9", "C5:1@0.6", "G4:1@0.6", "E4:1@0.6", "C4:1@0.9", "E4:1@0.6", "G4:1@0.6", "C5:1@0.6"]
+      },
+      "endStep": 192
+    },
+    {
+      "id": "946d8a50",
+      "trackId": "870df558",
+      "startStep": 128,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare with ghosts",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.35", ".", "x@0.35", ".", ".", "x", ".", ".", "x@0.35"]
+      },
+      "endStep": 192
+    },
+    {
+      "id": "cec800fb",
+      "trackId": "7bedaa74",
+      "startStep": 128,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 192
+    },
+    {
+      "id": "f763e11f",
+      "trackId": "cbc449b0",
+      "startStep": 128,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Lead: scoops into its first note (pitch -2 \u2192 0)",
+        "pattern": ["A4:4", ".", ".", ".", "F4:2@0.75", ".", "A4:2@0.85", ".", "D5:6", ".", ".", ".", ".", ".", "C5:2@0.7", ".", "D5:4", ".", ".", ".", "Bb4:2@0.75", ".", "D5:2@0.85", ".", "F5:8", ".", ".", ".", ".", ".", ".", ".", "C5:4", ".", ".", ".", "A4:2@0.75", ".", "C5:2@0.85", ".", "F5:6", ".", ".", ".", ".", ".", "G5:2@0.7", ".", "E5:4", ".", ".", ".", "D5:2@0.75", ".", "C5:2@0.85", ".", "G4:8", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": -2
+            },
+            {
+              "step": 3,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 192
+    },
+    {
+      "id": "4774b329",
+      "trackId": "5c3329c7",
+      "startStep": 192,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Pad: gain dips for the break",
+        "pattern": ["A3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.1
+            },
+            {
+              "step": 16,
+              "value": 0.605
+            },
+            {
+              "step": 32,
+              "value": 1.1
+            }
+          ]
+        }
+      },
+      "endStep": 224
+    },
+    {
+      "id": "ed3b38ea",
+      "trackId": "1cb5204a",
+      "startStep": 192,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Arp: inst.hardness drops",
+        "pattern": ["D4:1@0.9", "F4:1@0.6", "A4:1@0.6", "D5:1@0.6", "A4:1@0.9", "F4:1@0.6", "D4:1@0.6", "F4:1@0.6", "A4:1@0.9", "D5:1@0.6", "A4:1@0.6", "F4:1@0.6", "D4:1@0.9", "F4:1@0.6", "A4:1@0.6", "D5:1@0.6", "D4:1@0.9", "F4:1@0.6", "Bb4:1@0.6", "D5:1@0.6", "Bb4:1@0.9", "F4:1@0.6", "D4:1@0.6", "F4:1@0.6", "Bb4:1@0.9", "D5:1@0.6", "Bb4:1@0.6", "F4:1@0.6", "D4:1@0.9", "F4:1@0.6", "Bb4:1@0.6", "D5:1@0.6"],
+        "automation": {
+          "inst.hardness": [
+            {
+              "step": 0,
+              "value": 0.8
+            },
+            {
+              "step": 32,
+              "value": 0.15
+            }
+          ]
+        }
+      },
+      "endStep": 224
+    },
+    {
+      "id": "68450b6c",
+      "trackId": "7bedaa74",
+      "startStep": 192,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Clap: reverb throw (fx.0.mix 0.08 \u2192 0.6)",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.0.mix": [
+            {
+              "step": 0,
+              "value": 0.08
+            },
+            {
+              "step": 16,
+              "value": 0.08
+            },
+            {
+              "step": 20,
+              "value": 0.6
+            },
+            {
+              "step": 32,
+              "value": 0.6
+            }
+          ]
+        }
+      },
+      "endStep": 224
+    },
+    {
+      "id": "9a9612ad",
+      "trackId": "eba2620c",
+      "startStep": 192,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Riser: gain \u002B pitch \u002B12 \u002B fx.0.cutoff",
+        "pattern": ["C5:32", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 30,
+              "value": 0.8
+            },
+            {
+              "step": 32,
+              "value": 0
+            }
+          ],
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 32,
+              "value": 12
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 32,
+              "value": 9000
+            }
+          ]
+        }
+      },
+      "endStep": 224
+    },
+    {
+      "id": "fe743495",
+      "trackId": "870df558",
+      "startStep": 208,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Snare roll (velocity ramp, then x*2 x*3 x*4)",
+        "pattern": ["x@0.2", ".", "x@0.3", ".", "x@0.4", ".", "x@0.5", ".", "x@0.6", ".", "x@0.7", ".", "x@0.8", "x@0.8*2", "x@0.9*3", "x*4"]
+      },
+      "endStep": 224
+    },
+    {
+      "id": "866ac64e",
+      "trackId": "76d58022",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 352
+    },
+    {
+      "id": "7f15b78a",
+      "trackId": "7bedaa74",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Clap: throw tail fades",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "fx.0.mix": [
+            {
+              "step": 0,
+              "value": 0.6
+            },
+            {
+              "step": 8,
+              "value": 0.08
+            }
+          ]
+        }
+      },
+      "endStep": 352
+    },
+    {
+      "id": "78e4647a",
+      "trackId": "870df558",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Snare with ghosts",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.35", ".", "x@0.35", ".", ".", "x", ".", ".", "x@0.35"]
+      },
+      "endStep": 352
+    },
+    {
+      "id": "41aa779a",
+      "trackId": "11f8436d",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Hats: pan L \u2192 R \u2192 L",
+        "pattern": ["x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.3", "x@0.8", "x@0.3", "x@0.6", "x@0.8"],
+        "automation": {
+          "pan": [
+            {
+              "step": 0,
+              "value": -0.6
+            },
+            {
+              "step": 64,
+              "value": 0.6
+            },
+            {
+              "step": 128,
+              "value": -0.6
+            }
+          ]
+        }
+      },
+      "endStep": 352
+    },
+    {
+      "id": "8bed6d4f",
+      "trackId": "4e959ba3",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["D2:6", ".", ".", ".", ".", ".", ".", "D2:2@0.6", ".", ".", "D2:3@0.85", ".", ".", ".", "D3:2@0.7", ".", "Bb1:6", ".", ".", ".", ".", ".", ".", "Bb1:2@0.6", ".", ".", "Bb1:3@0.85", ".", ".", ".", "Bb2:2@0.7", ".", "F1:6", ".", ".", ".", ".", ".", ".", "F1:2@0.6", ".", ".", "F1:3@0.85", ".", ".", ".", "F2:2@0.7", ".", "C2:6", ".", ".", ".", ".", ".", ".", "C2:2@0.6", ".", ".", "C2:3@0.85", ".", ".", ".", "C3:2@0.7", "."]
+      },
+      "endStep": 352
+    },
+    {
+      "id": "b8dd1c9d",
+      "trackId": "5c3329c7",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Pad: filter fully open",
+        "pattern": ["A3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A3:16@0.8\u002BC4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3:16@0.8\u002BC4:16@0.8\u002BE4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 4500
+            }
+          ]
+        }
+      },
+      "endStep": 352
+    },
+    {
+      "id": "9307e31c",
+      "trackId": "1cb5204a",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Arp",
+        "pattern": ["D4:1@0.9", "F4:1@0.6", "A4:1@0.6", "D5:1@0.6", "A4:1@0.9", "F4:1@0.6", "D4:1@0.6", "F4:1@0.6", "A4:1@0.9", "D5:1@0.6", "A4:1@0.6", "F4:1@0.6", "D4:1@0.9", "F4:1@0.6", "A4:1@0.6", "D5:1@0.6", "D4:1@0.9", "F4:1@0.6", "Bb4:1@0.6", "D5:1@0.6", "Bb4:1@0.9", "F4:1@0.6", "D4:1@0.6", "F4:1@0.6", "Bb4:1@0.9", "D5:1@0.6", "Bb4:1@0.6", "F4:1@0.6", "D4:1@0.9", "F4:1@0.6", "Bb4:1@0.6", "D5:1@0.6", "C4:1@0.9", "F4:1@0.6", "A4:1@0.6", "C5:1@0.6", "A4:1@0.9", "F4:1@0.6", "C4:1@0.6", "F4:1@0.6", "A4:1@0.9", "C5:1@0.6", "A4:1@0.6", "F4:1@0.6", "C4:1@0.9", "F4:1@0.6", "A4:1@0.6", "C5:1@0.6", "C4:1@0.9", "E4:1@0.6", "G4:1@0.6", "C5:1@0.6", "G4:1@0.9", "E4:1@0.6", "C4:1@0.6", "E4:1@0.6", "G4:1@0.9", "C5:1@0.6", "G4:1@0.6", "E4:1@0.6", "C4:1@0.9", "E4:1@0.6", "G4:1@0.6", "C5:1@0.6"]
+      },
+      "endStep": 352
+    },
+    {
+      "id": "18f9fbc9",
+      "trackId": "cbc449b0",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Lead",
+        "pattern": ["A4:4", ".", ".", ".", "F4:2@0.75", ".", "A4:2@0.85", ".", "D5:6", ".", ".", ".", ".", ".", "C5:2@0.7", ".", "D5:4", ".", ".", ".", "Bb4:2@0.75", ".", "D5:2@0.85", ".", "F5:8", ".", ".", ".", ".", ".", ".", ".", "C5:4", ".", ".", ".", "A4:2@0.75", ".", "C5:2@0.85", ".", "F5:6", ".", ".", ".", ".", ".", "G5:2@0.7", ".", "E5:4", ".", ".", ".", "D5:2@0.75", ".", "C5:2@0.85", ".", "G4:8", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 352
+    },
+    {
+      "id": "7b322bc7",
+      "trackId": "04cfcfe8",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Counter-melody (held with _)",
+        "pattern": ["F5", "_", "_", "_", "_", "_", "_", "_", "D5", "_", "_", "_", "_", "_", "_", "_", "F5", "_", "_", "_", "_", "_", "_", "_", "D5", "_", "_", "_", "_", "_", "_", "_", "A5", "_", "_", "_", "_", "_", "_", "_", "F5", "_", "_", "_", "_", "_", "_", "_", "G5", "_", "_", "_", "_", "_", "_", "_", "E5", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 352
+    },
+    {
+      "id": "5c0e1aed",
+      "trackId": "5c3329c7",
+      "startStep": 352,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Pad: gain fade-out",
+        "pattern": ["A3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A3:16@0.8\u002BD4:16@0.8\u002BF4:16@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.1
+            },
+            {
+              "step": 32,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "5b4256dd",
+      "trackId": "cbc449b0",
+      "startStep": 352,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Lead: pitch dive (0 \u2192 -12)",
+        "pattern": ["A4:4", ".", ".", ".", "F4:2@0.75", ".", "A4:2@0.85", ".", "D5:6", ".", ".", ".", ".", ".", "C5:2@0.7", ".", "D5:16", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 20,
+              "value": 0
+            },
+            {
+              "step": 32,
+              "value": -12
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.32
+            },
+            {
+              "step": 24,
+              "value": 0.32
+            },
+            {
+              "step": 32,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "7403e2a8",
+      "trackId": "76d58022",
+      "startStep": 352,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Last kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 368
+    },
+    {
+      "id": "a544293a",
+      "trackId": "4e959ba3",
+      "startStep": 352,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Last sub",
+        "pattern": ["D2:16", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 368
+    }
+  ],
+  "aiProvenance": "slopstack labs onboarding desk: hand-written, every device built in",
+  "stepDurationSeconds": 0.125
+}

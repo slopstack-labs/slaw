@@ -8,23 +8,25 @@ namespace SlopstackLabs.Slaw.Synthesis;
 /// first principles at trigger time; slaw ships zero samples, because samples
 /// would imply someone recorded something on purpose.
 /// </summary>
-internal static class InstrumentVoiceSynthesizer
+internal static partial class InstrumentVoiceSynthesizer
 {
     public static readonly IReadOnlyList<string> SupportedInstruments = new[]
     {
-        "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise", "sampler", "soundfont",
+        "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise",
+        "epiano", "organ", "mallet", "flute", "guitar", "conga", "shaker",
+        "sampler", "soundfont",
     };
 
     private static readonly HashSet<string> PercussiveInstruments = new(StringComparer.OrdinalIgnoreCase)
     {
-        "kick", "snare", "hat", "clap",
+        "kick", "snare", "hat", "clap", "shaker",
     };
 
     public static bool IsPercussive(string instrumentName) => PercussiveInstruments.Contains(instrumentName);
 
     /// <summary>
     /// Oscillator instruments take a pitch envelope at render time and keep their length.
-    /// Everything else (samples, plucks, drums) is bent tape-style during playback.
+    /// Everything else (samples, plucks, drums, the organic instruments) is bent tape-style during playback.
     /// </summary>
     public static bool BendsAtRender(string instrumentName) => instrumentName is "sine" or "square" or "saw" or "triangle" or "noise";
 
@@ -32,6 +34,8 @@ internal static class InstrumentVoiceSynthesizer
     /// Renders one voice. <paramref name="gateDurationSeconds"/> is how long the
     /// note is held; the returned buffer also contains the release tail, so it is
     /// usually longer than the gate. Chords are summed with equal-power scaling.
+    /// <paramref name="noteVelocity"/> (0..1) only shapes the timbre of instruments for which
+    /// <see cref="ShapesTimbreByVelocity"/> is true; loudness stays the engine's job, everywhere.
     /// </summary>
     public static float[] RenderVoice(
         string instrumentName,
@@ -43,7 +47,8 @@ internal static class InstrumentVoiceSynthesizer
         SampleData? samplerSource = null,
         SampleEditSettings? sampleEditing = null,
         Func<double, double>? pitchBendSemitonesAt = null,
-        SoundFonts.SoundFontPreset? soundFontPreset = null)
+        SoundFonts.SoundFontPreset? soundFontPreset = null,
+        double noteVelocity = 1)
     {
         var parameterSpecifications = DeviceCatalog.InstrumentParametersFor(instrumentName);
         double Parameter(string parameterKey) => DeviceCatalog.Resolve(instrumentParameters, parameterSpecifications, parameterKey);
@@ -80,8 +85,21 @@ internal static class InstrumentVoiceSynthesizer
                 "kick" => RenderKick(sampleRate, pitchScale, decayScale),
                 "snare" => RenderSnare(sampleRate, noiseEntropySource, pitchScale, decayScale),
                 "hat" => RenderHat(sampleRate, noiseEntropySource, decayScale),
+                "shaker" => RenderShaker(sampleRate, noiseEntropySource, pitchScale, decayScale, noteVelocity),
                 _ => RenderClap(sampleRate, noiseEntropySource, decayScale),
             };
+        }
+        else if (OrganicMelodicInstruments.Contains(instrumentName))
+        {
+            renderedVoice = RenderOrganicChord(
+                instrumentName,
+                midiNotes.Count > 0 ? midiNotes : new[] { NotationResolver.DefaultTriggerMidiNote },
+                Parameter("octave") * 12 + Parameter("detune") / 100.0,
+                gateDurationSeconds,
+                sampleRate,
+                noiseEntropySource,
+                Parameter,
+                noteVelocity);
         }
         else
         {
@@ -274,11 +292,18 @@ internal static class InstrumentVoiceSynthesizer
             _ => RenderEnvelopedOscillator(phase => Math.Sin(2 * Math.PI * phase), frequencyHz, gateDurationSeconds, sampleRate, 0.8, parameter, pitchBendSemitonesAt),
         };
 
+    /// <summary>Where the second unison oscillator starts: a quarter cycle ahead, so the fundamentals of the pair start 90° apart and sum at equal power from the first sample.</summary>
+    private const double UnisonPartnerStartPhase = 0.25;
+
     /// <summary>
     /// A naive (aliasing, and proud of it) oscillator through a linear ADSR.
     /// <paramref name="waveformAtPhase"/> maps a phase in [0, 1) to a sample.
     /// <paramref name="pitchBendSemitonesAt"/>, if given, bends the pitch by
     /// seconds since the note started, without changing how long it lasts.
+    /// With a "spread" above 0 (cents) the oscillator becomes a detuned pair at
+    /// ±spread/2, each at 1/√2 so the beating pair keeps the single oscillator's power.
+    /// The partner's start phase is fixed, so the pair is as deterministic as one oscillator;
+    /// with spread 0 the output is exactly the single oscillator's.
     /// </summary>
     private static float[] RenderEnvelopedOscillator(
         Func<double, double> waveformAtPhase,
@@ -299,6 +324,13 @@ internal static class InstrumentVoiceSynthesizer
         var phaseIncrementPerSample = frequencyHz / sampleRate;
         var oscillatorPhase = 0.0;
         var levelAtGateRelease = 0.0;
+
+        var unisonSpreadCents = parameter("spread");
+        var unisonEngaged = unisonSpreadCents > 0;
+        var lowerUnisonRatio = Math.Pow(2, -unisonSpreadCents / 2 / 1200);
+        var upperUnisonRatio = Math.Pow(2, unisonSpreadCents / 2 / 1200);
+        var unisonPartnerPhase = UnisonPartnerStartPhase;
+        const double UnisonPairGain = 0.70710678118654752;
 
         for (var sampleIndex = 0; sampleIndex < renderedVoice.Length; sampleIndex++)
         {
@@ -323,6 +355,16 @@ internal static class InstrumentVoiceSynthesizer
             if (pitchBendSemitonesAt is not null && sampleIndex % 32 == 0)
             {
                 phaseIncrementPerSample = frequencyHz * Math.Pow(2, pitchBendSemitonesAt(elapsedSeconds) / 12) / sampleRate;
+            }
+            if (unisonEngaged)
+            {
+                var unisonSample = (waveformAtPhase(oscillatorPhase) + waveformAtPhase(unisonPartnerPhase)) * UnisonPairGain;
+                renderedVoice[sampleIndex] = (float)(unisonSample * envelopeLevel * voiceLevel);
+                oscillatorPhase += phaseIncrementPerSample * lowerUnisonRatio;
+                oscillatorPhase -= Math.Floor(oscillatorPhase);
+                unisonPartnerPhase += phaseIncrementPerSample * upperUnisonRatio;
+                unisonPartnerPhase -= Math.Floor(unisonPartnerPhase);
+                continue;
             }
             renderedVoice[sampleIndex] = (float)(waveformAtPhase(oscillatorPhase) * envelopeLevel * voiceLevel);
             oscillatorPhase += phaseIncrementPerSample;

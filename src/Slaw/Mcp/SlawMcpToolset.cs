@@ -31,7 +31,15 @@ internal sealed class SlawMcpToolset
         "PATTERN: space-separated steps. \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \".\" rest, \"_\" holds the previous step's note one more step, " +
         "\"C4:8\" holds C4 for 8 steps by itself (follow it with \".\" or with other notes, which sound on top), \"C4@0.5\" / \"x@0.5\" velocity 0..1 (default 1). " +
         "Velocity @ and length : bind to the ONE note they follow: \"A3+C4+E4@0.7\" softens only E4; a soft chord is \"A3@0.7+C4@0.7+E4@0.7\" " +
-        "(and \"C4:8@0.6+E4\" is a soft held root under a full-strength E4).\n" +
+        "(and \"C4:8@0.6+E4\" is a soft held root under a full-strength E4). " +
+        "RATCHET \"*N\" (N 2..8; larger counts play as 8) is the opposite: it applies to the WHOLE step, written once at its very end: the step is struck N times, evenly spaced inside its one " +
+        "sixteenth, and the pattern keeps its length (\"x*2\" two 32nd hits, \"x*4\" a snare roll, \"x@0.5*3\" a soft triplet roll, \"A3+C4*2\" the chord twice). Each strike keeps its note's @velocity; " +
+        "every strike but the last stops at the next one, and the last is held as the note would be (\"_\" or :length). A bare \"*\" is still a plain hit.\n" +
+        "GROOVE: swing is a percentage from 50 to 75 (apply_patch \"swing\" for the whole project; tracks[].swing or update_track swing overrides it for one track, null follows the project). " +
+        "It delays every odd sixteenth (steps 1, 3, 5 … counted from the start of the song, not of the clip: the second of each eighth-note pair) by (swing - 50) / 50 of a step: 50 straight, 58 a light shuffle, " +
+        "66.67 a triplet shuffle, 75 a dotted-sixteenth limp. Patterns and step positions do not change; only where the odd steps sound. " +
+        "Typical: swung hats {\"swing\": 62} on the hat track over a straight kick. A track's \"timing\" (0..50 ms) starts each of its steps a random 0..timing ms late " +
+        "(deterministic per render), e.g. 8-15 for a played feel. Envelopes stay on the straight grid.\n" +
         "ENVELOPES (set_automation, or \"automation\" in a clip): [step, value] points joined linearly. On an ARRANGEMENT clip the steps count from the clip's " +
         "start across its whole length (0..length) and do not repeat with the pattern; on a SESSION clip they span the pattern (0..pattern length) and loop with it. " +
         "Values are absolute: a gain envelope (0..1.5) replaces the track's gain while the clip plays, it does not multiply it. " +
@@ -61,6 +69,18 @@ internal sealed class SlawMcpToolset
         "SoundFonts: instrument \"soundfont\" plays one preset of a .sf2 file, chosen by MIDI bank and program (bank 128 is the drum kit, where every MIDI note is a different drum). " +
         "describe_soundfont lists a file's presets; add_track {\"instrument\": \"soundfont\", \"soundfont\": {\"path\", \"bank\", \"program\"}} or apply_patch tracks[].soundfont loads one. " +
         "import_midi voices every channel with the .sf2 next to the .mid (or the one you pass) and imports pitch bends as pitch envelopes.";
+
+    /// <summary>What the organic instruments' knobs mean, for get_catalog (the device catalog lists only keys and ranges).</summary>
+    private const string OrganicInstrumentPrimer =
+        "Organic instruments (how hard a note is struck changes their timbre as well as their level): " +
+        "epiano (FM electric piano; tine = bell attack, bark = growl of hard strikes, decay = ring of a held C4 in ms, tremolo depth and rate Hz), " +
+        "organ (drawbar organ; drawbars sub 16'+5⅓', body 8', upper 4'+2⅔'+2', sparkle 1⅗'+1⅓'+1'; percussion, click, chorus and its rate Hz; " +
+        "house stabs: percussion 0.7+, sparkle 0.5, attack 1; pad: percussion 0, attack 300+), " +
+        "mallet (material 0 marimba, 0.33 kalimba, 0.67 vibraphone, 1 glass; hardness), " +
+        "flute (breath, overblow, vibrato and its rate Hz; pan flute: breath 0.7+, vibrato 0.1), " +
+        "guitar (nylon string; length = ring time in ms; chord notes strum low to high, strum ms apart; the string is damped when the note ends), " +
+        "conga (hand drum pitched by its note: \"x\" plays C4; G3 tumba, C4 conga, F4 quinto, C5 and up bongo; tone 0 muted, 0.5 open, 1 slap; bend = semitones the skin starts sharp), " +
+        "shaker (a drum: \"x\" only; accent with velocity, e.g. \"x@0.5 x@0.8 x@0.5 x\"). mallet and conga ring out whatever the note length.";
 
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
 
@@ -154,16 +174,24 @@ internal sealed class SlawMcpToolset
             "List every instrument and audio effect with its parameter keys and ranges, plus the pattern step vocabulary.",
             Schema(new JsonObject()),
             (_, _, _) => Task.FromResult(PromptLibrary.DescribeDeviceCatalog() +
+                "\n" + OrganicInstrumentPrimer +
                 "\nPattern steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \".\" silence, \"_\" holds the previous step's note one more step, " +
                 "\"C4:8\" holds C4 for 8 steps by itself (the next steps may be \".\" or other notes, which sound on top; \"_\" only extends notes written without :length). " +
                 "Append \"@<velocity>\" (0..1, default 1) to a note or hit for dynamics: \"x@0.4\" ghost hit, \"C4:8@0.6+E4\" soft root under a full third. " +
                 "Velocity and :length bind to the single note they follow, never to the whole chord: \"A3+C4+E4@0.7\" softens only E4; write \"A3@0.7+C4@0.7+E4@0.7\" for a soft chord. " +
+                "Ratchet: \"*N\" (N 2..8, larger plays as 8) at the very end of a step strikes the WHOLE step (every chord note) N times, evenly spaced inside that one step, adding no steps: " +
+                "\"x*2\" two 32nd-note hits, \"x*4\" a roll, \"x@0.5*3\" a soft triplet, \"C2*2 _ _ _\" two strikes then held, \"A3@0.6+C4@0.6*2\" a soft chord twice. " +
+                "Strikes keep each note's velocity; all but the last end at the next strike, the last lasts as long as the note would without *N. A bare \"*\" is a plain hit. " +
                 "Clips are usually 16 steps (one bar of sixteenths)." +
+                "\nGroove: project \"swing\" (percent, 50..75; apply_patch) delays every odd sixteenth (steps 1, 3, 5 … counted from the start of the song, not of the clip) by (swing - 50) / 50 of a step: " +
+                "50 straight, 66.67 a triplet shuffle (odd steps 1/3 step late), 75 a dotted-sixteenth (1/2 step late). A track's \"swing\" overrides the project's (null follows it), " +
+                "so hats can swing over a straight kick. Ratchet strikes spread evenly across their step's swung length; a held note ends where the step after it really starts. " +
+                "A track's \"timing\" (0..50 ms) starts each step it plays a random 0..timing ms late (never early; seeded, so renders are repeatable). Envelopes stay on the straight grid." +
                 "\nClip envelopes (set_automation, or \"automation\" in apply_patch) move a parameter while a clip plays, as [step, value] breakpoints joined linearly. " +
                 "Outside the envelope's clip (and in clips without that envelope) the knob's own value applies. " +
                 "Arrangement clips: steps 0..clip length, counted from the clip's start, played once across the clip. Session clips: steps 0..pattern length, looping with the pattern. " +
                 "Targets: gain (the track's volume, absolute 0..1.5: it REPLACES the track's gain while the clip plays, it does not multiply it), pan (absolute -1..1, replaces the track's pan), " +
-                "pitch (semitones -24..24; oscillators bend in place, samples/plucks/drums bend tape-style), " +
+                "pitch (semitones -24..24; oscillators (sine, square, saw, triangle, noise) bend in place, every other instrument bends tape-style), " +
                 "fx.<effectIndex>.<param> (an effect parameter, continuous), inst.<param> (an instrument parameter, sampled as each note starts). Values use the catalog's units; plugin instruments follow inst.<param> continuously." +
                 "\nVST3 plugins: instrument \"vst3\" and effect type \"vst3\" host the user's installed plugins (see list_plugins). " +
                 "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
@@ -179,8 +207,9 @@ internal sealed class SlawMcpToolset
         Register("apply_patch",
             "Apply a patch describing only what should change; every key is optional. Best for many edits at once. " +
             "Keys: reset (true = start from an empty project first: no tracks, no clips, one empty scene, default master; then the rest of the patch applies), " +
-            "bpm, name, scenes [names] (renames scenes in order; never deletes), removeScenes [0-based scene indices], " +
-            "tracks [{id (existing id, exact name or index, or \"new\" to add), name, instrument, plugin (vst3 instrument: name or {path, classId}), sample, gain, pan, muted, solo, " +
+            "bpm, swing (50..75 percent: 50 straight, 66.67 triplet shuffle; delays every odd sixteenth), name, scenes [names] (renames scenes in order; never deletes), removeScenes [0-based scene indices], " +
+            "tracks [{id (existing id, exact name or index, or \"new\" to add), name, instrument, plugin (vst3 instrument: name or {path, classId}), sample, gain, pan, " +
+            "swing (this track's own swing 50..75; null follows the project's), timing (0..50 ms: each step starts a random 0..timing ms late), muted, solo, " +
             "instrumentParameters {key: number}, effects [{type, enabled, parameters, plugin, sidechain (track id or name that keys it; null clears)}] (replaces the whole chain), " +
             "clips {\"<sceneIndex>\": pattern or null} (SESSION clips), automation {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}}, " +
             "remove: true (deletes the track together with its session and arrangement clips)}], " +
@@ -189,7 +218,7 @@ internal sealed class SlawMcpToolset
             "(steps 0..length from the clip's start), remove: true}] (ARRANGEMENT clips; get_project JSON names trackId/startStep/lengthSteps/clip{...} work too), " +
             "arrangement [{scene, repeats}] (legacy shortcut: lays those session scenes end to end and REPLACES the whole arrangement), " +
             "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix, effects [same shape as track effects] (replaces the master chain; it processes the sum of all tracks)}. " +
-            "Pattern velocities and lengths bind per note (\"A3@0.7+C4@0.7+E4@0.7\" for a soft chord). " +
+            "Pattern velocities and lengths bind per note (\"A3@0.7+C4@0.7+E4@0.7\" for a soft chord); a ratchet \"*N\" at the end of a step repeats the whole step N times inside it (\"x*2\"). " +
             "The result lists what changed (with new clip ids and their envelopes) and warnings for anything ignored or adjusted. Undoable in the studio.",
             Schema(new JsonObject { ["patch"] = PatchSchema() }, "patch"),
             async (toolArguments, clientName, _) =>
@@ -243,6 +272,8 @@ internal sealed class SlawMcpToolset
                     JsonArray stepArray => stepArray.Select(stepNode => ReadString(stepNode) ?? NotationResolver.RestSymbol).ToList(),
                     var patternNode => CompactPatternJsonConverter.SplitStepString(ReadString(patternNode)),
                 };
+                // Lint what the agent wrote, before the checker tidies a misplaced "*N" into its canonical place.
+                var writtenWarnings = stepList is null ? new List<string>() : PatternLint.ChordSuffixWarnings(stepList, string.Empty);
                 document.BeginEdit($"{clientName}: clip");
                 if (sceneIndex == document.Project.Scenes.Count)
                 {
@@ -269,7 +300,7 @@ internal sealed class SlawMcpToolset
                 return writtenClip is null
                     ? $"cleared the clip of {targetTrack.Name} in scene {sceneIndex}"
                     : AppendWarnings($"{targetTrack.Name} · scene {sceneIndex} ({document.Project.Scenes[sceneIndex]}): {string.Join(' ', writtenClip.Pattern)}",
-                        PatternLint.ChordSuffixWarnings(writtenClip.Pattern, string.Empty));
+                        writtenWarnings);
             }));
 
         Register("set_automation",
@@ -639,7 +670,7 @@ internal sealed class SlawMcpToolset
             "\"vst3\" with a plugin from list_plugins, or \"soundfont\" with a soundfont {path, bank, program} from describe_soundfont). Returns the new track id.",
             Schema(new JsonObject
             {
-                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, sampler, vst3."),
+                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, epiano, conga, sampler, vst3 (see get_catalog)."),
                 ["name"] = Property("string", "Optional track name."),
                 ["sample"] = Property("string", "WAV path for sampler tracks."),
                 ["plugin"] = AnyProperty("VST3 instrument for vst3 tracks: {\"path\": bundle path, \"classId\": 32 hex chars} from list_plugins, or the plugin's name."),
@@ -706,7 +737,7 @@ internal sealed class SlawMcpToolset
             }));
 
         Register("update_track",
-            "Change a track's name, instrument, mixer settings or instrument parameters. Only the given fields change.",
+            "Change a track's name, instrument, mixer settings, groove (swing, timing) or instrument parameters. Only the given fields change.",
             Schema(new JsonObject
             {
                 ["track"] = AnyProperty(TrackReferenceDescription),
@@ -714,6 +745,8 @@ internal sealed class SlawMcpToolset
                 ["instrument"] = Property("string", "New instrument."),
                 ["gain"] = Property("number", "0 to 1.5."),
                 ["pan"] = Property("number", "-1 (left) to 1 (right)."),
+                ["swing"] = AnyProperty("This track's own swing, 50..75 percent (50 straight, 66.67 triplet shuffle), overriding the project's; null = follow the project's swing."),
+                ["timing"] = Property("number", "Timing humanize, 0..50 ms: each step starts a random 0..timing ms late (0 = tight)."),
                 ["muted"] = Property("boolean", "Mute."),
                 ["solo"] = Property("boolean", "Solo."),
                 ["instrumentParameters"] = Property("object", "Parameter key → number, see get_catalog."),
@@ -727,12 +760,13 @@ internal sealed class SlawMcpToolset
                 trackPatch.Remove("track");
                 trackPatch["id"] = targetTrack.Id;
                 var patchOutcome = ProjectPatchApplier.Apply(document.Project, new JsonObject { ["tracks"] = new JsonArray(trackPatch) });
-                ProjectAlignmentRemediator.Remediate(patchOutcome.Project);
+                // Values the checker clamps (swing 90, timing -5, gain 3) are reported, never adjusted silently.
+                var remediationLedger = NewRemediations(document.Project, ProjectAlignmentRemediator.Remediate(patchOutcome.Project));
                 patchOutcome.Project.AiProvenance = $"{clientName} via MCP";
                 var changeSummary = ProjectChangeSummarizer.Summarize(document.Project, patchOutcome.Project);
                 document.ReplaceProject(patchOutcome.Project, $"{clientName}: update track", undoable: true);
                 host.OnAgentEdit(clientName, $"updated {targetTrack.Name}");
-                return AppendWarnings(string.Join("\n", changeSummary), patchOutcome.Warnings);
+                return AppendWarnings(string.Join("\n", changeSummary), patchOutcome.Warnings.Concat(remediationLedger).ToList());
             }));
 
         Register("add_effect",
@@ -1032,23 +1066,54 @@ internal sealed class SlawMcpToolset
             async (_, _, _) => await host.InvokeAsync(() => host.Document.Redo() is { } redoneLabel ? $"redid: {redoneLabel}" : "nothing to redo"));
 
         Register("list_samples",
-            "List WAV samples in the user's sample folders (for sampler tracks).",
+            "List WAV samples in the user's sample folders (for sampler tracks), grouped by the folder they are in. " +
+            "Each group starts with a line `folder \"<label>\" (<n> samples):` where the label is the folder relative to its sample folder " +
+            "(e.g. \"BPB Cassette 909 / clean\"); the lines under it are full paths to pass as a track's `sample`. " +
+            "Sample packs often repeat file names across folders (clean/bd01.wav, cassette 1/bd01.wav), so pick by path.",
             Schema(new JsonObject
             {
-                ["filter"] = Property("string", "Optional case-insensitive substring of the file name."),
-                ["limit"] = Property("integer", "Maximum results (default 50)."),
+                ["filter"] = Property("string", "Optional case-insensitive substring of the file name or of the folder label; a folder match lists that whole folder."),
+                ["limit"] = Property("integer", "Maximum sample paths listed (default 50)."),
             }),
-            (toolArguments, _, _) =>
+            async (toolArguments, _, _) =>
             {
                 var filterText = ReadString(toolArguments["filter"]) ?? string.Empty;
                 var resultLimit = (int)Math.Clamp(ReadDouble(toolArguments["limit"]) ?? 50, 1, 500);
-                var matchingSamples = host.SampleLibraryFiles
-                    .Where(samplePath => Path.GetFileName(samplePath).Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                var sampleFolders = await host.InvokeAsync(() => host.SampleFolders.ToList());
+                var matchingGroups = SampleLibrary.GroupByFolder(host.SampleLibraryFiles, sampleFolders)
+                    .Select(folderGroup => folderGroup.Label.Contains(filterText, StringComparison.OrdinalIgnoreCase)
+                        ? folderGroup
+                        : folderGroup with
+                        {
+                            SamplePaths = folderGroup.SamplePaths
+                                .Where(samplePath => Path.GetFileName(samplePath).Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                                .ToList(),
+                        })
+                    .Where(folderGroup => folderGroup.SamplePaths.Count > 0)
                     .ToList();
-                return Task.FromResult(matchingSamples.Count == 0
-                    ? "no samples found — the user can add sample folders in slaw's Settings → Samples"
-                    : $"{matchingSamples.Count} sample(s){(matchingSamples.Count > resultLimit ? $", first {resultLimit}" : string.Empty)}:\n" +
-                      string.Join("\n", matchingSamples.Take(resultLimit)));
+                var matchingSampleCount = matchingGroups.Sum(folderGroup => folderGroup.SamplePaths.Count);
+                if (matchingSampleCount == 0)
+                {
+                    return "no samples found — the user can add sample folders in slaw's Settings → Samples";
+                }
+                var sampleListing = new StringBuilder();
+                sampleListing.Append(CultureInfo.InvariantCulture,
+                    $"{matchingSampleCount} sample(s) in {matchingGroups.Count} folder(s){(matchingSampleCount > resultLimit ? $", first {resultLimit} listed" : string.Empty)}:");
+                var remainingListings = resultLimit;
+                foreach (var folderGroup in matchingGroups)
+                {
+                    if (remainingListings == 0)
+                    {
+                        break;
+                    }
+                    sampleListing.Append(CultureInfo.InvariantCulture, $"\nfolder \"{folderGroup.Label}\" ({folderGroup.SamplePaths.Count} samples):");
+                    foreach (var samplePath in folderGroup.SamplePaths.Take(remainingListings))
+                    {
+                        sampleListing.Append("\n  ").Append(samplePath);
+                    }
+                    remainingListings -= Math.Min(remainingListings, folderGroup.SamplePaths.Count);
+                }
+                return sampleListing.ToString();
             });
 
         Register("list_plugins",
@@ -1405,6 +1470,7 @@ internal sealed class SlawMcpToolset
     {
         ["reset"] = Property("boolean", "true: start from an empty project (no tracks or clips, one empty scene, default master) before applying the rest."),
         ["bpm"] = Property("number", "Tempo, 40..300."),
+        ["swing"] = AnyProperty("Project swing in percent, 50..75: every odd sixteenth starts (swing - 50) / 50 of a step late. 50 = straight (default), 66.67 = triplet shuffle, 75 = dotted. null = straight."),
         ["name"] = Property("string", "Project name."),
         ["summary"] = Property("string", "Optional one-line description of the change, shown to the user."),
         ["scenes"] = ArrayOf(new JsonObject { ["type"] = "string" }, "Renames session scenes in order (never deletes)."),
@@ -1413,11 +1479,13 @@ internal sealed class SlawMcpToolset
         {
             ["id"] = Property("string", "Existing track id, or \"new\" to add a track."),
             ["name"] = Property("string", "Track name; arrangement clips in the same patch may refer to it."),
-            ["instrument"] = Property("string", "kick, snare, hat, clap, sine, square, saw, triangle, pluck, noise, sampler or vst3 (see get_catalog)."),
+            ["instrument"] = Property("string", "kick, snare, hat, clap, shaker, sine, square, saw, triangle, pluck, noise, epiano, organ, mallet, flute, guitar, conga, sampler, soundfont or vst3 (see get_catalog)."),
             ["plugin"] = AnyProperty("VST3 instrument: its name or {path, classId} from list_plugins."),
             ["sample"] = Property("string", "WAV path for sampler tracks."),
             ["gain"] = Property("number", "0..1.5."),
             ["pan"] = Property("number", "-1..1."),
+            ["swing"] = AnyProperty("This track's own swing, 50..75 percent, overriding the project's; null = follow the project's swing."),
+            ["timing"] = Property("number", "Timing humanize, 0..50 ms: each step this track plays starts a random 0..timing ms late (0 = tight)."),
             ["muted"] = Property("boolean", "Mute."),
             ["solo"] = Property("boolean", "Solo."),
             ["instrumentParameters"] = Property("object", "Parameter key → number (see get_catalog; p<id> → 0..1 for vst3)."),

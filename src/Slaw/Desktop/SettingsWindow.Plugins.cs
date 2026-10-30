@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -9,14 +10,14 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// <summary>Settings → Plugins: the user's own VST3 folders, scanned on top of the system ones.</summary>
 internal sealed partial class SettingsWindow
 {
-    private List<string> workingPluginFolders = new();
+    private ObservableCollection<string> workingPluginFolders = new();
     private ListBox? pluginFoldersListBox;
     private Button? removePluginFolderButton;
     private TextBlock? pluginScanResultTextBlock;
 
     private Control BuildPluginsTab()
     {
-        workingPluginFolders = new List<string>(workingPreferences.PluginFolders ?? new List<string>());
+        workingPluginFolders = new ObservableCollection<string>(workingPreferences.PluginFolders ?? new List<string>());
         pluginFoldersListBox = new ListBox
         {
             Height = 160,
@@ -67,23 +68,12 @@ internal sealed partial class SettingsWindow
         }
     }
 
-    private void RefreshPluginFoldersListBox()
-    {
-        if (pluginFoldersListBox is null)
-        {
-            return;
-        }
-        pluginFoldersListBox.ItemsSource = null;
-        pluginFoldersListBox.ItemsSource = workingPluginFolders;
-        RefreshRemovePluginFolderEnablement();
-    }
-
     private void RemoveSelectedPluginFolder()
     {
         if (pluginFoldersListBox?.SelectedItem is string selectedFolder)
         {
             workingPluginFolders.Remove(selectedFolder);
-            RefreshPluginFoldersListBox();
+            RefreshRemovePluginFolderEnablement();
         }
     }
 
@@ -102,7 +92,6 @@ internal sealed partial class SettingsWindow
                 workingPluginFolders.Add(localPath);
             }
         }
-        RefreshPluginFoldersListBox();
     }
 
     private async Task RescanPluginsAsync()

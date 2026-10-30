@@ -21,6 +21,9 @@ internal sealed class SampleData
     public double DurationSeconds => SampleRate > 0 ? (double)Samples.Length / SampleRate : 0;
 }
 
+/// <summary>One folder of scanned samples, labelled relative to its sample folder.</summary>
+internal sealed record SampleFolderGroup(string Label, string FolderPath, IReadOnlyList<string> SamplePaths);
+
 /// <summary>
 /// Loads, caches and resamples user-supplied WAV files. Every cache entry is
 /// a stakeholder-owned asset that we hold onto responsibly, right up until
@@ -181,6 +184,52 @@ internal static class SampleLibrary
             .ThenBy(discoveredPath => discoveredPath, StringComparer.OrdinalIgnoreCase)
             .Take(Math.Max(0, maximumFiles))
             .ToList();
+    }
+
+    /// <summary>
+    /// Groups scanned samples by the folder they sit in, labelled relative to the
+    /// most specific sample folder that contains them ("BPB Cassette 909 / clean").
+    /// Groups are ordered by label, samples within a group by file name.
+    /// </summary>
+    public static IReadOnlyList<SampleFolderGroup> GroupByFolder(IEnumerable<string> samplePaths, IEnumerable<string> sampleFolders)
+    {
+        var normalizedRootFolders = sampleFolders
+            .Where(sampleFolder => !string.IsNullOrWhiteSpace(sampleFolder))
+            .Select(sampleFolder => Path.TrimEndingDirectorySeparator(Path.GetFullPath(sampleFolder)))
+            .Distinct(StringComparer.Ordinal)
+            .OrderByDescending(sampleFolder => sampleFolder.Length)
+            .ToList();
+        return samplePaths
+            .GroupBy(samplePath => Path.GetDirectoryName(samplePath) ?? string.Empty, StringComparer.Ordinal)
+            .Select(folderGrouping => new SampleFolderGroup(
+                DescribeFolder(folderGrouping.Key, normalizedRootFolders),
+                folderGrouping.Key,
+                folderGrouping.OrderBy(samplePath => Path.GetFileName(samplePath), StringComparer.OrdinalIgnoreCase).ToList()))
+            .OrderBy(folderGroup => folderGroup.Label, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(folderGroup => folderGroup.FolderPath, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static string DescribeFolder(string folderPath, IReadOnlyList<string> rootFoldersLongestFirst)
+    {
+        foreach (var rootFolder in rootFoldersLongestFirst)
+        {
+            var relativeFolder = Path.GetRelativePath(rootFolder, folderPath);
+            var escapesRootFolder = relativeFolder == ".." || relativeFolder.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+                                    Path.IsPathRooted(relativeFolder);
+            if (!escapesRootFolder)
+            {
+                var rootName = Path.GetFileName(rootFolder);
+                var labelParts = new List<string> { rootName.Length > 0 ? rootName : rootFolder };
+                if (relativeFolder != ".")
+                {
+                    labelParts.AddRange(relativeFolder.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries));
+                }
+                return string.Join(" / ", labelParts);
+            }
+        }
+        // Not under any registered folder (e.g. dropped in directly): the folder speaks for itself.
+        return folderPath;
     }
 
     public static StereoBuffer ToStereoBuffer(SampleData sampleData)

@@ -613,6 +613,41 @@ public class Vst3HostingTests : IDisposable
         Assert.Empty(failures);
     }
 
+    [InstalledPluginsFact("Kars", "Nekobi")]
+    public void SwingAndTimingReachPluginInstrumentsAtSampleOffsetsAndNoNoteHangs()
+    {
+        static SlawProject SingleNote(PluginReference instrument, int step, double swing)
+        {
+            var project = OneNoteProject(instrument);
+            var pattern = Enumerable.Repeat(".", 16).ToList();
+            pattern[step] = "A4";
+            project.Tracks[0].Clips[0]!.Pattern = pattern;
+            project.Swing = swing;
+            return project;
+        }
+        static int FirstSound(StereoBuffer buffer) => Array.FindIndex(buffer.Left, sample => Math.Abs(sample) > 1e-3f);
+
+        // A pluck on odd step 5 starts a third of a step later under triplet swing; one on even step 4 does not move.
+        var kars = InstalledReference("Kars");
+        var stepFrames = SingleNote(kars, 5, 50).StepDurationSeconds * OfflineArrangementRenderer.DefaultSampleRate;
+        var oddShift = FirstSound(OfflineArrangementRenderer.Render(SingleNote(kars, 5, GrooveTiming.TripletSwing))) - FirstSound(OfflineArrangementRenderer.Render(SingleNote(kars, 5, 50)));
+        var evenShift = FirstSound(OfflineArrangementRenderer.Render(SingleNote(kars, 4, GrooveTiming.TripletSwing))) - FirstSound(OfflineArrangementRenderer.Render(SingleNote(kars, 4, 50)));
+        Assert.InRange(oddShift, stepFrames / 3 - 2, stepFrames / 3 + 2);
+        Assert.InRange(evenShift, -2, 2);
+
+        // Legato repeats, ratchets and timing humanize under heavy swing: every note still ends.
+        var nekobiProject = OneNoteProject(InstalledReference("Nekobi"));
+        nekobiProject.Swing = 75;
+        nekobiProject.Tracks[0].Timing = 40;
+        nekobiProject.Tracks[0].Clips[0]!.Pattern = "A2 A2 A2*3 C3:2 _ A2*2 A2 A2 G2 G2*4 G2 G2 . . . .".Split(' ').ToList();
+        nekobiProject.Arrangement = new List<ArrangementSection> { new() { Scene = 0, Repeats = 2 } };
+        var bounce = OfflineArrangementRenderer.Render(nekobiProject);
+        var heldLevel = RootMeanSquare(bounce, 0.2, 0.8);
+        var releasedLevel = RootMeanSquare(bounce, bounce.DurationSeconds - 0.3, bounce.DurationSeconds);
+        Assert.True(heldLevel > 1e-3, $"the swung line is silent (rms {heldLevel})");
+        Assert.True(releasedLevel < heldLevel * 0.1, $"a note hangs after the swung line ends (rms {releasedLevel} vs {heldLevel})");
+    }
+
     [InstalledPluginFact(instrument: true)]
     public void AnInstalledInstrumentMakesSound()
     {

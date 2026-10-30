@@ -21,7 +21,7 @@ internal static class ProjectPatchApplier
     /// <summary>Every top-level key a patch may carry; anything else is reported as ignored.</summary>
     internal static readonly HashSet<string> KnownPatchKeys = new(StringComparer.Ordinal)
     {
-        "summary", "reset", "name", "bpm", "steps", "scenes", "removeScenes", "arrangement", "tracks", "timeline", "master", "format", "aiProvenance", "loops",
+        "summary", "reset", "name", "bpm", "swing", "steps", "scenes", "removeScenes", "arrangement", "tracks", "timeline", "master", "format", "aiProvenance", "loops",
     };
 
     public static PatchOutcome Apply(SlawProject baseProject, JsonObject projectPatch)
@@ -48,6 +48,19 @@ internal static class ProjectPatchApplier
         if (ReadDouble(projectPatch["bpm"]) is { } patchedTempo)
         {
             patchedProject.Bpm = patchedTempo;
+        }
+        if (ReadDouble(projectPatch["swing"]) is { } patchedSwing)
+        {
+            patchedProject.Swing = patchedSwing;
+        }
+        else if (projectPatch.ContainsKey("swing"))
+        {
+            // null straightens the groove; anything unreadable does too, and says so.
+            patchedProject.Swing = GrooveTiming.StraightSwing;
+            if (projectPatch["swing"] is not null)
+            {
+                patchWarnings.Add("swing must be a number from 50 (straight) to 75; set to 50 (straight)");
+            }
         }
         if (projectPatch["removeScenes"] is JsonArray removedSceneArray)
         {
@@ -248,6 +261,20 @@ internal static class ProjectPatchApplier
         targetTrack.Sample = ReadString(trackPatch["sample"]) ?? targetTrack.Sample;
         targetTrack.Gain = ReadDouble(trackPatch["gain"]) ?? targetTrack.Gain;
         targetTrack.Pan = ReadDouble(trackPatch["pan"]) ?? targetTrack.Pan;
+        if (ReadDouble(trackPatch["swing"]) is { } patchedSwing)
+        {
+            targetTrack.Swing = patchedSwing;
+        }
+        else if (trackPatch.ContainsKey("swing"))
+        {
+            // null hands the track back to the project's swing.
+            targetTrack.Swing = null;
+            if (trackPatch["swing"] is not null)
+            {
+                patchWarnings.Add($"{entryLabel}: swing must be a number from 50 to 75, or null to follow the project's swing; the track now follows the project");
+            }
+        }
+        targetTrack.Timing = ReadDouble(trackPatch["timing"]) ?? targetTrack.Timing;
         targetTrack.Muted = ReadBoolean(trackPatch["muted"]) ?? targetTrack.Muted;
         targetTrack.Solo = ReadBoolean(trackPatch["solo"]) ?? targetTrack.Solo;
 

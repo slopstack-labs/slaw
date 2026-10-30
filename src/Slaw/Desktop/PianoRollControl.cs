@@ -235,7 +235,7 @@ internal sealed class PianoRollControl : Control
             else
             {
                 DrawNoteBlock(drawingContext, placedNote.MidiNote, placedNote.StartStep, Math.Min(placedNote.Length, StepCount - placedNote.StartStep), placedNote.Velocity,
-                    selectedNoteKey == (placedNote.StartStep, placedNote.MidiNote));
+                    selectedNoteKey == (placedNote.StartStep, placedNote.MidiNote), placedNote.RatchetCount);
             }
         }
 
@@ -270,7 +270,8 @@ internal sealed class PianoRollControl : Control
             new Point(KeyboardGutterWidth - 4, RowTop(litMidiNote) + RowHeight / 2), TextAnchor.RightMiddle);
     }
 
-    private void DrawNoteBlock(DrawingContext drawingContext, int midiNote, int startStepIndex, int heldLength, double velocity, bool selected)
+    /// <param name="ratchetCount">The step's "*N": its first step is drawn cut into that many strikes.</param>
+    private void DrawNoteBlock(DrawingContext drawingContext, int midiNote, int startStepIndex, int heldLength, double velocity, bool selected, int ratchetCount = 1)
     {
         var noteRect = new Rect(
             KeyboardGutterWidth + startStepIndex * ColumnWidth + 1,
@@ -284,6 +285,8 @@ internal sealed class PianoRollControl : Control
             drawingContext.DrawRectangle(NoteTopEdgeBrush, null,
                 new Rect(noteRect.X, noteRect.Y, noteRect.Width, Math.Min(2, noteRect.Height)), 2, 2);
         }
+        StepRowControl.DrawRatchetDividers(drawingContext,
+            new Rect(noteRect.X, noteRect.Y - 2, Math.Max(1, ColumnWidth - 2), noteRect.Height + 4), ratchetCount, fullHeight: true);
         if (selected)
         {
             drawingContext.DrawRectangle(null, SelectionPen, noteRect.Inflate(0.5), 2, 2);

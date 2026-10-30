@@ -54,6 +54,46 @@ public class McpServerTests
     }
 
     [Fact]
+    public async Task ListSamplesGroupsByFolderAndFiltersOnFolderNames()
+    {
+        var sampleFolder = Directory.CreateTempSubdirectory("slaw-mcp-samples-").FullName;
+        try
+        {
+            foreach (var relativePath in new[] { "909/clean/bd01.wav", "909/cassette 1/bd01.wav", "vocals/hey.wav" })
+            {
+                var samplePath = Path.Combine(sampleFolder, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(samplePath)!);
+                File.WriteAllBytes(samplePath, Array.Empty<byte>());
+            }
+            var servedDocument = new StudioDocument(ProjectSerializer.CreateStarterProject("mcp"), filePath: null);
+            var preferences = new StudioPreferences { AiFeaturesEnabled = false, SampleFolders = { sampleFolder } };
+            var dispatcher = new McpProtocolDispatcher(new SlawMcpToolset(new HeadlessMcpHost(servedDocument, preferences)));
+            var folderName = Path.GetFileName(sampleFolder);
+
+            async Task<string> ListAsync(string filter) =>
+                (await CallAsync(dispatcher, 1, "tools/call", new JsonObject
+                {
+                    ["name"] = "list_samples",
+                    ["arguments"] = new JsonObject { ["filter"] = filter },
+                }))["result"]!["content"]![0]!["text"]!.GetValue<string>();
+
+            var kickListing = await ListAsync("bd01");
+            Assert.StartsWith("2 sample(s) in 2 folder(s):", kickListing);
+            Assert.Contains($"folder \"{folderName} / 909 / cassette 1\" (1 samples):\n  {Path.Combine(sampleFolder, "909", "cassette 1", "bd01.wav")}", kickListing);
+            Assert.Contains($"folder \"{folderName} / 909 / clean\" (1 samples):", kickListing);
+            Assert.DoesNotContain("hey.wav", kickListing);
+
+            var vocalListing = await ListAsync("vocals");
+            Assert.StartsWith("1 sample(s) in 1 folder(s):", vocalListing);
+            Assert.Contains("hey.wav", vocalListing);
+        }
+        finally
+        {
+            Directory.Delete(sampleFolder, true);
+        }
+    }
+
+    [Fact]
     public async Task LockedTracksAndUnknownMethodsAreRefused()
     {
         var (dispatcher, servedDocument) = CreateHeadlessServer();

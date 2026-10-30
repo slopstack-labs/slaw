@@ -683,23 +683,28 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
         }
     }
 
-    public void NoteOn(int midiNote, float velocity)
+    /// <summary>
+    /// Queues a note-on for the next block, <paramref name="sampleOffset"/> frames into it (a ratchet's
+    /// re-strike). A note already sounding is ended at the same offset first, so it re-strikes.
+    /// </summary>
+    public void NoteOn(int midiNote, float velocity, int sampleOffset = 0)
     {
         if (soundingNotes.Contains(midiNote))
         {
-            inputEvents.Add(Vst3Event.NoteOff(midiNote, 0));
+            inputEvents.Add(Vst3Event.NoteOff(midiNote, sampleOffset));
         }
-        if (inputEvents.Add(Vst3Event.NoteOn(midiNote, velocity, 0)))
+        if (inputEvents.Add(Vst3Event.NoteOn(midiNote, velocity, sampleOffset)))
         {
             soundingNotes.Add(midiNote);
         }
     }
 
-    public void NoteOff(int midiNote)
+    /// <summary>Queues a note-off for the next block, <paramref name="sampleOffset"/> frames into it (a note that ends on a swung step).</summary>
+    public void NoteOff(int midiNote, int sampleOffset = 0)
     {
         if (soundingNotes.Remove(midiNote))
         {
-            inputEvents.Add(Vst3Event.NoteOff(midiNote, 0));
+            inputEvents.Add(Vst3Event.NoteOff(midiNote, sampleOffset));
         }
     }
 

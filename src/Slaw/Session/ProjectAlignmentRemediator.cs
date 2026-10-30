@@ -20,6 +20,52 @@ internal static class ProjectAlignmentRemediator
     /// <summary>What a model may plausibly call an instrument, and what we will actually play.</summary>
     private static readonly Dictionary<string, string> InstrumentSynonymResolutionTable = new(StringComparer.OrdinalIgnoreCase)
     {
+        // Organic names first: the substring fallback walks this table in order, and "marimba"
+        // contains "rim", "hand drums" contains "drums", "electric piano" contains "piano".
+        ["electric piano"] = "epiano",
+        ["e-piano"] = "epiano",
+        ["e piano"] = "epiano",
+        ["rhodes"] = "epiano",
+        ["wurlitzer"] = "epiano",
+        ["wurli"] = "epiano",
+        ["fm piano"] = "epiano",
+        ["hammond"] = "organ",
+        ["drawbar"] = "organ",
+        ["tonewheel"] = "organ",
+        ["marimba"] = "mallet",
+        ["kalimba"] = "mallet",
+        ["mbira"] = "mallet",
+        ["vibraphone"] = "mallet",
+        ["xylophone"] = "mallet",
+        ["glockenspiel"] = "mallet",
+        ["celesta"] = "mallet",
+        ["steel drum"] = "mallet",
+        ["steelpan"] = "mallet",
+        ["pan flute"] = "flute",
+        ["panflute"] = "flute",
+        ["pan pipe"] = "flute",
+        ["panpipe"] = "flute",
+        ["piccolo"] = "flute",
+        ["recorder"] = "flute",
+        ["ocarina"] = "flute",
+        ["shakuhachi"] = "flute",
+        ["nylon"] = "guitar",
+        ["acoustic guitar"] = "guitar",
+        ["classical guitar"] = "guitar",
+        ["ukulele"] = "guitar",
+        ["banjo"] = "guitar",
+        ["congas"] = "conga",
+        ["bongo"] = "conga",
+        ["tumba"] = "conga",
+        ["quinto"] = "conga",
+        ["djembe"] = "conga",
+        ["tabla"] = "conga",
+        ["hand drum"] = "conga",
+        ["hand percussion"] = "conga",
+        ["maraca"] = "shaker",
+        ["cabasa"] = "shaker",
+        ["egg shaker"] = "shaker",
+        ["tambourine"] = "shaker",
         ["bd"] = "kick",
         ["bass drum"] = "kick",
         ["kickdrum"] = "kick",
@@ -34,23 +80,22 @@ internal static class ProjectAlignmentRemediator
         ["hi hat"] = "hat",
         ["cymbal"] = "hat",
         ["ride"] = "hat",
-        ["shaker"] = "hat",
         ["handclap"] = "clap",
         ["claps"] = "clap",
         ["bass"] = "saw",
+        ["reese"] = "saw",
         ["sub"] = "sine",
         ["sub bass"] = "sine",
         ["synth"] = "saw",
         ["lead"] = "square",
         ["chiptune"] = "square",
         ["pulse"] = "square",
-        ["flute"] = "triangle",
         ["pad"] = "triangle",
-        ["piano"] = "pluck",
-        ["keys"] = "pluck",
-        ["guitar"] = "pluck",
+        ["piano"] = "epiano",
+        ["keys"] = "epiano",
+        ["guitar"] = "guitar",
         ["harp"] = "pluck",
-        ["bell"] = "pluck",
+        ["bell"] = "mallet",
         ["strings"] = "saw",
         ["vocals"] = "triangle",
         ["vocal"] = "triangle",
@@ -65,6 +110,10 @@ internal static class ProjectAlignmentRemediator
         ["sf2"] = "soundfont",
         ["sound font"] = "soundfont",
         ["general midi"] = "soundfont",
+        // Short or generic organic names last, so "Bb3 bass" stays a bass and "good vibes pad" a pad.
+        ["b3"] = "organ",
+        ["vibes"] = "mallet",
+        ["percussion"] = "conga",
     };
 
     private static readonly Dictionary<string, string> EffectSynonymResolutionTable = new(StringComparer.OrdinalIgnoreCase)
@@ -120,6 +169,7 @@ internal static class ProjectAlignmentRemediator
         project.Format = SlawProject.CurrentFormatIdentifier;
         project.Bpm = ClampWithLedger(project.Bpm, 40, 300, "bpm", remediationLedger);
         project.Steps = (int)ClampWithLedger(project.Steps <= 0 ? 16 : project.Steps, 1, MaximumStepCount, "steps", remediationLedger);
+        project.Swing = GrooveTiming.RemediateSwing(project.Swing, "swing", remediationLedger);
         project.Tracks ??= new List<SlawTrack>();
         project.Scenes ??= new List<string>();
         project.Arrangement ??= new List<ArrangementSection>();
@@ -395,6 +445,11 @@ internal static class ProjectAlignmentRemediator
 
         track.Gain = ClampWithLedger(track.Gain, 0, 1.5, $"{track.Name}.gain", remediationLedger);
         track.Pan = ClampWithLedger(track.Pan, -1, 1, $"{track.Name}.pan", remediationLedger);
+        if (track.Swing is { } trackSwing)
+        {
+            track.Swing = GrooveTiming.RemediateSwing(trackSwing, $"{track.Name}.swing", remediationLedger);
+        }
+        track.Timing = ClampWithLedger(track.Timing, 0, GrooveTiming.MaximumTimingMilliseconds, $"{track.Name}.timing", remediationLedger);
 
         track.InstrumentParameters ??= new Dictionary<string, double>();
         var realignedInstrumentParameters = track.Instrument == Plugins.DeviceTypes.Vst3

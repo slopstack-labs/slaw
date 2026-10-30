@@ -1,0 +1,4365 @@
+{
+  "format": "slaw-project/v2",
+  "name": "Escalation Velocity (P1 Hotfix VIP)",
+  "bpm": 174,
+  "steps": 16,
+  "scenes": [
+    "Jam: Two-Step Standup",
+    "Jam: VIP Escalation"
+  ],
+  "tracks": [
+    {
+      "id": "91bc93be",
+      "name": "P1 Kick",
+      "instrument": "kick",
+      "instrumentParameters": {
+        "pitch": 1,
+        "decay": 0.7,
+        "cutoff": 9000
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 20000,
+            "resonance": 0
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 1.8,
+            "mix": 0.25
+          }
+        }
+      ],
+      "gain": 0.5,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "P1 Kick",
+          "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", "."]
+        },
+        {
+          "name": "P1 Kick",
+          "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+        }
+      ]
+    },
+    {
+      "id": "0681aac1",
+      "name": "Standup Snare (ghosts included)",
+      "instrument": "snare",
+      "instrumentParameters": {
+        "pitch": 3,
+        "decay": 0.85,
+        "cutoff": 12000
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 20000,
+            "resonance": 0
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.4,
+            "damping": 0.55,
+            "mix": 0.06,
+            "width": 0.7
+          }
+        }
+      ],
+      "gain": 1.25,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Standup Snare (ghosts included)",
+          "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.3", ".", "x@0.35", ".", "x@0.45*2", "x", ".", "x@0.55*2", "x@0.7*4"]
+        },
+        {
+          "name": "Standup Snare (ghosts included)",
+          "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", "x@0.4", ".", "x@0.4*2", ".", "x", ".", "x@0.5*2", ".", "x@0.5*2", "x@0.55*2", "x@0.6*3", ".", "x", "x@0.6*2", "x@0.65*4", "x@0.75*4"]
+        }
+      ]
+    },
+    {
+      "id": "0eacfc41",
+      "name": "Burn-Down Hats (x*2, x*3)",
+      "instrument": "hat",
+      "instrumentParameters": {
+        "decay": 0.45,
+        "cutoff": 14000
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 20000,
+            "resonance": 0
+          }
+        },
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 5500,
+            "resonance": 0
+          }
+        }
+      ],
+      "gain": 1.4,
+      "pan": 0.22,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Burn-Down Hats (x*2, x*3)",
+          "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+        },
+        {
+          "name": "Burn-Down Hats (x*2, x*3)",
+          "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+        }
+      ]
+    },
+    {
+      "id": "1632ebb3",
+      "name": "Retro Ride",
+      "instrument": "hat",
+      "instrumentParameters": {
+        "pitch": -6,
+        "decay": 3,
+        "cutoff": 12000
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 3500,
+            "resonance": 0
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.3,
+            "haas": 6
+          }
+        }
+      ],
+      "gain": 0.95,
+      "pan": -0.25,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Retro Ride",
+          "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", ".", "x@0.75", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", "x@0.35"]
+        }
+      ]
+    },
+    {
+      "id": "6b88a1b1",
+      "name": "Escalation Roll (x*2, x*4, x*8)",
+      "instrument": "snare",
+      "instrumentParameters": {
+        "pitch": 2,
+        "decay": 0.6,
+        "cutoff": 11000
+      },
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.55,
+            "damping": 0.45,
+            "mix": 0.08,
+            "width": 0.9
+          }
+        }
+      ],
+      "gain": 0.8,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "c1d292cc",
+      "name": "War Room Crash",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 1,
+        "decay": 1300,
+        "sustain": 0,
+        "release": 900,
+        "cutoff": 13000
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 3800,
+            "resonance": 0
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.6,
+            "damping": 0.5,
+            "mix": 0.14,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 0.9,
+      "pan": 0.05,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "1624a281",
+      "name": "Deadline Riser",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 5,
+        "decay": 3000,
+        "sustain": 1,
+        "release": 200,
+        "cutoff": 14000
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 400,
+            "resonance": 0.4
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.5,
+            "haas": 8
+          }
+        }
+      ],
+      "gain": 0.8,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "314257a2",
+      "name": "Reese of Accountability (spread 22)",
+      "instrument": "saw",
+      "instrumentParameters": {
+        "attack": 4,
+        "decay": 400,
+        "sustain": 0.9,
+        "release": 70,
+        "cutoff": 3000,
+        "spread": 22
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 900,
+            "resonance": 0.3
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 4,
+            "mix": 0.45
+          }
+        },
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 70,
+            "resonance": 0
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.35,
+            "threshold": -30,
+            "attack": 1,
+            "release": 110
+          },
+          "sidechainSource": "91bc93be"
+        }
+      ],
+      "gain": 0.45,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Reese of Accountability (spread 22)",
+          "pattern": ["F2:7", ".", ".", ".", ".", ".", ".", "F2:3@0.8", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3:2@0.8", ".", "F2:4", ".", ".", ".", "C#3:7", ".", ".", ".", ".", ".", ".", "C#3:3@0.8", ".", ".", "C#3:6", ".", ".", ".", ".", ".", "C#3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C#4:2@0.8", ".", "C#3:4", ".", ".", "."],
+          "automation": {
+            "fx.0.cutoff": [
+              {
+                "step": 0,
+                "value": 500
+              },
+              {
+                "step": 8,
+                "value": 1600
+              },
+              {
+                "step": 16,
+                "value": 600
+              },
+              {
+                "step": 24,
+                "value": 1800
+              },
+              {
+                "step": 32,
+                "value": 500
+              },
+              {
+                "step": 40,
+                "value": 1500
+              },
+              {
+                "step": 48,
+                "value": 700
+              },
+              {
+                "step": 56,
+                "value": 2200
+              },
+              {
+                "step": 64,
+                "value": 500
+              }
+            ]
+          }
+        },
+        {
+          "name": "Reese of Accountability (spread 22)",
+          "pattern": ["A#2:6", ".", ".", ".", ".", ".", "A#2@0.8*2", "A#3:2@0.7", ".", ".", "A#2:6", ".", ".", ".", ".", ".", "A#2:8", ".", ".", ".", ".", ".", ".", ".", "A#2@0.85*2", ".", "A#3:2@0.8", ".", "A#2*3", "A#2:3", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3@0.8*2", "C4:2@0.7", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:8", ".", ".", ".", ".", ".", ".", ".", "C3@0.85*2", ".", "C4:2@0.8", ".", "C3*3", "C3:3", ".", "."],
+          "automation": {
+            "inst.spread": [
+              {
+                "step": 0,
+                "value": 8
+              },
+              {
+                "step": 64,
+                "value": 50
+              }
+            ],
+            "fx.0.cutoff": [
+              {
+                "step": 0,
+                "value": 700
+              },
+              {
+                "step": 32,
+                "value": 2600
+              },
+              {
+                "step": 64,
+                "value": 700
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "78113a43",
+      "name": "Root Cause Sub",
+      "instrument": "sine",
+      "instrumentParameters": {
+        "attack": 3,
+        "decay": 400,
+        "sustain": 1,
+        "release": 45,
+        "cutoff": 400
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 180,
+            "resonance": 0
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.7,
+            "threshold": -30,
+            "attack": 1,
+            "release": 110
+          },
+          "sidechainSource": "91bc93be"
+        }
+      ],
+      "gain": 0.38,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Root Cause Sub",
+          "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:4", ".", ".", ".", "C#2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C#2:6", ".", ".", ".", ".", ".", "C#2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C#2:4", ".", ".", "."]
+        },
+        {
+          "name": "Root Cause Sub",
+          "pattern": ["A#1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A#1:6", ".", ".", ".", ".", ".", "A#1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A#1:6", ".", ".", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", "."]
+        }
+      ]
+    },
+    {
+      "id": "f7d4ce9e",
+      "name": "Ticket Queue Pad",
+      "instrument": "saw",
+      "instrumentParameters": {
+        "attack": 400,
+        "decay": 800,
+        "sustain": 0.8,
+        "release": 700,
+        "cutoff": 2500,
+        "spread": 8
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 1400,
+            "resonance": 0.15
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.55,
+            "damping": 0.6,
+            "mix": 0.14,
+            "width": 0.8
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.4,
+            "threshold": -30,
+            "attack": 1,
+            "release": 160
+          },
+          "sidechainSource": "91bc93be"
+        }
+      ],
+      "gain": 0.45,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "25a46f1a",
+      "name": "Backlog Stabs",
+      "instrument": "square",
+      "instrumentParameters": {
+        "attack": 1,
+        "decay": 140,
+        "sustain": 0,
+        "release": 60,
+        "cutoff": 3500
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 3200,
+            "resonance": 0.2
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.4,
+            "threshold": -30,
+            "attack": 1,
+            "release": 120
+          },
+          "sidechainSource": "91bc93be"
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.3,
+            "mix": 0,
+            "pingpong": 1
+          }
+        }
+      ],
+      "gain": 0.75,
+      "pan": -0.12,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Backlog Stabs",
+          "pattern": [".", ".", ".", "F3@0.75\u002BG#3@0.75\u002BC4@0.75\u002BD#4@0.75", ".", ".", "F3@0.9\u002BG#3@0.9\u002BC4@0.9\u002BD#4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BG#3@0.7\u002BC4@0.7\u002BD#4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G#3@0.75\u002BC#4@0.75\u002BF4@0.75", ".", ".", "G#3@0.9\u002BC#4@0.9\u002BF4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G#3@0.7\u002BC#4@0.7\u002BF4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "85f30f9e",
+      "name": "Hotfix Hook (saw lead, spread 7)",
+      "instrument": "saw",
+      "instrumentParameters": {
+        "attack": 2,
+        "decay": 220,
+        "sustain": 0.3,
+        "release": 90,
+        "cutoff": 6000,
+        "spread": 7
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 5200,
+            "resonance": 0.2
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.35,
+            "mix": 0,
+            "pingpong": 1
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.5,
+            "damping": 0.5,
+            "mix": 0.05,
+            "width": 0.8
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.25,
+            "threshold": -30,
+            "attack": 1,
+            "release": 110
+          },
+          "sidechainSource": "91bc93be"
+        }
+      ],
+      "gain": 0.8,
+      "pan": 0.06,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Hotfix Hook (saw lead, spread 7)",
+          "pattern": ["C#6", ".", ".", "A#5", ".", ".", "F6", ".", ".", ".", "C#6", ".", "A#5", ".", "G#5*2", ".", "A#5", ".", ".", "G#5", ".", ".", "F5", ".", ".", ".", "C#6", ".", "F5*2", ".", ".", ".", "E6", ".", ".", "G6", ".", ".", "E6", ".", ".", ".", "C6", ".", "A#5", ".", "G5*2", ".", "C6", ".", ".", "A#5", ".", ".", "G5", ".", ".", ".", "E5*2", ".", "G5*3", ".", "C6*4", "."]
+        }
+      ]
+    },
+    {
+      "id": "ffd628f3",
+      "name": "Post-Mortem Pluck",
+      "instrument": "pluck",
+      "instrumentParameters": {
+        "length": 520,
+        "brightness": 0.8,
+        "cutoff": 9000
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 7000,
+            "resonance": 0.15
+          }
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.35,
+            "mix": 0.15,
+            "pingpong": 1
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.6,
+            "damping": 0.5,
+            "mix": 0.2,
+            "width": 0.9
+          }
+        }
+      ],
+      "gain": 1.5,
+      "pan": -0.05,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    }
+  ],
+  "master": {
+    "gain": 0.78,
+    "drive": 1,
+    "lowpassHz": 20000,
+    "delaySteps": 3,
+    "delayFeedback": 0.3,
+    "delayMix": 0,
+    "rationale": null,
+    "effects": [
+      {
+        "type": "highpass",
+        "enabled": true,
+        "parameters": {
+          "cutoff": 28,
+          "resonance": 0
+        }
+      },
+      {
+        "type": "drive",
+        "enabled": true,
+        "parameters": {
+          "amount": 1.3,
+          "mix": 0.12
+        }
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "id": "99709447",
+      "trackId": "f7d4ce9e",
+      "startStep": 0,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad: filter opens",
+        "pattern": ["F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 300
+            },
+            {
+              "step": 64,
+              "value": 1200
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 32,
+              "value": 0.45
+            }
+          ]
+        }
+      },
+      "endStep": 64
+    },
+    {
+      "id": "b30a5dd8",
+      "trackId": "f7d4ce9e",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad",
+        "pattern": ["F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 1200
+            },
+            {
+              "step": 64,
+              "value": 1600
+            }
+          ]
+        }
+      },
+      "endStep": 128
+    },
+    {
+      "id": "57fc34a0",
+      "trackId": "f7d4ce9e",
+      "startStep": 128,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad",
+        "pattern": ["F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 1400
+            },
+            {
+              "step": 64,
+              "value": 1400
+            }
+          ]
+        }
+      },
+      "endStep": 192
+    },
+    {
+      "id": "195a5c59",
+      "trackId": "f7d4ce9e",
+      "startStep": 192,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad: closes for the build",
+        "pattern": ["F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 1400
+            },
+            {
+              "step": 64,
+              "value": 500
+            }
+          ]
+        }
+      },
+      "endStep": 256
+    },
+    {
+      "id": "72fd55e1",
+      "trackId": "ffd628f3",
+      "startStep": 128,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pluck teaser: lowpass 600 -\u003E 2500",
+        "pattern": ["C5", ".", ".", "Eb5", ".", ".", "F5", ".", ".", ".", "Eb5", ".", "C5", ".", ".", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db5", ".", ".", ".", "F5", ".", "Ab5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 64,
+              "value": 2500
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.6
+            },
+            {
+              "step": 64,
+              "value": 1.1
+            }
+          ]
+        }
+      },
+      "endStep": 192
+    },
+    {
+      "id": "7eccef1d",
+      "trackId": "ffd628f3",
+      "startStep": 192,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pluck teaser",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F5", ".", ".", ".", "Ab5", ".", "F5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", "Db5", ".", ".", ".", "E5", ".", ".", "G5", ".", ".", "Bb5", ".", ".", ".", "G5", ".", "E5", ".", ".", ".", "C5", ".", ".", "E5", ".", ".", "G5", ".", ".", ".", ".", ".", "G5@0.6*2", ".", "C6*2", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 2500
+            },
+            {
+              "step": 64,
+              "value": 4000
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.1
+            },
+            {
+              "step": 64,
+              "value": 1.2
+            }
+          ]
+        }
+      },
+      "endStep": 256
+    },
+    {
+      "id": "986cb21a",
+      "trackId": "0eacfc41",
+      "startStep": 0,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Intro hats: lowpass 6500 -\u003E 20000",
+        "pattern": ["x@0.7", ".", "x@0.4", ".", "x@0.7", ".", "x@0.4", ".", "x@0.7", ".", "x@0.4", ".", "x@0.7", ".", "x@0.45*2", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 6500
+            },
+            {
+              "step": 128,
+              "value": 20000
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 128,
+              "value": 1.1
+            }
+          ]
+        }
+      },
+      "endStep": 128
+    },
+    {
+      "id": "ccffed57",
+      "trackId": "0eacfc41",
+      "startStep": 128,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Hats: filter fully open",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 14000
+            },
+            {
+              "step": 64,
+              "value": 20000
+            }
+          ]
+        }
+      },
+      "endStep": 256
+    },
+    {
+      "id": "5d6be261",
+      "trackId": "91bc93be",
+      "startStep": 128,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Kick: lowpass 250 -\u003E 20000 over 8 bars",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 250
+            },
+            {
+              "step": 112,
+              "value": 4000
+            },
+            {
+              "step": 128,
+              "value": 20000
+            }
+          ]
+        }
+      },
+      "endStep": 256
+    },
+    {
+      "id": "bf4dc9ca",
+      "trackId": "0681aac1",
+      "startStep": 128,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Snare: lowpass 400 -\u003E 20000 over 8 bars",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.3", ".", "x@0.35", ".", "x@0.45*2", "x", ".", "x@0.55*2", "x@0.7*4"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 400
+            },
+            {
+              "step": 112,
+              "value": 5000
+            },
+            {
+              "step": 128,
+              "value": 20000
+            }
+          ]
+        }
+      },
+      "endStep": 256
+    },
+    {
+      "id": "c48a9667",
+      "trackId": "91bc93be",
+      "startStep": 256,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Kick (gap before the roll)",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 320
+    },
+    {
+      "id": "d8d183a4",
+      "trackId": "0681aac1",
+      "startStep": 256,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2"]
+      },
+      "endStep": 320
+    },
+    {
+      "id": "941ef42f",
+      "trackId": "0eacfc41",
+      "startStep": 256,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Build hats rise",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 128,
+              "value": 1.25
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "74b9f709",
+      "trackId": "314257a2",
+      "startStep": 256,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese teaser: lowpass 220 -\u003E 700",
+        "pattern": ["F2:7", ".", ".", ".", ".", ".", ".", "F2:3@0.8", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3:2@0.8", ".", "F2:4", ".", ".", ".", "Db3:7", ".", ".", ".", ".", ".", ".", "Db3:3@0.8", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db4:2@0.8", ".", "Db3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 220
+            },
+            {
+              "step": 64,
+              "value": 700
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.3
+            },
+            {
+              "step": 64,
+              "value": 0.5
+            }
+          ]
+        }
+      },
+      "endStep": 320
+    },
+    {
+      "id": "e3d8a0cc",
+      "trackId": "314257a2",
+      "startStep": 320,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass rises, spread widens",
+        "pattern": ["Bb2:7", ".", ".", ".", ".", ".", ".", "Bb2:3@0.8", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:2@0.8", ".", "Bb2:4", ".", ".", ".", "C3:7", ".", ".", ".", ".", ".", ".", "C3:3@0.8", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C4:2@0.8", ".", "C3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 60,
+              "value": 2400
+            },
+            {
+              "step": 64,
+              "value": 2400
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 10
+            },
+            {
+              "step": 64,
+              "value": 40
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "6141cbac",
+      "trackId": "6b88a1b1",
+      "startStep": 320,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Ratchet roll: x -\u003E x*2 -\u003E x*4 -\u003E x*8",
+        "pattern": ["x@0.35", ".", ".", ".", "x@0.4", ".", ".", ".", "x@0.45", ".", ".", ".", "x@0.5", ".", ".", ".", "x@0.5", ".", "x@0.5", ".", "x@0.55", ".", "x@0.55", ".", "x@0.6", ".", "x@0.6", ".", "x@0.62", ".", "x@0.65", ".", "x@0.65", "x@0.65", "x@0.68", "x@0.68", "x@0.7", "x@0.7", "x@0.72", "x@0.72", "x@0.74", "x@0.74", "x@0.76", "x@0.76", "x@0.78", "x@0.78", "x@0.8", "x@0.8", "x@0.8*2", "x@0.8*2", "x@0.82*2", "x@0.82*2", "x@0.84*2", "x@0.84*2", "x@0.86*2", "x@0.86*2", "x@0.88*4", "x@0.88*4", "x@0.9*4", "x@0.9*4", "x@0.95*4", "x*4", "x*8", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.35
+            },
+            {
+              "step": 63,
+              "value": 0.85
+            }
+          ],
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": 7
+            }
+          ],
+          "fx.0.mix": [
+            {
+              "step": 0,
+              "value": 0.06
+            },
+            {
+              "step": 56,
+              "value": 0.1
+            },
+            {
+              "step": 63,
+              "value": 0.35
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "4977f217",
+      "trackId": "1624a281",
+      "startStep": 320,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Riser",
+        "pattern": ["C5", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 62,
+              "value": 0.7
+            },
+            {
+              "step": 64,
+              "value": 0
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 400
+            },
+            {
+              "step": 64,
+              "value": 7000
+            }
+          ],
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": 12
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "4c83d656",
+      "trackId": "c1d292cc",
+      "startStep": 384,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 400
+    },
+    {
+      "id": "ad4a2c15",
+      "trackId": "91bc93be",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", "."]
+      },
+      "endStep": 512
+    },
+    {
+      "id": "b882322f",
+      "trackId": "0681aac1",
+      "startStep": 384,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2"]
+      },
+      "endStep": 448
+    },
+    {
+      "id": "0c8322ce",
+      "trackId": "0681aac1",
+      "startStep": 448,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare fill (ratchets)",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.3", ".", "x@0.35", ".", "x@0.45*2", "x", ".", "x@0.55*2", "x@0.7*4"]
+      },
+      "endStep": 512
+    },
+    {
+      "id": "e760b054",
+      "trackId": "0eacfc41",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Burn-Down Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+      },
+      "endStep": 512
+    },
+    {
+      "id": "612ce11d",
+      "trackId": "314257a2",
+      "startStep": 384,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass wobble per bar, spread 16 -\u003E 26",
+        "pattern": ["F2:7", ".", ".", ".", ".", ".", ".", "F2:3@0.8", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3:2@0.8", ".", "F2:4", ".", ".", ".", "Db3:7", ".", ".", ".", ".", ".", ".", "Db3:3@0.8", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db4:2@0.8", ".", "Db3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 6,
+              "value": 1500
+            },
+            {
+              "step": 16,
+              "value": 650
+            },
+            {
+              "step": 26,
+              "value": 1800
+            },
+            {
+              "step": 32,
+              "value": 550
+            },
+            {
+              "step": 38,
+              "value": 1400
+            },
+            {
+              "step": 48,
+              "value": 700
+            },
+            {
+              "step": 56,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 900
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 16
+            },
+            {
+              "step": 64,
+              "value": 26
+            }
+          ]
+        }
+      },
+      "endStep": 448
+    },
+    {
+      "id": "44331401",
+      "trackId": "78113a43",
+      "startStep": 384,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:4", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:4", ".", ".", "."]
+      },
+      "endStep": 448
+    },
+    {
+      "id": "abfbbab6",
+      "trackId": "314257a2",
+      "startStep": 448,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass wobble per bar, spread 16 -\u003E 26",
+        "pattern": ["Bb2:7", ".", ".", ".", ".", ".", ".", "Bb2:3@0.8", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:2@0.8", ".", "Bb2:4", ".", ".", ".", "C3:7", ".", ".", ".", ".", ".", ".", "C3:3@0.8", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C4:2@0.8", ".", "C3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 6,
+              "value": 1500
+            },
+            {
+              "step": 16,
+              "value": 650
+            },
+            {
+              "step": 26,
+              "value": 1800
+            },
+            {
+              "step": 32,
+              "value": 550
+            },
+            {
+              "step": 38,
+              "value": 1400
+            },
+            {
+              "step": 48,
+              "value": 700
+            },
+            {
+              "step": 56,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 900
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 16
+            },
+            {
+              "step": 64,
+              "value": 26
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "c7519db4",
+      "trackId": "78113a43",
+      "startStep": 448,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["Bb1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "Bb1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:4", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:4", ".", ".", "."]
+      },
+      "endStep": 512
+    },
+    {
+      "id": "96b73145",
+      "trackId": "91bc93be",
+      "startStep": 512,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", "."]
+      },
+      "endStep": 640
+    },
+    {
+      "id": "0cf62bdb",
+      "trackId": "0681aac1",
+      "startStep": 512,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2"]
+      },
+      "endStep": 576
+    },
+    {
+      "id": "218fdb17",
+      "trackId": "0681aac1",
+      "startStep": 576,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare fill (ratchets)",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.3", ".", "x@0.35", ".", "x@0.45*2", "x", ".", "x@0.55*2", "x@0.7*4"]
+      },
+      "endStep": 640
+    },
+    {
+      "id": "0f4c5240",
+      "trackId": "0eacfc41",
+      "startStep": 512,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Burn-Down Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+      },
+      "endStep": 640
+    },
+    {
+      "id": "9f9ebf9c",
+      "trackId": "314257a2",
+      "startStep": 512,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass wobble per bar, spread 16 -\u003E 26",
+        "pattern": ["F2:7", ".", ".", ".", ".", ".", ".", "F2:3@0.8", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3:2@0.8", ".", "F2:4", ".", ".", ".", "Db3:7", ".", ".", ".", ".", ".", ".", "Db3:3@0.8", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db4:2@0.8", ".", "Db3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 6,
+              "value": 1500
+            },
+            {
+              "step": 16,
+              "value": 650
+            },
+            {
+              "step": 26,
+              "value": 1800
+            },
+            {
+              "step": 32,
+              "value": 550
+            },
+            {
+              "step": 38,
+              "value": 1400
+            },
+            {
+              "step": 48,
+              "value": 700
+            },
+            {
+              "step": 56,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 900
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 16
+            },
+            {
+              "step": 64,
+              "value": 26
+            }
+          ]
+        }
+      },
+      "endStep": 576
+    },
+    {
+      "id": "7250d374",
+      "trackId": "78113a43",
+      "startStep": 512,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:4", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:4", ".", ".", "."]
+      },
+      "endStep": 576
+    },
+    {
+      "id": "e133faf0",
+      "trackId": "85f30f9e",
+      "startStep": 512,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["C5", ".", ".", "Eb5", ".", ".", "F5", ".", ".", ".", "Eb5", ".", "C5", ".", ".", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db5", ".", ".", ".", "F5", ".", "Ab5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 576
+    },
+    {
+      "id": "9b90bc99",
+      "trackId": "314257a2",
+      "startStep": 576,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass wobble per bar, spread 16 -\u003E 26",
+        "pattern": ["Bb2:7", ".", ".", ".", ".", ".", ".", "Bb2:3@0.8", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:2@0.8", ".", "Bb2:4", ".", ".", ".", "C3:7", ".", ".", ".", ".", ".", ".", "C3:3@0.8", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C4:2@0.8", ".", "C3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 6,
+              "value": 1500
+            },
+            {
+              "step": 16,
+              "value": 650
+            },
+            {
+              "step": 26,
+              "value": 1800
+            },
+            {
+              "step": 32,
+              "value": 550
+            },
+            {
+              "step": 38,
+              "value": 1400
+            },
+            {
+              "step": 48,
+              "value": 700
+            },
+            {
+              "step": 56,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 900
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 16
+            },
+            {
+              "step": 64,
+              "value": 26
+            }
+          ]
+        }
+      },
+      "endStep": 640
+    },
+    {
+      "id": "1de3658f",
+      "trackId": "78113a43",
+      "startStep": 576,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub: C2 slides down to F1 (pitch 0 -\u003E -7)",
+        "pattern": ["Bb1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "Bb1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:4", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:4", ".", ".", "."],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 60,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": -7
+            }
+          ]
+        }
+      },
+      "endStep": 640
+    },
+    {
+      "id": "62a8d13b",
+      "trackId": "85f30f9e",
+      "startStep": 576,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F5", ".", ".", ".", "Ab5", ".", "F5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", "Db5", ".", ".", ".", "E5", ".", ".", "G5", ".", ".", "Bb5", ".", ".", ".", "G5", ".", "E5", ".", ".", ".", "C5", ".", ".", "E5", ".", ".", "G5", ".", ".", ".", ".", ".", "G5@0.6*2", ".", "C6*2", "."]
+      },
+      "endStep": 640
+    },
+    {
+      "id": "5072e1c3",
+      "trackId": "c1d292cc",
+      "startStep": 640,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 656
+    },
+    {
+      "id": "8cefae5f",
+      "trackId": "91bc93be",
+      "startStep": 640,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", "."]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "badcbb91",
+      "trackId": "0681aac1",
+      "startStep": 640,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2"]
+      },
+      "endStep": 704
+    },
+    {
+      "id": "57cd1b5d",
+      "trackId": "0681aac1",
+      "startStep": 704,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare fill (ratchets)",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.3", ".", "x@0.35", ".", "x@0.45*2", "x", ".", "x@0.55*2", "x@0.7*4"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "ac14f7d7",
+      "trackId": "0eacfc41",
+      "startStep": 640,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Burn-Down Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "8df98258",
+      "trackId": "1632ebb3",
+      "startStep": 640,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ride",
+        "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", ".", "x@0.75", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", "x@0.35"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "6e62bac5",
+      "trackId": "314257a2",
+      "startStep": 640,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass wobble per bar, spread 16 -\u003E 26",
+        "pattern": ["F2:7", ".", ".", ".", ".", ".", ".", "F2:3@0.8", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3:2@0.8", ".", "F2:4", ".", ".", ".", "Db3:7", ".", ".", ".", ".", ".", ".", "Db3:3@0.8", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db4:2@0.8", ".", "Db3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 6,
+              "value": 1500
+            },
+            {
+              "step": 16,
+              "value": 650
+            },
+            {
+              "step": 26,
+              "value": 1800
+            },
+            {
+              "step": 32,
+              "value": 550
+            },
+            {
+              "step": 38,
+              "value": 1400
+            },
+            {
+              "step": 48,
+              "value": 700
+            },
+            {
+              "step": 56,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 900
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 16
+            },
+            {
+              "step": 64,
+              "value": 26
+            }
+          ]
+        }
+      },
+      "endStep": 704
+    },
+    {
+      "id": "36ae805d",
+      "trackId": "78113a43",
+      "startStep": 640,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:4", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:4", ".", ".", "."]
+      },
+      "endStep": 704
+    },
+    {
+      "id": "13c956a5",
+      "trackId": "25a46f1a",
+      "startStep": 640,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BC4@0.75\u002BEb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BC4@0.9\u002BEb4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.75\u002BDb4@0.75\u002BF4@0.75", ".", ".", "Ab3@0.9\u002BDb4@0.9\u002BF4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 704
+    },
+    {
+      "id": "53621195",
+      "trackId": "85f30f9e",
+      "startStep": 640,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["C5", ".", ".", "Eb5", ".", ".", "F5", ".", ".", ".", "Eb5", ".", "C5", ".", ".", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db5", ".", ".", ".", "F5", ".", "Ab5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 704
+    },
+    {
+      "id": "277bd200",
+      "trackId": "314257a2",
+      "startStep": 704,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass wobble per bar, spread 16 -\u003E 26",
+        "pattern": ["Bb2:7", ".", ".", ".", ".", ".", ".", "Bb2:3@0.8", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:2@0.8", ".", "Bb2:4", ".", ".", ".", "C3:7", ".", ".", ".", ".", ".", ".", "C3:3@0.8", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C4:2@0.8", ".", "C3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 6,
+              "value": 1500
+            },
+            {
+              "step": 16,
+              "value": 650
+            },
+            {
+              "step": 26,
+              "value": 1800
+            },
+            {
+              "step": 32,
+              "value": 550
+            },
+            {
+              "step": 38,
+              "value": 1400
+            },
+            {
+              "step": 48,
+              "value": 700
+            },
+            {
+              "step": 56,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 900
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 16
+            },
+            {
+              "step": 64,
+              "value": 26
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "94a30f0d",
+      "trackId": "78113a43",
+      "startStep": 704,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["Bb1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "Bb1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:4", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:4", ".", ".", "."]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "91eb629f",
+      "trackId": "25a46f1a",
+      "startStep": 704,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BBb3@0.75\u002BDb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BBb3@0.9\u002BDb4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.75\u002BBb3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", "G3@0.9\u002BBb3@0.9\u002BC4@0.9\u002BE4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "b02d3ebd",
+      "trackId": "85f30f9e",
+      "startStep": 704,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F5", ".", ".", ".", "Ab5", ".", "F5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", "Db5", ".", ".", ".", "E5", ".", ".", "G5", ".", ".", "Bb5", ".", ".", ".", "G5", ".", "E5", ".", ".", ".", "C5", ".", ".", "E5", ".", ".", "G5", ".", ".", ".", ".", ".", "G5@0.6*2", ".", "C6*2", "."]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "d04ba3e8",
+      "trackId": "91bc93be",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", "."]
+      },
+      "endStep": 896
+    },
+    {
+      "id": "67adc335",
+      "trackId": "0681aac1",
+      "startStep": 768,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2"]
+      },
+      "endStep": 832
+    },
+    {
+      "id": "30c4451d",
+      "trackId": "0681aac1",
+      "startStep": 832,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare fill (ratchets)",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.3", ".", "x@0.35", ".", "x@0.45*2", "x", ".", "x@0.55*2", "x@0.7*4"],
+        "automation": {
+          "fx.1.mix": [
+            {
+              "step": 0,
+              "value": 0.06
+            },
+            {
+              "step": 60,
+              "value": 0.06
+            },
+            {
+              "step": 64,
+              "value": 0.3
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "ba024320",
+      "trackId": "0eacfc41",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Burn-Down Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+      },
+      "endStep": 896
+    },
+    {
+      "id": "d02556b9",
+      "trackId": "1632ebb3",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ride",
+        "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", ".", "x@0.75", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", "x@0.35"]
+      },
+      "endStep": 896
+    },
+    {
+      "id": "68eb4c75",
+      "trackId": "314257a2",
+      "startStep": 768,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass wobble per bar, spread 16 -\u003E 26",
+        "pattern": ["F2:7", ".", ".", ".", ".", ".", ".", "F2:3@0.8", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3:2@0.8", ".", "F2:4", ".", ".", ".", "Db3:7", ".", ".", ".", ".", ".", ".", "Db3:3@0.8", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db4:2@0.8", ".", "Db3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 6,
+              "value": 1500
+            },
+            {
+              "step": 16,
+              "value": 650
+            },
+            {
+              "step": 26,
+              "value": 1800
+            },
+            {
+              "step": 32,
+              "value": 550
+            },
+            {
+              "step": 38,
+              "value": 1400
+            },
+            {
+              "step": 48,
+              "value": 700
+            },
+            {
+              "step": 56,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 900
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 16
+            },
+            {
+              "step": 64,
+              "value": 26
+            }
+          ]
+        }
+      },
+      "endStep": 832
+    },
+    {
+      "id": "b3c34346",
+      "trackId": "78113a43",
+      "startStep": 768,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:4", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:4", ".", ".", "."]
+      },
+      "endStep": 832
+    },
+    {
+      "id": "e7703f8b",
+      "trackId": "25a46f1a",
+      "startStep": 768,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BC4@0.75\u002BEb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BC4@0.9\u002BEb4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.75\u002BDb4@0.75\u002BF4@0.75", ".", ".", "Ab3@0.9\u002BDb4@0.9\u002BF4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 832
+    },
+    {
+      "id": "8c9ad2d1",
+      "trackId": "85f30f9e",
+      "startStep": 768,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["C5", ".", ".", "Eb5", ".", ".", "F5", ".", ".", ".", "Eb5", ".", "C5", ".", ".", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db5", ".", ".", ".", "F5", ".", "Ab5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 832
+    },
+    {
+      "id": "0787081e",
+      "trackId": "314257a2",
+      "startStep": 832,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass wobble per bar, spread 16 -\u003E 26",
+        "pattern": ["Bb2:7", ".", ".", ".", ".", ".", ".", "Bb2:3@0.8", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:2@0.8", ".", "Bb2:4", ".", ".", ".", "C3:7", ".", ".", ".", ".", ".", ".", "C3:3@0.8", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C4:2@0.8", ".", "C3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 6,
+              "value": 1500
+            },
+            {
+              "step": 16,
+              "value": 650
+            },
+            {
+              "step": 26,
+              "value": 1800
+            },
+            {
+              "step": 32,
+              "value": 550
+            },
+            {
+              "step": 38,
+              "value": 1400
+            },
+            {
+              "step": 48,
+              "value": 700
+            },
+            {
+              "step": 56,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 900
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 16
+            },
+            {
+              "step": 64,
+              "value": 26
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "695e56c4",
+      "trackId": "78113a43",
+      "startStep": 832,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub: C2 slides down to F1 (pitch 0 -\u003E -7)",
+        "pattern": ["Bb1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "Bb1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:4", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:4", ".", ".", "."],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 60,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": -7
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "3d296725",
+      "trackId": "25a46f1a",
+      "startStep": 832,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs (delay throw)",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BBb3@0.75\u002BDb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BBb3@0.9\u002BDb4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.75\u002BBb3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", "G3@0.9\u002BBb3@0.9\u002BC4@0.9\u002BE4@0.9", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.2.mix": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 48,
+              "value": 0
+            },
+            {
+              "step": 52,
+              "value": 0.35
+            },
+            {
+              "step": 64,
+              "value": 0.35
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "367bbef2",
+      "trackId": "85f30f9e",
+      "startStep": 832,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook (delay throw)",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F5", ".", ".", ".", "Ab5", ".", "F5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", "Db5", ".", ".", ".", "E5", ".", ".", "G5", ".", ".", "Bb5", ".", ".", ".", "G5", ".", "E5", ".", ".", ".", "C5", ".", ".", "E5", ".", ".", "G5", ".", ".", ".", ".", ".", "G5@0.6*2", ".", "C6*2", "."],
+        "automation": {
+          "fx.1.mix": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 52,
+              "value": 0
+            },
+            {
+              "step": 56,
+              "value": 0.4
+            },
+            {
+              "step": 64,
+              "value": 0.4
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "97037fcd",
+      "trackId": "c1d292cc",
+      "startStep": 896,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 912
+    },
+    {
+      "id": "42f4b5e6",
+      "trackId": "f7d4ce9e",
+      "startStep": 896,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad: breakdown",
+        "pattern": ["F3@0.8\u002BAb3@0.8\u002BC4@0.8\u002BEb4@0.8", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "Ab3@0.8\u002BDb4@0.8\u002BF4@0.8", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 900
+            },
+            {
+              "step": 64,
+              "value": 1800
+            }
+          ]
+        }
+      },
+      "endStep": 960
+    },
+    {
+      "id": "fe57ce29",
+      "trackId": "f7d4ce9e",
+      "startStep": 960,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad",
+        "pattern": ["F3@0.8\u002BAb3@0.8\u002BBb3@0.8\u002BDb4@0.8", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3@0.8\u002BBb3@0.8\u002BC4@0.8\u002BE4@0.8", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 1800
+            },
+            {
+              "step": 64,
+              "value": 2200
+            }
+          ]
+        }
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "6fad3849",
+      "trackId": "f7d4ce9e",
+      "startStep": 1024,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad",
+        "pattern": ["F3@0.8\u002BAb3@0.8\u002BC4@0.8\u002BEb4@0.8", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "Ab3@0.8\u002BDb4@0.8\u002BF4@0.8", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 1088
+    },
+    {
+      "id": "57b5d11d",
+      "trackId": "f7d4ce9e",
+      "startStep": 1088,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad: closes for the build",
+        "pattern": ["F3@0.8\u002BAb3@0.8\u002BBb3@0.8\u002BDb4@0.8", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3@0.8\u002BBb3@0.8\u002BC4@0.8\u002BE4@0.8", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 2200
+            },
+            {
+              "step": 64,
+              "value": 600
+            }
+          ]
+        }
+      },
+      "endStep": 1152
+    },
+    {
+      "id": "d0c41f54",
+      "trackId": "ffd628f3",
+      "startStep": 896,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook on the pluck: reverb and delay as atmosphere",
+        "pattern": ["C5", ".", ".", "Eb5", ".", ".", "F5", ".", ".", ".", "Eb5", ".", "C5", ".", ".", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db5", ".", ".", ".", "F5", ".", "Ab5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 2500
+            },
+            {
+              "step": 64,
+              "value": 6000
+            }
+          ]
+        }
+      },
+      "endStep": 960
+    },
+    {
+      "id": "ea4c1862",
+      "trackId": "ffd628f3",
+      "startStep": 960,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pluck (delay throw at the end)",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F5", ".", ".", ".", "Ab5", ".", "F5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", "Db5", ".", ".", ".", "E5", ".", ".", "G5", ".", ".", "Bb5", ".", ".", ".", "G5", ".", "E5", ".", ".", ".", "C5", ".", ".", "E5", ".", ".", "G5", ".", ".", ".", ".", ".", "G5@0.6*2", ".", "C6*2", "."],
+        "automation": {
+          "fx.1.mix": [
+            {
+              "step": 0,
+              "value": 0.15
+            },
+            {
+              "step": 52,
+              "value": 0.15
+            },
+            {
+              "step": 56,
+              "value": 0.45
+            },
+            {
+              "step": 64,
+              "value": 0.45
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 6000
+            },
+            {
+              "step": 64,
+              "value": 6000
+            }
+          ]
+        }
+      },
+      "endStep": 1024
+    },
+    {
+      "id": "072b708f",
+      "trackId": "ffd628f3",
+      "startStep": 1024,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pluck under the Reese",
+        "pattern": ["C5", ".", ".", "Eb5", ".", ".", "F5", ".", ".", ".", "Eb5", ".", "C5", ".", ".", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db5", ".", ".", ".", "F5", ".", "Ab5", ".", ".", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 6000
+            },
+            {
+              "step": 64,
+              "value": 3000
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.3
+            },
+            {
+              "step": 64,
+              "value": 1
+            }
+          ]
+        }
+      },
+      "endStep": 1088
+    },
+    {
+      "id": "a9fefa7c",
+      "trackId": "314257a2",
+      "startStep": 1024,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese pads: one note per chord, spread envelope",
+        "pattern": ["F2", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "Db3", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 300
+            },
+            {
+              "step": 64,
+              "value": 800
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 1
+            },
+            {
+              "step": 64,
+              "value": 20
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.35
+            },
+            {
+              "step": 64,
+              "value": 0.5
+            }
+          ]
+        }
+      },
+      "endStep": 1088
+    },
+    {
+      "id": "b5e448e5",
+      "trackId": "78113a43",
+      "startStep": 1024,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub held",
+        "pattern": ["F1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "Db2", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 1088
+    },
+    {
+      "id": "20dbe643",
+      "trackId": "314257a2",
+      "startStep": 1088,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese pads: one note per chord, spread envelope",
+        "pattern": ["Bb2", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "C3", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 800
+            },
+            {
+              "step": 64,
+              "value": 2000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 20
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.35
+            },
+            {
+              "step": 64,
+              "value": 0.5
+            }
+          ]
+        }
+      },
+      "endStep": 1152
+    },
+    {
+      "id": "0660c7ed",
+      "trackId": "78113a43",
+      "startStep": 1088,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub held",
+        "pattern": ["Bb1", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "C2", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 1152
+    },
+    {
+      "id": "4270cacd",
+      "trackId": "0eacfc41",
+      "startStep": 1024,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hats return filtered",
+        "pattern": ["x@0.7", ".", "x@0.4", ".", "x@0.7", ".", "x@0.4", ".", "x@0.7", ".", "x@0.4", ".", "x@0.7", ".", "x@0.45*2", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 6500
+            },
+            {
+              "step": 64,
+              "value": 14000
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 64,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 1088
+    },
+    {
+      "id": "a38ad848",
+      "trackId": "0eacfc41",
+      "startStep": 1088,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 14000
+            },
+            {
+              "step": 64,
+              "value": 20000
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 64,
+              "value": 1.1
+            }
+          ]
+        }
+      },
+      "endStep": 1152
+    },
+    {
+      "id": "f1a3d35e",
+      "trackId": "91bc93be",
+      "startStep": 1088,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Kick: filtered in",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 300
+            },
+            {
+              "step": 48,
+              "value": 3000
+            }
+          ]
+        }
+      },
+      "endStep": 1152
+    },
+    {
+      "id": "296c4e72",
+      "trackId": "0681aac1",
+      "startStep": 1152,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.25", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.25", ".", ".", ".", "x@0.3", "x", ".", "x@0.3", "x@0.2*2"]
+      },
+      "endStep": 1216
+    },
+    {
+      "id": "0ef5d89f",
+      "trackId": "91bc93be",
+      "startStep": 1152,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1216
+    },
+    {
+      "id": "2ebc95df",
+      "trackId": "0eacfc41",
+      "startStep": 1152,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Build hats rise",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.9
+            },
+            {
+              "step": 128,
+              "value": 1.3
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "2a37bbd6",
+      "trackId": "314257a2",
+      "startStep": 1152,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass climbs",
+        "pattern": ["F2:7", ".", ".", ".", ".", ".", ".", "F2:3@0.8", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3:2@0.8", ".", "F2:4", ".", ".", ".", "Db3:7", ".", ".", ".", ".", ".", ".", "Db3:3@0.8", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db4:2@0.8", ".", "Db3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 300
+            },
+            {
+              "step": 64,
+              "value": 1200
+            }
+          ]
+        }
+      },
+      "endStep": 1216
+    },
+    {
+      "id": "69b604a0",
+      "trackId": "78113a43",
+      "startStep": 1152,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Root Cause Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:4", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:4", ".", ".", "."]
+      },
+      "endStep": 1216
+    },
+    {
+      "id": "6423fcd9",
+      "trackId": "314257a2",
+      "startStep": 1216,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: spread 50 into the drop",
+        "pattern": ["Bb2:7", ".", ".", ".", ".", ".", ".", "Bb2:3@0.8", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb3:2@0.8", ".", "Bb2:4", ".", ".", ".", "C3:7", ".", ".", ".", ".", ".", ".", "C3:3@0.8", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C4:2@0.8", ".", "C3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3000
+            },
+            {
+              "step": 64,
+              "value": 3000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 20
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "ab946b80",
+      "trackId": "6b88a1b1",
+      "startStep": 1216,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Ratchet roll: x -\u003E x*2 -\u003E x*4 -\u003E x*8",
+        "pattern": ["x@0.35", ".", ".", ".", "x@0.4", ".", ".", ".", "x@0.45", ".", ".", ".", "x@0.5", ".", ".", ".", "x@0.5", ".", "x@0.5", ".", "x@0.55", ".", "x@0.55", ".", "x@0.6", ".", "x@0.6", ".", "x@0.62", ".", "x@0.65", ".", "x@0.65", "x@0.65", "x@0.68", "x@0.68", "x@0.7", "x@0.7", "x@0.72", "x@0.72", "x@0.74", "x@0.74", "x@0.76", "x@0.76", "x@0.78", "x@0.78", "x@0.8", "x@0.8", "x@0.8*2", "x@0.8*2", "x@0.82*2", "x@0.82*2", "x@0.84*2", "x@0.84*2", "x@0.86*2", "x@0.86*2", "x@0.88*4", "x@0.88*4", "x@0.9*4", "x@0.9*4", "x@0.95*4", "x*4", "x*8", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.35
+            },
+            {
+              "step": 63,
+              "value": 0.85
+            }
+          ],
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": 7
+            }
+          ],
+          "fx.0.mix": [
+            {
+              "step": 0,
+              "value": 0.06
+            },
+            {
+              "step": 56,
+              "value": 0.1
+            },
+            {
+              "step": 63,
+              "value": 0.35
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "fc0173ba",
+      "trackId": "1624a281",
+      "startStep": 1216,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Riser",
+        "pattern": ["C5", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 62,
+              "value": 0.7
+            },
+            {
+              "step": 64,
+              "value": 0
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 400
+            },
+            {
+              "step": 64,
+              "value": 7000
+            }
+          ],
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": 12
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "aefbb300",
+      "trackId": "f7d4ce9e",
+      "startStep": 1216,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad swell",
+        "pattern": ["F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 64,
+              "value": 2500
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.25
+            },
+            {
+              "step": 64,
+              "value": 0.5
+            }
+          ]
+        }
+      },
+      "endStep": 1280
+    },
+    {
+      "id": "97fe446a",
+      "trackId": "c1d292cc",
+      "startStep": 1280,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 1296
+    },
+    {
+      "id": "17364efc",
+      "trackId": "91bc93be",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1344
+    },
+    {
+      "id": "cb52469e",
+      "trackId": "91bc93be",
+      "startStep": 1344,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "42a579ae",
+      "trackId": "0681aac1",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3"]
+      },
+      "endStep": 1344
+    },
+    {
+      "id": "faa93ed0",
+      "trackId": "0681aac1",
+      "startStep": 1344,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare fill (ratchets)",
+        "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", "x@0.4", ".", "x@0.4*2", ".", "x", ".", "x@0.5*2", ".", "x@0.5*2", "x@0.55*2", "x@0.6*3", ".", "x", "x@0.6*2", "x@0.65*4", "x@0.75*4"]
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "89989ee5",
+      "trackId": "0eacfc41",
+      "startStep": 1280,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Burn-Down Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "a42fe6df",
+      "trackId": "1632ebb3",
+      "startStep": 1280,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ride",
+        "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", ".", "x@0.75", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", "x@0.35"]
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "af3cda14",
+      "trackId": "314257a2",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese VIP: faster filter, spread 8 -\u003E 45 -\u003E 50",
+        "pattern": ["F2:6", ".", ".", ".", ".", ".", "F2@0.8*2", "F3:2@0.7", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:8", ".", ".", ".", ".", ".", ".", ".", "F2@0.85*2", ".", "F3:2@0.8", ".", "F2*3", "F2:3", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3@0.8*2", "Db4:2@0.7", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:8", ".", ".", ".", ".", ".", ".", ".", "Db3@0.85*2", ".", "Db4:2@0.8", ".", "Db3*3", "Db3:3", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 4,
+              "value": 2200
+            },
+            {
+              "step": 8,
+              "value": 700
+            },
+            {
+              "step": 16,
+              "value": 600
+            },
+            {
+              "step": 20,
+              "value": 2600
+            },
+            {
+              "step": 24,
+              "value": 800
+            },
+            {
+              "step": 32,
+              "value": 600
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 40,
+              "value": 700
+            },
+            {
+              "step": 48,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3200
+            },
+            {
+              "step": 64,
+              "value": 1000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 8
+            },
+            {
+              "step": 28,
+              "value": 45
+            },
+            {
+              "step": 32,
+              "value": 12
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1344
+    },
+    {
+      "id": "28b22990",
+      "trackId": "78113a43",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1344
+    },
+    {
+      "id": "5c3a7e72",
+      "trackId": "25a46f1a",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BC4@0.75\u002BEb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BC4@0.9\u002BEb4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.6\u002BAb3@0.6\u002BC4@0.6\u002BEb4@0.6", ".", ".", ".", ".", "Ab3@0.75\u002BDb4@0.75\u002BF4@0.75", ".", ".", "Ab3@0.9\u002BDb4@0.9\u002BF4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.6\u002BDb4@0.6\u002BF4@0.6", "."]
+      },
+      "endStep": 1344
+    },
+    {
+      "id": "8b8d1341",
+      "trackId": "85f30f9e",
+      "startStep": 1280,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["C6", ".", ".", "Eb6", ".", ".", "F6", ".", ".", ".", "Eb6", ".", "C6", ".", "C6@0.6*2", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", "C5", ".", "F5*2", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db6", ".", ".", ".", "F6", ".", "Db6", ".", "Ab5*2", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", "Ab5@0.7*3", ".", "F5", ".", ".", "."]
+      },
+      "endStep": 1344
+    },
+    {
+      "id": "6ddf4b7f",
+      "trackId": "314257a2",
+      "startStep": 1344,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese VIP: faster filter, spread 8 -\u003E 45 -\u003E 50",
+        "pattern": ["Bb2:6", ".", ".", ".", ".", ".", "Bb2@0.8*2", "Bb3:2@0.7", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:8", ".", ".", ".", ".", ".", ".", ".", "Bb2@0.85*2", ".", "Bb3:2@0.8", ".", "Bb2*3", "Bb2:3", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3@0.8*2", "C4:2@0.7", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:8", ".", ".", ".", ".", ".", ".", ".", "C3@0.85*2", ".", "C4:2@0.8", ".", "C3*3", "C3:3", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 4,
+              "value": 2200
+            },
+            {
+              "step": 8,
+              "value": 700
+            },
+            {
+              "step": 16,
+              "value": 600
+            },
+            {
+              "step": 20,
+              "value": 2600
+            },
+            {
+              "step": 24,
+              "value": 800
+            },
+            {
+              "step": 32,
+              "value": 600
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 40,
+              "value": 700
+            },
+            {
+              "step": 48,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3200
+            },
+            {
+              "step": 64,
+              "value": 1000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 8
+            },
+            {
+              "step": 28,
+              "value": 45
+            },
+            {
+              "step": 32,
+              "value": 12
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "31143c81",
+      "trackId": "78113a43",
+      "startStep": 1344,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub: C2 slides down to F1 (pitch 0 -\u003E -7)",
+        "pattern": ["Bb1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "Bb1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", "."],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 60,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": -7
+            }
+          ]
+        }
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "8d2139da",
+      "trackId": "25a46f1a",
+      "startStep": 1344,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BBb3@0.75\u002BDb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BBb3@0.9\u002BDb4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.6\u002BAb3@0.6\u002BBb3@0.6\u002BDb4@0.6", ".", ".", ".", ".", "G3@0.75\u002BBb3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", "G3@0.9\u002BBb3@0.9\u002BC4@0.9\u002BE4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.6\u002BBb3@0.6\u002BC4@0.6\u002BE4@0.6", "."]
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "54f8281b",
+      "trackId": "85f30f9e",
+      "startStep": 1344,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F6", ".", ".", ".", "Db6", ".", "Bb5", ".", "Ab5*2", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", "Db6", ".", "F5*2", ".", ".", ".", "E6", ".", ".", "G6", ".", ".", "E6", ".", ".", ".", "C6", ".", "Bb5", ".", "G5*2", ".", "C6", ".", ".", "Bb5", ".", ".", "G5", ".", ".", ".", "E5*2", ".", "G5*3", ".", "C6*4", "."]
+      },
+      "endStep": 1408
+    },
+    {
+      "id": "3cd4288e",
+      "trackId": "91bc93be",
+      "startStep": 1408,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1472
+    },
+    {
+      "id": "137a2f3c",
+      "trackId": "91bc93be",
+      "startStep": 1472,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1536
+    },
+    {
+      "id": "8eb6f4ca",
+      "trackId": "0681aac1",
+      "startStep": 1408,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3"]
+      },
+      "endStep": 1472
+    },
+    {
+      "id": "2b5ad0ab",
+      "trackId": "0681aac1",
+      "startStep": 1472,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare fill (ratchets)",
+        "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", "x@0.4", ".", "x@0.4*2", ".", "x", ".", "x@0.5*2", ".", "x@0.5*2", "x@0.55*2", "x@0.6*3", ".", "x", "x@0.6*2", "x@0.65*4", "x@0.75*4"]
+      },
+      "endStep": 1536
+    },
+    {
+      "id": "6abcc299",
+      "trackId": "0eacfc41",
+      "startStep": 1408,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Burn-Down Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+      },
+      "endStep": 1536
+    },
+    {
+      "id": "070c8603",
+      "trackId": "1632ebb3",
+      "startStep": 1408,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ride",
+        "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", ".", "x@0.75", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", "x@0.35"]
+      },
+      "endStep": 1536
+    },
+    {
+      "id": "05a044ec",
+      "trackId": "314257a2",
+      "startStep": 1408,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese VIP: faster filter, spread 8 -\u003E 45 -\u003E 50",
+        "pattern": ["F2:6", ".", ".", ".", ".", ".", "F2@0.8*2", "F3:2@0.7", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:8", ".", ".", ".", ".", ".", ".", ".", "F2@0.85*2", ".", "F3:2@0.8", ".", "F2*3", "F2:3", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3@0.8*2", "Db4:2@0.7", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:8", ".", ".", ".", ".", ".", ".", ".", "Db3@0.85*2", ".", "Db4:2@0.8", ".", "Db3*3", "Db3:3", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 4,
+              "value": 2200
+            },
+            {
+              "step": 8,
+              "value": 700
+            },
+            {
+              "step": 16,
+              "value": 600
+            },
+            {
+              "step": 20,
+              "value": 2600
+            },
+            {
+              "step": 24,
+              "value": 800
+            },
+            {
+              "step": 32,
+              "value": 600
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 40,
+              "value": 700
+            },
+            {
+              "step": 48,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3200
+            },
+            {
+              "step": 64,
+              "value": 1000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 8
+            },
+            {
+              "step": 28,
+              "value": 45
+            },
+            {
+              "step": 32,
+              "value": 12
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1472
+    },
+    {
+      "id": "ed8482f1",
+      "trackId": "78113a43",
+      "startStep": 1408,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1472
+    },
+    {
+      "id": "be1bd0b3",
+      "trackId": "25a46f1a",
+      "startStep": 1408,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BC4@0.75\u002BEb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BC4@0.9\u002BEb4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.6\u002BAb3@0.6\u002BC4@0.6\u002BEb4@0.6", ".", ".", ".", ".", "Ab3@0.75\u002BDb4@0.75\u002BF4@0.75", ".", ".", "Ab3@0.9\u002BDb4@0.9\u002BF4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.6\u002BDb4@0.6\u002BF4@0.6", "."]
+      },
+      "endStep": 1472
+    },
+    {
+      "id": "bf4fdb82",
+      "trackId": "85f30f9e",
+      "startStep": 1408,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["C6", ".", ".", "Eb6", ".", ".", "F6", ".", ".", ".", "Eb6", ".", "C6", ".", "C6@0.6*2", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", "C5", ".", "F5*2", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db6", ".", ".", ".", "F6", ".", "Db6", ".", "Ab5*2", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", "Ab5@0.7*3", ".", "F5", ".", ".", "."]
+      },
+      "endStep": 1472
+    },
+    {
+      "id": "d27cc8b0",
+      "trackId": "314257a2",
+      "startStep": 1472,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese VIP: faster filter, spread 8 -\u003E 45 -\u003E 50",
+        "pattern": ["Bb2:6", ".", ".", ".", ".", ".", "Bb2@0.8*2", "Bb3:2@0.7", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:8", ".", ".", ".", ".", ".", ".", ".", "Bb2@0.85*2", ".", "Bb3:2@0.8", ".", "Bb2*3", "Bb2:3", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3@0.8*2", "C4:2@0.7", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:8", ".", ".", ".", ".", ".", ".", ".", "C3@0.85*2", ".", "C4:2@0.8", ".", "C3*3", "C3:3", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 4,
+              "value": 2200
+            },
+            {
+              "step": 8,
+              "value": 700
+            },
+            {
+              "step": 16,
+              "value": 600
+            },
+            {
+              "step": 20,
+              "value": 2600
+            },
+            {
+              "step": 24,
+              "value": 800
+            },
+            {
+              "step": 32,
+              "value": 600
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 40,
+              "value": 700
+            },
+            {
+              "step": 48,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3200
+            },
+            {
+              "step": 64,
+              "value": 1000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 8
+            },
+            {
+              "step": 28,
+              "value": 45
+            },
+            {
+              "step": 32,
+              "value": 12
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1536
+    },
+    {
+      "id": "a1d9b7db",
+      "trackId": "78113a43",
+      "startStep": 1472,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub: C2 slides down to F1 (pitch 0 -\u003E -7)",
+        "pattern": ["Bb1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "Bb1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", "."],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 60,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": -7
+            }
+          ]
+        }
+      },
+      "endStep": 1536
+    },
+    {
+      "id": "7edc0b61",
+      "trackId": "25a46f1a",
+      "startStep": 1472,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BBb3@0.75\u002BDb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BBb3@0.9\u002BDb4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.6\u002BAb3@0.6\u002BBb3@0.6\u002BDb4@0.6", ".", ".", ".", ".", "G3@0.75\u002BBb3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", "G3@0.9\u002BBb3@0.9\u002BC4@0.9\u002BE4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.6\u002BBb3@0.6\u002BC4@0.6\u002BE4@0.6", "."]
+      },
+      "endStep": 1536
+    },
+    {
+      "id": "24f87157",
+      "trackId": "85f30f9e",
+      "startStep": 1472,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F6", ".", ".", ".", "Db6", ".", "Bb5", ".", "Ab5*2", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", "Db6", ".", "F5*2", ".", ".", ".", "E6", ".", ".", "G6", ".", ".", "E6", ".", ".", ".", "C6", ".", "Bb5", ".", "G5*2", ".", "C6", ".", ".", "Bb5", ".", ".", "G5", ".", ".", ".", "E5*2", ".", "G5*3", ".", "C6*4", "."]
+      },
+      "endStep": 1536
+    },
+    {
+      "id": "734173d4",
+      "trackId": "c1d292cc",
+      "startStep": 1536,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 1552
+    },
+    {
+      "id": "ae1e1680",
+      "trackId": "91bc93be",
+      "startStep": 1536,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1600
+    },
+    {
+      "id": "467c30ad",
+      "trackId": "91bc93be",
+      "startStep": 1600,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1664
+    },
+    {
+      "id": "1d665184",
+      "trackId": "0681aac1",
+      "startStep": 1536,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3"]
+      },
+      "endStep": 1600
+    },
+    {
+      "id": "5911cd78",
+      "trackId": "0681aac1",
+      "startStep": 1600,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare fill (ratchets)",
+        "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", "x@0.4", ".", "x@0.4*2", ".", "x", ".", "x@0.5*2", ".", "x@0.5*2", "x@0.55*2", "x@0.6*3", ".", "x", "x@0.6*2", "x@0.65*4", "x@0.75*4"]
+      },
+      "endStep": 1664
+    },
+    {
+      "id": "407e9e04",
+      "trackId": "0eacfc41",
+      "startStep": 1536,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Burn-Down Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+      },
+      "endStep": 1664
+    },
+    {
+      "id": "a511fce9",
+      "trackId": "1632ebb3",
+      "startStep": 1536,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ride",
+        "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", ".", "x@0.75", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", "x@0.35"]
+      },
+      "endStep": 1664
+    },
+    {
+      "id": "42c23764",
+      "trackId": "314257a2",
+      "startStep": 1536,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese VIP: faster filter, spread 8 -\u003E 45 -\u003E 50",
+        "pattern": ["F2:6", ".", ".", ".", ".", ".", "F2@0.8*2", "F3:2@0.7", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:8", ".", ".", ".", ".", ".", ".", ".", "F2@0.85*2", ".", "F3:2@0.8", ".", "F2*3", "F2:3", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3@0.8*2", "Db4:2@0.7", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:8", ".", ".", ".", ".", ".", ".", ".", "Db3@0.85*2", ".", "Db4:2@0.8", ".", "Db3*3", "Db3:3", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 4,
+              "value": 2200
+            },
+            {
+              "step": 8,
+              "value": 700
+            },
+            {
+              "step": 16,
+              "value": 600
+            },
+            {
+              "step": 20,
+              "value": 2600
+            },
+            {
+              "step": 24,
+              "value": 800
+            },
+            {
+              "step": 32,
+              "value": 600
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 40,
+              "value": 700
+            },
+            {
+              "step": 48,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3200
+            },
+            {
+              "step": 64,
+              "value": 1000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 8
+            },
+            {
+              "step": 28,
+              "value": 45
+            },
+            {
+              "step": 32,
+              "value": 12
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1600
+    },
+    {
+      "id": "24d3678e",
+      "trackId": "78113a43",
+      "startStep": 1536,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1600
+    },
+    {
+      "id": "fc103d77",
+      "trackId": "25a46f1a",
+      "startStep": 1536,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BC4@0.75\u002BEb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BC4@0.9\u002BEb4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.6\u002BAb3@0.6\u002BC4@0.6\u002BEb4@0.6", ".", ".", ".", ".", "Ab3@0.75\u002BDb4@0.75\u002BF4@0.75", ".", ".", "Ab3@0.9\u002BDb4@0.9\u002BF4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.6\u002BDb4@0.6\u002BF4@0.6", "."]
+      },
+      "endStep": 1600
+    },
+    {
+      "id": "cd16272a",
+      "trackId": "85f30f9e",
+      "startStep": 1536,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["C6", ".", ".", "Eb6", ".", ".", "F6", ".", ".", ".", "Eb6", ".", "C6", ".", "C6@0.6*2", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", "C5", ".", "F5*2", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db6", ".", ".", ".", "F6", ".", "Db6", ".", "Ab5*2", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", "Ab5@0.7*3", ".", "F5", ".", ".", "."]
+      },
+      "endStep": 1600
+    },
+    {
+      "id": "9f2c46eb",
+      "trackId": "314257a2",
+      "startStep": 1600,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese VIP: faster filter, spread 8 -\u003E 45 -\u003E 50",
+        "pattern": ["Bb2:6", ".", ".", ".", ".", ".", "Bb2@0.8*2", "Bb3:2@0.7", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:8", ".", ".", ".", ".", ".", ".", ".", "Bb2@0.85*2", ".", "Bb3:2@0.8", ".", "Bb2*3", "Bb2:3", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3@0.8*2", "C4:2@0.7", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:8", ".", ".", ".", ".", ".", ".", ".", "C3@0.85*2", ".", "C4:2@0.8", ".", "C3*3", "C3:3", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 4,
+              "value": 2200
+            },
+            {
+              "step": 8,
+              "value": 700
+            },
+            {
+              "step": 16,
+              "value": 600
+            },
+            {
+              "step": 20,
+              "value": 2600
+            },
+            {
+              "step": 24,
+              "value": 800
+            },
+            {
+              "step": 32,
+              "value": 600
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 40,
+              "value": 700
+            },
+            {
+              "step": 48,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3200
+            },
+            {
+              "step": 64,
+              "value": 1000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 8
+            },
+            {
+              "step": 28,
+              "value": 45
+            },
+            {
+              "step": 32,
+              "value": 12
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1664
+    },
+    {
+      "id": "4d73e78c",
+      "trackId": "78113a43",
+      "startStep": 1600,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub: C2 slides down to F1 (pitch 0 -\u003E -7)",
+        "pattern": ["Bb1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "Bb1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", "."],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 60,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": -7
+            }
+          ]
+        }
+      },
+      "endStep": 1664
+    },
+    {
+      "id": "4efc878b",
+      "trackId": "25a46f1a",
+      "startStep": 1600,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BBb3@0.75\u002BDb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BBb3@0.9\u002BDb4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.6\u002BAb3@0.6\u002BBb3@0.6\u002BDb4@0.6", ".", ".", ".", ".", "G3@0.75\u002BBb3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", "G3@0.9\u002BBb3@0.9\u002BC4@0.9\u002BE4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.6\u002BBb3@0.6\u002BC4@0.6\u002BE4@0.6", "."]
+      },
+      "endStep": 1664
+    },
+    {
+      "id": "3568618a",
+      "trackId": "85f30f9e",
+      "startStep": 1600,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F6", ".", ".", ".", "Db6", ".", "Bb5", ".", "Ab5*2", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", "Db6", ".", "F5*2", ".", ".", ".", "E6", ".", ".", "G6", ".", ".", "E6", ".", ".", ".", "C6", ".", "Bb5", ".", "G5*2", ".", "C6", ".", ".", "Bb5", ".", ".", "G5", ".", ".", ".", "E5*2", ".", "G5*3", ".", "C6*4", "."]
+      },
+      "endStep": 1664
+    },
+    {
+      "id": "8d9b8a70",
+      "trackId": "91bc93be",
+      "startStep": 1664,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1728
+    },
+    {
+      "id": "99bfd1e5",
+      "trackId": "91bc93be",
+      "startStep": 1728,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", "x@0.7", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", "x@0.8", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1792
+    },
+    {
+      "id": "0155adfd",
+      "trackId": "0681aac1",
+      "startStep": 1664,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Standup Snare",
+        "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3"]
+      },
+      "endStep": 1728
+    },
+    {
+      "id": "7fabb3f8",
+      "trackId": "0681aac1",
+      "startStep": 1728,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Snare fill (ratchets)",
+        "pattern": [".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", ".", ".", ".", ".", "x", ".", "x@0.25", ".", ".", "x@0.3*2", ".", "x@0.3", "x", ".", "x@0.3", "x@0.25*3", ".", ".", ".", "x@0.2*2", "x", ".", ".", "x@0.25", ".", "x@0.3", ".", ".", "x", ".", "x@0.3*2", ".", "x@0.4", ".", "x@0.4*2", ".", "x", ".", "x@0.5*2", ".", "x@0.5*2", "x@0.55*2", "x@0.6*3", ".", "x", "x@0.6*2", "x@0.65*4", "x@0.75*4"],
+        "automation": {
+          "fx.1.mix": [
+            {
+              "step": 0,
+              "value": 0.06
+            },
+            {
+              "step": 60,
+              "value": 0.06
+            },
+            {
+              "step": 64,
+              "value": 0.3
+            }
+          ]
+        }
+      },
+      "endStep": 1792
+    },
+    {
+      "id": "6d61b7dc",
+      "trackId": "0eacfc41",
+      "startStep": 1664,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Burn-Down Hats",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4*2", "x@0.8", "x@0.4", "x@0.6", "x@0.45*3", "x@0.8", "x@0.4", "x@0.6*2", "x@0.4", "x@0.8", "x@0.4*3", "x@0.6", "x@0.5*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"]
+      },
+      "endStep": 1792
+    },
+    {
+      "id": "e0c613b3",
+      "trackId": "1632ebb3",
+      "startStep": 1664,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ride",
+        "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", ".", "x@0.75", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", "x@0.35"]
+      },
+      "endStep": 1792
+    },
+    {
+      "id": "0f03e16b",
+      "trackId": "314257a2",
+      "startStep": 1664,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese VIP: faster filter, spread 8 -\u003E 45 -\u003E 50",
+        "pattern": ["F2:6", ".", ".", ".", ".", ".", "F2@0.8*2", "F3:2@0.7", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:8", ".", ".", ".", ".", ".", ".", ".", "F2@0.85*2", ".", "F3:2@0.8", ".", "F2*3", "F2:3", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3@0.8*2", "Db4:2@0.7", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:8", ".", ".", ".", ".", ".", ".", ".", "Db3@0.85*2", ".", "Db4:2@0.8", ".", "Db3*3", "Db3:3", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 4,
+              "value": 2200
+            },
+            {
+              "step": 8,
+              "value": 700
+            },
+            {
+              "step": 16,
+              "value": 600
+            },
+            {
+              "step": 20,
+              "value": 2600
+            },
+            {
+              "step": 24,
+              "value": 800
+            },
+            {
+              "step": 32,
+              "value": 600
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 40,
+              "value": 700
+            },
+            {
+              "step": 48,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3200
+            },
+            {
+              "step": 64,
+              "value": 1000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 8
+            },
+            {
+              "step": 28,
+              "value": 45
+            },
+            {
+              "step": 32,
+              "value": 12
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1728
+    },
+    {
+      "id": "696aa11a",
+      "trackId": "78113a43",
+      "startStep": 1664,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1728
+    },
+    {
+      "id": "e04a8521",
+      "trackId": "25a46f1a",
+      "startStep": 1664,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BC4@0.75\u002BEb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BC4@0.9\u002BEb4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.6\u002BAb3@0.6\u002BC4@0.6\u002BEb4@0.6", ".", ".", ".", ".", "Ab3@0.75\u002BDb4@0.75\u002BF4@0.75", ".", ".", "Ab3@0.9\u002BDb4@0.9\u002BF4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Ab3@0.6\u002BDb4@0.6\u002BF4@0.6", "."]
+      },
+      "endStep": 1728
+    },
+    {
+      "id": "eb7cf5b4",
+      "trackId": "85f30f9e",
+      "startStep": 1664,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook",
+        "pattern": ["C6", ".", ".", "Eb6", ".", ".", "F6", ".", ".", ".", "Eb6", ".", "C6", ".", "C6@0.6*2", ".", "Ab5", ".", ".", "G5", ".", ".", "F5", ".", ".", ".", "C5", ".", "F5*2", ".", ".", ".", "Ab5", ".", ".", "F5", ".", ".", "Db6", ".", ".", ".", "F6", ".", "Db6", ".", "Ab5*2", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", "Ab5@0.7*3", ".", "F5", ".", ".", "."]
+      },
+      "endStep": 1728
+    },
+    {
+      "id": "4c57c7d8",
+      "trackId": "314257a2",
+      "startStep": 1728,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese VIP: faster filter, spread 8 -\u003E 45 -\u003E 50",
+        "pattern": ["Bb2:6", ".", ".", ".", ".", ".", "Bb2@0.8*2", "Bb3:2@0.7", ".", ".", "Bb2:6", ".", ".", ".", ".", ".", "Bb2:8", ".", ".", ".", ".", ".", ".", ".", "Bb2@0.85*2", ".", "Bb3:2@0.8", ".", "Bb2*3", "Bb2:3", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3@0.8*2", "C4:2@0.7", ".", ".", "C3:6", ".", ".", ".", ".", ".", "C3:8", ".", ".", ".", ".", ".", ".", ".", "C3@0.85*2", ".", "C4:2@0.8", ".", "C3*3", "C3:3", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 600
+            },
+            {
+              "step": 4,
+              "value": 2200
+            },
+            {
+              "step": 8,
+              "value": 700
+            },
+            {
+              "step": 16,
+              "value": 600
+            },
+            {
+              "step": 20,
+              "value": 2600
+            },
+            {
+              "step": 24,
+              "value": 800
+            },
+            {
+              "step": 32,
+              "value": 600
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 40,
+              "value": 700
+            },
+            {
+              "step": 48,
+              "value": 900
+            },
+            {
+              "step": 60,
+              "value": 3200
+            },
+            {
+              "step": 64,
+              "value": 1000
+            }
+          ],
+          "inst.spread": [
+            {
+              "step": 0,
+              "value": 8
+            },
+            {
+              "step": 28,
+              "value": 45
+            },
+            {
+              "step": 32,
+              "value": 12
+            },
+            {
+              "step": 64,
+              "value": 50
+            }
+          ]
+        }
+      },
+      "endStep": 1792
+    },
+    {
+      "id": "8948a3fd",
+      "trackId": "78113a43",
+      "startStep": 1728,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Sub: C2 slides down to F1 (pitch 0 -\u003E -7)",
+        "pattern": ["Bb1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "Bb1:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Bb1:6", ".", ".", ".", ".", ".", "C2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", ".", "C2:8", ".", ".", ".", ".", ".", ".", ".", ".", ".", "C2:6", ".", ".", ".", ".", "."],
+        "automation": {
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 60,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": -7
+            }
+          ]
+        }
+      },
+      "endStep": 1792
+    },
+    {
+      "id": "170f9b07",
+      "trackId": "25a46f1a",
+      "startStep": 1728,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Stabs (delay throw)",
+        "pattern": [".", ".", ".", "F3@0.75\u002BAb3@0.75\u002BBb3@0.75\u002BDb4@0.75", ".", ".", "F3@0.9\u002BAb3@0.9\u002BBb3@0.9\u002BDb4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.7\u002BAb3@0.7\u002BBb3@0.7\u002BDb4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3@0.6\u002BAb3@0.6\u002BBb3@0.6\u002BDb4@0.6", ".", ".", ".", ".", "G3@0.75\u002BBb3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", "G3@0.9\u002BBb3@0.9\u002BC4@0.9\u002BE4@0.9*2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.7\u002BBb3@0.7\u002BC4@0.7\u002BE4@0.7", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3@0.6\u002BBb3@0.6\u002BC4@0.6\u002BE4@0.6", "."],
+        "automation": {
+          "fx.2.mix": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 48,
+              "value": 0
+            },
+            {
+              "step": 52,
+              "value": 0.35
+            },
+            {
+              "step": 64,
+              "value": 0.35
+            }
+          ]
+        }
+      },
+      "endStep": 1792
+    },
+    {
+      "id": "7ded933c",
+      "trackId": "85f30f9e",
+      "startStep": 1728,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Hook (delay throw)",
+        "pattern": ["Db6", ".", ".", "Bb5", ".", ".", "F6", ".", ".", ".", "Db6", ".", "Bb5", ".", "Ab5*2", ".", "Bb5", ".", ".", "Ab5", ".", ".", "F5", ".", ".", ".", "Db6", ".", "F5*2", ".", ".", ".", "E6", ".", ".", "G6", ".", ".", "E6", ".", ".", ".", "C6", ".", "Bb5", ".", "G5*2", ".", "C6", ".", ".", "Bb5", ".", ".", "G5", ".", ".", ".", "E5*2", ".", "G5*3", ".", "C6*4", "."],
+        "automation": {
+          "fx.1.mix": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 52,
+              "value": 0
+            },
+            {
+              "step": 56,
+              "value": 0.4
+            },
+            {
+              "step": 64,
+              "value": 0.4
+            }
+          ]
+        }
+      },
+      "endStep": 1792
+    },
+    {
+      "id": "20c78a69",
+      "trackId": "c1d292cc",
+      "startStep": 1792,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"]
+      },
+      "endStep": 1808
+    },
+    {
+      "id": "40fbce79",
+      "trackId": "91bc93be",
+      "startStep": 1792,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "P1 Kick",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "x@0.75", ".", "."]
+      },
+      "endStep": 1856
+    },
+    {
+      "id": "83ae9885",
+      "trackId": "0681aac1",
+      "startStep": 1792,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Halftime snare",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 1856
+    },
+    {
+      "id": "aa6f8c1d",
+      "trackId": "0eacfc41",
+      "startStep": 1792,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Hats fade",
+        "pattern": ["x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.6", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.55*2", "x@0.5", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.4", "x@0.5*3", "x@0.45", "x@0.8", "x@0.4", "x@0.6", "x@0.4", "x@0.8", "x@0.45*2", "x@0.6", "x@0.55*2"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.1
+            },
+            {
+              "step": 128,
+              "value": 0
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 20000
+            },
+            {
+              "step": 128,
+              "value": 2000
+            }
+          ]
+        }
+      },
+      "endStep": 1920
+    },
+    {
+      "id": "ce567600",
+      "trackId": "1632ebb3",
+      "startStep": 1792,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Ride fades",
+        "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", ".", "x@0.75", ".", "x@0.45", ".", "x@0.6", ".", "x@0.45", "x@0.35"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.75
+            },
+            {
+              "step": 64,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 1856
+    },
+    {
+      "id": "74c3cff8",
+      "trackId": "314257a2",
+      "startStep": 1792,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Reese: lowpass closes",
+        "pattern": ["F2:7", ".", ".", ".", ".", ".", ".", "F2:3@0.8", ".", ".", "F2:6", ".", ".", ".", ".", ".", "F2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F3:2@0.8", ".", "F2:4", ".", ".", ".", "Db3:7", ".", ".", ".", ".", ".", ".", "Db3:3@0.8", ".", ".", "Db3:6", ".", ".", ".", ".", ".", "Db3:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db4:2@0.8", ".", "Db3:4", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 1500
+            },
+            {
+              "step": 64,
+              "value": 150
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.55
+            },
+            {
+              "step": 64,
+              "value": 0.2
+            }
+          ]
+        }
+      },
+      "endStep": 1856
+    },
+    {
+      "id": "b213a859",
+      "trackId": "78113a43",
+      "startStep": 1792,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Root Cause Sub",
+        "pattern": ["F1:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:6", ".", ".", ".", ".", ".", "F1:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F1:4", ".", ".", ".", "Db2:9", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:6", ".", ".", ".", ".", ".", "Db2:10", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "Db2:4", ".", ".", "."]
+      },
+      "endStep": 1856
+    },
+    {
+      "id": "3bd0a3ad",
+      "trackId": "f7d4ce9e",
+      "startStep": 1792,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad",
+        "pattern": ["F3@0.7\u002BAb3@0.7\u002BC4@0.7\u002BEb4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "Ab3@0.7\u002BDb4@0.7\u002BF4@0.7", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 1600
+            },
+            {
+              "step": 64,
+              "value": 1200
+            }
+          ]
+        }
+      },
+      "endStep": 1856
+    },
+    {
+      "id": "5d2a0058",
+      "trackId": "f7d4ce9e",
+      "startStep": 1856,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Pad: last Fm7 fades",
+        "pattern": ["F3\u002BAb3\u002BC4\u002BEb4", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 1200
+            },
+            {
+              "step": 64,
+              "value": 300
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.45
+            },
+            {
+              "step": 64,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 1920
+    },
+    {
+      "id": "ce52f11d",
+      "trackId": "ffd628f3",
+      "startStep": 1856,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Pluck: last call, delay throw",
+        "pattern": ["C5", ".", ".", "Eb5", ".", ".", "F5", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.1.mix": [
+            {
+              "step": 0,
+              "value": 0.35
+            },
+            {
+              "step": 16,
+              "value": 0.35
+            }
+          ]
+        }
+      },
+      "endStep": 1872
+    }
+  ],
+  "aiProvenance": "slopstack labs incident response desk: hand-written, all built-in instruments",
+  "stepDurationSeconds": 0.08620689655172414
+}
