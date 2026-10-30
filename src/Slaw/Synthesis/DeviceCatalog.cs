@@ -136,7 +136,7 @@ internal static class DeviceCatalog
 
     public static readonly IReadOnlyList<string> EffectTypes = new[]
     {
-        "lowpass", "highpass", "delay", "reverb", "drive", "bitcrush", "vibe", "widen",
+        "lowpass", "highpass", "delay", "reverb", "drive", "bitcrush", "vibe", "widen", Session.SidechainRouting.DuckEffectType,
     };
 
     private static readonly Dictionary<string, IReadOnlyList<ParameterSpecification>> EffectParameterTable = new()
@@ -187,6 +187,13 @@ internal static class DeviceCatalog
             new ParameterSpecification("width", "Width", 0, 2, 1.4, "%"),
             new ParameterSpecification("haas", "Haas", 0, 40, 8, "ms"),
         },
+        [Session.SidechainRouting.DuckEffectType] = new[]
+        {
+            new ParameterSpecification("amount", "Depth", 0, 1, 0.7, "%"),
+            new ParameterSpecification("threshold", "Threshold", -60, 0, -30, "dB"),
+            new ParameterSpecification("attack", "Attack", 0.1, 100, 5, "ms", Logarithmic: true),
+            new ParameterSpecification("release", "Release", 10, 1000, 180, "ms", Logarithmic: true),
+        },
     };
 
     public static IReadOnlyList<ParameterSpecification> EffectParametersFor(string effectType) =>
@@ -202,6 +209,7 @@ internal static class DeviceCatalog
         "bitcrush" => "Lo-Fi Compliance Crusher",
         "vibe" => "Neural Vibe Enhancer™",
         "widen" => "Stereo Alignment Widener",
+        Session.SidechainRouting.DuckEffectType => "Stakeholder Ducking",
         Plugins.DeviceTypes.Vst3 => "VST3 Effect",
         _ => effectType,
     };
@@ -212,6 +220,7 @@ internal static class DeviceCatalog
         "bitcrush" => "Reduces bit depth until the mix complies with lo-fi playlist guidelines.",
         "reverb" => "Places the track in a large, empty, cloud-hosted space. Width spreads the tail across both channels.",
         "delay" => "Tempo-synced echo. Ping-Pong sends each repeat to the other side of the room.",
+        Session.SidechainRouting.DuckEffectType => "Turns this track down whenever its sidechain source (pick one in the device header) is louder than the threshold: depth is how far, attack and release how fast. Without a source it does nothing, like most stakeholders.",
         "widen" => "Width 0 is mono, 1 leaves the image alone, 2 doubles the sides. Haas delays the right channel a few ms, so even a mono source finds both speakers.",
         _ => string.Empty,
     };

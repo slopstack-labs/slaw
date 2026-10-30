@@ -314,6 +314,7 @@ internal sealed class StudioDocument
         BeginEdit("delete track");
         Project.Tracks.RemoveAt(trackIndex);
         Project.Timeline.RemoveAll(timelineClip => timelineClip.TrackId == removedTrack.Id);
+        SidechainRouting.ForgetSource(Project, removedTrack.Id);
         CommitEdit($"removed the track {removedTrack.Name}", EditScope.Structure);
         SelectionChanged?.Invoke();
     }

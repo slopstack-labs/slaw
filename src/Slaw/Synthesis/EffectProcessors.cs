@@ -6,7 +6,18 @@ namespace SlopstackLabs.Slaw.Synthesis;
 /// and the right one is to be read as a copy of it.
 /// </summary>
 /// <param name="TransportStep">Where the playhead is, in (fractional) sixteenth-note steps from the top; null while stopped.</param>
-internal readonly record struct EffectProcessingContext(int SampleRate, double StepDurationSeconds, bool MonoInput = false, double? TransportStep = null);
+/// <param name="SidechainLeft">
+/// The sidechain this block, when the device has a source: the source track's left and right
+/// output for the same frames (0 .. block length). Silence (not null) when the source has not
+/// played this block; null when the device has no sidechain at all.
+/// </param>
+internal readonly record struct EffectProcessingContext(
+    int SampleRate,
+    double StepDurationSeconds,
+    bool MonoInput = false,
+    double? TransportStep = null,
+    float[]? SidechainLeft = null,
+    float[]? SidechainRight = null);
 
 /// <summary>
 /// A stateful streaming stereo effect. Parameters are re-read on every block, so
@@ -47,6 +58,7 @@ internal abstract class EffectProcessor
         "bitcrush" => new ComplianceCrusherProcessor(),
         "vibe" => new NeuralVibeEnhancerProcessor(),
         "widen" => new StereoAlignmentWidenerProcessor(sampleRate),
+        Session.SidechainRouting.DuckEffectType => new StakeholderDuckingProcessor(),
         Plugins.DeviceTypes.Vst3 => new Plugins.Vst3EffectProcessor(),
         _ => new PassthroughProcessor(effectType),
     };
@@ -493,4 +505,62 @@ internal sealed class StereoAlignmentWidenerProcessor : EffectProcessor
         }
         return false;
     }
+}
+
+/// <summary>
+/// Stakeholder Ducking: turns the track down while its sidechain source speaks. An
+/// envelope follower on the source (peak of both channels, attack/release smoothing)
+/// is compared with the threshold; every decibel above it ducks a little more, up to
+/// <c>amount</c> of the way to silence at 12 dB over. Without a sidechain it does nothing,
+/// which is also how most meetings go.
+/// </summary>
+internal sealed class StakeholderDuckingProcessor : EffectProcessor
+{
+    private const double FullDuckDecibelsOverThreshold = 12;
+
+    private double sidechainEnvelope;
+
+    public StakeholderDuckingProcessor()
+        : base(Session.SidechainRouting.DuckEffectType)
+    {
+    }
+
+    public override bool Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double> parameterValues, EffectProcessingContext processingContext)
+    {
+        if (processingContext.SidechainLeft is not { } sidechainLeft)
+        {
+            sidechainEnvelope = 0;
+            return processingContext.MonoInput;
+        }
+        var sidechainRight = processingContext.SidechainRight ?? sidechainLeft;
+        var duckAmount = Parameter(parameterValues, "amount");
+        var thresholdDecibels = Parameter(parameterValues, "threshold");
+        var attackCoefficient = SmoothingCoefficient(Parameter(parameterValues, "attack"), processingContext.SampleRate);
+        var releaseCoefficient = SmoothingCoefficient(Parameter(parameterValues, "release"), processingContext.SampleRate);
+        var frameCount = Math.Min(leftBlock.Length, sidechainLeft.Length);
+        for (var sampleIndex = 0; sampleIndex < frameCount; sampleIndex++)
+        {
+            var sidechainLevel = Math.Max(Math.Abs(sidechainLeft[sampleIndex]), Math.Abs(sidechainRight[sampleIndex]));
+            var smoothing = sidechainLevel > sidechainEnvelope ? attackCoefficient : releaseCoefficient;
+            sidechainEnvelope = sidechainLevel + smoothing * (sidechainEnvelope - sidechainLevel);
+            var decibelsOver = 20 * Math.Log10(sidechainEnvelope + 1e-9) - thresholdDecibels;
+            var duckGain = decibelsOver <= 0
+                ? 1f
+                : (float)(1 - duckAmount * Math.Min(1, decibelsOver / FullDuckDecibelsOverThreshold));
+            leftBlock[sampleIndex] *= duckGain;
+            if (!processingContext.MonoInput)
+            {
+                rightBlock[sampleIndex] *= duckGain;
+            }
+        }
+        if (sidechainEnvelope < 1e-12)
+        {
+            sidechainEnvelope = 0;
+        }
+        return processingContext.MonoInput;
+    }
+
+    /// <summary>One-pole smoothing for a time constant in milliseconds.</summary>
+    private static double SmoothingCoefficient(double milliseconds, int sampleRate) =>
+        Math.Exp(-1000 / (Math.Max(0.01, milliseconds) * sampleRate));
 }

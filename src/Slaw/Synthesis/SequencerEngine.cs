@@ -793,8 +793,58 @@ internal sealed class SequencerEngine
 
     // ── Mixing ────────────────────────────────────────────────────────────────
 
+    /// <summary>The plugin-pool owner name for master effect slots ("master/fx0", …); track ids never collide with it.</summary>
+    public const string MasterEffectSlotOwner = "master";
+
+    private static readonly float[] SidechainSilence = new float[MaximumBlockFrames];
+    private readonly TrackRuntimeState masterRuntimeState = new();
+    private SlawProject? routingProject;
+    private int[] trackProcessingOrder = Array.Empty<int>();
+    private HashSet<string> sidechainSourceTrackIds = new(StringComparer.Ordinal);
+    private long mixBlockStamp;
+
+    /// <summary>Recomputes who keys whom when a new project snapshot arrives (never per block).</summary>
+    private void SynchronizeRouting(SlawProject project)
+    {
+        if (ReferenceEquals(project, routingProject))
+        {
+            return;
+        }
+        routingProject = project;
+        trackProcessingOrder = SidechainRouting.ProcessingOrder(project);
+        sidechainSourceTrackIds = SidechainRouting.Sources(project);
+    }
+
+    /// <summary>
+    /// What a keyed effect hears this block: the source track's tap if the source has
+    /// already played this block, otherwise silence (its source is gone, or a loop).
+    /// </summary>
+    private (float[] Left, float[] Right) SidechainTapFor(string sourceTrackId) =>
+        trackRuntimeStates.TryGetValue(sourceTrackId, out var sourceState) &&
+        sourceState.SidechainTapStamp == mixBlockStamp &&
+        sourceState.SidechainTapLeft is { } tapLeft && sourceState.SidechainTapRight is { } tapRight
+            ? (tapLeft, tapRight)
+            : (SidechainSilence, SidechainSilence);
+
+    private EffectProcessingContext WithSidechain(EffectProcessingContext processingContext, EffectDevice effectDevice)
+    {
+        if (effectDevice.SidechainSource is not { } sourceTrackId)
+        {
+            return processingContext;
+        }
+        var (tapLeft, tapRight) = SidechainTapFor(sourceTrackId);
+        return processingContext with { SidechainLeft = tapLeft, SidechainRight = tapRight };
+    }
+
+    /// <summary>
+    /// Mixes one chunk: every track in sidechain order (sources first), each through its
+    /// device chain onto the sum, then the master effect chain over the sum. A track that
+    /// keys a sidechain is tapped after its effects and before its fader, mute and solo.
+    /// </summary>
     private void MixTracks(SlawProject project, Span<float> leftChannel, Span<float> rightChannel)
     {
+        SynchronizeRouting(project);
+        mixBlockStamp++;
         var soloEngaged = project.Tracks.Any(track => track.Solo);
         var trackLeftBlock = trackLeftScratchBuffer.AsSpan(0, leftChannel.Length);
         var trackRightBlock = trackRightScratchBuffer.AsSpan(0, leftChannel.Length);
@@ -806,10 +856,17 @@ internal sealed class SequencerEngine
             : Math.Clamp(1 - samplesUntilNextStep / stepFrameCount, 0, 1);
         var processingContext = new EffectProcessingContext(sampleRate, project.StepDurationSeconds, TransportStep: TransportStep(stepProgress));
 
-        foreach (var track in project.Tracks)
+        foreach (var trackIndex in trackProcessingOrder)
         {
+            if (trackIndex >= project.Tracks.Count)
+            {
+                continue;
+            }
+            var track = project.Tracks[trackIndex];
             var runtimeState = RuntimeStateFor(track.Id);
             var trackAudible = !track.Muted && (!soloEngaged || track.Solo);
+            // A sidechain source plays even when muted or out of solo: a ghost kick still pumps the pad.
+            var feedsSidechain = sidechainSourceTrackIds.Contains(track.Id);
             trackLeftBlock.Clear();
             trackRightBlock.Clear();
 
@@ -840,7 +897,7 @@ internal sealed class SequencerEngine
             {
                 var activeVoice = runtimeState.ActiveVoices[voiceIndex];
                 // Muted voices still advance, so unmuting lands mid-note rather than restarting it.
-                if (activeVoice.MixInto(monoVoiceBlock, playbackRate, trackAudible))
+                if (activeVoice.MixInto(monoVoiceBlock, playbackRate, trackAudible || feedsSidechain))
                 {
                     runtimeState.ActiveVoices.RemoveAt(voiceIndex);
                 }
@@ -879,14 +936,20 @@ internal sealed class SequencerEngine
             runtimeState.SynchronizeEffectChain(track.Id, track.Effects, sampleRate, pluginPool);
             for (var effectIndex = 0; effectIndex < track.Effects.Count; effectIndex++)
             {
-                if (track.Effects[effectIndex].Enabled)
+                var effectDevice = track.Effects[effectIndex];
+                if (effectDevice.Enabled)
                 {
                     var effectParameters = envelopes is null
-                        ? track.Effects[effectIndex].Parameters
-                        : runtimeState.AutomatedEffectParameters(effectIndex, track.Effects[effectIndex].Parameters, envelopes, clipPosition);
+                        ? effectDevice.Parameters
+                        : runtimeState.AutomatedEffectParameters(effectIndex, effectDevice.Parameters, envelopes, clipPosition);
                     trackIsMono = runtimeState.EffectChain[effectIndex].Process(trackLeftBlock, trackRightBlock, effectParameters,
-                        processingContext with { MonoInput = trackIsMono });
+                        WithSidechain(processingContext with { MonoInput = trackIsMono }, effectDevice));
                 }
+            }
+
+            if (feedsSidechain)
+            {
+                TapSidechain(runtimeState, trackLeftBlock, trackIsMono ? trackLeftBlock : trackRightBlock);
             }
 
             if (!trackAudible && !auditionOnThisTrack)
@@ -908,6 +971,19 @@ internal sealed class SequencerEngine
             }
         }
 
+        // The master chain hears the sum of every track; its sidechains can key off any of them.
+        var masterEffects = project.Master.Effects;
+        masterRuntimeState.SynchronizeEffectChain(MasterEffectSlotOwner, masterEffects, sampleRate, pluginPool);
+        for (var effectIndex = 0; effectIndex < masterEffects.Count; effectIndex++)
+        {
+            var effectDevice = masterEffects[effectIndex];
+            if (effectDevice.Enabled)
+            {
+                masterRuntimeState.EffectChain[effectIndex].Process(leftChannel, rightChannel, effectDevice.Parameters,
+                    WithSidechain(processingContext, effectDevice));
+            }
+        }
+
         // Forget tracks that no longer exist, along with their reverb tails.
         if (trackRuntimeStates.Count > project.Tracks.Count)
         {
@@ -919,6 +995,17 @@ internal sealed class SequencerEngine
                 pluginAuditionNotes.Remove(orphanedIdentifier);
             }
         }
+    }
+
+    /// <summary>Keeps a copy of a sidechain source's block (post-effects, pre-fader) for the tracks it keys.</summary>
+    private void TapSidechain(TrackRuntimeState runtimeState, ReadOnlySpan<float> tapLeft, ReadOnlySpan<float> tapRight)
+    {
+        // Allocated once per source track, the first block it keys anything; reused after that.
+        runtimeState.SidechainTapLeft ??= new float[MaximumBlockFrames];
+        runtimeState.SidechainTapRight ??= new float[MaximumBlockFrames];
+        tapLeft.CopyTo(runtimeState.SidechainTapLeft);
+        tapRight.CopyTo(runtimeState.SidechainTapRight);
+        runtimeState.SidechainTapStamp = mixBlockStamp;
     }
 
     /// <summary>
@@ -1160,6 +1247,13 @@ internal sealed class SequencerEngine
     {
         public List<ActiveVoice> ActiveVoices { get; } = new();
         public List<EffectProcessor> EffectChain { get; } = new();
+
+        /// <summary>This track's output for the current block, kept while it keys a sidechain.</summary>
+        public float[]? SidechainTapLeft { get; set; }
+        public float[]? SidechainTapRight { get; set; }
+
+        /// <summary>The mix block the tap was written in; older taps are stale and read as silence.</summary>
+        public long SidechainTapStamp { get; set; } = -1;
         public int? PlayingScene { get; set; }
         public int? QueuedScene { get; set; }
         public bool HasQueuedLaunch { get; set; }

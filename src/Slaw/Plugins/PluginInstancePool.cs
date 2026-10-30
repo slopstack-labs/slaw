@@ -164,6 +164,15 @@ internal sealed class PluginInstancePool
                 }
             }
         }
+        for (var effectIndex = 0; effectIndex < project.Master.Effects.Count; effectIndex++)
+        {
+            var masterEffect = project.Master.Effects[effectIndex];
+            if (masterEffect.Type == DeviceTypes.Vst3 &&
+                pool.Peek(EffectSlot(Synthesis.SequencerEngine.MasterEffectSlotOwner, effectIndex), masterEffect.Plugin) is { } masterInstance)
+            {
+                masterEffect.Plugin!.State = TryCapture(masterInstance) ?? masterEffect.Plugin.State;
+            }
+        }
     }
 
     private static string? TryCapture(Vst3PluginInstance instance)

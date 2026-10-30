@@ -93,6 +93,13 @@ internal static class ProjectAlignmentRemediator
         ["width"] = "widen",
         ["imager"] = "widen",
         ["haas"] = "widen",
+        ["duck"] = SidechainRouting.DuckEffectType,
+        ["ducker"] = SidechainRouting.DuckEffectType,
+        ["ducking"] = SidechainRouting.DuckEffectType,
+        ["sidechain"] = SidechainRouting.DuckEffectType,
+        ["side-chain"] = SidechainRouting.DuckEffectType,
+        ["pump"] = SidechainRouting.DuckEffectType,
+        ["pumper"] = SidechainRouting.DuckEffectType,
         ["ai"] = "vibe",
         ["enhancer"] = "vibe",
         ["neural"] = "vibe",
@@ -177,8 +184,109 @@ internal static class ProjectAlignmentRemediator
         masterChain.DelaySteps = (int)ClampWithLedger(masterChain.DelaySteps, 1, 16, "master.delaySteps", remediationLedger);
         masterChain.DelayFeedback = ClampWithLedger(masterChain.DelayFeedback, 0, 0.9, "master.delayFeedback", remediationLedger);
         masterChain.DelayMix = ClampWithLedger(masterChain.DelayMix, 0, 1, "master.delayMix", remediationLedger);
+        masterChain.Effects ??= new List<EffectDevice>();
+        RemediateEffectChain("master", masterChain.Effects, owningTrack: null, remediationLedger);
+        RemediateSidechains(project, remediationLedger);
 
         return remediationLedger;
+    }
+
+    /// <summary>
+    /// Squares up one device chain (a track's, or the master's when <paramref name="owningTrack"/>
+    /// is null): the effect limit, unknown types, plugin references and parameter ranges.
+    /// Removing a track effect also forgets its envelope lanes.
+    /// </summary>
+    private static void RemediateEffectChain(string ownerName, List<EffectDevice> effectChain, SlawTrack? owningTrack, List<string> remediationLedger)
+    {
+        effectChain.RemoveAll(effect => effect is null);
+        if (effectChain.Count > MaximumEffectsPerTrack)
+        {
+            remediationLedger.Add($"{ownerName}: kept the first {MaximumEffectsPerTrack} effects (the limit per chain)");
+            effectChain.RemoveRange(MaximumEffectsPerTrack, effectChain.Count - MaximumEffectsPerTrack);
+        }
+        for (var effectIndex = effectChain.Count - 1; effectIndex >= 0; effectIndex--)
+        {
+            var effectDevice = effectChain[effectIndex];
+            var resolvedEffectType = ResolveEffect(effectDevice.Type);
+            if (resolvedEffectType is null)
+            {
+                remediationLedger.Add($"{ownerName}: removed unknown effect \"{effectDevice.Type}\"");
+                effectChain.RemoveAt(effectIndex);
+                if (owningTrack is not null)
+                {
+                    ClipAutomation.ForgetEffectSlot(owningTrack, effectIndex);
+                }
+                continue;
+            }
+            if (resolvedEffectType != effectDevice.Type)
+            {
+                remediationLedger.Add($"{ownerName}: effect \"{effectDevice.Type}\" changed to \"{resolvedEffectType}\"");
+                effectDevice.Type = resolvedEffectType;
+            }
+            effectDevice.Parameters ??= new Dictionary<string, double>();
+            if (effectDevice.Type == Plugins.DeviceTypes.Vst3)
+            {
+                if (!IsUsablePluginReference(effectDevice.Plugin))
+                {
+                    remediationLedger.Add($"{ownerName}: VST3 effect without a plugin removed");
+                    effectChain.RemoveAt(effectIndex);
+                    if (owningTrack is not null)
+                    {
+                        ClipAutomation.ForgetEffectSlot(owningTrack, effectIndex);
+                    }
+                    continue;
+                }
+                DeviceCatalog.RemediatePluginParameters(effectDevice.Parameters);
+                continue;
+            }
+            effectDevice.Plugin = null;
+            DeviceCatalog.Remediate(effectDevice.Parameters, DeviceCatalog.EffectParametersFor(effectDevice.Type));
+        }
+    }
+
+    /// <summary>
+    /// Every sidechain must name a track that exists, not the effect's own track, not
+    /// close a loop, and sit on an effect that listens (the ducker or a VST3 effect).
+    /// Track effects are checked in project order, so of two keys that would loop the later one goes.
+    /// </summary>
+    private static void RemediateSidechains(SlawProject project, List<string> remediationLedger)
+    {
+        var trackIds = project.Tracks.Select(track => track.Id).ToHashSet(StringComparer.Ordinal);
+        var acceptedKeys = new SlawProject { Tracks = project.Tracks.Select(track => new SlawTrack { Id = track.Id }).ToList() };
+        var acceptedKeysByTrack = acceptedKeys.Tracks.ToDictionary(track => track.Id, StringComparer.Ordinal);
+        foreach (var (ownerName, owningTrackId, effectDevice) in project.Tracks
+                     .SelectMany(track => track.Effects.Select(effectDevice => (track.Name, (string?)track.Id, effectDevice)))
+                     .Concat(project.Master.Effects.Select(effectDevice => ("master", (string?)null, effectDevice))))
+        {
+            if (effectDevice.SidechainSource is not { } sourceId)
+            {
+                continue;
+            }
+            var effectName = DeviceCatalog.EffectDisplayName(effectDevice.Type);
+            string? problem = null;
+            if (!SidechainRouting.AcceptsSidechain(effectDevice))
+            {
+                problem = $"{effectName} has no sidechain input";
+            }
+            else if (!trackIds.Contains(sourceId))
+            {
+                problem = $"no track has the id \"{sourceId}\"";
+            }
+            else if (SidechainRouting.WouldCreateCycle(acceptedKeys, owningTrackId, sourceId))
+            {
+                problem = sourceId == owningTrackId ? "a track cannot key itself" : "it would make a sidechain loop";
+            }
+            if (problem is not null)
+            {
+                remediationLedger.Add($"{ownerName}: removed the sidechain of {effectName} ({problem})");
+                effectDevice.SidechainSource = null;
+                continue;
+            }
+            if (owningTrackId is not null)
+            {
+                acceptedKeysByTrack[owningTrackId].Effects.Add(new EffectDevice { Type = effectDevice.Type, SidechainSource = sourceId });
+            }
+        }
     }
 
     /// <summary>Maps any instrument name a model might emit onto a supported one.</summary>
@@ -298,43 +406,7 @@ internal static class ProjectAlignmentRemediator
         }
 
         track.Effects ??= new List<EffectDevice>();
-        track.Effects.RemoveAll(effect => effect is null);
-        if (track.Effects.Count > MaximumEffectsPerTrack)
-        {
-            remediationLedger.Add($"{track.Name}: kept the first {MaximumEffectsPerTrack} effects (the limit per track)");
-            track.Effects.RemoveRange(MaximumEffectsPerTrack, track.Effects.Count - MaximumEffectsPerTrack);
-        }
-        for (var effectIndex = track.Effects.Count - 1; effectIndex >= 0; effectIndex--)
-        {
-            var effectDevice = track.Effects[effectIndex];
-            var resolvedEffectType = ResolveEffect(effectDevice.Type);
-            if (resolvedEffectType is null)
-            {
-                remediationLedger.Add($"{track.Name}: removed unknown effect \"{effectDevice.Type}\"");
-                track.Effects.RemoveAt(effectIndex);
-                ClipAutomation.ForgetEffectSlot(track, effectIndex);
-                continue;
-            }
-            if (resolvedEffectType != effectDevice.Type)
-            {
-                remediationLedger.Add($"{track.Name}: effect \"{effectDevice.Type}\" changed to \"{resolvedEffectType}\"");
-                effectDevice.Type = resolvedEffectType;
-            }
-            effectDevice.Parameters ??= new Dictionary<string, double>();
-            if (effectDevice.Type == Plugins.DeviceTypes.Vst3)
-            {
-                if (!IsUsablePluginReference(effectDevice.Plugin))
-                {
-                    remediationLedger.Add($"{track.Name}: VST3 effect without a plugin removed");
-                    track.Effects.RemoveAt(effectIndex);
-                    continue;
-                }
-                DeviceCatalog.RemediatePluginParameters(effectDevice.Parameters);
-                continue;
-            }
-            effectDevice.Plugin = null;
-            DeviceCatalog.Remediate(effectDevice.Parameters, DeviceCatalog.EffectParametersFor(effectDevice.Type));
-        }
+        RemediateEffectChain(track.Name, track.Effects, track, remediationLedger);
 
         if (track.Clips.Count > sceneCount)
         {

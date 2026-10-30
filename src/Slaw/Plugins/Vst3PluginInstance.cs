@@ -65,6 +65,8 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
     private const int StateIdle = 0;
     private const int StateProcessing = 1;
     private const int StateRetired = 2;
+    private const int StateReconfiguring = 3;
+    private const int BusTypeAux = 1;
     private static readonly byte[] StateMagic = "SLV3"u8.ToArray();
 
     private readonly int sampleRate;
@@ -97,6 +99,11 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
 
     private int inputBusCount;
     private int outputBusCount;
+
+    /// <summary>The first aux (sidechain) audio input bus, or -1 if the plugin has none.</summary>
+    private int sidechainBusIndex = -1;
+    private volatile bool sidechainBusActive;
+    private int sidechainReconfigurationPending;
     private Vst3AudioBusBuffers* inputBuses;
     private Vst3AudioBusBuffers* outputBuses;
     private Vst3ProcessContext* processContext;
@@ -118,6 +125,63 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
     public string Name { get; }
     public bool IsInstrument { get; }
     public IReadOnlyList<Vst3ParameterDescription> Parameters { get; private set; } = Array.Empty<Vst3ParameterDescription>();
+
+    /// <summary>Whether the plugin has an aux audio input a sidechain can be routed into.</summary>
+    public bool HasSidechainInput => sidechainBusIndex >= 0;
+
+    /// <summary>
+    /// Activates or deactivates the sidechain input to match whether the device has a source.
+    /// Called every block from the audio thread; a change is handed to the plugin host
+    /// thread, which deactivates the plugin, flips the bus and reactivates it (bus activation
+    /// is only allowed while inactive). Blocks pass through untouched while that happens.
+    /// </summary>
+    public void RequestSidechain(bool wanted)
+    {
+        if (sidechainBusIndex < 0 || wanted == sidechainBusActive ||
+            Interlocked.CompareExchange(ref sidechainReconfigurationPending, 1, 0) != 0)
+        {
+            return;
+        }
+        _ = PluginHostThread.InvokeAsync(() =>
+        {
+            try
+            {
+                ReconfigureSidechainOnHostThread(wanted);
+            }
+            finally
+            {
+                Volatile.Write(ref sidechainReconfigurationPending, 0);
+            }
+            return true;
+        });
+    }
+
+    private void ReconfigureSidechainOnHostThread(bool wanted)
+    {
+        var spinner = new SpinWait();
+        int previousState;
+        while ((previousState = Interlocked.CompareExchange(ref lifecycleState, StateReconfiguring, StateIdle)) == StateProcessing)
+        {
+            spinner.SpinOnce();
+        }
+        if (previousState != StateIdle)
+        {
+            return;
+        }
+        try
+        {
+            ((delegate* unmanaged<IntPtr, byte, int>)Vst3Abi.Slot(audioProcessor, 8))(audioProcessor, 0);
+            ((delegate* unmanaged<IntPtr, byte, int>)Vst3Abi.Slot(component, 11))(component, 0);
+            ActivateBus(Vst3Abi.MediaTypeAudio, Vst3Abi.BusDirectionInput, sidechainBusIndex, wanted);
+            ((delegate* unmanaged<IntPtr, byte, int>)Vst3Abi.Slot(component, 11))(component, 1);
+            ((delegate* unmanaged<IntPtr, byte, int>)Vst3Abi.Slot(audioProcessor, 8))(audioProcessor, 1);
+            sidechainBusActive = wanted;
+        }
+        finally
+        {
+            Volatile.Write(ref lifecycleState, StateIdle);
+        }
+    }
 
     // ── Creation (plugin host thread) ─────────────────────────────────────────
 
@@ -245,6 +309,14 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
             : 0;
     }
 
+    private int BusType(int busDirection, int busIndex)
+    {
+        Vst3BusInfo busInfo;
+        return ((delegate* unmanaged<IntPtr, int, int, int, Vst3BusInfo*, int>)Vst3Abi.Slot(component, 8))(component, Vst3Abi.MediaTypeAudio, busDirection, busIndex, &busInfo) == Vst3Abi.ResultOk
+            ? busInfo.BusType
+            : -1;
+    }
+
     private void ActivateBus(int mediaType, int busDirection, int busIndex, bool shouldBeActive) =>
         ((delegate* unmanaged<IntPtr, int, int, int, byte, int>)Vst3Abi.Slot(component, 10))(component, mediaType, busDirection, busIndex, shouldBeActive ? (byte)1 : (byte)0);
 
@@ -253,14 +325,22 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
         inputBusCount = BusCount(Vst3Abi.MediaTypeAudio, Vst3Abi.BusDirectionInput);
         outputBusCount = BusCount(Vst3Abi.MediaTypeAudio, Vst3Abi.BusDirectionOutput);
 
-        // Ask for stereo main buses and leave any sidechains as the plugin likes them.
+        for (var busIndex = 1; busIndex < inputBusCount && sidechainBusIndex < 0; busIndex++)
+        {
+            if (BusType(Vst3Abi.BusDirectionInput, busIndex) == BusTypeAux)
+            {
+                sidechainBusIndex = busIndex;
+            }
+        }
+
+        // Ask for stereo main buses and a stereo sidechain; leave any other extra buses as the plugin likes them.
         var inputArrangements = stackalloc ulong[Math.Max(1, inputBusCount)];
         var outputArrangements = stackalloc ulong[Math.Max(1, outputBusCount)];
         for (var busIndex = 0; busIndex < inputBusCount; busIndex++)
         {
             ulong arrangement = Vst3Abi.SpeakerArrangementStereo;
             ((delegate* unmanaged<IntPtr, int, int, ulong*, int>)Vst3Abi.Slot(audioProcessor, 4))(audioProcessor, Vst3Abi.BusDirectionInput, busIndex, &arrangement);
-            inputArrangements[busIndex] = busIndex == 0 ? Vst3Abi.SpeakerArrangementStereo : arrangement;
+            inputArrangements[busIndex] = busIndex == 0 || busIndex == sidechainBusIndex ? Vst3Abi.SpeakerArrangementStereo : arrangement;
         }
         for (var busIndex = 0; busIndex < outputBusCount; busIndex++)
         {
@@ -608,7 +688,14 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
     /// output (a mono output goes to both sides). Instruments ignore the input:
     /// the blocks they return are their voice.
     /// </summary>
-    public void Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double>? parameterValues)
+    public void Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double>? parameterValues) =>
+        Process(leftBlock, rightBlock, parameterValues, null, null);
+
+    /// <summary>
+    /// As <see cref="Process(Span{float}, Span{float}, IReadOnlyDictionary{string, double}?)"/>, with a
+    /// sidechain for the plugin's aux input (frames 0 .. block length; silence when null).
+    /// </summary>
+    public void Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double>? parameterValues, float[]? sidechainLeft, float[]? sidechainRight)
     {
         if (Interlocked.CompareExchange(ref lifecycleState, StateProcessing, StateIdle) != StateIdle)
         {
@@ -619,7 +706,9 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
             for (var blockStart = 0; blockStart < leftBlock.Length; blockStart += MaximumBlockFrames)
             {
                 var chunkLength = Math.Min(MaximumBlockFrames, leftBlock.Length - blockStart);
-                ProcessChunk(leftBlock.Slice(blockStart, chunkLength), rightBlock.Slice(blockStart, chunkLength), parameterValues);
+                ProcessChunk(leftBlock.Slice(blockStart, chunkLength), rightBlock.Slice(blockStart, chunkLength), parameterValues,
+                    sidechainLeft is null ? ReadOnlySpan<float>.Empty : sidechainLeft.AsSpan(blockStart, chunkLength),
+                    (sidechainRight ?? sidechainLeft) is { } rightSource ? rightSource.AsSpan(blockStart, chunkLength) : ReadOnlySpan<float>.Empty);
                 parameterValues = null;
             }
         }
@@ -629,7 +718,8 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
         }
     }
 
-    private void ProcessChunk(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double>? parameterValues)
+    private void ProcessChunk(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double>? parameterValues,
+        ReadOnlySpan<float> sidechainLeft, ReadOnlySpan<float> sidechainRight)
     {
         var frameCount = leftBlock.Length;
         for (var busIndex = 0; busIndex < inputBusCount; busIndex++)
@@ -638,7 +728,21 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
             for (var channelIndex = 0; channelIndex < busChannelCount; channelIndex++)
             {
                 var channel = new Span<float>(inputBuses[busIndex].ChannelBuffers32[channelIndex], frameCount);
-                if (busIndex != 0)
+                if (busIndex == sidechainBusIndex && sidechainBusActive && sidechainLeft.Length == frameCount)
+                {
+                    if (busChannelCount == 1)
+                    {
+                        for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
+                        {
+                            channel[frameIndex] = (sidechainLeft[frameIndex] + sidechainRight[frameIndex]) * 0.5f;
+                        }
+                    }
+                    else
+                    {
+                        (channelIndex % 2 == 0 ? sidechainLeft : sidechainRight).CopyTo(channel);
+                    }
+                }
+                else if (busIndex != 0)
                 {
                     channel.Clear();
                 }

@@ -32,6 +32,7 @@ internal static class ProjectPatchApplier
             : baseProject.DeepClone();
         var lockedTrackEditsIgnored = 0;
         var patchWarnings = new List<string>();
+        var pendingSidechains = new List<(EffectDevice Effect, string? SourceReference, string EntryLabel)>();
         foreach (var (patchKey, _) in projectPatch)
         {
             if (!KnownPatchKeys.Contains(patchKey))
@@ -139,6 +140,7 @@ internal static class ProjectPatchApplier
                         // The track's arrangement clips go with it (reported once, as part of the removal).
                         patchedProject.Tracks.Remove(existingTrack);
                         patchedProject.Timeline.RemoveAll(timelineClip => timelineClip.TrackId == existingTrack.Id);
+                        SidechainRouting.ForgetSource(patchedProject, existingTrack.Id);
                     }
                     else
                     {
@@ -167,7 +169,7 @@ internal static class ProjectPatchApplier
                     };
                     patchedProject.Tracks.Add(targetTrack);
                 }
-                ApplyTrackPatch(targetTrack, trackPatch, patchedProject.Steps, patchWarnings);
+                ApplyTrackPatch(targetTrack, trackPatch, patchedProject.Steps, patchWarnings, pendingSidechains, $"tracks[{trackEntryIndex}]");
             }
         }
 
@@ -193,12 +195,35 @@ internal static class ProjectPatchApplier
             masterChain.DelayFeedback = ReadDouble(masterPatch["delayFeedback"]) ?? masterChain.DelayFeedback;
             masterChain.DelayMix = ReadDouble(masterPatch["delayMix"]) ?? masterChain.DelayMix;
             masterChain.Rationale = ReadString(masterPatch["rationale"]) ?? masterChain.Rationale;
+            if (masterPatch["effects"] is JsonArray masterEffectArray)
+            {
+                masterChain.Effects = ParseEffectChain(masterEffectArray, masterChain.Effects, pendingSidechains, "master.effects");
+            }
+        }
+
+        // Sidechains name tracks, which may have been added by this same patch: resolved last.
+        foreach (var (keyedEffect, sourceReference, entryLabel) in pendingSidechains)
+        {
+            if (sourceReference is null)
+            {
+                keyedEffect.SidechainSource = null;
+            }
+            else if (SidechainRouting.ResolveTrack(patchedProject, sourceReference) is { } sourceTrack)
+            {
+                keyedEffect.SidechainSource = sourceTrack.Id;
+            }
+            else
+            {
+                keyedEffect.SidechainSource = null;
+                patchWarnings.Add($"{entryLabel}: sidechain \"{sourceReference}\" matches no track; left unset. {DescribeTrackReferences(patchedProject)}");
+            }
         }
 
         return new PatchOutcome(patchedProject, ReadString(projectPatch["summary"]), lockedTrackEditsIgnored, patchWarnings);
     }
 
-    private static void ApplyTrackPatch(SlawTrack targetTrack, JsonObject trackPatch, int defaultStepCount, List<string> patchWarnings)
+    private static void ApplyTrackPatch(SlawTrack targetTrack, JsonObject trackPatch, int defaultStepCount, List<string> patchWarnings,
+        List<(EffectDevice Effect, string? SourceReference, string EntryLabel)> pendingSidechains, string entryLabel)
     {
         targetTrack.Name = ReadString(trackPatch["name"]) is { Length: > 0 } patchedName ? patchedName : targetTrack.Name;
         if (ReadString(trackPatch["instrument"]) is { Length: > 0 } patchedInstrument)
@@ -240,21 +265,7 @@ internal static class ProjectPatchApplier
 
         if (trackPatch["effects"] is JsonArray effectArray)
         {
-            var previousEffects = targetTrack.Effects;
-            targetTrack.Effects = effectArray.Select((effectNode, effectIndex) => effectNode switch
-            {
-                JsonObject effectObject => new EffectDevice
-                {
-                    Type = ReadString(effectObject["type"]) ?? (effectObject["plugin"] is null ? "lowpass" : Plugins.DeviceTypes.Vst3),
-                    Enabled = ReadBoolean(effectObject["enabled"]) ?? true,
-                    Parameters = (effectObject["parameters"] as JsonObject ?? effectObject["params"] as JsonObject)?
-                        .Where(parameterPair => ReadDouble(parameterPair.Value) is not null)
-                        .ToDictionary(parameterPair => parameterPair.Key, parameterPair => ReadDouble(parameterPair.Value)!.Value)
-                        ?? new Dictionary<string, double>(),
-                    Plugin = PluginDeviceOperations.ParseReference(effectObject["plugin"]) ?? PluginInSlot(previousEffects, effectIndex),
-                },
-                _ => new EffectDevice { Type = ReadString(effectNode) ?? "lowpass", Plugin = PluginInSlot(previousEffects, effectIndex) },
-            }).ToList();
+            targetTrack.Effects = ParseEffectChain(effectArray, targetTrack.Effects, pendingSidechains, $"{entryLabel}.effects");
         }
 
         switch (trackPatch["clips"])
@@ -345,6 +356,43 @@ internal static class ProjectPatchApplier
             .OfType<AutomationPoint>()
             .ToList()
         : null;
+
+    /// <summary>
+    /// An effect list (a track's or the master's) replacing <paramref name="previousEffects"/>.
+    /// A slot rewritten as {"type": "vst3"} keeps its plugin, and one that does not mention
+    /// "sidechain" keeps its source; "sidechain": "Kick" (or a track id, or null) is resolved
+    /// once every track of the patch exists.
+    /// </summary>
+    private static List<EffectDevice> ParseEffectChain(JsonArray effectArray, List<EffectDevice> previousEffects,
+        List<(EffectDevice Effect, string? SourceReference, string EntryLabel)> pendingSidechains, string entryLabel)
+    {
+        var parsedEffects = effectArray.Select((effectNode, effectIndex) => effectNode switch
+        {
+            JsonObject effectObject => new EffectDevice
+            {
+                Type = ReadString(effectObject["type"]) ?? (effectObject["plugin"] is null ? "lowpass" : Plugins.DeviceTypes.Vst3),
+                Enabled = ReadBoolean(effectObject["enabled"]) ?? true,
+                Parameters = (effectObject["parameters"] as JsonObject ?? effectObject["params"] as JsonObject)?
+                    .Where(parameterPair => ReadDouble(parameterPair.Value) is not null)
+                    .ToDictionary(parameterPair => parameterPair.Key, parameterPair => ReadDouble(parameterPair.Value)!.Value)
+                    ?? new Dictionary<string, double>(),
+                Plugin = PluginDeviceOperations.ParseReference(effectObject["plugin"]) ?? PluginInSlot(previousEffects, effectIndex),
+                SidechainSource = SidechainInSlot(previousEffects, effectIndex),
+            },
+            _ => new EffectDevice { Type = ReadString(effectNode) ?? "lowpass", Plugin = PluginInSlot(previousEffects, effectIndex), SidechainSource = SidechainInSlot(previousEffects, effectIndex) },
+        }).ToList();
+        for (var effectIndex = 0; effectIndex < effectArray.Count; effectIndex++)
+        {
+            if (effectArray[effectIndex] is JsonObject effectObject && effectObject.TryGetPropertyValue("sidechain", out var sidechainNode))
+            {
+                pendingSidechains.Add((parsedEffects[effectIndex], ReadString(sidechainNode), $"{entryLabel}[{effectIndex}]"));
+            }
+        }
+        return parsedEffects;
+    }
+
+    private static string? SidechainInSlot(List<EffectDevice> previousEffects, int effectIndex) =>
+        effectIndex < previousEffects.Count ? previousEffects[effectIndex].SidechainSource : null;
 
     /// <summary>A model rewriting the chain as [{"type": "vst3"}] keeps the plugin that was already in that slot.</summary>
     private static PluginReference? PluginInSlot(List<EffectDevice> previousEffects, int effectIndex) =>
@@ -465,7 +513,7 @@ internal static class ProjectPatchApplier
         return lockedEditsIgnored;
     }
 
-    private static string DescribeTrackReferences(SlawProject project) =>
+    internal static string DescribeTrackReferences(SlawProject project) =>
         $"tracks are: {string.Join(", ", project.Tracks.Select(track => $"\"{track.Id}\" \"{track.Name}\""))}";
 
     /// <summary>A track by id, exact name, or index, the way models like to refer to them.</summary>

@@ -50,8 +50,8 @@ internal static class ProjectChangeSummarizer
             {
                 trackChanges.Add($"instrument parameters {instrumentChanges}");
             }
-            var previousEffects = string.Join(" → ", previousTrack.Effects.Select(DescribeEffect));
-            var revisedEffects = string.Join(" → ", revisedTrack.Effects.Select(DescribeEffect));
+            var previousEffects = string.Join(" → ", previousTrack.Effects.Select(effect => DescribeEffect(effect, previousProject)));
+            var revisedEffects = string.Join(" → ", revisedTrack.Effects.Select(effect => DescribeEffect(effect, revisedProject)));
             if (previousEffects != revisedEffects)
             {
                 trackChanges.Add($"effects are now: {(revisedEffects.Length == 0 ? "none" : revisedEffects)}");
@@ -64,11 +64,11 @@ internal static class ProjectChangeSummarizer
                     var revisedEffect = revisedTrack.Effects[effectIndex];
                     if (previousEffect.Enabled != revisedEffect.Enabled)
                     {
-                        trackChanges.Add($"effect {effectIndex} ({DescribeEffect(revisedEffect)}) {(revisedEffect.Enabled ? "enabled" : "bypassed")}");
+                        trackChanges.Add($"effect {effectIndex} ({DescribeEffect(revisedEffect, revisedProject)}) {(revisedEffect.Enabled ? "enabled" : "bypassed")}");
                     }
                     if (DescribeValueChanges(previousEffect.Parameters, revisedEffect.Parameters) is { } effectChanges)
                     {
-                        trackChanges.Add($"effect {effectIndex} ({DescribeEffect(revisedEffect)}) parameters {effectChanges}");
+                        trackChanges.Add($"effect {effectIndex} ({DescribeEffect(revisedEffect, revisedProject)}) parameters {effectChanges}");
                     }
                 }
             }
@@ -121,6 +121,29 @@ internal static class ProjectChangeSummarizer
                 $"master bus now: gain {revisedMaster.Gain:0.00}, drive {revisedMaster.Drive:0.0}, lowpassHz {revisedMaster.LowpassHz:0}, delayMix {revisedMaster.DelayMix:0.00}"));
         }
 
+        var previousMasterEffects = string.Join(" → ", previousMaster.Effects.Select(effect => DescribeEffect(effect, previousProject)));
+        var revisedMasterEffects = string.Join(" → ", revisedMaster.Effects.Select(effect => DescribeEffect(effect, revisedProject)));
+        if (previousMasterEffects != revisedMasterEffects)
+        {
+            changeSummary.Add($"master effects are now: {(revisedMasterEffects.Length == 0 ? "none" : revisedMasterEffects)}");
+        }
+        else
+        {
+            for (var effectIndex = 0; effectIndex < revisedMaster.Effects.Count; effectIndex++)
+            {
+                var previousEffect = previousMaster.Effects[effectIndex];
+                var revisedEffect = revisedMaster.Effects[effectIndex];
+                if (previousEffect.Enabled != revisedEffect.Enabled)
+                {
+                    changeSummary.Add($"master effect {effectIndex} ({DescribeEffect(revisedEffect, revisedProject)}) {(revisedEffect.Enabled ? "enabled" : "bypassed")}");
+                }
+                if (DescribeValueChanges(previousEffect.Parameters, revisedEffect.Parameters) is { } effectChanges)
+                {
+                    changeSummary.Add($"master effect {effectIndex} ({DescribeEffect(revisedEffect, revisedProject)}) parameters {effectChanges}");
+                }
+            }
+        }
+
         changeSummary.AddRange(DescribeArrangementChanges(previousProject, revisedProject));
         if (changeSummary.Count == 0)
         {
@@ -136,7 +159,12 @@ internal static class ProjectChangeSummarizer
         _ => track.Instrument,
     };
 
-    private static string DescribeEffect(EffectDevice effect) => effect.Plugin is { } plugin ? $"vst3 {plugin.Name}" : effect.Type;
+    /// <summary>"duck (sidechain ← Kick)", "vst3 MVerb", "lowpass".</summary>
+    private static string DescribeEffect(EffectDevice effect, SlawProject project)
+    {
+        var effectLabel = effect.Plugin is { } plugin ? $"vst3 {plugin.Name}" : effect.Type;
+        return SidechainRouting.DescribeSource(project, effect) is { } sourceName ? $"{effectLabel} (sidechain ← {sourceName})" : effectLabel;
+    }
 
     /// <summary>"cutoff 900 → 1200, attack (default) → 5"; null when nothing changed. Lists at most six keys.</summary>
     private static string? DescribeValueChanges(IReadOnlyDictionary<string, double> previousValues, IReadOnlyDictionary<string, double> revisedValues)

@@ -33,7 +33,10 @@ internal sealed class Vst3EffectProcessor : EffectProcessor
         }
         MaterializeStereo(leftBlock, rightBlock, processingContext);
         pluginEffect.SetTransport(60.0 / (processingContext.StepDurationSeconds * 4), processingContext.TransportStep);
-        pluginEffect.Process(leftBlock, rightBlock, parameterValues);
+        // The aux input is switched on only while the device has a source, so plugins that
+        // key themselves when nothing is routed in keep doing that.
+        pluginEffect.RequestSidechain(processingContext.SidechainLeft is not null);
+        pluginEffect.Process(leftBlock, rightBlock, parameterValues, processingContext.SidechainLeft, processingContext.SidechainRight);
         return false;
     }
 }

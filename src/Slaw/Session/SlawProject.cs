@@ -213,6 +213,15 @@ internal sealed class EffectDevice
     /// <summary>The VST3 plugin a "vst3" effect runs. Its knobs live in <see cref="Parameters"/> as p&lt;id&gt;.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PluginReference? Plugin { get; set; }
+
+    /// <summary>
+    /// The track whose audio keys this effect (a sidechain), by track id; null for none.
+    /// The ducker and VST3 effects with a sidechain input listen to it. The source is
+    /// tapped after its effects and before its fader, mute and solo, so a muted
+    /// "ghost" track can still pump the mix. See <see cref="SidechainRouting"/>.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SidechainSource { get; set; }
 }
 
 /// <summary>
@@ -276,4 +285,20 @@ internal sealed class MasterChainParameters
 
     /// <summary>Why the AI mastering engineer chose these settings, verbatim.</summary>
     public string? Rationale { get; set; }
+
+    /// <summary>
+    /// The master effect chain: any effects (VST3 included) on the sum of every track,
+    /// run before the fixed drive/lowpass/delay/gain stages above.
+    /// </summary>
+    [JsonIgnore]
+    public List<EffectDevice> Effects { get; set; } = new();
+
+    /// <summary><see cref="Effects"/> as written to disk: left out entirely while empty.</summary>
+    [JsonPropertyName("effects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<EffectDevice>? SerializedEffects
+    {
+        get => Effects.Count > 0 ? Effects : null;
+        set => Effects = value ?? new List<EffectDevice>();
+    }
 }

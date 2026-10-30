@@ -35,6 +35,10 @@ internal sealed class SlawMcpToolset
         "start across its whole length (0..length) and do not repeat with the pattern; on a SESSION clip they span the pattern (0..pattern length) and loop with it. " +
         "Values are absolute: a gain envelope (0..1.5) replaces the track's gain while the clip plays, it does not multiply it. " +
         "Outside an envelope (before the clip, after it ends, or in clips without that envelope) the knob's own value applies again.\n" +
+        "SIDECHAIN AND MASTER: an effect's \"sidechain\" names the track whose audio keys it, e.g. {\"type\": \"duck\", \"sidechain\": \"Kick\"} on a pad " +
+        "turns the pad down on every kick (VST3 effects with a sidechain input get the audio there; the source is taken after its effects and before its fader, " +
+        "so a muted track still keys; no track may key itself or close a loop). The MASTER chain (apply_patch master.effects, or add_effect with track \"master\") " +
+        "processes the sum of all tracks before the master's drive/lowpass/delay/gain; master effects may use a sidechain too.\n" +
         "START FROM SCRATCH: new_project (or apply_patch with \"reset\": true) clears every track, clip and scene in one undoable step.\n" +
         "WORKFLOW: get_catalog → add_track / apply_patch tracks (instruments, effects) → place arrangement clips → set_automation → " +
         "render with levels:true (writes a WAV and reports each track's level, per bar range, and tracks far quieter than the rest) → get_project to check positions. " +
@@ -78,6 +82,12 @@ internal sealed class SlawMcpToolset
 
     public Task<string> InvokeAsync(string toolName, JsonObject toolArguments, string clientName, CancellationToken cancellationToken) =>
         toolDefinitions[toolName].Handler(toolArguments, clientName, cancellationToken);
+
+    /// <summary>"Stakeholder Ducking ← Kick" for a keyed effect, the device name otherwise.</summary>
+    private string DescribeChainDevice(EffectDevice effectDevice) =>
+        SidechainRouting.DescribeSource(host.Document.Project, effectDevice) is { } sourceName
+            ? $"{PluginDeviceOperations.DeviceName(effectDevice)} (sidechain ← {sourceName})"
+            : PluginDeviceOperations.DeviceName(effectDevice);
 
     // ── Schema helpers ────────────────────────────────────────────────────────
 
@@ -169,14 +179,14 @@ internal sealed class SlawMcpToolset
             "Keys: reset (true = start from an empty project first: no tracks, no clips, one empty scene, default master; then the rest of the patch applies), " +
             "bpm, name, scenes [names] (renames scenes in order; never deletes), removeScenes [0-based scene indices], " +
             "tracks [{id (existing id, exact name or index, or \"new\" to add), name, instrument, plugin (vst3 instrument: name or {path, classId}), sample, gain, pan, muted, solo, " +
-            "instrumentParameters {key: number}, effects [{type, enabled, parameters, plugin}] (replaces the whole chain), " +
+            "instrumentParameters {key: number}, effects [{type, enabled, parameters, plugin, sidechain (track id or name that keys it; null clears)}] (replaces the whole chain), " +
             "clips {\"<sceneIndex>\": pattern or null} (SESSION clips), automation {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}}, " +
             "remove: true (deletes the track together with its session and arrangement clips)}], " +
             "timeline [{id (existing arrangement clip id, or \"new\"), track (id, name or index; may name a track added earlier in this patch), " +
             "start (0-based step, 16 per bar), length (steps; the pattern loops to fill it), pattern, name, automation {\"<target>\": [[step, value], ...]} " +
             "(steps 0..length from the clip's start), remove: true}] (ARRANGEMENT clips; get_project JSON names trackId/startStep/lengthSteps/clip{...} work too), " +
             "arrangement [{scene, repeats}] (legacy shortcut: lays those session scenes end to end and REPLACES the whole arrangement), " +
-            "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix}. " +
+            "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix, effects [same shape as track effects] (replaces the master chain; it processes the sum of all tracks)}. " +
             "Pattern velocities and lengths bind per note (\"A3@0.7+C4@0.7+E4@0.7\" for a soft chord). " +
             "The result lists what changed (with new clip ids and their envelopes) and warnings for anything ignored or adjusted. Undoable in the studio.",
             Schema(new JsonObject { ["patch"] = PatchSchema() }, "patch"),
@@ -617,19 +627,28 @@ internal sealed class SlawMcpToolset
             }));
 
         Register("add_effect",
-            "Add an audio effect to a track's device chain (see get_catalog for types and parameters).",
+            "Add an audio effect to the end of a track's device chain, or to the master chain with track \"master\" " +
+            "(master effects process the sum of every track, before the master's drive/lowpass/delay/gain). See get_catalog for types and parameters. " +
+            "sidechain names the track whose audio keys the effect: the \"duck\" effect (Stakeholder Ducking) turns its track down while that track plays, " +
+            "and VST3 effects with a sidechain input receive it there. Example: {\"track\": \"Pad\", \"type\": \"duck\", \"sidechain\": \"Kick\", \"parameters\": {\"amount\": 0.8}}.",
             Schema(new JsonObject
             {
-                ["track"] = AnyProperty(TrackReferenceDescription),
+                ["track"] = AnyProperty(TrackReferenceDescription + " Or \"master\" for the master chain."),
                 ["type"] = EnumProperty("Effect type (\"vst3\" for a plugin from list_plugins).", DeviceCatalog.EffectTypes.Append(DeviceTypes.Vst3).ToArray()),
                 ["parameters"] = Property("object", "Optional parameter key → number (p<id> → 0..1 for vst3)."),
                 ["plugin"] = AnyProperty("VST3 effect for type vst3: {\"path\", \"classId\"} from list_plugins, or the plugin's name."),
+                ["sidechain"] = Property("string", "Optional: the track (id or name) that keys this effect. Only \"duck\" and VST3 effects with a sidechain input listen; a track cannot key itself or close a loop."),
             }, "track", "type"),
             async (toolArguments, clientName, _) => await host.InvokeAsync(() =>
             {
                 var document = host.Document;
-                var (_, targetTrack) = ResolveTrack(toolArguments["track"]);
-                RejectLocked(targetTrack);
+                var targetsMaster = string.Equals(ReadString(toolArguments["track"]), "master", StringComparison.OrdinalIgnoreCase);
+                SlawTrack? targetTrack = null;
+                if (!targetsMaster)
+                {
+                    targetTrack = ResolveTrack(toolArguments["track"]).Track;
+                    RejectLocked(targetTrack);
+                }
                 var effectType = ProjectAlignmentRemediator.ResolveEffect(ReadString(toolArguments["type"]))
                     ?? throw new McpInvalidParamsException($"unknown effect; use one of {string.Join(", ", DeviceCatalog.EffectTypes)}");
                 var addedEffect = new EffectDevice { Type = effectType };
@@ -637,6 +656,22 @@ internal sealed class SlawMcpToolset
                 {
                     addedEffect.Plugin = PluginDeviceOperations.ParseReference(toolArguments["plugin"])
                         ?? throw new McpInvalidParamsException("vst3 effects need a plugin: pass {path, classId} or a name from list_plugins");
+                }
+                if (ReadString(toolArguments["sidechain"]) is { Length: > 0 } sidechainReference)
+                {
+                    var sourceTrack = SidechainRouting.ResolveTrack(document.Project, sidechainReference)
+                        ?? throw new McpInvalidParamsException($"sidechain \"{sidechainReference}\" matches no track; {ProjectPatchApplier.DescribeTrackReferences(document.Project)}");
+                    if (!SidechainRouting.AcceptsSidechain(addedEffect))
+                    {
+                        throw new McpInvalidParamsException($"{DeviceCatalog.EffectDisplayName(effectType)} has no sidechain input; use type \"duck\" or a VST3 effect with one");
+                    }
+                    if (SidechainRouting.WouldCreateCycle(document.Project, targetTrack?.Id, sourceTrack.Id))
+                    {
+                        throw new McpInvalidParamsException(sourceTrack == targetTrack
+                            ? "a track cannot key its own effect"
+                            : $"{sourceTrack.Name} already listens to {targetTrack!.Name}, so {targetTrack.Name} cannot listen to {sourceTrack.Name} (a sidechain loop)");
+                    }
+                    addedEffect.SidechainSource = sourceTrack.Id;
                 }
                 if (toolArguments["parameters"] is JsonObject parameterObject)
                 {
@@ -648,13 +683,19 @@ internal sealed class SlawMcpToolset
                         }
                     }
                 }
+                var chain = targetTrack?.Effects ?? document.Project.Master.Effects;
+                var chainOwner = targetTrack?.Name ?? "master";
+                if (chain.Count >= ProjectAlignmentRemediator.MaximumEffectsPerTrack)
+                {
+                    throw new McpInvalidParamsException($"{chainOwner} already has {ProjectAlignmentRemediator.MaximumEffectsPerTrack} effects (the limit per chain)");
+                }
                 document.BeginEdit($"{clientName}: add effect");
-                targetTrack.Effects.Add(addedEffect);
+                chain.Add(addedEffect);
                 ProjectAlignmentRemediator.Remediate(document.Project);
                 document.Project.AiProvenance = $"{clientName} via MCP";
-                document.CommitEdit($"{clientName} added {DeviceCatalog.EffectDisplayName(effectType)} to {targetTrack.Name}", EditScope.Structure);
-                host.OnAgentEdit(clientName, $"added {DeviceCatalog.EffectDisplayName(effectType)} to {targetTrack.Name}");
-                return $"{targetTrack.Name} chain: {string.Join(" → ", targetTrack.Effects.Select(PluginDeviceOperations.DeviceName))}";
+                document.CommitEdit($"{clientName} added {DeviceCatalog.EffectDisplayName(effectType)} to {chainOwner}", EditScope.Structure);
+                host.OnAgentEdit(clientName, $"added {DeviceCatalog.EffectDisplayName(effectType)} to {chainOwner}");
+                return $"{chainOwner} chain: {string.Join(" → ", chain.Select(DescribeChainDevice))}";
             }));
 
         Register("set_tempo",
@@ -1277,6 +1318,7 @@ internal sealed class SlawMcpToolset
                 ["enabled"] = Property("boolean", "Default true."),
                 ["parameters"] = Property("object", "Parameter key → number."),
                 ["plugin"] = AnyProperty("VST3 effect: name or {path, classId}."),
+                ["sidechain"] = AnyProperty("Track id or name whose audio keys this effect (\"duck\" or a VST3 effect with a sidechain input); null clears; omitted keeps the slot's current source."),
             }, "One effect."), "Replaces the whole effect chain, in order (effect index 0 first)."),
             ["clips"] = Property("object", "SESSION clips: {\"<sceneIndex>\": pattern string, or null to clear}."),
             ["automation"] = Property("object", "SESSION clip envelopes: {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}}."),
@@ -1302,7 +1344,7 @@ internal sealed class SlawMcpToolset
             ["scene"] = Property("integer", "0-based session scene."),
             ["repeats"] = Property("integer", "How many times."),
         }, "One section."), "Legacy: REPLACES the whole arrangement with these session scenes end to end."),
-        ["master"] = Property("object", "{gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix}."),
+        ["master"] = Property("object", "{gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix, effects [{type, enabled, parameters, plugin, sidechain}]}: effects replace the master chain, which processes the sum of all tracks."),
     }, "The patch: only the keys you want to change.");
 
     private static string? ReadString(JsonNode? node) => node is JsonValue jsonValue

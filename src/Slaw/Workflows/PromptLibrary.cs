@@ -216,7 +216,7 @@ internal static class PromptLibrary
         }
         - "scenes" renames scenes in order ("removeScenes": [indices] deletes); "clips" maps a scene index to a pattern string. "arrangement" lays scenes out as the song (it replaces the arrangement timeline); "timeline" places single clips at exact steps instead (16 steps per bar, step 0 = bar 1).
         - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence; "@0.5" after a note or "x" sets its velocity (0..1, default 1), for that one note only: a soft chord is "A3@0.6+C4@0.6+E4@0.6".
-        - Effects replace the track's whole effect list when given.
+        - Effects replace the track's whole effect list when given. {"type": "duck", "sidechain": "Kick"} ducks a track whenever Kick plays. "master": {"effects": [...]} sets effects on the whole mix.
         - Optional clip envelopes: "automation": {"<scene>": {"fx.0.cutoff": [[0, 300], [16, 6000]]} } on a track sweeps effect 0's cutoff over the clip ([step, value] pairs). On a "timeline" clip, "automation": {"fx.0.cutoff": [[0, 300], [128, 6000]]} spans the whole clip (steps from its start). Targets: gain, pan, pitch (semitones), fx.<effectIndex>.<param>, inst.<param>.
         - Never mention tracks marked LOCKED.
 
@@ -264,7 +264,7 @@ internal static class PromptLibrary
             if (track.Effects.Count > 0)
             {
                 projectListing.Append(CultureInfo.InvariantCulture,
-                    $" effects [{string.Join(", ", track.Effects.Select(DescribeEffect))}]");
+                    $" effects [{string.Join(", ", track.Effects.Select(effect => DescribeEffect(effect, project)))}]");
             }
             projectListing.Append('\n');
             for (var sceneIndex = 0; sceneIndex < track.Clips.Count; sceneIndex++)
@@ -307,12 +307,21 @@ internal static class PromptLibrary
         var masterChain = project.Master;
         projectListing.Append(CultureInfo.InvariantCulture,
             $"master: gain {masterChain.Gain:0.00}, drive {masterChain.Drive:0.0}, lowpassHz {masterChain.LowpassHz:0}, delayMix {masterChain.DelayMix:0.00}");
+        if (masterChain.Effects.Count > 0)
+        {
+            projectListing.Append(CultureInfo.InvariantCulture,
+                $", effects [{string.Join(", ", masterChain.Effects.Select(effect => DescribeEffect(effect, project)))}] (on the sum of all tracks, before drive/lowpass/delay/gain)");
+        }
         return projectListing.ToString();
     }
 
-    private static string DescribeEffect(EffectDevice effect)
+    private static string DescribeEffect(EffectDevice effect, SlawProject project)
     {
         var effectLabel = effect.Plugin is { } effectPlugin ? $"{effect.Type} \"{effectPlugin.Name}\"" : effect.Type;
+        if (SidechainRouting.DescribeSource(project, effect) is { } sourceName)
+        {
+            effectLabel += $" sidechain \"{sourceName}\"";
+        }
         return effect.Parameters.Count == 0 ? effectLabel : $"{effectLabel} {{{DescribeParameterValues(effect.Parameters, effect.Plugin)}}}";
     }
 
@@ -383,8 +392,9 @@ internal static class PromptLibrary
         {
             catalogDescription.Append(CultureInfo.InvariantCulture, $"- effect \"{effectType}\" ({DeviceCatalog.EffectDisplayName(effectType)}): {DescribeParameters(DeviceCatalog.EffectParametersFor(effectType))}\n");
         }
-        catalogDescription.Append("Track fields: name, instrument, sample (sampler tracks only: a WAV path), instrumentParameters {key: number}, effects [{type, enabled, parameters {key: number}}], gain 0-1.5, pan -1..1, muted, solo, aiLocked, clips.\n");
-        catalogDescription.Append("Master fields: gain 0-2, drive 1-20, lowpassHz 200-20000, delaySteps 1-16, delayFeedback 0-0.9, delayMix 0-1.");
+        catalogDescription.Append("Track fields: name, instrument, sample (sampler tracks only: a WAV path), instrumentParameters {key: number}, effects [{type, enabled, parameters {key: number}, sidechain}], gain 0-1.5, pan -1..1, muted, solo, aiLocked, clips.\n");
+        catalogDescription.Append("Sidechain: an effect's \"sidechain\" names the track (id or name) whose audio keys it. \"duck\" turns its track down while that track plays (e.g. a pad keyed by the kick); VST3 effects with a sidechain input receive it there. The source is heard after its effects and before its fader, so a muted track still keys. No track may key itself or close a loop.\n");
+        catalogDescription.Append("Master fields: gain 0-2, drive 1-20, lowpassHz 200-20000, delaySteps 1-16, delayFeedback 0-0.9, delayMix 0-1, effects [same shape as track effects, VST3 and sidechain included]: the master chain processes the sum of every track, before drive/lowpass/delay/gain.");
         return catalogDescription.ToString();
     }
 
