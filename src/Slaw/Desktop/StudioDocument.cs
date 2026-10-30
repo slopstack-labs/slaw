@@ -299,15 +299,8 @@ internal sealed class StudioDocument
             return;
         }
         BeginEdit("delete scene");
-        Project.Scenes.RemoveAt(sceneIndex);
-        foreach (var track in Project.Tracks)
-        {
-            if (sceneIndex < track.Clips.Count)
-            {
-                track.Clips.RemoveAt(sceneIndex);
-            }
-        }
         // Arrangement clips are copies, so the song keeps playing what this scene used to hold.
+        SceneOperations.RemoveScene(Project, sceneIndex);
         CommitEdit("deleted a scene", EditScope.Structure);
     }
 

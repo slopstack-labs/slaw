@@ -231,14 +231,14 @@ public class ArrangementTests
         static string TextOf(JsonNode result) => result["content"]![0]!["text"]!.GetValue<string>();
 
         var listing = TextOf(await CallToolAsync("get_project", new JsonObject()));
-        Assert.Contains("arrangement timeline (8 bars", listing);
+        Assert.Contains("ends at bar 9.1 = 8 bars", listing);
         Assert.DoesNotContain("arrangement: scene", listing);
 
         var renderPath = Path.Combine(Path.GetTempPath(), $"slaw-arrangement-test-{Environment.ProcessId}.wav");
         try
         {
             // Eight bars at 120 BPM plus the release tail.
-            Assert.Contains("rendered 17.5 s", TextOf(await CallToolAsync("render", new JsonObject { ["path"] = renderPath })));
+            Assert.Contains("8 bars at 120 BPM = 16.0 s of music + 1.5 s release tail = 17.5 s", TextOf(await CallToolAsync("render", new JsonObject { ["path"] = renderPath })));
         }
         finally
         {

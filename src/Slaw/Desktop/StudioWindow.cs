@@ -1956,7 +1956,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 case "play_arrangement" or "play_timeline":
                     if (studioWindow.document.Project.Timeline.Count == 0)
                     {
-                        throw new Mcp.McpInvalidParamsException("the arrangement is empty; place clips with apply_patch {\"timeline\": [...]} first");
+                        throw new Mcp.McpInvalidParamsException("the arrangement is empty, so there is nothing to play; place clips with arrangement_place_clip or apply_patch \"timeline\" first");
                     }
                     studioWindow.PlayTimelineFrom(Math.Max(0, startBar) * FreeTimeline.StepsPerBar);
                     return $"playing the arrangement from bar {Math.Max(0, startBar) + 1}";

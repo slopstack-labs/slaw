@@ -134,37 +134,64 @@ internal static class ClipAutomation
         return true;
     }
 
-    /// <summary>The envelope's value at a clip position (in steps). Points must be sorted by step.</summary>
+    /// <summary>
+    /// The envelope's value at a clip position (in steps). Points must be sorted by step (stably).
+    /// Two points on one step make a jump: from that step on, the later one holds, so a
+    /// tiled loop (end value, then start value, on the seam) wraps exactly where the loop did.
+    /// </summary>
     public static double Evaluate(IReadOnlyList<AutomationPoint> sortedPoints, double clipPosition)
     {
         if (sortedPoints.Count == 0)
         {
             return 0;
         }
-        if (clipPosition <= sortedPoints[0].Step)
+        if (clipPosition < sortedPoints[0].Step)
         {
             return sortedPoints[0].Value;
         }
         for (var pointIndex = 1; pointIndex < sortedPoints.Count; pointIndex++)
         {
             var nextPoint = sortedPoints[pointIndex];
-            if (clipPosition <= nextPoint.Step)
+            if (clipPosition < nextPoint.Step)
             {
+                // previousPoint.Step <= clipPosition < nextPoint.Step, so the segment has length.
                 var previousPoint = sortedPoints[pointIndex - 1];
-                var segmentLength = nextPoint.Step - previousPoint.Step;
-                return segmentLength <= 0
-                    ? nextPoint.Value
-                    : previousPoint.Value + (nextPoint.Value - previousPoint.Value) * (clipPosition - previousPoint.Step) / segmentLength;
+                return previousPoint.Value + (nextPoint.Value - previousPoint.Value) * (clipPosition - previousPoint.Step) / (nextPoint.Step - previousPoint.Step);
             }
         }
         return sortedPoints[^1].Value;
     }
 
     /// <summary>Sorts, clamps to the clip and the target's range, and drops exact duplicates. Returns the tidied list.</summary>
-    public static List<AutomationPoint> Tidy(IEnumerable<AutomationPoint> points, int clipLength, ParameterSpecification? specification)
+    public static List<AutomationPoint> Tidy(IEnumerable<AutomationPoint> points, int clipLength, ParameterSpecification? specification) =>
+        Tidy(points, clipLength, specification, warnings: null, targetKey: string.Empty);
+
+    /// <summary>
+    /// As <see cref="Tidy(IEnumerable{AutomationPoint}, int, ParameterSpecification?)"/>, but says what it had to change:
+    /// points past the clip's end or outside the target's range are clamped and reported in <paramref name="warnings"/>.
+    /// </summary>
+    public static List<AutomationPoint> Tidy(IEnumerable<AutomationPoint> points, int clipLength, ParameterSpecification? specification, ICollection<string>? warnings, string targetKey)
     {
-        return points
-            .Where(point => point is not null && double.IsFinite(point.Step) && double.IsFinite(point.Value))
+        var finitePoints = points.Where(point => point is not null && double.IsFinite(point.Step) && double.IsFinite(point.Value)).ToList();
+        if (warnings is not null)
+        {
+            var misplacedSteps = finitePoints.Where(point => point.Step > clipLength || point.Step < 0).Select(point => point.Step.ToString("0.##", CultureInfo.InvariantCulture)).ToList();
+            if (misplacedSteps.Count > 0)
+            {
+                warnings.Add($"envelope {targetKey}: step(s) {string.Join(", ", misplacedSteps)} outside 0..{clipLength} (the clip's length in steps) were moved to the nearest end");
+            }
+            if (specification is not null)
+            {
+                var outOfRangeValues = finitePoints.Where(point => point.Value < specification.Minimum || point.Value > specification.Maximum)
+                    .Select(point => point.Value.ToString("0.###", CultureInfo.InvariantCulture)).ToList();
+                if (outOfRangeValues.Count > 0)
+                {
+                    warnings.Add(string.Create(CultureInfo.InvariantCulture,
+                        $"envelope {targetKey}: value(s) {string.Join(", ", outOfRangeValues)} outside {specification.Minimum:0.###}..{specification.Maximum:0.###} were clamped"));
+                }
+            }
+        }
+        return finitePoints
             .Select(point => new AutomationPoint
             {
                 Step = Math.Clamp(point.Step, 0, Math.Max(0, clipLength)),

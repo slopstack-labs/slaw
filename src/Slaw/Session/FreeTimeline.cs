@@ -104,6 +104,39 @@ internal static class FreeTimeline
             ProjectSerializer.LenientSerializationOptions)!;
 
     /// <summary>
+    /// A session clip copied for the arrangement at <paramref name="lengthSteps"/>. Session envelopes
+    /// loop with their pattern; arrangement envelopes span the whole clip once. So the copy's envelopes
+    /// are repeated every pattern length, each repetition held at both ends exactly as the loop played it,
+    /// and the clip sounds the same in its new home.
+    /// </summary>
+    public static SlawClip ArrangementCopyOf(SlawClip sessionClip, int lengthSteps)
+    {
+        var arrangementClip = CopyClip(sessionClip);
+        var patternLength = sessionClip.Pattern.Count;
+        if (arrangementClip.Automation is not { Count: > 0 } envelopes || patternLength <= 0 || lengthSteps <= patternLength)
+        {
+            return arrangementClip;
+        }
+        var repetitionCount = Math.Min((lengthSteps + patternLength - 1) / patternLength, MaximumClipLength / Math.Max(1, patternLength) + 1);
+        foreach (var targetKey in envelopes.Keys.ToList())
+        {
+            var patternPoints = envelopes[targetKey].OrderBy(point => point.Step).ToList();
+            var valueAtLoopStart = ClipAutomation.Evaluate(patternPoints, 0);
+            var valueAtLoopEnd = ClipAutomation.Evaluate(patternPoints, patternLength);
+            var tiledPoints = new List<AutomationPoint>();
+            for (var repetitionIndex = 0; repetitionIndex < repetitionCount; repetitionIndex++)
+            {
+                var repetitionStart = repetitionIndex * patternLength;
+                tiledPoints.Add(new AutomationPoint { Step = repetitionStart, Value = valueAtLoopStart });
+                tiledPoints.AddRange(patternPoints.Select(point => new AutomationPoint { Step = repetitionStart + point.Step, Value = point.Value }));
+                tiledPoints.Add(new AutomationPoint { Step = repetitionStart + patternLength, Value = valueAtLoopEnd });
+            }
+            envelopes[targetKey] = tiledPoints.Where(point => point.Step <= lengthSteps).ToList();
+        }
+        return arrangementClip;
+    }
+
+    /// <summary>
     /// Flattens a legacy scene sequence into timeline clips starting at <paramref name="startStep"/>:
     /// one per track per section that has a clip, spanning the whole section, so the
     /// song sounds the same and every section can then be edited on its own.
@@ -128,7 +161,7 @@ internal static class FreeTimeline
                         TrackId = track.Id,
                         StartStep = sectionStartStep,
                         LengthSteps = sectionLength,
-                        Clip = CopyClip(sectionClip),
+                        Clip = ArrangementCopyOf(sectionClip, sectionLength),
                     });
                 }
             }
@@ -167,6 +200,19 @@ internal static class FreeTimeline
     public static string FormatPosition(int timelineStep) =>
         string.Create(CultureInfo.InvariantCulture, $"{timelineStep / StepsPerBar + 1}.{timelineStep % StepsPerBar + 1}");
 
+    /// <summary>
+    /// Where a clip sits, in both units agents meet: "bars 9.1–17.1 (start 128, length 128 steps = 8 bars, ends before step 256);
+    /// pattern 64 steps ×2". The end is exclusive: the clip stops just before it.
+    /// </summary>
+    public static string DescribeSpan(TimelineClip timelineClip)
+    {
+        var patternLength = Math.Max(1, timelineClip.Clip.Pattern.Count);
+        var loopCount = timelineClip.LengthSteps / (double)patternLength;
+        return string.Create(CultureInfo.InvariantCulture,
+            $"bars {FormatPosition(timelineClip.StartStep)}–{FormatPosition(timelineClip.EndStep)} (start {timelineClip.StartStep}, length {timelineClip.LengthSteps} steps = {timelineClip.LengthSteps / (double)StepsPerBar:0.##} bars, ends before step {timelineClip.EndStep}); " +
+            $"pattern {patternLength} steps ×{loopCount:0.##}");
+    }
+
     /// <summary>Squares up the timeline after an AI rewrite or a hand-edited file. Returns what it had to fix.</summary>
     public static List<string> Remediate(SlawProject project)
     {
@@ -191,21 +237,22 @@ internal static class FreeTimeline
             {
                 timelineClip.Clip.Pattern = Enumerable.Repeat(NotationResolver.RestSymbol, StepsPerBar).ToList();
             }
+            timelineClip.StartStep = Math.Clamp(timelineClip.StartStep, 0, MaximumStep);
+            timelineClip.LengthSteps = Math.Clamp(timelineClip.LengthSteps <= 0 ? timelineClip.Clip.Pattern.Count : timelineClip.LengthSteps, 1, MaximumClipLength);
             if (timelineClip.Clip.Automation is not null)
             {
+                // Arrangement clip envelopes span the clip's length (steps since its start), not its pattern.
                 var owningTrack = project.Tracks.First(track => track.Id == timelineClip.TrackId);
                 timelineClip.Clip.Automation = timelineClip.Clip.Automation
                     .Where(envelope => envelope.Value is { Count: > 0 })
                     .Select(envelope => (envelope.Key, Target: ClipAutomation.ResolveTarget(owningTrack, envelope.Key), Points: envelope.Value))
                     .Where(envelope => envelope.Target is not null)
-                    .ToDictionary(envelope => envelope.Key, envelope => ClipAutomation.Tidy(envelope.Points, timelineClip.Clip.Pattern.Count, envelope.Target!.Specification));
+                    .ToDictionary(envelope => envelope.Key, envelope => ClipAutomation.Tidy(envelope.Points, timelineClip.LengthSteps, envelope.Target!.Specification));
                 if (timelineClip.Clip.Automation.Count == 0)
                 {
                     timelineClip.Clip.Automation = null;
                 }
             }
-            timelineClip.StartStep = Math.Clamp(timelineClip.StartStep, 0, MaximumStep);
-            timelineClip.LengthSteps = Math.Clamp(timelineClip.LengthSteps <= 0 ? timelineClip.Clip.Pattern.Count : timelineClip.LengthSteps, 1, MaximumClipLength);
         }
         if (project.Timeline.Count > MaximumClipCount)
         {
