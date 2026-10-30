@@ -63,6 +63,14 @@ internal sealed class StudioPreferences
     /// </summary>
     public int RecordingInputLatencyMilliseconds { get; set; } = 20;
 
+    /// <summary>Browser sections folded away by their heading ("Instruments", "Audio Effects", …).</summary>
+    public List<string> CollapsedBrowserSections { get; set; } = new();
+
+    /// <summary>Panels hidden from the View menu, to give the arrangement more room.</summary>
+    public bool BrowserHidden { get; set; }
+    public bool AiPanelHidden { get; set; }
+    public bool DetailPanelHidden { get; set; }
+
     public static string PreferencesFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create),
         "slaw", "settings.json");

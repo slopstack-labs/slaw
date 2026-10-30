@@ -205,11 +205,12 @@ A real-time, sample-accurate sequencer runs in-process and streams audio continu
 
 ### Window layout
 
-- **Toolbar** (top): New / Open… / Save / Bounce, Play/Stop (plus **⤺ Back to Arrangement** while session clips play over the song), BPM, project title, the **Session / Arrangement** switch, a master **AI** switch, Settings (⚙), and a status chip showing the inference substrate ("● llama3 via Ollama" or "○ AI offline").
+- **Menu bar** (top): **File** (new, open, save, import MIDI, bounce, show the last bounce in its folder, settings), **Edit** (undo/redo naming what they undo, cut/copy/paste, duplicate, delete), **Create** (tracks, audio track, scenes, clips, a new AI chat), **View** (Session / Arrangement, computer keyboard, and show/hide the browser, the clip & devices panel and the AI panel), **Help** (shortcuts). Every item shows its shortcut; menus and keys run the same commands.
+- **Toolbar** (below it): Play/Stop (plus **⤺ Back to Arrangement** while session clips play over the song), BPM, project title, the **Session / Arrangement** switch, a master **AI** switch, Settings (⚙), and a status chip showing the inference substrate ("● llama3 via Ollama" or "○ AI offline").
 - **Session view**: tracks are columns, scenes are rows. Each cell is a clip slot with a ▶ launch triangle; empty slots show a stop square, and double-clicking one creates a clip. Launches are **quantized to the next bar**, like a real DAW. The right-most column launches whole scenes (▶ per scene, editable scene names; right-click for *place in arrangement at cursor*, *duplicate*, *delete*) and holds the master fader and **Stop all clips**. Every track column ends in a **mixer strip**: stop button, pan knob, vertical volume fader with dB readout, Mute / Solo, a 🔒 **Protect from AI** lock, delete, and "✨ Name" (AI rename).
 - **Arrangement view**: the song, as one timeline with a lane per track. Clips sit at any step, at any length. See **Arrangement** below.
 - **Detail view** (bottom): the clip editor. Melodic tracks get a polyphonic **piano roll** (click to add notes or chords, drag right to hold, click a note to select it, double- or right-click to delete, wheel or ▲▼ to scroll octaves); drums get a step row. A **Velocity** slider above the editor sets how hard the selected note or hit is struck. The keyboard strip along the left edge is playable: see **Note audition** below. Clip name, clip length (4-64 steps), Clear, ▶ Clip, and "✨ Rewrite" sit alongside. Next to the editor is the **device chain**: the instrument device with knobs (oscillators: Attack, Decay, Sustain, Release, Filter, Octave, Detune, AI Humanize; pluck: Length, Brightness, …; drums: Pitch, Decay, Tone, AI Humanize), then audio effects with knobs, on/off, reorder, remove, and **+ Effect**, and finally the **Master Bus** device (Drive, Lowpass, Delay time/feedback/mix, "✨ AI master"). Knobs the AI changed glow violet until you touch them.
-- **Browser** (left, AI on): lists instruments (click to add a track) and effects (click to add to the selected track), plus the AI actions. A **Samples** section lists your own WAVs (see **Your own samples**).
+- **Browser** (left): instruments (click to add a track) and effects (click to add to the selected track), your **VST3 plugins**, your **Samples** (see **Your own samples**), and the AI actions. Click a section heading (▾/▸) to fold it away; slaw remembers which are folded.
 - **AI panel** (right, AI on): the co-pilot transcript and the Autopilot chat box. See below.
 
 Closing the window with unsaved changes is intercepted by the co-pilot on the first attempt ("close again to abandon your artistic vision").
@@ -454,8 +455,8 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 | Esc | Stop held notes and hand the keyboard back from a text field |
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save as |
-| Ctrl+B | Bounce the arrangement to the WAV next to the project |
-| Ctrl+Shift+B | Bounce As…: the full arrangement, one scene looped N times, or stems (one WAV per track), at 44.1/48/96 kHz and 16/24-bit, to a path of your choosing |
+| Ctrl+B | Bounce the arrangement: opens the bounce dialog pointed at the WAV next to the project, showing the full path and whether it replaces an existing file before anything is written (Enter bounces, Esc cancels) |
+| Ctrl+Shift+B | The same dialog with your last bounce's settings: the full arrangement, one scene looped N times, or stems (one WAV per track), at 44.1/48/96 kHz and 16/24-bit, to a path of your choosing |
 | Ctrl+O | Open |
 | Ctrl+N | New |
 | Ctrl+Shift+N | New AI chat |

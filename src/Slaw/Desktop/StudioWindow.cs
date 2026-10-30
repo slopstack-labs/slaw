@@ -220,6 +220,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         var rootLayout = new DockPanel();
 
+        var menuBar = ComposeMenuBar();
+        DockPanel.SetDock(menuBar, Dock.Top);
+        rootLayout.Children.Add(menuBar);
+
         var transportBar = ComposeTransportBar();
         DockPanel.SetDock(transportBar, Dock.Top);
         rootLayout.Children.Add(transportBar);
@@ -228,8 +232,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         DockPanel.SetDock(statusBar, Dock.Bottom);
         rootLayout.Children.Add(statusBar);
 
-        var browserContainer = new Border
+        var browserContainer = browserPanel = new Border
         {
+            IsVisible = !preferences.BrowserHidden,
             Width = 196,
             Background = StudioTheme.Surface,
             BorderBrush = StudioTheme.Border,
@@ -244,6 +249,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         var workspaceLayout = new Grid { RowDefinitions = new RowDefinitions("*,5,330") };
         var detailRowDefinition = workspaceLayout.RowDefinitions[2];
+        detailPanelRow = detailRowDefinition;
         detailView.MinimumHeightRequested += requestedHeight =>
         {
             // Grow for the sample editor, but never shrink below what the user dragged it to,
@@ -256,14 +262,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 detailRowDefinition.Height = new GridLength(targetHeight, GridUnitType.Pixel);
             }
         };
-        var horizontalSplitter = new GridSplitter { Background = StudioTheme.Border, ResizeDirection = GridResizeDirection.Rows };
-        var detailContainer = new Border { Background = StudioTheme.Background, Child = detailView };
+        var horizontalSplitter = detailPanelSplitter = new GridSplitter { Background = StudioTheme.Border, ResizeDirection = GridResizeDirection.Rows };
+        var detailContainer = detailPanelContainer = new Border { Background = StudioTheme.Background, Child = detailView };
         Grid.SetRow(horizontalSplitter, 1);
         Grid.SetRow(detailContainer, 2);
         workspaceLayout.Children.Add(mainViewHost);
         workspaceLayout.Children.Add(horizontalSplitter);
         workspaceLayout.Children.Add(detailContainer);
         rootLayout.Children.Add(workspaceLayout);
+        ApplyPanelVisibility();
         return rootLayout;
     }
 
@@ -282,18 +289,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         }
 
         AddTransportControl(brandMark);
-        AddTransportControl(StudioUi.Button("New", () => _ = NewProjectAsync(), "New project (Ctrl+N)", compact: true));
-        AddTransportControl(StudioUi.Button("Open…", () => _ = OpenProjectAsync(), "Open (Ctrl+O)", compact: true));
-        AddTransportControl(StudioUi.Row(2,
-            StudioUi.Button("Save", () => _ = SaveProjectAsync(saveAs: false), "Save (Ctrl+S)", compact: true),
-            StudioUi.Button("Save As…", () => _ = SaveProjectAsync(saveAs: true), "Save under a new name (Ctrl+Shift+S)", compact: true)));
-        AddTransportControl(StudioUi.Row(2,
-            StudioUi.Button("Bounce", () => _ = BounceProjectAsync(), "Render the arrangement to the WAV next to the project (Ctrl+B)", compact: true),
-            StudioUi.Button("Bounce As…", () => _ = BounceAsAsync(), "Choose what to render (arrangement, a scene, or stems), the format, and where (Ctrl+Shift+B)", compact: true)));
-        AddTransportControl(StudioUi.VerticalSeparator());
-        AddTransportControl(StudioUi.Button("↶", PerformUndo, "Undo (Ctrl+Z)", compact: true));
-        AddTransportControl(StudioUi.Button("↷", PerformRedo, "Redo (Ctrl+Shift+Z)", compact: true));
-        AddTransportControl(StudioUi.VerticalSeparator());
+        // File, history and export live in the menu bar; the toolbar keeps what you touch while playing.
         AddTransportControl(StudioUi.Row(0, sessionViewToggle, arrangementViewToggle));
         AddTransportControl(StudioUi.VerticalSeparator());
         AddTransportControl(playButton);
@@ -341,17 +337,18 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private Control ComposeBrowser()
     {
         var browserContent = new StackPanel { Spacing = 3, Margin = new Thickness(10) };
-        browserContent.Children.Add(StudioUi.SectionHeading("Instruments"));
+
+        var instrumentsSection = AddCollapsibleBrowserSection(browserContent, "Instruments");
         foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments)
         {
             var instrumentEntry = BrowserEntry(DeviceCatalog.InstrumentDisplayName(instrumentName), () => document.AddTrack(instrumentName),
                 "Click to add a track with this instrument, or drag it onto a track to swap its instrument");
             StudioDragDrop.MakeDragSource(instrumentEntry, () => new DragPayload(DragPayloadKind.Instrument, instrumentName));
-            browserContent.Children.Add(instrumentEntry);
+            instrumentsSection.Children.Add(instrumentEntry);
         }
-        browserContent.Children.Add(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
-        browserContent.Children.Add(new Border { Height = 10 });
-        browserContent.Children.Add(StudioUi.SectionHeading("Audio Effects"));
+        instrumentsSection.Children.Add(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
+
+        var effectsSection = AddCollapsibleBrowserSection(browserContent, "Audio Effects");
         foreach (var effectType in DeviceCatalog.EffectTypes)
         {
             var effectEntry = BrowserEntry(DeviceCatalog.EffectDisplayName(effectType), () =>
@@ -362,37 +359,72 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 }
             }, "Click to add to the selected track, or drag it onto any track or into the device chain");
             StudioDragDrop.MakeDragSource(effectEntry, () => new DragPayload(DragPayloadKind.Effect, effectType));
-            browserContent.Children.Add(effectEntry);
+            effectsSection.Children.Add(effectEntry);
         }
-        browserContent.Children.Add(new Border { Height = 10 });
-        browserContent.Children.Add(StudioUi.SectionHeading("Plugins (VST3)"));
-        browserContent.Children.Add(StudioUi.Row(4,
+
+        var pluginsSection = AddCollapsibleBrowserSection(browserContent, "Plugins (VST3)");
+        pluginsSection.Children.Add(StudioUi.Row(4,
             StudioUi.Button("Folders…", () => _ = OpenSettingsAsync(), "Add or remove VST3 plugin folders (Settings → Plugins)", compact: true),
             StudioUi.Button("⟳", () => PopulatePluginEntries(rescan: true), "Rescan plugin folders", compact: true)));
-        browserContent.Children.Add(Detached(pluginEntriesPanel));
+        pluginsSection.Children.Add(Detached(pluginEntriesPanel));
         PopulatePluginEntries();
-        browserContent.Children.Add(new Border { Height = 10 });
-        browserContent.Children.Add(StudioUi.SectionHeading("Samples"));
-        browserContent.Children.Add(StudioUi.Row(4,
+
+        var samplesSection = AddCollapsibleBrowserSection(browserContent, "Samples");
+        samplesSection.Children.Add(StudioUi.Row(4,
             StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV files to the browser", compact: true),
             StudioUi.Button("⟳", () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true)));
-        browserContent.Children.Add(Detached(sampleFilterInput));
-        browserContent.Children.Add(Detached(sampleEntriesPanel));
+        samplesSection.Children.Add(Detached(sampleFilterInput));
+        samplesSection.Children.Add(Detached(sampleEntriesPanel));
         PopulateSampleEntries();
 
         if (AiFeaturesEnabled)
         {
-            browserContent.Children.Add(new Border { Height = 10 });
-            browserContent.Children.Add(StudioUi.SectionHeading("AI"));
-            browserContent.Children.Add(RegisterInference(StudioUi.AiButton("✨ Autopilot", () => LaunchAutopilot(aiInstructionInput.Text), "Let the AI edit the whole project", compact: false)));
-            browserContent.Children.Add(RegisterInference(StudioUi.AiButton("✨ Generate clip", () => GenerateClipWithAi(document.SelectedTrackIndex, document.SelectedSceneIndex), "Write the selected clip", compact: false)));
-            browserContent.Children.Add(RegisterInference(StudioUi.AiButton("✨ Vibe check", LaunchVibeCheck, "A world-renowned producer and LinkedIn thought leader reviews your song", compact: false)));
-            foreach (var aiBrowserButton in browserContent.Children.OfType<Button>().TakeLast(3))
+            var aiSection = AddCollapsibleBrowserSection(browserContent, "AI");
+            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Autopilot", () => LaunchAutopilot(aiInstructionInput.Text), "Let the AI edit the whole project", compact: false)));
+            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Generate clip", () => GenerateClipWithAi(document.SelectedTrackIndex, document.SelectedSceneIndex), "Write the selected clip", compact: false)));
+            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Vibe check", LaunchVibeCheck, "A world-renowned producer and LinkedIn thought leader reviews your song", compact: false)));
+            foreach (var aiBrowserButton in aiSection.Children.OfType<Button>())
             {
                 aiBrowserButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             }
         }
         return new ScrollViewer { Content = browserContent };
+    }
+
+    /// <summary>
+    /// A browser section whose heading folds it away; which sections are folded
+    /// is remembered across sessions. Returns the panel the section's entries go in.
+    /// </summary>
+    private StackPanel AddCollapsibleBrowserSection(StackPanel browserContent, string sectionTitle)
+    {
+        var sectionEntries = new StackPanel { Spacing = 3, IsVisible = !preferences.CollapsedBrowserSections.Contains(sectionTitle) };
+        var sectionHeading = new Button
+        {
+            Content = $"{(sectionEntries.IsVisible ? "▾" : "▸")}  {sectionTitle.ToUpperInvariant()}",
+            Background = Brushes.Transparent,
+            Foreground = StudioTheme.TextMuted,
+            FontSize = 10,
+            FontWeight = FontWeight.Bold,
+            Padding = new Thickness(2, 3),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, browserContent.Children.Count == 0 ? 0 : 8, 0, 0),
+        };
+        ToolTip.SetTip(sectionHeading, $"Show or hide {sectionTitle}");
+        sectionHeading.Click += (_, _) =>
+        {
+            sectionEntries.IsVisible = !sectionEntries.IsVisible;
+            sectionHeading.Content = $"{(sectionEntries.IsVisible ? "▾" : "▸")}  {sectionTitle.ToUpperInvariant()}";
+            preferences.CollapsedBrowserSections.Remove(sectionTitle);
+            if (!sectionEntries.IsVisible)
+            {
+                preferences.CollapsedBrowserSections.Add(sectionTitle);
+            }
+            preferences.Save();
+        };
+        browserContent.Children.Add(sectionHeading);
+        browserContent.Children.Add(sectionEntries);
+        return sectionEntries;
     }
 
     private static Button BrowserEntry(string caption, Action onClick, string toolTip)
@@ -617,7 +649,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         inferenceDependentControls.Clear();
         browserHost.Content = ComposeBrowser();
         aiPanelHost.Content = AiFeaturesEnabled ? ComposeAiPanel() : null;
-        aiPanelHost.IsVisible = AiFeaturesEnabled;
+        aiPanelHost.IsVisible = AiFeaturesEnabled && !preferences.AiPanelHidden;
         routingChipContainer.IsVisible = AiFeaturesEnabled;
         if (!AiFeaturesEnabled)
         {
@@ -958,53 +990,20 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         }
     }
 
-    private async Task BounceProjectAsync()
-    {
-        var bounceOutputPath = document.FilePath is null ? null : Path.ChangeExtension(document.FilePath, ".wav");
-        if (bounceOutputPath is null)
-        {
-            var chosenFile = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = "Bounce to WAV",
-                SuggestedFileName = SuggestedFileStem() + ".wav",
-                DefaultExtension = "wav",
-                FileTypeChoices = new[] { WaveFileType },
-            });
-            bounceOutputPath = chosenFile?.TryGetLocalPath();
-            if (bounceOutputPath is null)
-            {
-                return;
-            }
-        }
-        var projectSnapshot = document.Project.DeepClone();
-        SetStatus(StatusSeverity.Informational, "bouncing through the deterministic synthesis substrate…");
-        try
-        {
-            var renderedArrangement = await Task.Run(() =>
-            {
-                var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot);
-                WaveFileMaterializer.Write(bounceOutputPath, arrangementBuffer);
-                return arrangementBuffer;
-            });
-            waveformScope.Present(renderedArrangement, $"{Path.GetFileName(bounceOutputPath)} · {renderedArrangement.DurationSeconds:0.0} s", hallucinatedDeliverable: false);
-            SetStatus(StatusSeverity.Success, $"bounced to {bounceOutputPath} — radio-ready deliverable shipped to production");
-        }
-        catch (Exception bounceRemediationOpportunity) when (bounceRemediationOpportunity is IOException or UnauthorizedAccessException)
-        {
-            SetStatus(StatusSeverity.Failure, $"bounce failed: {bounceRemediationOpportunity.Message}");
-        }
-    }
+    /// <summary>Ctrl+B: the bounce dialog from the defaults (whole arrangement, next to the project), so you see where it goes first.</summary>
+    private Task BounceProjectAsync() => BounceAsAsync(startFromDefaults: true);
 
     private BounceRequest? lastBounceRequest;
 
-    private async Task BounceAsAsync()
+    /// <summary>Ctrl+Shift+B: the bounce dialog with the last bounce's settings.</summary>
+    private async Task BounceAsAsync(bool startFromDefaults = false)
     {
         var suggestedOutputPath = document.FilePath is { } projectPath
             ? Path.ChangeExtension(projectPath, ".wav")
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic, Environment.SpecialFolderOption.DoNotVerify) is { Length: > 0 } musicFolder
                 ? musicFolder
                 : Environment.CurrentDirectory, SuggestedFileStem() + ".wav");
-        var bounceWindow = new BounceOptionsWindow(document.Project, suggestedOutputPath, lastBounceRequest);
+        var bounceWindow = new BounceOptionsWindow(document.Project, suggestedOutputPath, startFromDefaults ? null : lastBounceRequest);
         await bounceWindow.ShowDialog(this);
         if (bounceWindow.Result is not { } bounceRequest)
         {
@@ -1053,6 +1052,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 return;
             }
             var (firstPath, firstBuffer) = writtenFiles[0];
+            lastBouncePath = firstPath;
             waveformScope.Present(firstBuffer, $"{Path.GetFileName(firstPath)} · {firstBuffer.DurationSeconds:0.0} s", hallucinatedDeliverable: false);
             SetStatus(StatusSeverity.Success, writtenFiles.Count == 1
                 ? $"bounced to {firstPath} — radio-ready deliverable shipped to production"
