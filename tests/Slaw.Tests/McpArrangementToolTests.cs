@@ -147,6 +147,8 @@ public class McpArrangementToolTests
             Assert.False(renderFailed, rendered);
             Assert.Contains("2 bars at 124 BPM", rendered);
             Assert.Contains("release tail", rendered);
+            Assert.Contains("Hearing protection", rendered);
+            Assert.DoesNotContain("shipped to production", rendered);
             Assert.Contains("- \"Synergy Kick\": RMS", rendered);
             Assert.Contains("not playing in the arrangement:", rendered);
         }
@@ -154,6 +156,36 @@ public class McpArrangementToolTests
         {
             File.Delete(renderPath);
         }
+    }
+
+    [Fact]
+    public async Task PatchTracksAcceptNamesAndNeverInventTracksForUnknownIds()
+    {
+        var (dispatcher, servedDocument) = CreateHeadlessServer();
+        var trackCount = servedDocument.Project.Tracks.Count;
+
+        var (byName, _) = await CallToolAsync(dispatcher, "apply_patch", new JsonObject { ["patch"] = JsonNode.Parse("""{"tracks": [{"id": "Synergy Kick", "gain": 0.5}]}""") });
+        Assert.Equal(trackCount, servedDocument.Project.Tracks.Count);
+        Assert.Equal(0.5, servedDocument.Project.Tracks.Single(track => track.Name == "Synergy Kick").Gain);
+        Assert.Contains("Synergy Kick: gain 0.95 → 0.50", byName);
+
+        var (unknownEdit, _) = await CallToolAsync(dispatcher, "apply_patch", new JsonObject { ["patch"] = JsonNode.Parse("""{"tracks": [{"id": "Kik", "gain": 0.2}]}""") });
+        Assert.Equal(trackCount, servedDocument.Project.Tracks.Count);
+        Assert.Contains("no track \"Kik\"; entry ignored", unknownEdit);
+
+        var (unknownWithInstrument, _) = await CallToolAsync(dispatcher, "apply_patch", new JsonObject { ["patch"] = JsonNode.Parse("""{"tracks": [{"id": "lead1", "name": "Lead", "instrument": "square"}]}""") });
+        Assert.Equal(trackCount + 1, servedDocument.Project.Tracks.Count);
+        Assert.Contains("so a new track was added", unknownWithInstrument);
+    }
+
+    [Fact]
+    public async Task StandingConditionsAreNotReportedAgainOnEveryCall()
+    {
+        var (dispatcher, _) = CreateHeadlessServer();
+        await CallToolAsync(dispatcher, "add_track", new JsonObject { ["instrument"] = "sampler", ["name"] = "Vocal" });
+        var (tempoChange, _) = await CallToolAsync(dispatcher, "apply_patch", new JsonObject { ["patch"] = JsonNode.Parse("""{"bpm": 110}""") });
+        Assert.Contains("tempo 124 → 110 BPM", tempoChange);
+        Assert.DoesNotContain("no sample loaded", tempoChange);
     }
 
     [Fact]

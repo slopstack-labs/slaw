@@ -116,10 +116,14 @@ internal static class ProjectPatchApplier
 
         if (projectPatch["tracks"] is JsonArray trackPatchArray)
         {
+            var trackEntryIndex = -1;
             foreach (var trackPatch in trackPatchArray.OfType<JsonObject>())
             {
+                trackEntryIndex++;
                 var patchedIdentifier = ReadString(trackPatch["id"]);
-                var existingTrack = patchedProject.Tracks.FirstOrDefault(track => track.Id == patchedIdentifier);
+                var addsTrack = patchedIdentifier is null or "" || string.Equals(patchedIdentifier, "new", StringComparison.OrdinalIgnoreCase);
+                // Agents address tracks the way the focused tools allow: id, exact name, or index.
+                var existingTrack = addsTrack ? null : ResolvePatchTrack(patchedProject, trackPatch["id"]);
                 if (existingTrack is { AiLocked: true })
                 {
                     lockedTrackEditsIgnored++;
@@ -131,11 +135,25 @@ internal static class ProjectPatchApplier
                     {
                         patchedProject.Tracks.Remove(existingTrack);
                     }
+                    else
+                    {
+                        patchWarnings.Add($"tracks[{trackEntryIndex}]: no track \"{patchedIdentifier}\" to remove; {DescribeTrackReferences(patchedProject)}");
+                    }
+                    continue;
+                }
+                if (existingTrack is null && !addsTrack && trackPatch["instrument"] is null)
+                {
+                    // An edit aimed at a track that does not exist must not quietly become a new track.
+                    patchWarnings.Add($"tracks[{trackEntryIndex}]: no track \"{patchedIdentifier}\"; entry ignored. Use \"id\": \"new\" (with an instrument) to add one; {DescribeTrackReferences(patchedProject)}");
                     continue;
                 }
                 var targetTrack = existingTrack;
                 if (targetTrack is null)
                 {
+                    if (!addsTrack)
+                    {
+                        patchWarnings.Add($"tracks[{trackEntryIndex}]: no track \"{patchedIdentifier}\", so a new track was added (use \"id\": \"new\" to add tracks on purpose)");
+                    }
                     targetTrack = new SlawTrack
                     {
                         Id = SlawTrack.NewIdentifier(),
@@ -421,6 +439,9 @@ internal static class ProjectPatchApplier
         }
         return lockedEditsIgnored;
     }
+
+    private static string DescribeTrackReferences(SlawProject project) =>
+        $"tracks are: {string.Join(", ", project.Tracks.Select(track => $"\"{track.Id}\" \"{track.Name}\""))}";
 
     /// <summary>A track by id, exact name, or index, the way models like to refer to them.</summary>
     private static SlawTrack? ResolvePatchTrack(SlawProject project, JsonNode? trackNode)

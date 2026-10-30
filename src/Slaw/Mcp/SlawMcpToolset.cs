@@ -30,7 +30,8 @@ internal sealed class SlawMcpToolset
         "PATTERN: space-separated steps. \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \".\" rest, \"_\" holds the previous step's note one more step, " +
         "\"C4:8\" holds C4 for 8 steps by itself (follow it with \".\" or with other notes, which sound on top), \"C4@0.5\" / \"x@0.5\" velocity 0..1 (default 1).\n" +
         "ENVELOPES (set_automation, or \"automation\" in a clip): [step, value] points joined linearly. On an ARRANGEMENT clip the steps count from the clip's " +
-        "start across its whole length (0..length) and do not repeat with the pattern; on a SESSION clip they span the pattern (0..pattern length) and loop with it.\n" +
+        "start across its whole length (0..length) and do not repeat with the pattern; on a SESSION clip they span the pattern (0..pattern length) and loop with it. " +
+        "Values are absolute: a gain envelope (0..1.5) replaces the track's gain while the clip plays, it does not multiply it.\n" +
         "WORKFLOW: get_catalog → add_track / apply_patch tracks (instruments, effects) → place arrangement clips → set_automation → " +
         "render with levels:true (writes a WAV and reports each track's level) → get_project to check positions.\n" +
         "EXAMPLE apply_patch, an 8-bar verse then an 8-bar chorus with a filter opening across the chorus:\n" +
@@ -132,7 +133,8 @@ internal sealed class SlawMcpToolset
                 "Append \"@<velocity>\" (0..1, default 1) to a note or hit for dynamics: \"x@0.4\" ghost hit, \"C4:8@0.6+E4\" soft root under a full third. Clips are usually 16 steps (one bar of sixteenths)." +
                 "\nClip envelopes (set_automation, or \"automation\" in apply_patch) move a parameter while a clip plays, as [step, value] breakpoints joined linearly. " +
                 "Arrangement clips: steps 0..clip length, counted from the clip's start, played once across the clip. Session clips: steps 0..pattern length, looping with the pattern. " +
-                "Targets: gain (0..1.5), pan (-1..1), pitch (semitones -24..24; oscillators bend in place, samples/plucks/drums bend tape-style), " +
+                "Targets: gain (the track's volume, absolute 0..1.5: it REPLACES the track's gain while the clip plays, it does not multiply it), pan (absolute -1..1, replaces the track's pan), " +
+                "pitch (semitones -24..24; oscillators bend in place, samples/plucks/drums bend tape-style), " +
                 "fx.<effectIndex>.<param> (an effect parameter, continuous), inst.<param> (an instrument parameter, sampled as each note starts). Values use the catalog's units; plugin instruments follow inst.<param> continuously." +
                 "\nVST3 plugins: instrument \"vst3\" and effect type \"vst3\" host the user's installed plugins (see list_plugins). " +
                 "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
@@ -166,7 +168,7 @@ internal sealed class SlawMcpToolset
                     var previousProject = host.Document.Project;
                     var patchOutcome = ProjectPatchApplier.Apply(previousProject, projectPatch);
                     var lockEnforcementCount = ProductionWorkflows.EnforceAiLocks(previousProject, patchOutcome.Project) + patchOutcome.LockedTrackEditsIgnored;
-                    var remediationLedger = ProjectAlignmentRemediator.Remediate(patchOutcome.Project);
+                    var remediationLedger = NewRemediations(previousProject, ProjectAlignmentRemediator.Remediate(patchOutcome.Project));
                     patchOutcome.Project.AiProvenance = $"{clientName} via MCP";
                     var changeSummary = ProjectChangeSummarizer.Summarize(previousProject, patchOutcome.Project);
                     host.Document.ReplaceProject(patchOutcome.Project, $"{clientName}: patch", undoable: true);
@@ -233,6 +235,7 @@ internal sealed class SlawMcpToolset
         Register("set_automation",
             "Write (or clear) a clip envelope: a parameter that moves while the clip plays. Address an ARRANGEMENT clip by `clip` (its id from get_project " +
             "or arrangement_place_clip) or a SESSION clip by `track` + `scene`. Targets: gain, pan, pitch, fx.<effectIndex>.<param>, inst.<param> (see get_catalog). " +
+            "Values are absolute in the target's units: a gain envelope (0..1.5) replaces the track's gain while the clip plays, it does not multiply it. " +
             "Points are [step, value] pairs joined linearly; values hold before the first and after the last point. " +
             "Arrangement clip: steps 0..clip length from the clip's start, once across the clip. Session clip: steps 0..pattern length, looping with the pattern. " +
             "E.g. a filter opening over an 8-bar arrangement clip: target \"fx.0.cutoff\", points [[0,300],[128,4000]].",
@@ -625,7 +628,7 @@ internal sealed class SlawMcpToolset
 
         Register("render",
             "Bounce the ARRANGEMENT (the song) to a 16-bit stereo WAV and report its musical length, the release tail, and the peak level. " +
-            "A hearing-protection limiter caps peaks at -1 dBFS, so a peak of -1.0 dBFS means it engaged. " +
+            "A hearing-protection limiter caps peaks at -1 dBFS; the result says whether it engaged and by how much (a -1.0 dBFS peak is the ceiling, not headroom). " +
             "With levels:true it also renders every track soloed and reports each one's RMS and peak (slower; finds tracks that are too quiet or too loud).",
             Schema(new JsonObject
             {
@@ -645,11 +648,11 @@ internal sealed class SlawMcpToolset
                 {
                     throw new McpInvalidParamsException("the arrangement is empty, so there is nothing to render; place clips with arrangement_place_clip or apply_patch \"timeline\" first");
                 }
-                var renderedArrangement = await Task.Run(() =>
+                var (renderedArrangement, hearingProtection) = await Task.Run(() =>
                 {
-                    var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot);
+                    var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot, OfflineArrangementRenderer.DefaultSampleRate, out var protectionReport);
                     WaveFileMaterializer.Write(outputPath, arrangementBuffer);
-                    return arrangementBuffer;
+                    return (arrangementBuffer, protectionReport);
                 }, cancellationToken);
                 var arrangementSteps = FreeTimeline.LengthInSteps(projectSnapshot);
                 var musicalSeconds = arrangementSteps * projectSnapshot.StepDurationSeconds;
@@ -660,7 +663,22 @@ internal sealed class SlawMcpToolset
                 renderReport.Append(CultureInfo.InvariantCulture,
                     $"+ {renderedArrangement.DurationSeconds - musicalSeconds:0.0} s release tail = {renderedArrangement.DurationSeconds:0.0} s, 44.1 kHz 16-bit stereo. ");
                 renderReport.Append(CultureInfo.InvariantCulture,
-                    $"Peak {peakDecibels:0.0} dBFS, RMS {AmplitudeToDecibels(RootMeanSquare(renderedArrangement)):0.0} dBFS{(peakDecibels >= -1.05 ? " (the hearing-protection limiter engaged)" : string.Empty)}.");
+                    $"Peak {peakDecibels:0.0} dBFS, RMS {AmplitudeToDecibels(RootMeanSquare(renderedArrangement)):0.0} dBFS. ");
+                // A peak of -1.0 is the ceiling, not headroom: say how much it took to get there.
+                if (hearingProtection.Engaged)
+                {
+                    renderReport.Append(CultureInfo.InvariantCulture,
+                        $"Hearing protection engaged: the limiter pulled {hearingProtection.LimitedFrames} frames ({hearingProtection.LimitedFrames * 1000.0 / OfflineArrangementRenderer.DefaultSampleRate:0} ms) down by up to {-hearingProtection.DeepestLimiterReductionDecibels:0.0} dB");
+                    if (hearingProtection.NormalizationDecibels < -0.01)
+                    {
+                        renderReport.Append(CultureInfo.InvariantCulture, $", then the whole render was scaled down {-hearingProtection.NormalizationDecibels:0.0} dB");
+                    }
+                    renderReport.Append(". The mix is louder than the -1 dBFS ceiling; lower track or master gain for clean peaks.");
+                }
+                else
+                {
+                    renderReport.Append("Hearing protection did not engage (no peak reached the -1 dBFS ceiling).");
+                }
                 if (toolArguments["levels"] is JsonValue levelsValue && levelsValue.TryGetValue<bool>(out var levelsRequested) && levelsRequested)
                 {
                     var trackLevels = await Task.Run(() => OfflineArrangementRenderer.RenderStems(projectSnapshot, stemProject => OfflineArrangementRenderer.Render(stemProject))
@@ -677,7 +695,6 @@ internal sealed class SlawMcpToolset
                         renderReport.Append($"\n- not playing in the arrangement: {string.Join(", ", silentTracks.Select(trackName => $"\"{trackName}\""))}");
                     }
                 }
-                renderReport.Append(" Deliverable shipped to production.");
                 return renderReport.ToString();
             });
 
@@ -903,6 +920,16 @@ internal sealed class SlawMcpToolset
             outcomeDescription.AppendLine($"ignored edits to {lockEnforcementCount} LOCKED track(s)");
         }
         return AppendWarnings(outcomeDescription.ToString().TrimEnd(), warnings);
+    }
+
+    /// <summary>
+    /// Only what this call caused: conditions the project already had (an empty sampler
+    /// waiting for its sample, say) are not news on every call.
+    /// </summary>
+    private static List<string> NewRemediations(SlawProject previousProject, IReadOnlyList<string> remediationLedger)
+    {
+        var standingConditions = ProjectAlignmentRemediator.Remediate(previousProject.DeepClone()).ToHashSet();
+        return remediationLedger.Where(remediation => !standingConditions.Contains(remediation)).ToList();
     }
 
     private static string AppendWarnings(string result, IReadOnlyCollection<string> warnings) =>

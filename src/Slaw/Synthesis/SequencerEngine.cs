@@ -117,6 +117,10 @@ internal sealed class SequencerEngine
 
     public int SampleRate => sampleRate;
 
+    /// <summary>How much the master limiter has worked since this engine started (bounces read it when they finish).</summary>
+    public (int LimitedFrames, double DeepestGainReduction) LimiterActivity =>
+        (masterBusProcessor.LimitedFrameCount, masterBusProcessor.DeepestGainReduction);
+
     /// <summary>The VST3 instances this engine plays (for the device view's knobs and load errors).</summary>
     public PluginInstancePool Plugins => pluginPool;
 

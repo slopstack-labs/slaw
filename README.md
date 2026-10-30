@@ -299,11 +299,14 @@ claude mcp add slaw -- slaw mcp /path/to/song.slaw
 
 | Tool | Does |
 |------|------|
-| `get_project` / `get_catalog` | Describe the project (compact listing or full JSON), and list every instrument, effect and parameter range |
-| `apply_patch` | Apply a patch in the same format the Autopilot uses: tempo, scenes, tracks (`"id": "new"` adds one), session clips as `"x . . . x"` strings, clip envelopes, effects, master, and `timeline` (arrangement clips by track, start step and length). A legacy `arrangement` list of scenes replaces the whole arrangement with those scenes end to end |
-| `set_clip`, `set_automation`, `add_track`, `update_track`, `add_effect`, `set_tempo` | Focused edits (`set_automation` writes a clip envelope) |
-| `transport` | `play_arrangement` (from a bar), `play_scene` (over a playing arrangement it takes those tracks over), `back_to_arrangement`, `stop` (live studio only) |
-| `render`, `save_project`, `undo`, `redo` | Bounce the arrangement to WAV, save, history |
+| `get_project` / `get_catalog` | Describe the project (listing with every arrangement clip's id, bars and pattern loops; or the full project as pure JSON), and list every instrument, effect and parameter range |
+| `arrangement_place_clip`, `arrangement_edit_clip`, `arrangement_remove_clips` | The song, one clip at a time: place a clip on a track at a bar (or step) for some bars (or steps), move or resize it by id, remove clips by id or by track and bar range. Every result names the clip's id and where it sits |
+| `apply_patch` | Many edits at once, in the format the Autopilot uses: tempo, scenes (rename) and `removeScenes`, tracks (`"id": "new"` adds one; existing tracks by id or name), session clips, clip envelopes, effects, master, and `timeline` (arrangement clips by track, start step and length). A legacy `arrangement` list of scenes replaces the whole arrangement with those scenes end to end. Anything ignored or adjusted comes back as a warning |
+| `set_clip`, `set_automation`, `remove_scene`, `add_track`, `update_track`, `add_effect`, `set_tempo` | Focused edits. `set_clip` writes a session clip; `set_automation` writes an envelope on an arrangement clip (by id) or a session clip |
+| `transport` | `play_arrangement` (from a 1-based bar), `play_scene` (over a playing arrangement it takes those tracks over), `back_to_arrangement`, `stop` (live studio only) |
+| `render`, `save_project`, `undo`, `redo` | Bounce the arrangement to WAV (with its length in bars and seconds, how hard hearing protection worked, and with `levels: true` every track's level), save, history |
+
+Positions are sixteenth-note steps from 0 (16 per bar) wherever an argument says `start` or `length`, and 1-based bars wherever it says `bar`; listings print both. The server's instructions teach agents this before they touch anything, along with a worked example, because the alternative was watching them guess.
 | `list_samples` | Your sample library, for sampler tracks |
 | `list_plugins` / `describe_plugin` | Installed VST3 plugins (and which folder each came from); one plugin's parameters as `p<id>` keys with titles |
 | `ask_copilot` | Ask slaw's own configured model for its opinion: an AI consulting an AI about music |
@@ -363,11 +366,12 @@ Every clip can carry envelopes: parameters that change while the clip plays, in 
 
 - Open **∿ Envelopes** in the clip editor, pick a target, and draw. Click to add a breakpoint, drag it to move it (it snaps to quarter steps; hold Shift for none), and right-click or double-click to remove it. **Clear lane** hands control back to the knob.
 - Values hold before the first breakpoint and after the last, and move in a straight line between them. Envelopes are evaluated every 64 samples, so a sweep sounds like a sweep, not a staircase.
+- **Arrangement clips:** an envelope spans the whole clip, from its start to its end, while the pattern loops underneath. An 8-bar clip of a 1-bar groove can open its filter across all 8 bars. **Session clips:** the envelope spans the pattern and loops with it. When session clips or scenes are placed in the arrangement, their envelopes are repeated across the new clip, so they sound exactly as they looped.
 - While the clip isn't playing, the knob's own value applies.
 
 | Target | Moves |
 |--------|-------|
-| `gain`, `pan` | The track's mixer, continuously |
+| `gain`, `pan` | The track's mixer, continuously. Absolute values: a gain envelope (0–1.5) replaces the fader while the clip plays, it does not scale it |
 | `pitch` | Semitones (±24). Oscillators bend in place and keep their length; samples, plucks and drums bend tape-style |
 | `fx.<index>.<param>` | One device's parameter, continuously: `fx.0.cutoff` is the classic filter sweep |
 | `inst.<param>` | An instrument parameter, read as each note starts (voices are rendered whole) |
