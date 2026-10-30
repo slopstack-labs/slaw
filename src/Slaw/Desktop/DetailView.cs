@@ -487,6 +487,11 @@ internal sealed partial class DetailView : UserControl
         }
         deviceRow.Children.Add(new Border { Width = 1, Background = StudioTheme.Border, Margin = new Thickness(4, 0) });
         deviceRow.Children.Add(ComposeMasterDevice());
+        for (var masterEffectIndex = 0; masterEffectIndex < document.Project.Master.Effects.Count; masterEffectIndex++)
+        {
+            deviceRow.Children.Add(ComposeMasterEffectDevice(masterEffectIndex));
+        }
+        deviceRow.Children.Add(ComposeAddMasterEffectButton());
 
         var deviceChainScroller = new ScrollViewer
         {
@@ -668,7 +673,10 @@ internal sealed partial class DetailView : UserControl
                 $"{track.Id}/fx{effectIndex}", Plugins.PluginInstancePool.EffectSlot(track.Id, effectIndex)) };
         }
 
-        var devicePanel = ComposeDevicePanel(PluginDeviceOperations.DeviceName(effectDevice), titleRow, knobs, StudioTheme.Violet);
+        Control titleControls = ComposeSidechainSelector(effectDevice, track.Id, Plugins.PluginInstancePool.EffectSlot(track.Id, effectIndex)) is { } sidechainSelector
+            ? new StackPanel { Spacing = 4, Children = { titleRow, sidechainSelector } }
+            : titleRow;
+        var devicePanel = ComposeDevicePanel(PluginDeviceOperations.DeviceName(effectDevice), titleControls, knobs, StudioTheme.Violet);
         var effectDescription = DeviceCatalog.EffectDescription(effectDevice.Type);
         if (!string.IsNullOrEmpty(effectDescription))
         {

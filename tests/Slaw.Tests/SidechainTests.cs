@@ -235,4 +235,44 @@ public class SidechainTests
         });
         Assert.Contains("sidechain \"Nobody\" matches no track", unknown);
     }
+
+    private static readonly Lazy<SlopstackLabs.Slaw.Plugins.Vst3PluginDescriptor?> AmplitudeImposer = new(() =>
+        Directory.Exists("/usr/lib/vst3")
+            ? SlopstackLabs.Slaw.Plugins.Vst3PluginCatalog.Scan(new[] { "/usr/lib/vst3" })
+                .FirstOrDefault(plugin => plugin.Name == "Amplitude Imposer")
+            : null);
+
+    private sealed class AmplitudeImposerFactAttribute : FactAttribute
+    {
+        public AmplitudeImposerFactAttribute()
+        {
+            if (AmplitudeImposer.Value is null)
+            {
+                Skip = "Amplitude Imposer (ndc Plugs, a VST3 with a sidechain input) is not installed in /usr/lib/vst3";
+            }
+        }
+    }
+
+    [AmplitudeImposerFact]
+    public void AVst3SidechainInputHearsTheSourceTrackInEveryBlockOfABounce()
+    {
+        // Amplitude Imposer gives its input the loudness of its sidechain: keyed by a kick,
+        // a steady tone comes out as four-on-the-floor bursts.
+        var project = KickAndPad(duckPad: false, muteKick: true);
+        project.Tracks[0].Effects.Add(new EffectDevice
+        {
+            Type = SlopstackLabs.Slaw.Plugins.DeviceTypes.Vst3,
+            Plugin = PluginDeviceOperations.ToReference(AmplitudeImposer.Value!),
+            SidechainSource = "kick0001",
+        });
+        var imposed = OfflineArrangementRenderer.Render(project, TestSampleRate).Left;
+        foreach (var beatIndex in new[] { 0, 1, 2, 5, 6 })
+        {
+            var hitSeconds = beatIndex * 0.5;
+            var onHit = WindowRms(imposed, hitSeconds + 0.005, hitSeconds + 0.04);
+            var beforeNext = WindowRms(imposed, hitSeconds + 0.44, hitSeconds + 0.49);
+            Assert.True(onHit > 0.01 && beforeNext < onHit * 0.5, $"beat {beatIndex}: on hit {onHit:0.####}, before next {beforeNext:0.####}");
+        }
+        Assert.Equal(imposed, OfflineArrangementRenderer.Render(project, TestSampleRate).Left);
+    }
 }

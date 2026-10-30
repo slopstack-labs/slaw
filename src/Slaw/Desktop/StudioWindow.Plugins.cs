@@ -87,14 +87,21 @@ internal sealed partial class StudioWindow
 
     public async void OpenPluginEditor(string trackIdentifier, int effectIndex)
     {
+        // The master chain's devices use the owner name "master" in place of a track id.
+        var masterEffects = document.Project.Master.Effects;
+        var ownsMasterEffect = trackIdentifier == Synthesis.SequencerEngine.MasterEffectSlotOwner;
         var track = document.Project.Tracks.FirstOrDefault(candidate => candidate.Id == trackIdentifier);
-        var plugin = effectIndex < 0
-            ? track?.Plugin
-            : track is not null && effectIndex < track.Effects.Count ? track.Effects[effectIndex].Plugin : null;
-        if (track is null || plugin is null)
+        var plugin = ownsMasterEffect
+            ? effectIndex >= 0 && effectIndex < masterEffects.Count ? masterEffects[effectIndex].Plugin : null
+            : effectIndex < 0
+                ? track?.Plugin
+                : track is not null && effectIndex < track.Effects.Count ? track.Effects[effectIndex].Plugin : null;
+        if ((track is null && !ownsMasterEffect) || plugin is null)
         {
             return;
         }
+        var ownerName = track?.Name ?? "Master";
+        var ownerIdentifier = track?.Id ?? Synthesis.SequencerEngine.MasterEffectSlotOwner;
         if (PluginInstancePool.Live is not { } livePool)
         {
             SetStatus(StatusSeverity.Failure, $"the audio engine is not running, so {plugin.Name} is not loaded and has no editor to show");
@@ -102,7 +109,7 @@ internal sealed partial class StudioWindow
         }
         try
         {
-            var slotKey = effectIndex < 0 ? PluginInstancePool.InstrumentSlot(track.Id) : PluginInstancePool.EffectSlot(track.Id, effectIndex);
+            var slotKey = effectIndex < 0 ? PluginInstancePool.InstrumentSlot(ownerIdentifier) : PluginInstancePool.EffectSlot(ownerIdentifier, effectIndex);
             SetStatus(StatusSeverity.Informational, $"opening {plugin.Name}…");
             if (await livePool.GetOrLoadAsync(slotKey, plugin) is not { } instance)
             {
@@ -110,8 +117,8 @@ internal sealed partial class StudioWindow
                 return;
             }
             var ownerWindow = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-            var editorProblem = await instance.OpenEditorAsync($"{plugin.Name} — {track.Name}", ownerWindow,
-                new PluginEditorParameterSync(document, track.Id, effectIndex, plugin));
+            var editorProblem = await instance.OpenEditorAsync($"{plugin.Name} — {ownerName}", ownerWindow,
+                new PluginEditorParameterSync(document, ownerIdentifier, effectIndex, plugin));
             SetStatus(editorProblem is null ? StatusSeverity.Success : StatusSeverity.Warning, editorProblem ?? $"opened {plugin.Name}");
         }
         catch (Exception editorRemediationOpportunity)

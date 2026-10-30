@@ -75,6 +75,13 @@ internal sealed class PluginEditorParameterSync : IVst3EditorObserver
 
     private Dictionary<string, double>? ParameterTable()
     {
+        if (trackIdentifier == Synthesis.SequencerEngine.MasterEffectSlotOwner)
+        {
+            var masterEffects = document.Project.Master.Effects;
+            return effectIndex >= 0 && effectIndex < masterEffects.Count && masterEffects[effectIndex] is { Type: DeviceTypes.Vst3 } masterEffect && plugin.IsSamePlugin(masterEffect.Plugin)
+                ? masterEffect.Parameters
+                : null;
+        }
         var track = document.Project.Tracks.FirstOrDefault(candidate => candidate.Id == trackIdentifier);
         if (track is null)
         {

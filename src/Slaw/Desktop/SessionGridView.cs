@@ -446,6 +446,12 @@ internal sealed class SessionGridView : UserControl
                 StudioUi.Caption("hearing protection: on", 9, StudioTheme.TextDim),
             },
         };
+        if (document.Project.Master.Effects.Count > 0)
+        {
+            var masterEffectsCaption = StudioUi.Caption($"fx: {document.Project.Master.Effects.Count}", 9, StudioTheme.Accent);
+            ToolTip.SetTip(masterEffectsCaption, "Master effects: " + string.Join(" → ", document.Project.Master.Effects.Select(PluginDeviceOperations.DeviceName)));
+            stripContent.Children.Insert(2, masterEffectsCaption);
+        }
         foreach (var stripChild in stripContent.Children)
         {
             stripChild.HorizontalAlignment = HorizontalAlignment.Center;

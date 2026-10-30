@@ -142,6 +142,17 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
         {
             return;
         }
+        if (offline)
+        {
+            // A bounce may wait, and must: every block of it, the first included, hears the key.
+            PluginHostThread.Invoke(() =>
+            {
+                ReconfigureSidechainOnHostThread(wanted);
+                return true;
+            });
+            Volatile.Write(ref sidechainReconfigurationPending, 0);
+            return;
+        }
         _ = PluginHostThread.InvokeAsync(() =>
         {
             try
