@@ -10,142 +10,365 @@
   ],
   "tracks": [
     {
-      "id": "7eb3120f",
-      "name": "Wobble Bass",
-      "instrument": "saw",
-      "instrumentParameters": {},
-      "effects": [
-        {
-          "type": "lowpass",
-          "enabled": true,
-          "parameters": {
-            "cutoff": 700,
-            "resonance": 0.8
-          }
-        }
-      ],
-      "gain": 0.7,
-      "pan": 0,
-      "muted": false,
-      "solo": false,
-      "aiLocked": false,
-      "clips": [
-        {
-          "name": "Wobble Bass",
-          "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
-        },
-        {
-          "name": "Wobble Bass",
-          "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
-        },
-        {
-          "name": "Outro",
-          "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
-        }
-      ]
-    },
-    {
-      "id": "c684b5ae",
-      "name": "Wobble Bass",
-      "instrument": "saw",
-      "instrumentParameters": {},
-      "effects": [
-        {
-          "type": "lowpass",
-          "enabled": true,
-          "parameters": {
-            "cutoff": 700,
-            "resonance": 0.8
-          }
-        }
-      ],
-      "gain": 0.7,
-      "pan": 0,
-      "muted": false,
-      "solo": false,
-      "aiLocked": false,
-      "clips": [
-        {
-          "name": "Wobble Bass",
-          "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
-        },
-        {
-          "name": "Wobble Bass",
-          "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
-        },
-        {
-          "name": "Outro",
-          "pattern": ["A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4"]
-        }
-      ]
-    },
-    {
-      "id": "cb5dfb7f",
-      "name": "Wobble Bass",
-      "instrument": "saw",
-      "instrumentParameters": {},
-      "effects": [
-        {
-          "type": "lowpass",
-          "enabled": true,
-          "parameters": {
-            "cutoff": 700,
-            "resonance": 0.8
-          }
-        }
-      ],
-      "gain": 0.7,
-      "pan": 0,
-      "muted": false,
-      "solo": false,
-      "aiLocked": false,
-      "clips": [
-        {
-          "name": "Wobble Bass",
-          "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
-        },
-        {
-          "name": "Wobble Bass",
-          "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
-        },
-        {
-          "name": "Outro",
-          "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
-        }
-      ]
-    },
-    {
-      "id": "ffb4810c",
-      "name": "Casio-CTK-611-Touch-Bass",
-      "instrument": "sampler",
-      "instrumentParameters": {},
-      "sample": "/home/tom/Documents/lmms/samples/custom/Casio-CTK-611-Touch-Bass-C2.wav",
+      "id": "c4a51a80",
+      "name": "Earnings Kick",
+      "instrument": "kick",
+      "instrumentParameters": {
+        "decay": 0.9
+      },
       "effects": [],
-      "gain": 0.8,
+      "gain": 0.36,
       "pan": 0,
       "muted": false,
       "solo": false,
       "aiLocked": false,
       "clips": [
         {
-          "name": "Intro",
-          "pattern": ["C2", "C2", "C2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+          "name": "Kick",
+          "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
         },
         {
-          "name": "Drop",
-          "pattern": ["C2", "C2", "C2", ".", "C2", "C2", "C2", ".", "C2", "C2", "C2", ".", "C2", "C2", "C2", "."]
+          "name": "Kick",
+          "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
         },
         null
       ]
     },
     {
-      "id": "2db2f15c",
-      "name": "Casio-CTK-611-Melodic-To",
-      "instrument": "sampler",
+      "id": "7cdf2b06",
+      "name": "Dividend Clap",
+      "instrument": "clap",
       "instrumentParameters": {},
-      "sample": "/home/tom/Documents/lmms/samples/custom/Casio-CTK-611-Melodic-Tom-C3.wav",
-      "effects": [],
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.4,
+            "damping": 0.5,
+            "mix": 0.08,
+            "width": 0.8
+          }
+        }
+      ],
+      "gain": 1,
+      "pan": 0.04,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Clap",
+          "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "6d9be8a7",
+      "name": "Ticker Hats",
+      "instrument": "hat",
+      "instrumentParameters": {
+        "decay": 0.6
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 5000
+          }
+        }
+      ],
+      "gain": 1.3,
+      "pan": 0.2,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Ticks",
+          "pattern": ["x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.5"]
+        },
+        {
+          "name": "Ticks",
+          "pattern": ["x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.5"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "36389c1f",
+      "name": "Offbeat Hat",
+      "instrument": "hat",
+      "instrumentParameters": {
+        "decay": 2
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 6000
+          }
+        }
+      ],
       "gain": 0.8,
+      "pan": -0.15,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Offbeat Hat",
+          "pattern": [".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "28025f25",
+      "name": "Shuffle Snare",
+      "instrument": "snare",
+      "instrumentParameters": {
+        "decay": 0.6,
+        "pitch": 3
+      },
+      "effects": [],
+      "gain": 1,
+      "pan": -0.1,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Shuffle",
+          "pattern": [".", ".", ".", ".", ".", ".", ".", "x@0.5", ".", ".", "x@0.6", ".", ".", ".", ".", "x@0.5"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "08cce30b",
+      "name": "Wobble Bass",
+      "instrument": "saw",
+      "instrumentParameters": {
+        "attack": 2,
+        "decay": 200,
+        "sustain": 0.85,
+        "release": 40,
+        "detune": 6
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 900,
+            "resonance": 0.6
+          }
+        },
+        {
+          "type": "drive",
+          "enabled": true,
+          "parameters": {
+            "amount": 3,
+            "mix": 0.4
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.6,
+            "threshold": -30,
+            "attack": 1,
+            "release": 110
+          },
+          "sidechainSource": "c4a51a80"
+        }
+      ],
+      "gain": 0.9,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Wobble Bass",
+          "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1@0.85", ".", "D2", "_", ".", ".", "C2", "_", "_", ".", "C2", ".", "E2", "_", ".", ".", "C2@0.85", ".", "G1", "_", ".", ".", "A1", "_", "_", ".", "A1", ".", "C2", "_", ".", ".", "A1@0.85", ".", "G1", "_", ".", ".", "D2", "_", "_", ".", "D2", ".", "F#2", "_", ".", ".", "D2@0.85", ".", "A1", "_", "B1@0.7", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "4cf1dd81",
+      "name": "Touch Bass (ex-Casio)",
+      "instrument": "triangle",
+      "instrumentParameters": {
+        "attack": 1,
+        "decay": 110,
+        "sustain": 0,
+        "release": 40
+      },
+      "effects": [
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.5,
+            "threshold": -30,
+            "attack": 1,
+            "release": 100
+          },
+          "sidechainSource": "c4a51a80"
+        }
+      ],
+      "gain": 0.55,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Touch Bass Gallop",
+          "pattern": ["E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", "."]
+        },
+        {
+          "name": "Touch Bass Gallop",
+          "pattern": ["E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "E2", "E2@0.7", "E2@0.7", ".", "C2", "C2@0.7", "C2@0.7", ".", "C2", "C2@0.7", "C2@0.7", ".", "C2", "C2@0.7", "C2@0.7", ".", "C2", "C2@0.7", "C2@0.7", ".", "A1", "A1@0.7", "A1@0.7", ".", "A1", "A1@0.7", "A1@0.7", ".", "A1", "A1@0.7", "A1@0.7", ".", "A1", "A1@0.7", "A1@0.7", ".", "D2", "D2@0.7", "D2@0.7", ".", "D2", "D2@0.7", "D2@0.7", ".", "D2", "D2@0.7", "D2@0.7", ".", "D2", "D2@0.7", "D2@0.7", "."]
+        },
+        null
+      ]
+    },
+    {
+      "id": "28b9b74a",
+      "name": "Ledger Organ",
+      "instrument": "square",
+      "instrumentParameters": {
+        "attack": 1,
+        "decay": 160,
+        "sustain": 0.1,
+        "release": 60,
+        "cutoff": 3500,
+        "detune": 5
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 5000,
+            "resonance": 0.2
+          }
+        },
+        {
+          "type": "duck",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.5,
+            "threshold": -30,
+            "attack": 1,
+            "release": 130
+          },
+          "sidechainSource": "c4a51a80"
+        },
+        {
+          "type": "delay",
+          "enabled": true,
+          "parameters": {
+            "steps": 3,
+            "feedback": 0.35,
+            "mix": 0,
+            "pingpong": 1
+          }
+        }
+      ],
+      "gain": 0.8,
+      "pan": 0.05,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        {
+          "name": "Organ Stabs",
+          "pattern": [".", ".", "G3\u002BB3\u002BD4\u002BE4", ".", ".", "G3@0.75\u002BB3@0.75\u002BD4@0.75\u002BE4@0.75", ".", ".", ".", ".", "G3\u002BB3\u002BD4\u002BE4", ".", ".", "G3@0.75\u002BB3@0.75\u002BD4@0.75\u002BE4@0.75", ".", ".", ".", ".", "G3\u002BC4\u002BE4", ".", ".", "G3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", ".", ".", "G3\u002BC4\u002BE4", ".", ".", "G3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", ".", ".", "A3\u002BC4\u002BE4", ".", ".", "A3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", ".", ".", "A3\u002BC4\u002BE4", ".", ".", "A3@0.75\u002BC4@0.75\u002BE4@0.75", ".", ".", ".", ".", "F#3\u002BA3\u002BD4", ".", ".", "F#3@0.75\u002BA3@0.75\u002BD4@0.75", ".", ".", ".", ".", "F#3\u002BA3\u002BD4", ".", ".", "F#3@0.75\u002BA3@0.75\u002BD4@0.75", "F#3@0.6\u002BA3@0.6\u002BD4@0.6", "F#3@0.9\u002BA3@0.9\u002BD4@0.9"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "47e65f6f",
+      "name": "Melodic Tom (ex-Casio)",
+      "instrument": "sine",
+      "instrumentParameters": {
+        "attack": 1,
+        "decay": 160,
+        "sustain": 0,
+        "release": 60
+      },
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.5,
+            "damping": 0.5,
+            "mix": 0.12,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 0.55,
+      "pan": -0.2,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        {
+          "name": "Tom Line",
+          "pattern": ["E4", "E4@0.7", "E4@0.8", "E3", ".", ".", "E3@0.6", ".", "B3@0.8", ".", ".", "E3@0.7", ".", ".", ".", "."]
+        }
+      ]
+    },
+    {
+      "id": "fba81249",
+      "name": "Outro Chord",
+      "instrument": "triangle",
+      "instrumentParameters": {
+        "attack": 300,
+        "decay": 800,
+        "sustain": 0.8,
+        "release": 900
+      },
+      "effects": [
+        {
+          "type": "lowpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 1800,
+            "resonance": 0.1
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.75,
+            "damping": 0.5,
+            "mix": 0.3,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 0.45,
       "pan": 0,
       "muted": false,
       "solo": false,
@@ -154,155 +377,2147 @@
         null,
         null,
         {
-          "name": "Outro",
-          "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+          "name": "Outro Chord",
+          "pattern": ["A3:32@0.8\u002BC4:32@0.8\u002BE4:32@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3:32@0.8\u002BB3:32@0.8\u002BE4:32@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
         }
+      ]
+    },
+    {
+      "id": "231d0dc6",
+      "name": "Earnings Call Riser",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 5,
+        "sustain": 1,
+        "release": 300,
+        "cutoff": 14000
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 500,
+            "resonance": 0.4
+          }
+        },
+        {
+          "type": "widen",
+          "enabled": true,
+          "parameters": {
+            "width": 1.5,
+            "haas": 8
+          }
+        }
+      ],
+      "gain": 0.9,
+      "pan": 0,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "id": "c46885a7",
+      "name": "Crash",
+      "instrument": "noise",
+      "instrumentParameters": {
+        "attack": 1,
+        "decay": 1000,
+        "sustain": 0,
+        "release": 800,
+        "cutoff": 13000
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "enabled": true,
+          "parameters": {
+            "cutoff": 3800
+          }
+        },
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.6,
+            "damping": 0.5,
+            "mix": 0.15,
+            "width": 1
+          }
+        }
+      ],
+      "gain": 1.4,
+      "pan": 0.05,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null,
+        null
       ]
     }
   ],
   "master": {
-    "gain": 0.9,
-    "drive": 2.5,
+    "gain": 0.85,
+    "drive": 1.3,
     "lowpassHz": 18000,
     "delaySteps": 3,
     "delayFeedback": 0.3,
-    "delayMix": 0.15,
+    "delayMix": 0,
     "rationale": null
   },
   "timeline": [
     {
-      "id": "f48d4550",
-      "trackId": "7eb3120f",
+      "id": "beff1d4c",
+      "trackId": "c4a51a80",
       "startStep": 0,
-      "lengthSteps": 32,
+      "lengthSteps": 128,
       "clip": {
-        "name": "Wobble Bass",
-        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
-      },
-      "endStep": 32
-    },
-    {
-      "id": "3a9ad018",
-      "trackId": "c684b5ae",
-      "startStep": 0,
-      "lengthSteps": 32,
-      "clip": {
-        "name": "Wobble Bass",
-        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
-      },
-      "endStep": 32
-    },
-    {
-      "id": "345219df",
-      "trackId": "cb5dfb7f",
-      "startStep": 0,
-      "lengthSteps": 32,
-      "clip": {
-        "name": "Wobble Bass",
-        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1", ".", "D1", "_", ".", "."]
-      },
-      "endStep": 32
-    },
-    {
-      "id": "08a89095",
-      "trackId": "ffb4810c",
-      "startStep": 0,
-      "lengthSteps": 32,
-      "clip": {
-        "name": "Intro",
-        "pattern": ["C2", "C2", "C2", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
-      },
-      "endStep": 32
-    },
-    {
-      "id": "63060843",
-      "trackId": "7eb3120f",
-      "startStep": 32,
-      "lengthSteps": 64,
-      "clip": {
-        "name": "Wobble Bass",
-        "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
-      },
-      "endStep": 96
-    },
-    {
-      "id": "b6132296",
-      "trackId": "c684b5ae",
-      "startStep": 32,
-      "lengthSteps": 64,
-      "clip": {
-        "name": "Wobble Bass",
-        "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
-      },
-      "endStep": 96
-    },
-    {
-      "id": "570bc5a9",
-      "trackId": "cb5dfb7f",
-      "startStep": 32,
-      "lengthSteps": 64,
-      "clip": {
-        "name": "Wobble Bass",
-        "pattern": ["C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", ".", ".", "C4", ".", "C4", "."]
-      },
-      "endStep": 96
-    },
-    {
-      "id": "b4b35768",
-      "trackId": "ffb4810c",
-      "startStep": 32,
-      "lengthSteps": 64,
-      "clip": {
-        "name": "Drop",
-        "pattern": ["C2", "C2", "C2", ".", "C2", "C2", "C2", ".", "C2", "C2", "C2", ".", "C2", "C2", "C2", "."]
-      },
-      "endStep": 96
-    },
-    {
-      "id": "f0004f7c",
-      "trackId": "7eb3120f",
-      "startStep": 96,
-      "lengthSteps": 32,
-      "clip": {
-        "name": "Outro",
-        "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+        "name": "Intro Kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
       },
       "endStep": 128
     },
     {
-      "id": "a7d29557",
-      "trackId": "c684b5ae",
-      "startStep": 96,
-      "lengthSteps": 32,
+      "id": "77681627",
+      "trackId": "6d9be8a7",
+      "startStep": 0,
+      "lengthSteps": 128,
       "clip": {
-        "name": "Outro",
-        "pattern": ["A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4", "A3\u002BC4\u002BE4"]
+        "name": "Ticks",
+        "pattern": ["x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.5"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 128,
+              "value": 1.3
+            }
+          ]
+        }
       },
       "endStep": 128
     },
     {
-      "id": "6b53cc06",
-      "trackId": "cb5dfb7f",
-      "startStep": 96,
-      "lengthSteps": 32,
+      "id": "79b8981a",
+      "trackId": "4cf1dd81",
+      "startStep": 0,
+      "lengthSteps": 128,
       "clip": {
-        "name": "Outro",
-        "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+        "name": "Intro Gallop",
+        "pattern": ["E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", "."],
+        "automation": {
+          "inst.decay": [
+            {
+              "step": 0,
+              "value": 60
+            },
+            {
+              "step": 128,
+              "value": 150
+            }
+          ]
+        }
       },
       "endStep": 128
     },
     {
-      "id": "400f201b",
-      "trackId": "2db2f15c",
+      "id": "55429560",
+      "trackId": "7cdf2b06",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "470abbf2",
+      "trackId": "47e65f6f",
+      "startStep": 64,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Tom Fill",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "E4", ".", "B3@0.85", ".", "G3@0.9", "G3@0.7", "E3", "E3@0.8"]
+      },
+      "endStep": 128
+    },
+    {
+      "id": "81fde3e9",
+      "trackId": "231d0dc6",
       "startStep": 96,
       "lengthSteps": 32,
       "clip": {
-        "name": "Outro",
-        "pattern": ["C4", "C4", "C4", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2", "C2"]
+        "name": "Riser",
+        "pattern": ["C5:32", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 30,
+              "value": 0.6
+            },
+            {
+              "step": 32,
+              "value": 0
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 500
+            },
+            {
+              "step": 32,
+              "value": 6000
+            }
+          ],
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 32,
+              "value": 12
+            }
+          ]
+        }
       },
       "endStep": 128
+    },
+    {
+      "id": "ef1d178b",
+      "trackId": "c46885a7",
+      "startStep": 128,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5:16", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 144
+    },
+    {
+      "id": "48ed82f1",
+      "trackId": "c4a51a80",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "1e717334",
+      "trackId": "7cdf2b06",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "cee5d81d",
+      "trackId": "6d9be8a7",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Ticks",
+        "pattern": ["x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.5"]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "fc89f149",
+      "trackId": "36389c1f",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Offbeat Hat",
+        "pattern": [".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", "."]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "74da8940",
+      "trackId": "28025f25",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Shuffle",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", "x@0.5", ".", ".", "x@0.6", ".", ".", ".", ".", "x@0.5"]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "cd12dae5",
+      "trackId": "08cce30b",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Wobble Riff",
+        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1@0.85", ".", "D2", "_", ".", ".", "C2", "_", "_", ".", "C2", ".", "E2", "_", ".", ".", "C2@0.85", ".", "G1", "_", ".", ".", "A1", "_", "_", ".", "A1", ".", "C2", "_", ".", ".", "A1@0.85", ".", "G1", "_", ".", ".", "D2", "_", "_", ".", "D2", ".", "F#2", "_", ".", ".", "D2@0.85", ".", "A1", "_", "B1@0.7", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 2400
+            },
+            {
+              "step": 3,
+              "value": 320
+            },
+            {
+              "step": 4,
+              "value": 2400
+            },
+            {
+              "step": 7,
+              "value": 320
+            },
+            {
+              "step": 8,
+              "value": 2400
+            },
+            {
+              "step": 11,
+              "value": 320
+            },
+            {
+              "step": 12,
+              "value": 2400
+            },
+            {
+              "step": 15,
+              "value": 320
+            },
+            {
+              "step": 16,
+              "value": 2400
+            },
+            {
+              "step": 19,
+              "value": 320
+            },
+            {
+              "step": 20,
+              "value": 2400
+            },
+            {
+              "step": 23,
+              "value": 320
+            },
+            {
+              "step": 24,
+              "value": 2400
+            },
+            {
+              "step": 27,
+              "value": 320
+            },
+            {
+              "step": 28,
+              "value": 2400
+            },
+            {
+              "step": 31,
+              "value": 320
+            },
+            {
+              "step": 32,
+              "value": 2400
+            },
+            {
+              "step": 35,
+              "value": 320
+            },
+            {
+              "step": 36,
+              "value": 2400
+            },
+            {
+              "step": 39,
+              "value": 320
+            },
+            {
+              "step": 40,
+              "value": 2400
+            },
+            {
+              "step": 43,
+              "value": 320
+            },
+            {
+              "step": 44,
+              "value": 2400
+            },
+            {
+              "step": 47,
+              "value": 320
+            },
+            {
+              "step": 48,
+              "value": 2400
+            },
+            {
+              "step": 49.5,
+              "value": 320
+            },
+            {
+              "step": 50,
+              "value": 2400
+            },
+            {
+              "step": 51.5,
+              "value": 320
+            },
+            {
+              "step": 52,
+              "value": 2400
+            },
+            {
+              "step": 53.5,
+              "value": 320
+            },
+            {
+              "step": 54,
+              "value": 2400
+            },
+            {
+              "step": 55.5,
+              "value": 320
+            },
+            {
+              "step": 56,
+              "value": 2400
+            },
+            {
+              "step": 57.5,
+              "value": 320
+            },
+            {
+              "step": 58,
+              "value": 2400
+            },
+            {
+              "step": 59.5,
+              "value": 320
+            },
+            {
+              "step": 60,
+              "value": 2400
+            },
+            {
+              "step": 61.5,
+              "value": 320
+            },
+            {
+              "step": 62,
+              "value": 2400
+            },
+            {
+              "step": 63.5,
+              "value": 320
+            },
+            {
+              "step": 64,
+              "value": 2400
+            },
+            {
+              "step": 67,
+              "value": 320
+            },
+            {
+              "step": 68,
+              "value": 2400
+            },
+            {
+              "step": 71,
+              "value": 320
+            },
+            {
+              "step": 72,
+              "value": 2400
+            },
+            {
+              "step": 75,
+              "value": 320
+            },
+            {
+              "step": 76,
+              "value": 2400
+            },
+            {
+              "step": 79,
+              "value": 320
+            },
+            {
+              "step": 80,
+              "value": 2400
+            },
+            {
+              "step": 83,
+              "value": 320
+            },
+            {
+              "step": 84,
+              "value": 2400
+            },
+            {
+              "step": 87,
+              "value": 320
+            },
+            {
+              "step": 88,
+              "value": 2400
+            },
+            {
+              "step": 91,
+              "value": 320
+            },
+            {
+              "step": 92,
+              "value": 2400
+            },
+            {
+              "step": 95,
+              "value": 320
+            },
+            {
+              "step": 96,
+              "value": 2400
+            },
+            {
+              "step": 99,
+              "value": 320
+            },
+            {
+              "step": 100,
+              "value": 2400
+            },
+            {
+              "step": 103,
+              "value": 320
+            },
+            {
+              "step": 104,
+              "value": 2400
+            },
+            {
+              "step": 107,
+              "value": 320
+            },
+            {
+              "step": 108,
+              "value": 2400
+            },
+            {
+              "step": 111,
+              "value": 320
+            },
+            {
+              "step": 112,
+              "value": 2400
+            },
+            {
+              "step": 113.5,
+              "value": 320
+            },
+            {
+              "step": 114,
+              "value": 2400
+            },
+            {
+              "step": 115.5,
+              "value": 320
+            },
+            {
+              "step": 116,
+              "value": 2400
+            },
+            {
+              "step": 117.5,
+              "value": 320
+            },
+            {
+              "step": 118,
+              "value": 2400
+            },
+            {
+              "step": 119.5,
+              "value": 320
+            },
+            {
+              "step": 120,
+              "value": 2400
+            },
+            {
+              "step": 121.5,
+              "value": 320
+            },
+            {
+              "step": 122,
+              "value": 2400
+            },
+            {
+              "step": 123.5,
+              "value": 320
+            },
+            {
+              "step": 124,
+              "value": 2400
+            },
+            {
+              "step": 125.5,
+              "value": 320
+            },
+            {
+              "step": 126,
+              "value": 2400
+            },
+            {
+              "step": 127.5,
+              "value": 320
+            },
+            {
+              "step": 128,
+              "value": 2400
+            },
+            {
+              "step": 131,
+              "value": 320
+            },
+            {
+              "step": 132,
+              "value": 2400
+            },
+            {
+              "step": 135,
+              "value": 320
+            },
+            {
+              "step": 136,
+              "value": 2400
+            },
+            {
+              "step": 139,
+              "value": 320
+            },
+            {
+              "step": 140,
+              "value": 2400
+            },
+            {
+              "step": 143,
+              "value": 320
+            },
+            {
+              "step": 144,
+              "value": 2400
+            },
+            {
+              "step": 147,
+              "value": 320
+            },
+            {
+              "step": 148,
+              "value": 2400
+            },
+            {
+              "step": 151,
+              "value": 320
+            },
+            {
+              "step": 152,
+              "value": 2400
+            },
+            {
+              "step": 155,
+              "value": 320
+            },
+            {
+              "step": 156,
+              "value": 2400
+            },
+            {
+              "step": 159,
+              "value": 320
+            },
+            {
+              "step": 160,
+              "value": 2400
+            },
+            {
+              "step": 163,
+              "value": 320
+            },
+            {
+              "step": 164,
+              "value": 2400
+            },
+            {
+              "step": 167,
+              "value": 320
+            },
+            {
+              "step": 168,
+              "value": 2400
+            },
+            {
+              "step": 171,
+              "value": 320
+            },
+            {
+              "step": 172,
+              "value": 2400
+            },
+            {
+              "step": 175,
+              "value": 320
+            },
+            {
+              "step": 176,
+              "value": 2400
+            },
+            {
+              "step": 177.5,
+              "value": 320
+            },
+            {
+              "step": 178,
+              "value": 2400
+            },
+            {
+              "step": 179.5,
+              "value": 320
+            },
+            {
+              "step": 180,
+              "value": 2400
+            },
+            {
+              "step": 181.5,
+              "value": 320
+            },
+            {
+              "step": 182,
+              "value": 2400
+            },
+            {
+              "step": 183.5,
+              "value": 320
+            },
+            {
+              "step": 184,
+              "value": 2400
+            },
+            {
+              "step": 185.5,
+              "value": 320
+            },
+            {
+              "step": 186,
+              "value": 2400
+            },
+            {
+              "step": 187.5,
+              "value": 320
+            },
+            {
+              "step": 188,
+              "value": 2400
+            },
+            {
+              "step": 189.5,
+              "value": 320
+            },
+            {
+              "step": 190,
+              "value": 2400
+            },
+            {
+              "step": 191.5,
+              "value": 320
+            },
+            {
+              "step": 192,
+              "value": 2400
+            },
+            {
+              "step": 195,
+              "value": 320
+            },
+            {
+              "step": 196,
+              "value": 2400
+            },
+            {
+              "step": 199,
+              "value": 320
+            },
+            {
+              "step": 200,
+              "value": 2400
+            },
+            {
+              "step": 203,
+              "value": 320
+            },
+            {
+              "step": 204,
+              "value": 2400
+            },
+            {
+              "step": 207,
+              "value": 320
+            },
+            {
+              "step": 208,
+              "value": 2400
+            },
+            {
+              "step": 211,
+              "value": 320
+            },
+            {
+              "step": 212,
+              "value": 2400
+            },
+            {
+              "step": 215,
+              "value": 320
+            },
+            {
+              "step": 216,
+              "value": 2400
+            },
+            {
+              "step": 219,
+              "value": 320
+            },
+            {
+              "step": 220,
+              "value": 2400
+            },
+            {
+              "step": 223,
+              "value": 320
+            },
+            {
+              "step": 224,
+              "value": 2400
+            },
+            {
+              "step": 227,
+              "value": 320
+            },
+            {
+              "step": 228,
+              "value": 2400
+            },
+            {
+              "step": 231,
+              "value": 320
+            },
+            {
+              "step": 232,
+              "value": 2400
+            },
+            {
+              "step": 235,
+              "value": 320
+            },
+            {
+              "step": 236,
+              "value": 2400
+            },
+            {
+              "step": 239,
+              "value": 320
+            },
+            {
+              "step": 240,
+              "value": 2400
+            },
+            {
+              "step": 241.5,
+              "value": 320
+            },
+            {
+              "step": 242,
+              "value": 2400
+            },
+            {
+              "step": 243.5,
+              "value": 320
+            },
+            {
+              "step": 244,
+              "value": 2400
+            },
+            {
+              "step": 245.5,
+              "value": 320
+            },
+            {
+              "step": 246,
+              "value": 2400
+            },
+            {
+              "step": 247.5,
+              "value": 320
+            },
+            {
+              "step": 248,
+              "value": 2400
+            },
+            {
+              "step": 249.5,
+              "value": 320
+            },
+            {
+              "step": 250,
+              "value": 2400
+            },
+            {
+              "step": 251.5,
+              "value": 320
+            },
+            {
+              "step": 252,
+              "value": 2400
+            },
+            {
+              "step": 253.5,
+              "value": 320
+            },
+            {
+              "step": 254,
+              "value": 2400
+            },
+            {
+              "step": 255.5,
+              "value": 320
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "8bda39ad",
+      "trackId": "28b9b74a",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Organ Stabs",
+        "pattern": [".", ".", "G3:1\u002BB3:1\u002BD4:1\u002BE4:1", ".", ".", "G3:1@0.75\u002BB3:1@0.75\u002BD4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "G3:1\u002BB3:1\u002BD4:1\u002BE4:1", ".", ".", "G3:1@0.75\u002BB3:1@0.75\u002BD4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "G3:1\u002BC4:1\u002BE4:1", ".", ".", "G3:1@0.75\u002BC4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "G3:1\u002BC4:1\u002BE4:1", ".", ".", "G3:1@0.75\u002BC4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "A3:1\u002BC4:1\u002BE4:1", ".", ".", "A3:1@0.75\u002BC4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "A3:1\u002BC4:1\u002BE4:1", ".", ".", "A3:1@0.75\u002BC4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "F#3:1\u002BA3:1\u002BD4:1", ".", ".", "F#3:1@0.75\u002BA3:1@0.75\u002BD4:1@0.75", ".", ".", ".", ".", "F#3:1\u002BA3:1\u002BD4:1", ".", ".", "F#3:1@0.75\u002BA3:1@0.75\u002BD4:1@0.75", "F#3:1@0.6\u002BA3:1@0.6\u002BD4:1@0.6", "F#3:1@0.9\u002BA3:1@0.9\u002BD4:1@0.9"],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 1500
+            },
+            {
+              "step": 64,
+              "value": 5000
+            }
+          ],
+          "fx.2.mix": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 248,
+              "value": 0
+            },
+            {
+              "step": 250,
+              "value": 0.4
+            },
+            {
+              "step": 256,
+              "value": 0.4
+            }
+          ]
+        }
+      },
+      "endStep": 384
+    },
+    {
+      "id": "b0571fb3",
+      "trackId": "47e65f6f",
+      "startStep": 128,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Tom Fills",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "E4", ".", "B3@0.85", ".", "G3@0.9", "G3@0.7", "E3", "E3@0.8"]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "3a824a06",
+      "trackId": "28b9b74a",
+      "startStep": 384,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Organ throw tail",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.2.mix": [
+            {
+              "step": 0,
+              "value": 0.4
+            },
+            {
+              "step": 24,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 416
+    },
+    {
+      "id": "34e5fa65",
+      "trackId": "fba81249",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Break Pad",
+        "pattern": ["G3:16@0.75\u002BB3:16@0.75\u002BD4:16@0.75\u002BE4:16@0.75", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3:16@0.75\u002BC4:16@0.75\u002BE4:16@0.75", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "A3:16@0.75\u002BC4:16@0.75\u002BE4:16@0.75", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "F#3:16@0.75\u002BA3:16@0.75\u002BD4:16@0.75", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 700
+            },
+            {
+              "step": 128,
+              "value": 3500
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "63d05b4f",
+      "trackId": "4cf1dd81",
+      "startStep": 384,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Break Gallop",
+        "pattern": ["E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.3
+            },
+            {
+              "step": 64,
+              "value": 0.55
+            }
+          ]
+        }
+      },
+      "endStep": 448
+    },
+    {
+      "id": "cf753776",
+      "trackId": "6d9be8a7",
+      "startStep": 384,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ticks",
+        "pattern": ["x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.5"]
+      },
+      "endStep": 512
+    },
+    {
+      "id": "4b37d9c3",
+      "trackId": "47e65f6f",
+      "startStep": 384,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Tom Fill",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "E4", ".", "B3@0.85", ".", "G3@0.9", "G3@0.7", "E3", "E3@0.8"]
+      },
+      "endStep": 448
+    },
+    {
+      "id": "092f703b",
+      "trackId": "08cce30b",
+      "startStep": 448,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Riff Sweep",
+        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1@0.85", ".", "D2", "_", ".", ".", "C2", "_", "_", ".", "C2", ".", "E2", "_", ".", ".", "C2@0.85", ".", "G1", "_", ".", ".", "A1", "_", "_", ".", "A1", ".", "C2", "_", ".", ".", "A1@0.85", ".", "G1", "_", ".", ".", "D2", "_", "_", ".", "D2", ".", "F#2", "_", ".", ".", "D2@0.85", ".", "A1", "_", "B1@0.7", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 200
+            },
+            {
+              "step": 64,
+              "value": 2000
+            }
+          ],
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.4
+            },
+            {
+              "step": 64,
+              "value": 0.9
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "2b3a1a6c",
+      "trackId": "c4a51a80",
+      "startStep": 448,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Kick Build",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", ".", "x", ".", "x", ".", "x", "x", "x", "x", "x", "x", "x", "x"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.25
+            },
+            {
+              "step": 64,
+              "value": 0.36
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "25b91c4a",
+      "trackId": "7cdf2b06",
+      "startStep": 480,
+      "lengthSteps": 32,
+      "clip": {
+        "name": "Clap Roll",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", "x", ".", "x", ".", "x", ".", "x", "x", "x", "x", "x", "x", "x", "x"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.5
+            },
+            {
+              "step": 32,
+              "value": 1
+            }
+          ],
+          "fx.0.mix": [
+            {
+              "step": 0,
+              "value": 0.08
+            },
+            {
+              "step": 24,
+              "value": 0.08
+            },
+            {
+              "step": 32,
+              "value": 0.45
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "9c1c5504",
+      "trackId": "231d0dc6",
+      "startStep": 448,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Riser",
+        "pattern": ["C5:64", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 62,
+              "value": 0.7
+            },
+            {
+              "step": 64,
+              "value": 0
+            }
+          ],
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 400
+            },
+            {
+              "step": 64,
+              "value": 7000
+            }
+          ],
+          "pitch": [
+            {
+              "step": 0,
+              "value": 0
+            },
+            {
+              "step": 64,
+              "value": 12
+            }
+          ]
+        }
+      },
+      "endStep": 512
+    },
+    {
+      "id": "3c0ea48e",
+      "trackId": "c46885a7",
+      "startStep": 512,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5:16", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 528
+    },
+    {
+      "id": "8ca8b467",
+      "trackId": "c46885a7",
+      "startStep": 640,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash",
+        "pattern": ["C5:16", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 656
+    },
+    {
+      "id": "4d18c184",
+      "trackId": "7cdf2b06",
+      "startStep": 512,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Clap (throw tail)",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "fx.0.mix": [
+            {
+              "step": 0,
+              "value": 0.45
+            },
+            {
+              "step": 8,
+              "value": 0.08
+            }
+          ]
+        }
+      },
+      "endStep": 528
+    },
+    {
+      "id": "62d5adc9",
+      "trackId": "7cdf2b06",
+      "startStep": 528,
+      "lengthSteps": 240,
+      "clip": {
+        "name": "Clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "87066ce2",
+      "trackId": "c4a51a80",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "c720eb0d",
+      "trackId": "6d9be8a7",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Ticks",
+        "pattern": ["x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.5"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "099791e2",
+      "trackId": "36389c1f",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Offbeat Hat",
+        "pattern": [".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", "."]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "d85f627d",
+      "trackId": "28025f25",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Shuffle",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", "x@0.5", ".", ".", "x@0.6", ".", ".", ".", ".", "x@0.5"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "c747090d",
+      "trackId": "08cce30b",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Wobble Riff",
+        "pattern": ["E1", "_", "_", ".", "E1", ".", "G1", "_", ".", ".", "E1@0.85", ".", "D2", "_", ".", ".", "C2", "_", "_", ".", "C2", ".", "E2", "_", ".", ".", "C2@0.85", ".", "G1", "_", ".", ".", "A1", "_", "_", ".", "A1", ".", "C2", "_", ".", ".", "A1@0.85", ".", "G1", "_", ".", ".", "D2", "_", "_", ".", "D2", ".", "F#2", "_", ".", ".", "D2@0.85", ".", "A1", "_", "B1@0.7", "."],
+        "automation": {
+          "fx.0.cutoff": [
+            {
+              "step": 0,
+              "value": 2800
+            },
+            {
+              "step": 3,
+              "value": 300
+            },
+            {
+              "step": 4,
+              "value": 2800
+            },
+            {
+              "step": 7,
+              "value": 300
+            },
+            {
+              "step": 8,
+              "value": 2800
+            },
+            {
+              "step": 11,
+              "value": 300
+            },
+            {
+              "step": 12,
+              "value": 2800
+            },
+            {
+              "step": 15,
+              "value": 300
+            },
+            {
+              "step": 16,
+              "value": 2800
+            },
+            {
+              "step": 19,
+              "value": 300
+            },
+            {
+              "step": 20,
+              "value": 2800
+            },
+            {
+              "step": 23,
+              "value": 300
+            },
+            {
+              "step": 24,
+              "value": 2800
+            },
+            {
+              "step": 27,
+              "value": 300
+            },
+            {
+              "step": 28,
+              "value": 2800
+            },
+            {
+              "step": 31,
+              "value": 300
+            },
+            {
+              "step": 32,
+              "value": 2800
+            },
+            {
+              "step": 35,
+              "value": 300
+            },
+            {
+              "step": 36,
+              "value": 2800
+            },
+            {
+              "step": 39,
+              "value": 300
+            },
+            {
+              "step": 40,
+              "value": 2800
+            },
+            {
+              "step": 43,
+              "value": 300
+            },
+            {
+              "step": 44,
+              "value": 2800
+            },
+            {
+              "step": 47,
+              "value": 300
+            },
+            {
+              "step": 48,
+              "value": 2800
+            },
+            {
+              "step": 49.5,
+              "value": 300
+            },
+            {
+              "step": 50,
+              "value": 2800
+            },
+            {
+              "step": 51.5,
+              "value": 300
+            },
+            {
+              "step": 52,
+              "value": 2800
+            },
+            {
+              "step": 53.5,
+              "value": 300
+            },
+            {
+              "step": 54,
+              "value": 2800
+            },
+            {
+              "step": 55.5,
+              "value": 300
+            },
+            {
+              "step": 56,
+              "value": 2800
+            },
+            {
+              "step": 57.5,
+              "value": 300
+            },
+            {
+              "step": 58,
+              "value": 2800
+            },
+            {
+              "step": 59.5,
+              "value": 300
+            },
+            {
+              "step": 60,
+              "value": 2800
+            },
+            {
+              "step": 61.5,
+              "value": 300
+            },
+            {
+              "step": 62,
+              "value": 2800
+            },
+            {
+              "step": 63.5,
+              "value": 300
+            },
+            {
+              "step": 64,
+              "value": 2800
+            },
+            {
+              "step": 67,
+              "value": 300
+            },
+            {
+              "step": 68,
+              "value": 2800
+            },
+            {
+              "step": 71,
+              "value": 300
+            },
+            {
+              "step": 72,
+              "value": 2800
+            },
+            {
+              "step": 75,
+              "value": 300
+            },
+            {
+              "step": 76,
+              "value": 2800
+            },
+            {
+              "step": 79,
+              "value": 300
+            },
+            {
+              "step": 80,
+              "value": 2800
+            },
+            {
+              "step": 83,
+              "value": 300
+            },
+            {
+              "step": 84,
+              "value": 2800
+            },
+            {
+              "step": 87,
+              "value": 300
+            },
+            {
+              "step": 88,
+              "value": 2800
+            },
+            {
+              "step": 91,
+              "value": 300
+            },
+            {
+              "step": 92,
+              "value": 2800
+            },
+            {
+              "step": 95,
+              "value": 300
+            },
+            {
+              "step": 96,
+              "value": 2800
+            },
+            {
+              "step": 99,
+              "value": 300
+            },
+            {
+              "step": 100,
+              "value": 2800
+            },
+            {
+              "step": 103,
+              "value": 300
+            },
+            {
+              "step": 104,
+              "value": 2800
+            },
+            {
+              "step": 107,
+              "value": 300
+            },
+            {
+              "step": 108,
+              "value": 2800
+            },
+            {
+              "step": 111,
+              "value": 300
+            },
+            {
+              "step": 112,
+              "value": 2800
+            },
+            {
+              "step": 113.5,
+              "value": 300
+            },
+            {
+              "step": 114,
+              "value": 2800
+            },
+            {
+              "step": 115.5,
+              "value": 300
+            },
+            {
+              "step": 116,
+              "value": 2800
+            },
+            {
+              "step": 117.5,
+              "value": 300
+            },
+            {
+              "step": 118,
+              "value": 2800
+            },
+            {
+              "step": 119.5,
+              "value": 300
+            },
+            {
+              "step": 120,
+              "value": 2800
+            },
+            {
+              "step": 121.5,
+              "value": 300
+            },
+            {
+              "step": 122,
+              "value": 2800
+            },
+            {
+              "step": 123.5,
+              "value": 300
+            },
+            {
+              "step": 124,
+              "value": 2800
+            },
+            {
+              "step": 125.5,
+              "value": 300
+            },
+            {
+              "step": 126,
+              "value": 2800
+            },
+            {
+              "step": 127.5,
+              "value": 300
+            },
+            {
+              "step": 128,
+              "value": 2800
+            },
+            {
+              "step": 131,
+              "value": 300
+            },
+            {
+              "step": 132,
+              "value": 2800
+            },
+            {
+              "step": 135,
+              "value": 300
+            },
+            {
+              "step": 136,
+              "value": 2800
+            },
+            {
+              "step": 139,
+              "value": 300
+            },
+            {
+              "step": 140,
+              "value": 2800
+            },
+            {
+              "step": 143,
+              "value": 300
+            },
+            {
+              "step": 144,
+              "value": 2800
+            },
+            {
+              "step": 147,
+              "value": 300
+            },
+            {
+              "step": 148,
+              "value": 2800
+            },
+            {
+              "step": 151,
+              "value": 300
+            },
+            {
+              "step": 152,
+              "value": 2800
+            },
+            {
+              "step": 155,
+              "value": 300
+            },
+            {
+              "step": 156,
+              "value": 2800
+            },
+            {
+              "step": 159,
+              "value": 300
+            },
+            {
+              "step": 160,
+              "value": 2800
+            },
+            {
+              "step": 163,
+              "value": 300
+            },
+            {
+              "step": 164,
+              "value": 2800
+            },
+            {
+              "step": 167,
+              "value": 300
+            },
+            {
+              "step": 168,
+              "value": 2800
+            },
+            {
+              "step": 171,
+              "value": 300
+            },
+            {
+              "step": 172,
+              "value": 2800
+            },
+            {
+              "step": 175,
+              "value": 300
+            },
+            {
+              "step": 176,
+              "value": 2800
+            },
+            {
+              "step": 177.5,
+              "value": 300
+            },
+            {
+              "step": 178,
+              "value": 2800
+            },
+            {
+              "step": 179.5,
+              "value": 300
+            },
+            {
+              "step": 180,
+              "value": 2800
+            },
+            {
+              "step": 181.5,
+              "value": 300
+            },
+            {
+              "step": 182,
+              "value": 2800
+            },
+            {
+              "step": 183.5,
+              "value": 300
+            },
+            {
+              "step": 184,
+              "value": 2800
+            },
+            {
+              "step": 185.5,
+              "value": 300
+            },
+            {
+              "step": 186,
+              "value": 2800
+            },
+            {
+              "step": 187.5,
+              "value": 300
+            },
+            {
+              "step": 188,
+              "value": 2800
+            },
+            {
+              "step": 189.5,
+              "value": 300
+            },
+            {
+              "step": 190,
+              "value": 2800
+            },
+            {
+              "step": 191.5,
+              "value": 300
+            },
+            {
+              "step": 192,
+              "value": 2800
+            },
+            {
+              "step": 195,
+              "value": 300
+            },
+            {
+              "step": 196,
+              "value": 2800
+            },
+            {
+              "step": 199,
+              "value": 300
+            },
+            {
+              "step": 200,
+              "value": 2800
+            },
+            {
+              "step": 203,
+              "value": 300
+            },
+            {
+              "step": 204,
+              "value": 2800
+            },
+            {
+              "step": 207,
+              "value": 300
+            },
+            {
+              "step": 208,
+              "value": 2800
+            },
+            {
+              "step": 211,
+              "value": 300
+            },
+            {
+              "step": 212,
+              "value": 2800
+            },
+            {
+              "step": 215,
+              "value": 300
+            },
+            {
+              "step": 216,
+              "value": 2800
+            },
+            {
+              "step": 219,
+              "value": 300
+            },
+            {
+              "step": 220,
+              "value": 2800
+            },
+            {
+              "step": 223,
+              "value": 300
+            },
+            {
+              "step": 224,
+              "value": 2800
+            },
+            {
+              "step": 227,
+              "value": 300
+            },
+            {
+              "step": 228,
+              "value": 2800
+            },
+            {
+              "step": 231,
+              "value": 300
+            },
+            {
+              "step": 232,
+              "value": 2800
+            },
+            {
+              "step": 235,
+              "value": 300
+            },
+            {
+              "step": 236,
+              "value": 2800
+            },
+            {
+              "step": 239,
+              "value": 300
+            },
+            {
+              "step": 240,
+              "value": 2800
+            },
+            {
+              "step": 241.5,
+              "value": 300
+            },
+            {
+              "step": 242,
+              "value": 2800
+            },
+            {
+              "step": 243.5,
+              "value": 300
+            },
+            {
+              "step": 244,
+              "value": 2800
+            },
+            {
+              "step": 245.5,
+              "value": 300
+            },
+            {
+              "step": 246,
+              "value": 2800
+            },
+            {
+              "step": 247.5,
+              "value": 300
+            },
+            {
+              "step": 248,
+              "value": 2800
+            },
+            {
+              "step": 249.5,
+              "value": 300
+            },
+            {
+              "step": 250,
+              "value": 2800
+            },
+            {
+              "step": 251.5,
+              "value": 300
+            },
+            {
+              "step": 252,
+              "value": 2800
+            },
+            {
+              "step": 253.5,
+              "value": 300
+            },
+            {
+              "step": 254,
+              "value": 2800
+            },
+            {
+              "step": 255.5,
+              "value": 300
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "c6f7e3b0",
+      "trackId": "4cf1dd81",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Gallop Layer",
+        "pattern": ["E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.4
+            }
+          ]
+        }
+      },
+      "endStep": 768
+    },
+    {
+      "id": "3f3c7f3f",
+      "trackId": "28b9b74a",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Organ Stabs",
+        "pattern": [".", ".", "G3:1\u002BB3:1\u002BD4:1\u002BE4:1", ".", ".", "G3:1@0.75\u002BB3:1@0.75\u002BD4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "G3:1\u002BB3:1\u002BD4:1\u002BE4:1", ".", ".", "G3:1@0.75\u002BB3:1@0.75\u002BD4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "G3:1\u002BC4:1\u002BE4:1", ".", ".", "G3:1@0.75\u002BC4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "G3:1\u002BC4:1\u002BE4:1", ".", ".", "G3:1@0.75\u002BC4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "A3:1\u002BC4:1\u002BE4:1", ".", ".", "A3:1@0.75\u002BC4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "A3:1\u002BC4:1\u002BE4:1", ".", ".", "A3:1@0.75\u002BC4:1@0.75\u002BE4:1@0.75", ".", ".", ".", ".", "F#3:1\u002BA3:1\u002BD4:1", ".", ".", "F#3:1@0.75\u002BA3:1@0.75\u002BD4:1@0.75", ".", ".", ".", ".", "F#3:1\u002BA3:1\u002BD4:1", ".", ".", "F#3:1@0.75\u002BA3:1@0.75\u002BD4:1@0.75", "F#3:1@0.6\u002BA3:1@0.6\u002BD4:1@0.6", "F#3:1@0.9\u002BA3:1@0.9\u002BD4:1@0.9"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "42ebe575",
+      "trackId": "47e65f6f",
+      "startStep": 512,
+      "lengthSteps": 256,
+      "clip": {
+        "name": "Tom Fills",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "E4", ".", "B3@0.85", ".", "G3@0.9", "G3@0.7", "E3", "E3@0.8"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "7fecb88e",
+      "trackId": "c4a51a80",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Outro Kick",
+        "pattern": ["x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", ".", "x", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 64,
+              "value": 0.36
+            },
+            {
+              "step": 128,
+              "value": 0.2
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "a58a53b0",
+      "trackId": "6d9be8a7",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ticks",
+        "pattern": ["x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.35", "x@0.5", ".", "x@0.3", "x@0.5"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.3
+            },
+            {
+              "step": 128,
+              "value": 0.3
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "a820fae5",
+      "trackId": "4cf1dd81",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Outro Gallop",
+        "pattern": ["E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "E2:1", "E2:1@0.7", "E2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "C2:1", "C2:1@0.7", "C2:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "A1:1", "A1:1@0.7", "A1:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", ".", "D2:1", "D2:1@0.7", "D2:1@0.7", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.55
+            },
+            {
+              "step": 128,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "8c73d2b1",
+      "trackId": "fba81249",
+      "startStep": 768,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Outro Chord (A minor, as filed)",
+        "pattern": ["A3:32@0.8\u002BC4:32@0.8\u002BE4:32@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "G3:32@0.8\u002BB3:32@0.8\u002BE4:32@0.8", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 0.45
+            },
+            {
+              "step": 96,
+              "value": 0.45
+            },
+            {
+              "step": 128,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "endStep": 896
+    },
+    {
+      "id": "a99a210d",
+      "trackId": "47e65f6f",
+      "startStep": 768,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Tom Line",
+        "pattern": ["E4", "E4@0.7", "E4@0.8", "E3", ".", ".", "E3@0.6", ".", "B3@0.8", ".", ".", "E3@0.7", ".", ".", ".", "."]
+      },
+      "endStep": 832
+    },
+    {
+      "id": "f63429bb",
+      "trackId": "7cdf2b06",
+      "startStep": 768,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Clap",
+        "pattern": [".", ".", ".", ".", "x", ".", ".", ".", ".", ".", ".", ".", "x", ".", ".", "."]
+      },
+      "endStep": 832
     }
   ],
-  "aiProvenance": "qwen2.5:3b via Ollama (autopilot)",
+  "aiProvenance": "qwen2.5:3b via Ollama (autopilot); rebuilt from built-in parts by the slopstack labs example desk",
   "stepDurationSeconds": 0.10714285714285714
 }

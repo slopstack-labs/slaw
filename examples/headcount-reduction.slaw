@@ -21,7 +21,7 @@
         "decay": 1.5
       },
       "effects": [],
-      "gain": 1,
+      "gain": 0.34,
       "pan": 0,
       "muted": false,
       "solo": false,
@@ -64,7 +64,7 @@
           }
         }
       ],
-      "gain": 0.8,
+      "gain": 0.6,
       "pan": 0,
       "muted": false,
       "solo": false,
@@ -105,7 +105,7 @@
           }
         }
       ],
-      "gain": 0.55,
+      "gain": 0.95,
       "pan": 0.1,
       "muted": false,
       "solo": false,
@@ -141,7 +141,7 @@
           }
         }
       ],
-      "gain": 0.35,
+      "gain": 0.55,
       "pan": -0.25,
       "muted": false,
       "solo": false,
@@ -207,7 +207,7 @@
           }
         }
       ],
-      "gain": 0.55,
+      "gain": 0.115,
       "pan": 0,
       "muted": false,
       "solo": false,
@@ -263,7 +263,7 @@
           }
         }
       ],
-      "gain": 0.4,
+      "gain": 0.134,
       "pan": 0.15,
       "muted": false,
       "solo": false,
@@ -291,7 +291,7 @@
         "release": 60
       },
       "effects": [],
-      "gain": 0.7,
+      "gain": 0.2,
       "pan": 0,
       "muted": false,
       "solo": false,
@@ -340,7 +340,7 @@
           }
         }
       ],
-      "gain": 0.35,
+      "gain": 0.195,
       "pan": -0.2,
       "muted": false,
       "solo": false,
@@ -385,7 +385,7 @@
           }
         }
       ],
-      "gain": 0.45,
+      "gain": 0.5,
       "pan": 0.3,
       "muted": false,
       "solo": false,
@@ -438,7 +438,7 @@
           }
         }
       ],
-      "gain": 0.3,
+      "gain": 1.2,
       "pan": 0,
       "muted": false,
       "solo": false,
@@ -482,7 +482,7 @@
           }
         }
       ],
-      "gain": 0.22,
+      "gain": 0.29,
       "pan": -0.1,
       "muted": false,
       "solo": false,
@@ -501,7 +501,7 @@
     }
   ],
   "master": {
-    "gain": 0.85,
+    "gain": 0.78,
     "drive": 1.6,
     "lowpassHz": 18000,
     "delaySteps": 3,

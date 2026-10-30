@@ -129,6 +129,28 @@ slaw <command> [options]    # headless production pipeline
 | `--timeout N` | 300 | HTTP request timeout in seconds per LLM call (`0` = no timeout) |
 | `--verbose` | false | Verbose debug output |
 
+## Examples
+
+`examples/` holds the reference portfolio. Everything below is built from slaw's own instruments and effects: **no VST3 plugins, no samples, no SoundFonts**. Clone, open, render. Every song lives on the arrangement timeline, and each bounce peaks below -1.5 dBFS without waking the hearing protection substrate, which has asked for more meetings like these.
+
+```sh
+slaw studio examples/stakeholder-pump.slaw     # open it
+slaw render examples/stakeholder-pump.slaw     # or bounce it, writes stakeholder-pump.wav next to it
+```
+
+| File | What it is |
+|------|------------|
+| `synergy-feature-tour.slaw` | **Start here.** 24 bars at 120 BPM, one of each newer feature, and every track name says which. Sidechain: the sub ducks under the kick, and the pad is gated by a *muted* ghost kick. Envelopes: pad filter sweep (`fx.0.cutoff`), arp `inst.brightness`, hat `pan`, lead `pitch` scoop and dive, riser `gain`/`pitch`/filter, a clap reverb throw (`fx.0.mix`). Notation: chords (`+`), velocities (`@`), note lengths (`:n`), holds (`_`). The master chain carries highpass, drive and widen (see the Master Bus device). The session's two scenes are jam clips: launch them while the arrangement plays, then ⤺ Back to Arrangement |
+| `stakeholder-pump.slaw` | Club house, 124 BPM, A minor, 56 bars. Dry offbeat organ and piano stabs, a bouncy bass and a rhythmic saw hook, all pumping off the kick. Filter-sweep intro and build, snare roll, riser, crash, and delay and reverb used as throws at the transitions only |
+| `quarterly-earnings-house.slaw` | Bassline house, 140 BPM, E minor, 56 bars. The autopilot's original wobble riff and gallop, rebuilt: the wobble is a cutoff envelope, the two Casio samplers that used to live on one engineer's disk are now a triangle *Touch Bass* and a sine *Melodic Tom*, and the A minor outro chord survives as filed |
+| `synergy-season-instrumental.slaw` | Pop, 104 BPM, G major, 64 bars. The sung vocal is now a synthesized lead line, the plugin pad and guitar are a detuned saw pad and a pluck, and the pad pumps off the kick through a duck instead of a hand-drawn gain envelope |
+| `garden-leave.slaw` | Downtempo, 84 BPM, D major, 40 bars. Long envelopes: 8- and 16-bar filter swells, drifting pan, keys that brighten over 16 bars, a 40-bar tape hiss, and a tape-stop pitch dive at the end |
+| `headcount-reduction.slaw` | Riddim, 150 BPM, 30 bars. Restructured to fit under the ceiling |
+| `synergy-drop.slaw` | Dubstep, 140 BPM, 15 bars. Wobble, growl and a riser that now reaches the audience |
+| `synergy-lofi.slaw` | Lo-fi, 78 BPM, 4 bars. The smallest possible deliverable |
+
+The exception requires outside resources: `showcase-full-stack.slaw` needs VST3 plugins (OB-Xf, Kars, MVerb and friends from `/usr/lib/vst3`) and a recorded vocal sample. It is the full-stack offering; procurement is your responsibility. Rendered `.wav` files are ignored by git, so bounce your own.
+
 ## Production Modalities
 
 Everything in this section is the **headless production pipeline for CI/CD-native music delivery**: no window, just terminal spinners and a `.wav` at the end of the pipeline.
