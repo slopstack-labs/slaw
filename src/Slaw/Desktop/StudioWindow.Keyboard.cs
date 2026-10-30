@@ -253,6 +253,12 @@ internal sealed partial class StudioWindow
             case StudioCommand.ToggleFullScreen:
                 ToggleFullScreen();
                 break;
+            case StudioCommand.ShowCommandPalette:
+                ToggleCommandPalette();
+                break;
+            case StudioCommand.ImportSounds:
+                OpenSoundImportWindow();
+                break;
             case StudioCommand.LaunchSelection:
                 LaunchClip(document.SelectedTrackIndex, document.SelectedSceneIndex);
                 break;
@@ -359,6 +365,7 @@ internal sealed partial class StudioWindow
                 ShowShortcutCheatSheet();
                 break;
             case StudioCommand.Dismiss:
+                commandPalette.Close();
                 liveAudioSession.Engine.StopNoteAudition();
                 ReleaseComputerKeyboardNotes();
                 FocusedStudioWindow.FocusManager?.ClearFocus();

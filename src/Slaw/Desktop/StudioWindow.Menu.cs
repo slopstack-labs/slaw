@@ -50,6 +50,7 @@ internal sealed partial class StudioWindow
                 CommandItem("_Save", StudioCommand.Save),
                 CommandItem("Save _As…", StudioCommand.SaveAs),
                 new Separator(),
+                CommandItem("Import _Sounds…", StudioCommand.ImportSounds),
                 ActionItem("_Import MIDI…", () => _ = ImportMidiFromPickerAsync()),
                 ActionItem("Import MIDI with Sound_Font…", () => _ = ImportMidiWithSoundFontFromPickerAsync()),
                 new Separator(),
@@ -157,6 +158,7 @@ internal sealed partial class StudioWindow
             Header = "_Help",
             Items =
             {
+                CommandItem("_Command Palette…", StudioCommand.ShowCommandPalette),
                 CommandItem("_Keyboard Shortcuts", StudioCommand.ShowShortcuts),
             },
         };

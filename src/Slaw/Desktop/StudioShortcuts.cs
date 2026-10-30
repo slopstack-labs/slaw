@@ -16,6 +16,8 @@ internal enum StudioCommand
     ToggleSecondWindow,
     ToggleDetailInSecondWindow,
     ToggleFullScreen,
+    ShowCommandPalette,
+    ImportSounds,
     LaunchSelection,
     LaunchSelectedScene,
     ToggleRecord,
@@ -91,6 +93,8 @@ internal static class StudioShortcutMap
         new(StudioCommand.ToggleAiPanel, Key.I, CommandAlt, "Show / hide the AI co-pilot panel", ShortcutReach.Global),
         new(StudioCommand.ToggleSecondWindow, Key.W, CommandShift, "Open / close the second window", ShortcutReach.Global),
         new(StudioCommand.ToggleFullScreen, Key.F11, KeyModifiers.None, "Full screen for the focused window", ShortcutReach.Global),
+        new(StudioCommand.ShowCommandPalette, Key.P, CommandShift, "Command palette: search everything the studio can do", ShortcutReach.Everywhere),
+        new(StudioCommand.ImportSounds, Key.I, CommandShift, "Import sounds: a folder or files as a drum kit, tracks or library", ShortcutReach.Everywhere),
         new(StudioCommand.LaunchSelection, Key.Enter, KeyModifiers.None, "Launch the selected clip (Arrangement: play from it)"),
         new(StudioCommand.LaunchSelectedScene, Key.Enter, KeyModifiers.Shift, "Launch the selected scene"),
         new(StudioCommand.Dismiss, Key.Escape, KeyModifiers.None, "Stop notes, leave text fields, close overlays", ShortcutReach.Everywhere),
@@ -163,6 +167,53 @@ internal static class StudioShortcutMap
                              (shortcut.Modifiers.HasFlag(KeyModifiers.Shift) ? "Shift+" : string.Empty);
         return modifierPrefix + keyName;
     }
+}
+
+/// <summary>How each command reads in the palette. A test keeps this complete, so new commands cannot go missing.</summary>
+internal static class StudioCommandTitles
+{
+    public static readonly IReadOnlyList<(StudioCommand Command, string Title)> All = new[]
+    {
+        (StudioCommand.TogglePlayback, "Transport: Play / Stop"),
+        (StudioCommand.PlayFromSelection, "Transport: Play from Selected Scene"),
+        (StudioCommand.ToggleRecord, "Transport: Arm / Disarm Record"),
+        (StudioCommand.LaunchSelection, "Launch: Selected Clip"),
+        (StudioCommand.LaunchSelectedScene, "Launch: Selected Scene"),
+        (StudioCommand.SwitchView, "View: Toggle Session / Arrangement"),
+        (StudioCommand.ToggleBrowser, "View: Show / Hide Browser"),
+        (StudioCommand.ToggleDetailPanel, "View: Show / Hide Clip & Devices Panel"),
+        (StudioCommand.ToggleAiPanel, "View: Show / Hide AI Panel"),
+        (StudioCommand.ToggleSessionMixer, "View: Show / Hide Session Mixer"),
+        (StudioCommand.ToggleSecondWindow, "View: Open / Close Second Window"),
+        (StudioCommand.ToggleDetailInSecondWindow, "View: Clip & Devices in Second Window"),
+        (StudioCommand.ToggleFullScreen, "View: Full Screen"),
+        (StudioCommand.ToggleComputerKeyboard, "Keys: Computer MIDI Keyboard On / Off"),
+        (StudioCommand.SelectPreviousScene, "Selection: Move Up"),
+        (StudioCommand.SelectNextScene, "Selection: Move Down"),
+        (StudioCommand.SelectPreviousTrack, "Selection: Move Left"),
+        (StudioCommand.SelectNextTrack, "Selection: Move Right"),
+        (StudioCommand.CreateClip, "Create: Empty Clip"),
+        (StudioCommand.AddTrack, "Create: Track"),
+        (StudioCommand.AddScene, "Create: Scene"),
+        (StudioCommand.NewChat, "Create: New AI Chat"),
+        (StudioCommand.DuplicateClip, "Edit: Duplicate Clip"),
+        (StudioCommand.DuplicateScene, "Edit: Duplicate Scene"),
+        (StudioCommand.DeleteClip, "Edit: Delete"),
+        (StudioCommand.CopyClip, "Edit: Copy Clip"),
+        (StudioCommand.CutClip, "Edit: Cut Clip"),
+        (StudioCommand.PasteClip, "Edit: Paste Clip"),
+        (StudioCommand.Undo, "Edit: Undo"),
+        (StudioCommand.Redo, "Edit: Redo"),
+        (StudioCommand.New, "File: New Project"),
+        (StudioCommand.Open, "File: Open…"),
+        (StudioCommand.Save, "File: Save"),
+        (StudioCommand.SaveAs, "File: Save As…"),
+        (StudioCommand.ImportSounds, "File: Import Sounds…"),
+        (StudioCommand.Bounce, "File: Bounce Arrangement…"),
+        (StudioCommand.BounceAs, "File: Bounce Options…"),
+        (StudioCommand.Settings, "File: Settings…"),
+        (StudioCommand.ShowShortcuts, "Help: Keyboard Shortcuts"),
+    };
 }
 
 /// <summary>What Space means right now: is anything actually audible?</summary>

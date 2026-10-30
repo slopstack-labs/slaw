@@ -25,21 +25,21 @@ internal sealed class SampleData
 internal sealed record SampleFolderGroup(string Label, string FolderPath, IReadOnlyList<string> SamplePaths);
 
 /// <summary>
-/// Loads, caches and resamples user-supplied WAV files. Every cache entry is
+/// Loads, caches and resamples user-supplied WAV, AIFF and FLAC files. Every cache entry is
 /// a stakeholder-owned asset that we hold onto responsibly, right up until
 /// the eviction policy decides otherwise.
 /// </summary>
 internal static class SampleLibrary
 {
     private const int MaximumCachedEntriesPerCache = 64;
-    private const int MaximumDecodedSeconds = 600;
+    public const int MaximumDecodedSeconds = 600;
 
     private static readonly ConcurrentDictionary<(string FullPath, long WriteTicks), SampleData> nativeRateCache = new();
     private static readonly ConcurrentDictionary<(string FullPath, long WriteTicks, int Rate), SampleData> resampledCache = new();
     private static readonly ConcurrentDictionary<(string FullPath, int Rate), byte> backgroundLoadsAlreadyDispatched = new();
     private static readonly ConcurrentDictionary<string, string> loadFailureByPath = new();
 
-    public static readonly IReadOnlyList<string> SupportedExtensions = new[] { ".wav", ".wave" };
+    public static readonly IReadOnlyList<string> SupportedExtensions = new[] { ".wav", ".wave", ".aif", ".aiff", ".aifc", ".flac" };
 
     public static bool IsSupportedFile(string path)
     {
@@ -65,7 +65,12 @@ internal static class SampleLibrary
             return cachedSample;
         }
 
-        var decodedSample = DecodeWaveBytes(File.ReadAllBytes(fullPath), fullPath);
+        var decodedSample = Path.GetExtension(fullPath).ToLowerInvariant() switch
+        {
+            ".aif" or ".aiff" or ".aifc" => AiffFileDecoder.Decode(File.ReadAllBytes(fullPath), fullPath),
+            ".flac" => FlacFileDecoder.Decode(File.ReadAllBytes(fullPath), fullPath),
+            _ => DecodeWaveBytes(File.ReadAllBytes(fullPath), fullPath),
+        };
         EvictIfOversubscribed(nativeRateCache);
         nativeRateCache[cacheKey] = decodedSample;
         return decodedSample;
@@ -258,7 +263,7 @@ internal static class SampleLibrary
         }
     }
 
-    private static float[] ResampleLinearly(float[] sourceSamples, int sourceRate, int targetRate)
+    public static float[] ResampleLinearly(float[] sourceSamples, int sourceRate, int targetRate)
     {
         if (sourceSamples.Length == 0)
         {

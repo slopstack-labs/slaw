@@ -1,0 +1,513 @@
+using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using SlopstackLabs.Slaw.Session;
+using SlopstackLabs.Slaw.Synthesis;
+
+namespace SlopstackLabs.Slaw.Desktop;
+
+/// <summary>What the Import window hands back to the studio.</summary>
+internal sealed record SoundImportRequest(SoundImportMode Mode, IReadOnlyList<string> SoundPaths, string Name, IReadOnlyList<string> Folders);
+
+/// <summary>
+/// The Import window: drop a folder or some files, hear what is in there, tick what
+/// you want and say how it should arrive. Not modal, so the song can keep playing
+/// while you decide whether this kick is the kick.
+/// </summary>
+internal sealed class SoundImportWindow : Window
+{
+    private const int MaximumScannedFiles = 2000;
+    private const double DrumKitLongestAverageSeconds = 4;
+
+    private static readonly FilePickerFileType AudioFileType = new("Audio files") { Patterns = new[] { "*.wav", "*.wave", "*.aif", "*.aiff", "*.aifc", "*.flac" } };
+    private static readonly string[] AbletonOnlyExtensions = { ".alp", ".adg", ".adv", ".als" };
+
+    private readonly Action<string> previewSound;
+    private readonly Action<SoundImportRequest> import;
+    private readonly List<SoundRow> rows = new();
+    private readonly List<string> sourceFolders = new();
+
+    private readonly Border dropZone = new();
+    private readonly DockPanel loadedPanel = new();
+    private readonly TextBlock sourceCaption = new() { FontSize = 12, Foreground = StudioTheme.TextMuted, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+    private readonly TextBlock noticeCaption = new() { FontSize = 12, Foreground = StudioTheme.Warning, TextWrapping = TextWrapping.Wrap, IsVisible = false, Margin = new Thickness(0, 8, 0, 0) };
+    private readonly TextBox filterInput = new() { Watermark = "filter…", FontSize = 12, MinHeight = 28, Width = 180 };
+    private readonly ListBox soundList = new() { Background = Brushes.Transparent };
+    private readonly TextBox nameInput = new() { FontSize = 13 };
+    private readonly TextBlock summaryCaption = new() { FontSize = 12, Foreground = StudioTheme.TextMuted, TextWrapping = TextWrapping.Wrap };
+    private readonly Button importButton;
+    private readonly Dictionary<SoundImportMode, Border> modeCards = new();
+
+    private SoundImportMode chosenMode = SoundImportMode.DrumKit;
+    private bool modeChosenByHand;
+    private bool scanning;
+    private CancellationTokenSource? scanCancellation;
+
+    public SoundImportWindow(Action<string> previewSound, Action<SoundImportRequest> import)
+    {
+        this.previewSound = previewSound;
+        this.import = import;
+        Title = "slaw — Import sounds";
+        Width = 900;
+        Height = 620;
+        MinWidth = 720;
+        MinHeight = 460;
+        Background = StudioTheme.Background;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+
+        importButton = StudioUi.AccentButton("Import", ConfirmImport);
+        soundList.Styles.Add(new Style(selector => selector.Is<ListBoxItem>())
+        {
+            Setters = { new Setter(PaddingProperty, new Thickness(8, 2)) },
+        });
+        soundList.ItemTemplate = new FuncDataTemplate<SoundRow>((row, _) => ComposeSoundRow(row), supportsRecycling: false);
+        soundList.SelectionChanged += (_, _) =>
+        {
+            // The way Live's browser does it: landing on a sound plays it, so arrow keys audition a whole folder.
+            if (soundList.SelectedItem is SoundRow { Failure: null } selectedRow)
+            {
+                previewSound(selectedRow.Path);
+            }
+        };
+        soundList.KeyDown += (_, keyEvent) =>
+        {
+            if (keyEvent.Key == Key.Space && soundList.SelectedItem is SoundRow toggledRow && toggledRow.Failure is null)
+            {
+                toggledRow.Included = !toggledRow.Included;
+                RefreshList(keepSelection: true);
+                keyEvent.Handled = true;
+            }
+        };
+        filterInput.TextChanged += (_, _) => RefreshList(keepSelection: false);
+        nameInput.TextChanged += (_, _) => RefreshSummary();
+
+        Content = ComposeLayout();
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, (_, dragEvent) => dragEvent.DragEffects = dragEvent.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None);
+        AddHandler(DragDrop.DropEvent, (_, dragEvent) =>
+        {
+            var droppedPaths = dragEvent.DataTransfer.TryGetFiles()?.Select(item => item.TryGetLocalPath()).OfType<string>().ToList();
+            if (droppedPaths is { Count: > 0 })
+            {
+                _ = LoadSourcesAsync(droppedPaths);
+            }
+        });
+        KeyDown += (_, keyEvent) =>
+        {
+            if (keyEvent.Key == Key.Escape)
+            {
+                Close();
+                keyEvent.Handled = true;
+            }
+            else if (keyEvent.Key == Key.Enter && importButton.IsEnabled && FocusManager?.GetFocusedElement() is not TextBox)
+            {
+                ConfirmImport();
+                keyEvent.Handled = true;
+            }
+        };
+        Closed += (_, _) => scanCancellation?.Cancel();
+        RefreshSources();
+        RefreshSummary();
+    }
+
+    /// <summary>Starts on one way of importing, as the palette's entries ask. It stays that way unless the user picks another.</summary>
+    public void PresetMode(SoundImportMode mode)
+    {
+        modeChosenByHand = true;
+        SelectMode(mode);
+    }
+
+    /// <summary>Starts from these paths, as if they had just been dropped.</summary>
+    public Task LoadSourcesAsync(IReadOnlyList<string> droppedPaths)
+    {
+        scanCancellation?.Cancel();
+        scanCancellation = new CancellationTokenSource();
+        return ScanAsync(droppedPaths, scanCancellation.Token);
+    }
+
+    // ── Layout ────────────────────────────────────────────────────────────────
+
+    private Control ComposeLayout()
+    {
+        var chooseFolderButton = StudioUi.AccentButton("Choose folder…", () => _ = ChooseFolderAsync());
+        var chooseFilesButton = StudioUi.Button("Choose files…", () => _ = ChooseFilesAsync());
+        var buttonRow = StudioUi.Row(8, chooseFolderButton, chooseFilesButton);
+        buttonRow.HorizontalAlignment = HorizontalAlignment.Center;
+        dropZone.Background = StudioTheme.Surface;
+        dropZone.BorderBrush = StudioTheme.Border;
+        dropZone.BorderThickness = new Thickness(1);
+        dropZone.CornerRadius = new CornerRadius(10);
+        dropZone.Child = new StackPanel
+        {
+            Spacing = 10,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Children =
+            {
+                new TextBlock { Text = "Drop a folder or audio files here", FontSize = 18, FontWeight = FontWeight.SemiBold, Foreground = StudioTheme.Text, HorizontalAlignment = HorizontalAlignment.Center },
+                new TextBlock { Text = "WAV, AIFF and FLAC. Folders are searched all the way down, so a sample pack works as it is.", FontSize = 12, Foreground = StudioTheme.TextMuted, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 420 },
+                buttonRow,
+            },
+        };
+
+        var listTools = StudioUi.Row(6,
+            filterInput,
+            StudioUi.Button("All", () => SetVisibleIncluded(true), "Tick everything the filter shows", compact: true),
+            StudioUi.Button("None", () => SetVisibleIncluded(false), "Untick everything the filter shows", compact: true),
+            StudioUi.Button("Change…", () => _ = ChooseFolderAsync(), "Look somewhere else", compact: true));
+        DockPanel.SetDock(listTools, Dock.Right);
+        var listHeader = new DockPanel { Margin = new Thickness(0, 0, 0, 8), Children = { listTools, sourceCaption } };
+        DockPanel.SetDock(listHeader, Dock.Top);
+        loadedPanel.Children.Add(listHeader);
+        var listFrame = new Border
+        {
+            Background = StudioTheme.Surface,
+            BorderBrush = StudioTheme.Border,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Child = soundList,
+        };
+        loadedPanel.Children.Add(listFrame);
+
+        var sourceArea = new Panel { Children = { dropZone, loadedPanel } };
+        var leftColumn = new DockPanel();
+        DockPanel.SetDock(noticeCaption, Dock.Bottom);
+        leftColumn.Children.Add(noticeCaption);
+        leftColumn.Children.Add(sourceArea);
+
+        var rightColumn = new StackPanel
+        {
+            Spacing = 8,
+            Children =
+            {
+                StudioUi.Caption("Bring them in as", 13, StudioTheme.Text, FontWeight.SemiBold),
+                ComposeModeCard(SoundImportMode.DrumKit, "Drum kit", "One track, one sound per key, starting on C4. Best for one-shots."),
+                ComposeModeCard(SoundImportMode.SeparateTracks, "Separate tracks", "A track for each sound, pitched across the keyboard."),
+                ComposeModeCard(SoundImportMode.SampleLibrary, "Sample library", "Keep the folder in Browser → Samples, and add nothing to this song yet."),
+                StudioUi.Caption("Name", 11, StudioTheme.TextMuted),
+                nameInput,
+                summaryCaption,
+            },
+        };
+
+        var workArea = new Grid { ColumnDefinitions = new ColumnDefinitions("*,16,270") };
+        Grid.SetColumn(rightColumn, 2);
+        workArea.Children.Add(leftColumn);
+        workArea.Children.Add(rightColumn);
+
+        var footerButtons = StudioUi.Row(8, StudioUi.Button("Cancel", Close), importButton);
+        footerButtons.HorizontalAlignment = HorizontalAlignment.Right;
+        footerButtons.Margin = new Thickness(0, 14, 0, 0);
+        DockPanel.SetDock(footerButtons, Dock.Bottom);
+
+        var heading = new TextBlock { Text = "Import sounds", FontSize = 20, FontWeight = FontWeight.Bold, Foreground = StudioTheme.Text, Margin = new Thickness(0, 0, 0, 14) };
+        DockPanel.SetDock(heading, Dock.Top);
+        return new DockPanel { Margin = new Thickness(20), Children = { heading, footerButtons, workArea } };
+    }
+
+    private Border ComposeModeCard(SoundImportMode mode, string title, string description)
+    {
+        var card = new Border
+        {
+            Background = StudioTheme.Surface,
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12, 9),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = new StackPanel
+            {
+                Spacing = 3,
+                Children =
+                {
+                    new TextBlock { Text = title, FontSize = 13, FontWeight = FontWeight.SemiBold, Foreground = StudioTheme.Text },
+                    new TextBlock { Text = description, FontSize = 11, Foreground = StudioTheme.TextMuted, TextWrapping = TextWrapping.Wrap },
+                },
+            },
+        };
+        card.PointerPressed += (_, _) =>
+        {
+            modeChosenByHand = true;
+            SelectMode(mode);
+        };
+        modeCards[mode] = card;
+        return card;
+    }
+
+    private Control ComposeSoundRow(SoundRow? row)
+    {
+        if (row is null)
+        {
+            return new Panel();
+        }
+        var includedBox = new CheckBox { IsChecked = row.Included, IsEnabled = row.Failure is null, MinWidth = 0, VerticalAlignment = VerticalAlignment.Center };
+        includedBox.IsCheckedChanged += (_, _) =>
+        {
+            row.Included = includedBox.IsChecked == true;
+            RefreshKitKeys();
+            RefreshSummary();
+        };
+        var playButton = StudioUi.Button("▶", () => previewSound(row.Path), "Listen", compact: true);
+        playButton.IsEnabled = row.Failure is null;
+
+        var kindChip = new Border
+        {
+            Background = StudioTheme.SurfaceRaised,
+            CornerRadius = new CornerRadius(999),
+            Padding = new Thickness(8, 1),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = row.Kind.Label, FontSize = 10, Foreground = StudioTheme.TextMuted },
+        };
+        var detail = row.Failure is not null
+            ? "can't read"
+            : row.Seconds is { } seconds ? string.Create(CultureInfo.InvariantCulture, $"{seconds:0.00} s") : "…";
+        var detailCaption = new TextBlock { Text = detail, FontSize = 11, Foreground = row.Failure is null ? StudioTheme.TextMuted : StudioTheme.Failure, VerticalAlignment = VerticalAlignment.Center, Width = 62, TextAlignment = TextAlignment.Right };
+        var keyCaption = new TextBlock { Text = row.KitKey ?? string.Empty, FontFamily = StudioTheme.MonospaceFont, FontSize = 11, Foreground = StudioTheme.Accent, VerticalAlignment = VerticalAlignment.Center, Width = 34, TextAlignment = TextAlignment.Right };
+
+        var rightGroup = StudioUi.Row(8, kindChip, detailCaption, keyCaption);
+        DockPanel.SetDock(rightGroup, Dock.Right);
+        var leftGroup = StudioUi.Row(8, includedBox, playButton);
+        DockPanel.SetDock(leftGroup, Dock.Left);
+        var nameCaption = new TextBlock { Text = row.Name, FontSize = 12, Foreground = row.Failure is null ? StudioTheme.Text : StudioTheme.TextMuted, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(8, 0) };
+        ToolTip.SetTip(nameCaption, row.Failure ?? row.Path);
+        return new DockPanel { Children = { rightGroup, leftGroup, nameCaption } };
+    }
+
+    // ── Choosing sources ──────────────────────────────────────────────────────
+
+    private async Task ChooseFolderAsync()
+    {
+        var chosenFolders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Choose a folder of sounds", AllowMultiple = true });
+        var chosenPaths = chosenFolders.Select(folder => folder.TryGetLocalPath()).OfType<string>().ToList();
+        if (chosenPaths.Count > 0)
+        {
+            await LoadSourcesAsync(chosenPaths);
+        }
+    }
+
+    private async Task ChooseFilesAsync()
+    {
+        var chosenFiles = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { Title = "Choose sounds", AllowMultiple = true, FileTypeFilter = new[] { AudioFileType } });
+        var chosenPaths = chosenFiles.Select(file => file.TryGetLocalPath()).OfType<string>().ToList();
+        if (chosenPaths.Count > 0)
+        {
+            await LoadSourcesAsync(chosenPaths);
+        }
+    }
+
+    private async Task ScanAsync(IReadOnlyList<string> sourcePaths, CancellationToken cancellation)
+    {
+        scanning = true;
+        rows.Clear();
+        sourceFolders.Clear();
+        sourceFolders.AddRange(sourcePaths.Where(Directory.Exists).Select(Path.GetFullPath));
+        var abletonOnlyFile = sourcePaths.FirstOrDefault(path => AbletonOnlyExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase));
+        ShowNotice(abletonOnlyFile is null ? null : $"{Path.GetFileName(abletonOnlyFile)} is an Ableton Live file, which slaw can't open. Install the pack in Live, then drop the pack's folder here: its samples work.");
+        nameInput.Text = sourceFolders.Count == 1
+            ? Path.GetFileName(sourceFolders[0].TrimEnd(Path.DirectorySeparatorChar))
+            : sourcePaths.Count == 1 ? Path.GetFileNameWithoutExtension(sourcePaths[0]) : "Imported Kit";
+        sourceCaption.Text = "Looking for sounds…";
+        RefreshSources();
+        RefreshList(keepSelection: false);
+        RefreshSummary();
+
+        var looseFiles = sourcePaths.Where(path => File.Exists(path) && SampleLibrary.IsSupportedFile(path)).Select(Path.GetFullPath);
+        var foundPaths = await Task.Run(() => SampleLibrary.Scan(sourceFolders, MaximumScannedFiles).Concat(looseFiles).Distinct().ToList(), cancellation);
+        if (cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+        rows.AddRange(SoundImportPlanner.SortForKit(foundPaths).Select(path => new SoundRow(path)));
+        RefreshSources();
+        RefreshList(keepSelection: false);
+
+        var readCount = 0;
+        await Task.Run(() => Parallel.ForEach(rows.ToList(), new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellation }, row =>
+        {
+            try
+            {
+                row.Seconds = SampleLibrary.Load(row.Path).DurationSeconds;
+            }
+            catch (Exception readRemediationOpportunity) when (readRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException)
+            {
+                row.Failure = readRemediationOpportunity.Message;
+                row.Included = false;
+            }
+            var finishedCount = Interlocked.Increment(ref readCount);
+            Dispatcher.UIThread.Post(() =>
+            {
+                // Scanning has ended if this arrives late, and the final count must not be overwritten.
+                if (scanning && !cancellation.IsCancellationRequested)
+                {
+                    sourceCaption.Text = $"Reading {finishedCount} of {rows.Count}…";
+                }
+            });
+        }), CancellationToken.None).ContinueWith(_ => { }, CancellationToken.None);
+        if (cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        scanning = false;
+        var unreadableCount = rows.Count(row => row.Failure is not null);
+        sourceCaption.Text = $"{rows.Count} sound{(rows.Count == 1 ? string.Empty : "s")} found" +
+            (unreadableCount > 0 ? $", {unreadableCount} unreadable" : string.Empty) +
+            (rows.Count >= MaximumScannedFiles ? $" (stopped at {MaximumScannedFiles})" : string.Empty);
+        if (rows.Count == 0)
+        {
+            ShowNotice(noticeCaption.IsVisible ? noticeCaption.Text : "No WAV, AIFF or FLAC files in there.");
+        }
+        if (!modeChosenByHand)
+        {
+            var readableRows = rows.Where(row => row.Seconds is not null).ToList();
+            SelectMode(readableRows.Count > 0 && readableRows.Average(row => row.Seconds!.Value) > DrumKitLongestAverageSeconds
+                ? SoundImportMode.SeparateTracks
+                : SoundImportMode.DrumKit);
+        }
+        RefreshList(keepSelection: false);
+    }
+
+    // ── Refreshing ────────────────────────────────────────────────────────────
+
+    private void ShowNotice(string? notice)
+    {
+        noticeCaption.Text = notice;
+        noticeCaption.IsVisible = notice is not null;
+    }
+
+    private void RefreshSources()
+    {
+        var hasSomething = scanning || rows.Count > 0;
+        dropZone.IsVisible = !hasSomething;
+        loadedPanel.IsVisible = hasSomething;
+    }
+
+    private void SetVisibleIncluded(bool included)
+    {
+        foreach (var row in VisibleRows().Where(row => row.Failure is null))
+        {
+            row.Included = included;
+        }
+        RefreshList(keepSelection: true);
+    }
+
+    private IEnumerable<SoundRow> VisibleRows()
+    {
+        var filter = filterInput.Text?.Trim();
+        return string.IsNullOrEmpty(filter)
+            ? rows
+            : rows.Where(row => row.Path.Contains(filter, StringComparison.OrdinalIgnoreCase) || row.Kind.Label.Contains(filter, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void RefreshList(bool keepSelection)
+    {
+        RefreshKitKeys();
+        var selectedRow = keepSelection ? soundList.SelectedItem : null;
+        soundList.ItemsSource = VisibleRows().ToList();
+        if (selectedRow is not null)
+        {
+            soundList.SelectedItem = selectedRow;
+        }
+        RefreshSummary();
+    }
+
+    /// <summary>In Drum kit mode every ticked row shows the key it will land on.</summary>
+    private void RefreshKitKeys()
+    {
+        var kitPosition = 0;
+        foreach (var row in rows)
+        {
+            row.KitKey = chosenMode == SoundImportMode.DrumKit && row.Included && kitPosition < SoundImportPlanner.MaximumKitSounds
+                ? SoundImportPlanner.KeyForKitPosition(kitPosition++)
+                : null;
+        }
+    }
+
+    private void SelectMode(SoundImportMode mode)
+    {
+        chosenMode = mode;
+        foreach (var (cardMode, card) in modeCards)
+        {
+            card.BorderBrush = cardMode == mode ? StudioTheme.Accent : StudioTheme.Border;
+            card.Background = cardMode == mode ? StudioTheme.AccentSoft : StudioTheme.Surface;
+        }
+        RefreshList(keepSelection: true);
+    }
+
+    private void RefreshSummary()
+    {
+        if (modeCards.Count > 0 && modeCards[chosenMode].BorderBrush is null)
+        {
+            SelectMode(chosenMode);
+            return;
+        }
+        var includedCount = rows.Count(row => row.Included);
+        var name = nameInput.Text?.Trim();
+        var kitCount = Math.Min(includedCount, SoundImportPlanner.MaximumKitSounds);
+        summaryCaption.Text = rows.Count == 0
+            ? "Drop some sounds on the left to begin."
+            : includedCount == 0 && chosenMode != SoundImportMode.SampleLibrary
+            ? "Tick the sounds you want."
+            : chosenMode switch
+            {
+                SoundImportMode.DrumKit => $"{kitCount} sound{(kitCount == 1 ? string.Empty : "s")} on one track, keys {SoundImportPlanner.KeyForKitPosition(0)} to {SoundImportPlanner.KeyForKitPosition(Math.Max(0, kitCount - 1))}." +
+                    (includedCount > kitCount ? $" Only the first {kitCount} fit in a kit." : string.Empty),
+                SoundImportMode.SeparateTracks => $"{includedCount} new track{(includedCount == 1 ? string.Empty : "s")}.",
+                _ => sourceFolders.Count > 0
+                    ? $"{sourceFolders.Count} folder{(sourceFolders.Count == 1 ? string.Empty : "s")} added to Browser → Samples."
+                    : "The folders holding these files join Browser → Samples.",
+            };
+        importButton.Content = chosenMode switch
+        {
+            SoundImportMode.DrumKit => $"Create kit ({kitCount})",
+            SoundImportMode.SeparateTracks => $"Add {includedCount} track{(includedCount == 1 ? string.Empty : "s")}",
+            _ => "Add to library",
+        };
+        importButton.IsEnabled = !scanning && rows.Count > 0 &&
+            (chosenMode == SoundImportMode.SampleLibrary || (includedCount > 0 && (chosenMode != SoundImportMode.DrumKit || !string.IsNullOrWhiteSpace(name))));
+    }
+
+    private void ConfirmImport()
+    {
+        var includedPaths = rows.Where(row => row.Included).Select(row => row.Path).ToList();
+        if (chosenMode == SoundImportMode.DrumKit)
+        {
+            includedPaths = includedPaths.Take(SoundImportPlanner.MaximumKitSounds).ToList();
+        }
+        var libraryFolders = sourceFolders.Count > 0
+            ? sourceFolders.ToList()
+            : rows.Select(row => Path.GetDirectoryName(row.Path)).OfType<string>().Distinct().ToList();
+        import(new SoundImportRequest(chosenMode, includedPaths, nameInput.Text?.Trim() ?? "Imported Kit", libraryFolders));
+        Close();
+    }
+
+    private sealed class SoundRow
+    {
+        public SoundRow(string path)
+        {
+            Path = path;
+            Name = System.IO.Path.GetFileNameWithoutExtension(path);
+            Kind = SoundImportPlanner.Classify(path);
+        }
+
+        public string Path { get; }
+
+        public string Name { get; }
+
+        public SoundKind Kind { get; }
+
+        public double? Seconds { get; set; }
+
+        public string? Failure { get; set; }
+
+        public bool Included { get; set; } = true;
+
+        public string? KitKey { get; set; }
+    }
+}

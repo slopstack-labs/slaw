@@ -68,6 +68,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private readonly ArrangementView arrangementView;
     private readonly Button backToArrangementButton;
     private readonly DetailView detailView;
+    private readonly CommandPalette commandPalette;
     private readonly ContentControl browserHost = new();
     private readonly ContentControl aiPanelHost = new();
     private readonly ToggleButton sessionViewToggle = new() { Content = "Session", Padding = new Thickness(12, 5) };
@@ -162,8 +163,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         mainPane = new StudioWorkspacePane(preferences.DetailPanelHeight);
         detailView.MinimumHeightRequested += requestedHeight => DetailPane.GrowDetailTo(requestedHeight);
         detailColumn = ComposeDetailColumn();
+        commandPalette = new CommandPalette();
 
-        Content = ComposeLayout();
+        Content = new Panel { Children = { ComposeLayout(), commandPalette } };
         WireDocument();
         WireControls();
 
@@ -352,7 +354,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         var samplesSection = AddCollapsibleBrowserSection(browserContent, "Samples");
         samplesSection.Children.Add(StudioUi.Row(4,
-            StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV files to the browser", compact: true),
+            StudioUi.Button("⤓ Import…", () => OpenSoundImportWindow(), "Import a folder or files as a drum kit, tracks or library (Ctrl+Shift+I)", compact: true),
+            StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV, AIFF or FLAC files to the browser", compact: true),
             StudioUi.Button("⟳", () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true)));
         samplesSection.Children.Add(Detached(sampleFilterInput));
         samplesSection.Children.Add(Detached(sampleEntriesPanel));
@@ -1835,7 +1838,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         {
             Title = "Load sample",
             AllowMultiple = false,
-            FileTypeFilter = new[] { new FilePickerFileType("WAV audio") { Patterns = new[] { "*.wav", "*.wave" } } },
+            FileTypeFilter = new[] { new FilePickerFileType("Audio files") { Patterns = new[] { "*.wav", "*.wave", "*.aif", "*.aiff", "*.aifc", "*.flac" } } },
         });
         if (selectedFiles.Count > 0 && selectedFiles[0].TryGetLocalPath() is { } selectedPath)
         {
