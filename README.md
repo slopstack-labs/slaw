@@ -91,6 +91,21 @@ $env:MODEL = "phi3"; ./run.ps1 compose "lofi beat for productivity"
 
 The default `MODEL` is `llama3`.
 
+## Installers
+
+Both installers are built only when someone asks: each has its own manually triggered workflow (Actions → *Run workflow*) that takes a version tag such as `v0.2.0` or `v0.2.0-beta.1`.
+
+| Platform | Workflow | You get |
+|----------|----------|---------|
+| Windows x64 | *Release with installer* (`release-installer.yml`) | `slaw-<tag>-win-x64-setup.exe`, `slaw-<tag>-win-x64.msi`, and a GitHub release with every portable binary |
+| macOS (Apple Silicon, Intel) | *macOS disk images* (`release-macos.yml`) | `slaw-<tag>-osx-arm64.dmg`, `slaw-<tag>-osx-x64.dmg`, optionally attached to that tag's existing release |
+
+### Windows setup
+
+`setup.exe` is a WiX v5 Burn bundle with its own window (`installer/SlawSetup`), which has turntables. It installs per machine into Program Files, with a Start menu shortcut and, if you tick them, a desktop shortcut, a `PATH` entry (so `slaw compose` works in any terminal) and the `.slaw` file association. Uninstall removes all of them. Upgrades replace the old version in place; downgrades are refused. Use the plain `.msi` for silent and managed installs (`msiexec /i slaw-<tag>-win-x64.msi /qn`). The installer artwork is rendered at build time by `installer/New-InstallerAssets.ps1`.
+
+WiX v5 is free under the MS-RL licence. WiX v6 and later ask organizations that earn revenue with it for an Open Source Maintenance Fee, so the workflow pins `WIX_VERSION: 5.0.2`. `setup.exe` redistributes two unmodified WiX files (`WixToolset.BootstrapperApplicationApi.dll`, `mbanative.dll`) under that licence.
+
 ### macOS disk image
 
 The **macOS disk images** workflow (manual only: Actions → *macOS disk images* → *Run workflow*) builds `slaw-<tag>-osx-arm64.dmg` and `slaw-<tag>-osx-x64.dmg`. Each holds `slaw.app` and an Applications shortcut, on a background with a turntable, so installing is one drag and the needle drops itself. Tick *attach to release* to upload both to the existing release with that tag. To build one locally on a Mac:
