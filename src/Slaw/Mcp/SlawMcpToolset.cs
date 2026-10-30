@@ -182,10 +182,14 @@ internal sealed class SlawMcpToolset
             Schema(new JsonObject { ["patch"] = PatchSchema() }, "patch"),
             async (toolArguments, clientName, _) =>
             {
+                // Agents often send the patch itself as the arguments; any recognised patch key means that is what they did.
                 var projectPatch = toolArguments["patch"] as JsonObject
                     ?? (toolArguments["patch"] is JsonValue patchText && patchText.TryGetValue<string>(out var serializedPatch)
                         ? ProjectPatchApplier.ParsePatch(serializedPatch)
-                        : throw new McpInvalidParamsException("patch must be a JSON object"));
+                        : toolArguments["patch"] is null && toolArguments.Any(argument => ProjectPatchApplier.KnownPatchKeys.Contains(argument.Key))
+                            ? toolArguments
+                            : throw new McpInvalidParamsException(
+                                "apply_patch takes {\"patch\": {...}}: wrap the patch object (e.g. {\"patch\": {\"bpm\": 120}}). No patch keys were found in the arguments."));
                 return await host.InvokeAsync(() =>
                 {
                     var previousProject = host.Document.Project;
