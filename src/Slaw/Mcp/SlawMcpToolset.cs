@@ -21,7 +21,8 @@ internal sealed class SlawMcpToolset
         "slaw is a step-sequencing DAW. Music lives in two places, like Ableton Live.\n" +
         "- SESSION: a grid of loops, one clip slot per track per scene. Tools: set_clip, remove_scene, apply_patch tracks[].clips. Scenes are NOT the song order.\n" +
         "- ARRANGEMENT: the song. Clips placed on tracks along one timeline. render bounces it; Play in the studio plays it. " +
-        "Tools: arrangement_place_clip, arrangement_edit_clip, arrangement_remove_clips, or apply_patch \"timeline\" for many clips at once.\n" +
+        "Tools: arrangement_place_clip, arrangement_edit_clip, arrangement_remove_clips, or apply_patch \"timeline\" for many clips at once. " +
+        "arrangement_place_audio puts a WAV (a vocal, a stem) on the arrangement at its original speed: set the tempo to the recording's tempo first.\n" +
         "UNITS: positions and lengths are sixteenth-note STEPS, 0-based: step 0 is the start of bar 1, 16 steps per bar, bar N starts at step (N-1)*16. " +
         "Arguments named start/length/step take steps; arguments named bar/bars take 1-based bars / bar counts. Listings print both, e.g. " +
         "\"bars 9.1–17.1 (start 128, length 128 steps = 8 bars, ends before step 256); pattern 64 steps ×2\". Ends are exclusive.\n" +
@@ -410,6 +411,74 @@ internal sealed class SlawMcpToolset
                 return AppendWarnings($"placed clip id \"{placedClip.Id}\" on \"{targetTrack.Name}\": {FreeTimeline.DescribeSpan(placedClip)}" +
                     DescribeClipEnvelopes(placedClip.Clip), envelopeWarnings);
             }));
+
+        Register("arrangement_place_audio",
+            "Place a WAV file (a vocal, a stem, a loop, a whole recording) in the ARRANGEMENT, playing at its original pitch and speed from a start bar. " +
+            "Long files are cut into consecutive 4-bar slices, one arrangement clip each, so any length plays through without gaps. " +
+            "Set the project tempo (set_tempo or apply_patch bpm) BEFORE placing: the slices are cut at the current tempo and the audio itself is never time-stretched, " +
+            "so a vocal recorded at 112 BPM lines up with the grid only when the project is at 112 BPM. " +
+            "E.g. {\"path\": \"/music/vocals.wav\", \"bar\": 1, \"name\": \"Lead Vocal\"}. Without `track` a new sampler track is created.",
+            Schema(new JsonObject
+            {
+                ["path"] = Property("string", "Path to a WAV file (see list_samples)."),
+                ["track"] = AnyProperty("Optional existing track to play it on. " + TrackReferenceDescription + " If that track already plays other audio, a new track is made next to it."),
+                ["start"] = Property("integer", "0-based start step (16 per bar). Use this or bar; default bar 1."),
+                ["bar"] = Property("number", "1-based bar to start at (bar 1 = step 0)."),
+                ["name"] = Property("string", "Name for a new track (default: the file name)."),
+            }, "path"),
+            async (toolArguments, clientName, _) =>
+            {
+                var audioPath = ReadString(toolArguments["path"]) ?? throw new McpInvalidParamsException("path is required: a WAV file, see list_samples");
+                SampleData placedAudio;
+                try
+                {
+                    placedAudio = await Task.Run(() => SampleLibrary.Load(Path.GetFullPath(audioPath)));
+                }
+                catch (Exception loadRemediationOpportunity) when (loadRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException)
+                {
+                    throw new McpInvalidParamsException($"cannot read {audioPath}: {loadRemediationOpportunity.Message}");
+                }
+                return await host.InvokeAsync(() =>
+                {
+                    var document = host.Document;
+                    var project = document.Project;
+                    var startStep = ReadStartStep(toolArguments) ?? 0;
+                    ValidatePlacement(startStep, 1);
+                    SlawTrack? requestedTrack = null;
+                    if (toolArguments["track"] is not null)
+                    {
+                        requestedTrack = ResolveTrack(toolArguments["track"]).Track;
+                        RejectLocked(requestedTrack);
+                    }
+                    var needsNewTrack = requestedTrack is null || AudioTakeAssembler.NeedsFreshTimelineTrack(project, requestedTrack);
+                    if (needsNewTrack && project.Tracks.Count >= ProjectAlignmentRemediator.MaximumTrackCount)
+                    {
+                        throw new McpInvalidParamsException($"the project already has the maximum of {ProjectAlignmentRemediator.MaximumTrackCount} tracks");
+                    }
+                    document.BeginEdit($"{clientName}: place audio");
+                    var audioTrack = requestedTrack;
+                    if (needsNewTrack)
+                    {
+                        audioTrack = AudioTakeAssembler.CreateTakeTrack(project, requestedTrack);
+                        if (requestedTrack is null)
+                        {
+                            audioTrack.Name = ReadString(toolArguments["name"]) is { Length: > 0 } requestedName ? requestedName : Path.GetFileNameWithoutExtension(audioPath);
+                        }
+                        var insertionIndex = requestedTrack is null ? project.Tracks.Count : project.Tracks.IndexOf(requestedTrack) + 1;
+                        project.Tracks.Insert(insertionIndex, audioTrack);
+                    }
+                    var placedClips = AudioTakeAssembler.ApplyTimelineTake(project, audioTrack!, Path.GetFullPath(audioPath), startStep, placedAudio.Samples.Length, placedAudio.SampleRate);
+                    project.AiProvenance = $"{clientName} via MCP";
+                    document.CommitEdit($"{clientName} placed {Path.GetFileName(audioPath)} on {audioTrack!.Name}", EditScope.Structure);
+                    host.OnAgentEdit(clientName, $"placed {Path.GetFileName(audioPath)} on {audioTrack.Name}");
+                    var audioSeconds = placedAudio.Samples.Length / (double)placedAudio.SampleRate;
+                    var lastClip = placedClips[^1];
+                    return FormattableString.Invariant(
+                        $"placed \"{Path.GetFileName(audioPath)}\" ({audioSeconds:0.0} s) on {(needsNewTrack ? "new " : string.Empty)}track \"{audioTrack.Name}\" (id {audioTrack.Id}) as {placedClips.Count} arrangement clip(s) from {FreeTimeline.FormatPosition(startStep)} to {FreeTimeline.FormatPosition(lastClip.EndStep)} (exclusive), cut at {project.Bpm:0.##} BPM; clip ids: {string.Join(", ", placedClips.Select(clip => clip.Id))}.") +
+                        (requestedTrack is not null && needsNewTrack ? $" \"{requestedTrack.Name}\" already played other audio, so this went on a new track next to it." : string.Empty) +
+                        " Change the tempo afterwards and the slices drift: set the tempo first, then place audio.";
+                });
+            });
 
         Register("arrangement_edit_clip",
             "Change an ARRANGEMENT clip by id: move it (`start` step or `bar`), resize it (`length` steps or `bars`), replace its pattern, rename it, " +
