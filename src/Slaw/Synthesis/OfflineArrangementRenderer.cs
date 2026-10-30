@@ -49,6 +49,18 @@ internal static class OfflineArrangementRenderer
             }
         }
 
+        foreach (var zone in project.Tracks.Where(track => track.Instrument == "multisampler" && track.SampleZones is not null).SelectMany(track => track.SampleZones!))
+        {
+            try
+            {
+                SampleEditProcessor.LoadProcessed(zone.Sample, null, sampleRate);
+            }
+            catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+            {
+                // One missing recording leaves one silent key, and the bounce goes on.
+            }
+        }
+
         // SoundFonts too: a bounce waits for the parse instead of dropping the first notes.
         foreach (var soundFontTrack in project.Tracks.Where(track => track.Instrument == "soundfont"))
         {

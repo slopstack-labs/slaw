@@ -639,6 +639,10 @@ internal sealed partial class DetailView : UserControl
         {
             titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeSoundFontSection(track) } };
         }
+        else if (track.Instrument == "multisampler")
+        {
+            titleControls = new StackPanel { Spacing = 4, Children = { titleRow, ComposeMultisamplerSection(track) } };
+        }
         var instrumentPanel = ComposeDevicePanel(PluginDeviceOperations.DeviceName(track), titleControls, knobs, StudioTheme.TrackBrush(trackIndex));
         var instrumentDescription = DeviceCatalog.InstrumentDescription(track.Instrument);
         if (!string.IsNullOrEmpty(instrumentDescription))
@@ -646,6 +650,22 @@ internal sealed partial class DetailView : UserControl
             ToolTip.SetTip(instrumentPanel, instrumentDescription);
         }
         return instrumentPanel;
+    }
+
+    private Control ComposeMultisamplerSection(SlawTrack track)
+    {
+        var importButton = StudioUi.Button("Import…", host.OpenSoundImport, "Import an Ableton preset (.adg) or a folder of sounds", compact: true);
+        if (track.SampleZones is not { Count: > 0 } zones)
+        {
+            return new StackPanel { Spacing = 4, Children = { StudioUi.Caption("No recordings yet. Import an Ableton preset.", 10, StudioTheme.Warning), importButton } };
+        }
+        var zoneMap = new SampleZoneMapControl { Width = 230, Height = 46, Zones = zones };
+        ToolTip.SetTip(zoneMap, "Keys left to right, velocity bottom to top. Brighter blocks are layers.");
+        return new StackPanel
+        {
+            Spacing = 4,
+            Children = { zoneMap, StudioUi.Row(6, importButton, StudioUi.Caption(SampleZoneMap.Describe(zones), 10)) },
+        };
     }
 
     private Control ComposeSamplerSection(SlawTrack track, int trackIndex)

@@ -14,7 +14,7 @@ using SlopstackLabs.Slaw.Synthesis;
 namespace SlopstackLabs.Slaw.Desktop;
 
 /// <summary>What the Import window hands back to the studio.</summary>
-internal sealed record SoundImportRequest(SoundImportMode Mode, IReadOnlyList<string> SoundPaths, string Name, IReadOnlyList<string> Folders);
+internal sealed record SoundImportRequest(SoundImportMode Mode, IReadOnlyList<string> SoundPaths, string Name, IReadOnlyList<string> Folders, IReadOnlyList<ImportedRack> Racks);
 
 /// <summary>
 /// The Import window: drop a folder or some files, hear what is in there, tick what
@@ -26,8 +26,8 @@ internal sealed class SoundImportWindow : Window
     private const int MaximumScannedFiles = 2000;
     private const double DrumKitLongestAverageSeconds = 4;
 
-    private static readonly FilePickerFileType AudioFileType = new("Audio files") { Patterns = new[] { "*.wav", "*.wave", "*.aif", "*.aiff", "*.aifc", "*.flac" } };
-    private static readonly string[] AbletonOnlyExtensions = { ".alp", ".adg", ".adv", ".als" };
+    private static readonly FilePickerFileType AudioFileType = new("Audio files") { Patterns = new[] { "*.wav", "*.wave", "*.aif", "*.aiff", "*.aifc", "*.flac", "*.adg", "*.adv" } };
+    private static readonly string[] AbletonOnlyExtensions = { ".alp", ".als" };
 
     private readonly Action<string> previewSound;
     private readonly Action<SoundImportRequest> import;
@@ -41,6 +41,7 @@ internal sealed class SoundImportWindow : Window
     private readonly TextBox filterInput = new() { Watermark = "filter…", FontSize = 12, MinHeight = 28, Width = 180 };
     private readonly ListBox soundList = new() { Background = Brushes.Transparent };
     private readonly TextBox nameInput = new() { FontSize = 13 };
+    private readonly TextBlock nameCaption = StudioUi.Caption("Name", 11, StudioTheme.TextMuted);
     private readonly TextBlock summaryCaption = new() { FontSize = 12, Foreground = StudioTheme.TextMuted, TextWrapping = TextWrapping.Wrap };
     private readonly Button importButton;
     private readonly Dictionary<SoundImportMode, Border> modeCards = new();
@@ -73,7 +74,7 @@ internal sealed class SoundImportWindow : Window
             // The way Live's browser does it: landing on a sound plays it, so arrow keys audition a whole folder.
             if (soundList.SelectedItem is SoundRow { Failure: null } selectedRow)
             {
-                previewSound(selectedRow.Path);
+                previewSound(selectedRow.PreviewPath);
             }
         };
         soundList.KeyDown += (_, keyEvent) =>
@@ -117,6 +118,14 @@ internal sealed class SoundImportWindow : Window
         RefreshSummary();
     }
 
+    /// <summary>Anything from Live: presets, which can be read, and songs and packs, which get an explanation.</summary>
+    public static bool IsAbletonFile(string path) =>
+        File.Exists(path) && (AbletonRackImporter.IsPresetFile(path) || AbletonOnlyExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase));
+
+    public static bool FolderHoldsPresets(string folder) =>
+        Directory.EnumerateFiles(folder, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, MaxRecursionDepth = 6 })
+            .Any(AbletonRackImporter.IsPresetFile);
+
     /// <summary>Starts on one way of importing, as the palette's entries ask. It stays that way unless the user picks another.</summary>
     public void PresetMode(SoundImportMode mode)
     {
@@ -152,7 +161,7 @@ internal sealed class SoundImportWindow : Window
             Children =
             {
                 new TextBlock { Text = "Drop a folder or audio files here", FontSize = 18, FontWeight = FontWeight.SemiBold, Foreground = StudioTheme.Text, HorizontalAlignment = HorizontalAlignment.Center },
-                new TextBlock { Text = "WAV, AIFF and FLAC. Folders are searched all the way down, so a sample pack works as it is.", FontSize = 12, Foreground = StudioTheme.TextMuted, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 420 },
+                new TextBlock { Text = "WAV, AIFF, FLAC and Ableton presets (.adg). Folders are searched all the way down, so a sample pack works as it is.", FontSize = 12, Foreground = StudioTheme.TextMuted, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 420 },
                 buttonRow,
             },
         };
@@ -188,10 +197,11 @@ internal sealed class SoundImportWindow : Window
             Children =
             {
                 StudioUi.Caption("Bring them in as", 13, StudioTheme.Text, FontWeight.SemiBold),
+                ComposeModeCard(SoundImportMode.AbletonPreset, "Ableton preset", "One playable instrument per preset, with its key and velocity map. Effects and macros stay behind."),
                 ComposeModeCard(SoundImportMode.DrumKit, "Drum kit", "One track, one sound per key, starting on C4. Best for one-shots."),
                 ComposeModeCard(SoundImportMode.SeparateTracks, "Separate tracks", "A track for each sound, pitched across the keyboard."),
                 ComposeModeCard(SoundImportMode.SampleLibrary, "Sample library", "Keep the folder in Browser → Samples, and add nothing to this song yet."),
-                StudioUi.Caption("Name", 11, StudioTheme.TextMuted),
+                nameCaption,
                 nameInput,
                 summaryCaption,
             },
@@ -253,7 +263,7 @@ internal sealed class SoundImportWindow : Window
             RefreshKitKeys();
             RefreshSummary();
         };
-        var playButton = StudioUi.Button("▶", () => previewSound(row.Path), "Listen", compact: true);
+        var playButton = StudioUi.Button("▶", () => previewSound(row.PreviewPath), "Listen", compact: true);
         playButton.IsEnabled = row.Failure is null;
 
         var kindChip = new Border
@@ -266,17 +276,25 @@ internal sealed class SoundImportWindow : Window
         };
         var detail = row.Failure is not null
             ? "can't read"
+            : row.Rack is { } rack ? rack.MissingFiles.Count > 0 ? $"{rack.Zones.Count} sounds, {rack.MissingFiles.Count} missing" : $"{rack.Zones.Count} sounds"
             : row.Seconds is { } seconds ? string.Create(CultureInfo.InvariantCulture, $"{seconds:0.00} s") : "…";
-        var detailCaption = new TextBlock { Text = detail, FontSize = 11, Foreground = row.Failure is null ? StudioTheme.TextMuted : StudioTheme.Failure, VerticalAlignment = VerticalAlignment.Center, Width = 62, TextAlignment = TextAlignment.Right };
+        var detailForeground = row.Failure is not null ? StudioTheme.Failure : row.Rack is { MissingFiles.Count: > 0 } ? StudioTheme.Warning : StudioTheme.TextMuted;
+        var detailCaption = new TextBlock { Text = detail, FontSize = 11, Foreground = detailForeground, VerticalAlignment = VerticalAlignment.Center, MinWidth = 62, TextAlignment = TextAlignment.Right };
         var keyCaption = new TextBlock { Text = row.KitKey ?? string.Empty, FontFamily = StudioTheme.MonospaceFont, FontSize = 11, Foreground = StudioTheme.Accent, VerticalAlignment = VerticalAlignment.Center, Width = 34, TextAlignment = TextAlignment.Right };
 
-        var rightGroup = StudioUi.Row(8, kindChip, detailCaption, keyCaption);
+        Control rightSlot = keyCaption;
+        if (row.Rack is { } mappedRack)
+        {
+            rightSlot = new SampleZoneMapControl { Width = 110, Height = 24, Zones = mappedRack.Zones, VerticalAlignment = VerticalAlignment.Center };
+            ToolTip.SetTip(rightSlot, "Keys left to right, velocity bottom to top. Brighter blocks are layers.");
+        }
+        var rightGroup = StudioUi.Row(8, kindChip, detailCaption, rightSlot);
         DockPanel.SetDock(rightGroup, Dock.Right);
         var leftGroup = StudioUi.Row(8, includedBox, playButton);
         DockPanel.SetDock(leftGroup, Dock.Left);
-        var nameCaption = new TextBlock { Text = row.Name, FontSize = 12, Foreground = row.Failure is null ? StudioTheme.Text : StudioTheme.TextMuted, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(8, 0) };
-        ToolTip.SetTip(nameCaption, row.Failure ?? row.Path);
-        return new DockPanel { Children = { rightGroup, leftGroup, nameCaption } };
+        var rowName = new TextBlock { Text = row.Name, FontSize = 12, Foreground = row.Failure is null ? StudioTheme.Text : StudioTheme.TextMuted, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(8, 0) };
+        ToolTip.SetTip(rowName, row.Failure ?? row.Path);
+        return new DockPanel { Children = { rightGroup, leftGroup, rowName } };
     }
 
     // ── Choosing sources ──────────────────────────────────────────────────────
@@ -307,8 +325,18 @@ internal sealed class SoundImportWindow : Window
         rows.Clear();
         sourceFolders.Clear();
         sourceFolders.AddRange(sourcePaths.Where(Directory.Exists).Select(Path.GetFullPath));
-        var abletonOnlyFile = sourcePaths.FirstOrDefault(path => AbletonOnlyExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase));
-        ShowNotice(abletonOnlyFile is null ? null : $"{Path.GetFileName(abletonOnlyFile)} is an Ableton Live file, which slaw can't open. Install the pack in Live, then drop the pack's folder here: its samples work.");
+        var liveSong = sourcePaths.FirstOrDefault(path => string.Equals(Path.GetExtension(path), ".als", StringComparison.OrdinalIgnoreCase));
+        var livePack = sourcePaths.FirstOrDefault(path => string.Equals(Path.GetExtension(path), ".alp", StringComparison.OrdinalIgnoreCase));
+        if (liveSong is not null && Path.GetDirectoryName(Path.GetFullPath(liveSong)) is { } songFolder && !sourceFolders.Contains(songFolder))
+        {
+            // The song can't come, but the instruments and samples beside it can.
+            sourceFolders.Add(songFolder);
+        }
+        ShowNotice(livePack is not null
+            ? $"{Path.GetFileName(livePack)} is a packed Live Pack, which slaw can't unpack. Double-click it to install it in Live, then drop the installed folder here."
+            : liveSong is not null
+                ? $"The song in {Path.GetFileName(liveSong)} can't be imported, but the presets and samples in its folder can."
+                : null);
         nameInput.Text = sourceFolders.Count == 1
             ? Path.GetFileName(sourceFolders[0].TrimEnd(Path.DirectorySeparatorChar))
             : sourcePaths.Count == 1 ? Path.GetFileNameWithoutExtension(sourcePaths[0]) : "Imported Kit";
@@ -318,12 +346,21 @@ internal sealed class SoundImportWindow : Window
         RefreshSummary();
 
         var looseFiles = sourcePaths.Where(path => File.Exists(path) && SampleLibrary.IsSupportedFile(path)).Select(Path.GetFullPath);
+        var loosePresets = sourcePaths.Where(path => File.Exists(path) && AbletonRackImporter.IsPresetFile(path)).Select(Path.GetFullPath).ToList();
         var foundPaths = await Task.Run(() => SampleLibrary.Scan(sourceFolders, MaximumScannedFiles).Concat(looseFiles).Distinct().ToList(), cancellation);
+        var foundPresets = await Task.Run(() => sourceFolders
+            .SelectMany(folder => Directory.EnumerateFiles(folder, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }))
+            .Where(AbletonRackImporter.IsPresetFile)
+            .Concat(loosePresets)
+            .Distinct()
+            .Take(MaximumScannedFiles)
+            .ToList(), cancellation);
         if (cancellation.IsCancellationRequested)
         {
             return;
         }
         rows.AddRange(SoundImportPlanner.SortForKit(foundPaths).Select(path => new SoundRow(path)));
+        rows.AddRange(foundPresets.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).Select(path => new SoundRow(path)));
         RefreshSources();
         RefreshList(keepSelection: false);
 
@@ -332,7 +369,15 @@ internal sealed class SoundImportWindow : Window
         {
             try
             {
-                row.Seconds = SampleLibrary.Load(row.Path).DurationSeconds;
+                if (row.IsPreset)
+                {
+                    row.Rack = AbletonRackImporter.Read(row.Path);
+                    row.Kind = new SoundKind(row.Rack.Kind, 0);
+                }
+                else
+                {
+                    row.Seconds = SampleLibrary.Load(row.Path).DurationSeconds;
+                }
             }
             catch (Exception readRemediationOpportunity) when (readRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException)
             {
@@ -356,19 +401,29 @@ internal sealed class SoundImportWindow : Window
 
         scanning = false;
         var unreadableCount = rows.Count(row => row.Failure is not null);
-        sourceCaption.Text = $"{rows.Count} sound{(rows.Count == 1 ? string.Empty : "s")} found" +
+        var presetCount = rows.Count(row => row.IsPreset);
+        var soundCount = rows.Count - presetCount;
+        sourceCaption.Text = (presetCount > 0 ? $"{presetCount} preset{(presetCount == 1 ? string.Empty : "s")} and " : string.Empty) +
+            $"{soundCount} sound{(soundCount == 1 ? string.Empty : "s")} found" +
             (unreadableCount > 0 ? $", {unreadableCount} unreadable" : string.Empty) +
             (rows.Count >= MaximumScannedFiles ? $" (stopped at {MaximumScannedFiles})" : string.Empty);
         if (rows.Count == 0)
         {
-            ShowNotice(noticeCaption.IsVisible ? noticeCaption.Text : "No WAV, AIFF or FLAC files in there.");
+            ShowNotice(noticeCaption.IsVisible ? noticeCaption.Text : "No WAV, AIFF or FLAC files or Ableton presets in there.");
+        }
+        else if (!noticeCaption.IsVisible && rows.FirstOrDefault(row => row.IsPreset && row.Failure is not null) is { } unreadablePreset)
+        {
+            // Saying why matters more for a preset than a sound: someone chose that instrument on purpose.
+            ShowNotice(unreadablePreset.Failure);
         }
         if (!modeChosenByHand)
         {
             var readableRows = rows.Where(row => row.Seconds is not null).ToList();
-            SelectMode(readableRows.Count > 0 && readableRows.Average(row => row.Seconds!.Value) > DrumKitLongestAverageSeconds
-                ? SoundImportMode.SeparateTracks
-                : SoundImportMode.DrumKit);
+            SelectMode(rows.Any(row => row.Rack is not null)
+                ? SoundImportMode.AbletonPreset
+                : readableRows.Count > 0 && readableRows.Average(row => row.Seconds!.Value) > DrumKitLongestAverageSeconds
+                    ? SoundImportMode.SeparateTracks
+                    : SoundImportMode.DrumKit);
         }
         RefreshList(keepSelection: false);
     }
@@ -397,12 +452,17 @@ internal sealed class SoundImportWindow : Window
         RefreshList(keepSelection: true);
     }
 
+    /// <summary>Presets on the preset card, sounds on the others: each card lists what it can bring in.</summary>
+    private IEnumerable<SoundRow> ModeRows() =>
+        rows.Where(row => row.IsPreset == (chosenMode == SoundImportMode.AbletonPreset));
+
     private IEnumerable<SoundRow> VisibleRows()
     {
         var filter = filterInput.Text?.Trim();
+        var modeRows = ModeRows();
         return string.IsNullOrEmpty(filter)
-            ? rows
-            : rows.Where(row => row.Path.Contains(filter, StringComparison.OrdinalIgnoreCase) || row.Kind.Label.Contains(filter, StringComparison.OrdinalIgnoreCase));
+            ? modeRows
+            : modeRows.Where(row => row.Path.Contains(filter, StringComparison.OrdinalIgnoreCase) || row.Kind.Label.Contains(filter, StringComparison.OrdinalIgnoreCase));
     }
 
     private void RefreshList(bool keepSelection)
@@ -421,7 +481,7 @@ internal sealed class SoundImportWindow : Window
     private void RefreshKitKeys()
     {
         var kitPosition = 0;
-        foreach (var row in rows)
+        foreach (var row in rows.Where(row => !row.IsPreset))
         {
             row.KitKey = chosenMode == SoundImportMode.DrumKit && row.Included && kitPosition < SoundImportPlanner.MaximumKitSounds
                 ? SoundImportPlanner.KeyForKitPosition(kitPosition++)
@@ -432,8 +492,12 @@ internal sealed class SoundImportWindow : Window
     private void SelectMode(SoundImportMode mode)
     {
         chosenMode = mode;
+        // Only a kit needs naming: presets bring their own, and the rest keep their files' names.
+        nameCaption.IsVisible = mode == SoundImportMode.DrumKit;
+        nameInput.IsVisible = mode == SoundImportMode.DrumKit;
         foreach (var (cardMode, card) in modeCards)
         {
+            card.IsVisible = cardMode != SoundImportMode.AbletonPreset || mode == cardMode || rows.Any(row => row.IsPreset);
             card.BorderBrush = cardMode == mode ? StudioTheme.Accent : StudioTheme.Border;
             card.Background = cardMode == mode ? StudioTheme.AccentSoft : StudioTheme.Surface;
         }
@@ -447,7 +511,7 @@ internal sealed class SoundImportWindow : Window
             SelectMode(chosenMode);
             return;
         }
-        var includedCount = rows.Count(row => row.Included);
+        var includedCount = ModeRows().Count(row => row.Included);
         var name = nameInput.Text?.Trim();
         var kitCount = Math.Min(includedCount, SoundImportPlanner.MaximumKitSounds);
         summaryCaption.Text = rows.Count == 0
@@ -456,6 +520,7 @@ internal sealed class SoundImportWindow : Window
             ? "Tick the sounds you want."
             : chosenMode switch
             {
+                SoundImportMode.AbletonPreset => DescribeIncludedPresets(),
                 SoundImportMode.DrumKit => $"{kitCount} sound{(kitCount == 1 ? string.Empty : "s")} on one track, keys {SoundImportPlanner.KeyForKitPosition(0)} to {SoundImportPlanner.KeyForKitPosition(Math.Max(0, kitCount - 1))}." +
                     (includedCount > kitCount ? $" Only the first {kitCount} fit in a kit." : string.Empty),
                 SoundImportMode.SeparateTracks => $"{includedCount} new track{(includedCount == 1 ? string.Empty : "s")}.",
@@ -466,6 +531,7 @@ internal sealed class SoundImportWindow : Window
         importButton.Content = chosenMode switch
         {
             SoundImportMode.DrumKit => $"Create kit ({kitCount})",
+            SoundImportMode.AbletonPreset => $"Import {includedCount} preset{(includedCount == 1 ? string.Empty : "s")}",
             SoundImportMode.SeparateTracks => $"Add {includedCount} track{(includedCount == 1 ? string.Empty : "s")}",
             _ => "Add to library",
         };
@@ -473,9 +539,22 @@ internal sealed class SoundImportWindow : Window
             (chosenMode == SoundImportMode.SampleLibrary || (includedCount > 0 && (chosenMode != SoundImportMode.DrumKit || !string.IsNullOrWhiteSpace(name))));
     }
 
+    private string DescribeIncludedPresets()
+    {
+        var racks = ModeRows().Where(row => row.Included && row.Rack is not null).Select(row => row.Rack!).ToList();
+        var description = $"{racks.Count} new track{(racks.Count == 1 ? string.Empty : "s")} with {racks.Sum(rack => rack.Zones.Count)} recordings.";
+        var missing = racks.Sum(rack => rack.MissingFiles.Count);
+        if (missing > 0)
+        {
+            description += $" {missing} recording{(missing == 1 ? " was" : "s were")} not found.";
+        }
+        var leftOut = racks.SelectMany(rack => rack.LeftOut).Distinct().ToList();
+        return leftOut.Count > 0 ? $"{description} Left out: {string.Join(", ", leftOut)}." : description;
+    }
+
     private void ConfirmImport()
     {
-        var includedPaths = rows.Where(row => row.Included).Select(row => row.Path).ToList();
+        var includedPaths = ModeRows().Where(row => row.Included).Select(row => row.Path).ToList();
         if (chosenMode == SoundImportMode.DrumKit)
         {
             includedPaths = includedPaths.Take(SoundImportPlanner.MaximumKitSounds).ToList();
@@ -483,7 +562,8 @@ internal sealed class SoundImportWindow : Window
         var libraryFolders = sourceFolders.Count > 0
             ? sourceFolders.ToList()
             : rows.Select(row => Path.GetDirectoryName(row.Path)).OfType<string>().Distinct().ToList();
-        import(new SoundImportRequest(chosenMode, includedPaths, nameInput.Text?.Trim() ?? "Imported Kit", libraryFolders));
+        var includedRacks = ModeRows().Where(row => row.Included && row.Rack is not null).Select(row => row.Rack!).ToList();
+        import(new SoundImportRequest(chosenMode, includedPaths, nameInput.Text?.Trim() ?? "Imported Kit", libraryFolders, includedRacks));
         Close();
     }
 
@@ -493,14 +573,23 @@ internal sealed class SoundImportWindow : Window
         {
             Path = path;
             Name = System.IO.Path.GetFileNameWithoutExtension(path);
-            Kind = SoundImportPlanner.Classify(path);
+            IsPreset = AbletonRackImporter.IsPresetFile(path);
+            Kind = IsPreset ? new SoundKind("Preset", 0) : SoundImportPlanner.Classify(path);
         }
 
         public string Path { get; }
 
         public string Name { get; }
 
-        public SoundKind Kind { get; }
+        public bool IsPreset { get; }
+
+        public SoundKind Kind { get; set; }
+
+        public ImportedRack? Rack { get; set; }
+
+        /// <summary>What ▶ plays: the file, or the recording a preset plays around middle C, its first if nothing is there.</summary>
+        public string PreviewPath =>
+            Rack is null ? Path : (Rack.Zones.FirstOrDefault(zone => zone.KeyLow <= 60 && zone.KeyHigh >= 60) ?? Rack.Zones[0]).Sample;
 
         public double? Seconds { get; set; }
 

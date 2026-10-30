@@ -37,6 +37,8 @@ internal sealed partial class StudioWindow
         }
     }
 
+    public void OpenSoundImport() => OpenSoundImportWindow();
+
     private async Task ImportSoundsAsync(SoundImportRequest request)
     {
         try
@@ -48,6 +50,9 @@ internal sealed partial class StudioWindow
                     break;
                 case SoundImportMode.SeparateTracks:
                     ImportSeparateTracks(request);
+                    break;
+                case SoundImportMode.AbletonPreset:
+                    ImportRacks(request);
                     break;
                 case SoundImportMode.SampleLibrary:
                     foreach (var folder in request.Folders)
@@ -98,6 +103,42 @@ internal sealed partial class StudioWindow
 
         var firstKeys = request.SoundPaths.Take(4).Select((path, position) => $"{SoundImportPlanner.KeyForKitPosition(position)} {SoundImportPlanner.Classify(path).Label.ToLowerInvariant()}");
         SetStatus(StatusSeverity.Success, $"kit {kitTrack.Name}: {request.SoundPaths.Count} sounds from {SoundImportPlanner.KeyForKitPosition(0)} ({string.Join(", ", firstKeys)}{(request.SoundPaths.Count > 4 ? ", …" : string.Empty)}). Ctrl+Z removes it");
+    }
+
+    private void ImportRacks(SoundImportRequest request)
+    {
+        var freeTrackSlots = ProjectAlignmentRemediator.MaximumTrackCount - document.Project.Tracks.Count;
+        // Playable instruments first, so the track left selected is the one the keyboard makes sense on.
+        var racks = request.Racks.OrderBy(rack => rack.Kind == "Drum Rack").Take(Math.Max(0, freeTrackSlots)).ToList();
+        if (racks.Count == 0)
+        {
+            SetStatus(StatusSeverity.Warning, "the track budget is exhausted. consolidate headcount before onboarding a rack.");
+            return;
+        }
+        var sceneIndex = document.SelectedSceneIndex;
+        document.Edit($"imported {string.Join(", ", racks.Select(rack => rack.Name))}", project =>
+        {
+            foreach (var rack in racks)
+            {
+                project.Tracks.Add(SoundImportPlanner.CreateRackTrack(project, rack, sceneIndex));
+            }
+        }, EditScope.Structure);
+        detailView.ShowClipTab();
+        document.Select(document.Project.Tracks.Count - racks.Count, sceneIndex);
+        if (computerKeyboardToggle is not null)
+        {
+            computerKeyboardToggle.IsChecked = true;
+        }
+        Activate();
+        FocusManager?.ClearFocus();
+
+        var leftOut = racks.SelectMany(rack => rack.LeftOut).Distinct().ToList();
+        var missing = racks.Sum(rack => rack.MissingFiles.Count);
+        SetStatus(missing > 0 ? StatusSeverity.Warning : StatusSeverity.Success,
+            $"imported {string.Join(" and ", racks.Select(rack => rack.Name))}. Keys A to ; play it" +
+            (missing > 0 ? $", {missing} recording(s) not found" : string.Empty) +
+            (leftOut.Count > 0 ? $", {leftOut.Count} thing(s) left out (hover to see)" : string.Empty) + ". Ctrl+Z removes it");
+        ToolTip.SetTip(statusText, leftOut.Count > 0 ? $"Left out: {string.Join(", ", leftOut)}" : null);
     }
 
     private void ImportSeparateTracks(SoundImportRequest request)
@@ -153,10 +194,11 @@ internal sealed partial class StudioWindow
         entries.Add(new CommandPaletteEntry("View: Arrangement", null, () => SelectMainView(arrangementView: true)));
         entries.Add(new CommandPaletteEntry("File: Import MIDI…", null, () => _ = ImportMidiFromPickerAsync()));
         entries.Add(new CommandPaletteEntry("Create: Audio Track (mic)", null, AddAudioTrack));
+        entries.Add(new CommandPaletteEntry("Import Sounds: Ableton Preset (.adg)…", null, () => OpenSoundImportWindow(SoundImportMode.AbletonPreset)));
         entries.Add(new CommandPaletteEntry("Import Sounds: as Drum Kit…", null, () => OpenSoundImportWindow(SoundImportMode.DrumKit)));
         entries.Add(new CommandPaletteEntry("Import Sounds: as Separate Tracks…", null, () => OpenSoundImportWindow(SoundImportMode.SeparateTracks)));
         entries.Add(new CommandPaletteEntry("Import Sounds: to Sample Library…", null, () => OpenSoundImportWindow(SoundImportMode.SampleLibrary)));
-        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName != "soundfont"))
+        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName is not ("soundfont" or "multisampler")))
         {
             entries.Add(new CommandPaletteEntry($"Add Track: {DeviceCatalog.InstrumentDisplayName(instrumentName)}", null, () => document.AddTrack(instrumentName)));
         }

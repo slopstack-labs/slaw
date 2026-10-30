@@ -107,6 +107,8 @@ internal static class ProjectAlignmentRemediator
         ["sample"] = "sampler",
         ["sampled"] = "sampler",
         ["one-shot"] = "sampler",
+        ["multisample"] = "multisampler",
+        ["multi-sample"] = "multisampler",
         ["sf2"] = "soundfont",
         ["sound font"] = "soundfont",
         ["general midi"] = "soundfont",
@@ -401,6 +403,30 @@ internal static class ProjectAlignmentRemediator
         if (track.Instrument == "soundfont" && string.IsNullOrWhiteSpace(track.SoundFont?.Path))
         {
             remediationLedger.Add($"{track.Name}: soundfont track has no .sf2 file loaded yet");
+        }
+        if (track.SampleZones is { } sampleZones)
+        {
+            var unusableZoneCount = sampleZones.RemoveAll(zone => zone is null || string.IsNullOrWhiteSpace(zone.Sample) || zone.KeyLow > zone.KeyHigh || zone.VelocityLow > zone.VelocityHigh);
+            if (unusableZoneCount > 0)
+            {
+                remediationLedger.Add($"{track.Name}: {unusableZoneCount} unusable sample zone(s) discarded");
+            }
+            foreach (var zone in sampleZones)
+            {
+                zone.RootNote = Math.Clamp(zone.RootNote, 0, 127);
+                zone.KeyLow = Math.Clamp(zone.KeyLow, 0, 127);
+                zone.KeyHigh = Math.Clamp(zone.KeyHigh, 0, 127);
+                zone.VelocityLow = Math.Clamp(zone.VelocityLow, 1, 127);
+                zone.VelocityHigh = Math.Clamp(zone.VelocityHigh, 1, 127);
+                zone.Gain = double.IsFinite(zone.Gain) ? Math.Clamp(zone.Gain, 0, 16) : 1;
+                zone.TuneCents = double.IsFinite(zone.TuneCents) ? Math.Clamp(zone.TuneCents, -1200, 1200) : 0;
+                zone.StartSeconds = double.IsFinite(zone.StartSeconds) ? Math.Max(0, zone.StartSeconds) : 0;
+                zone.EndSeconds = double.IsFinite(zone.EndSeconds) ? Math.Max(0, zone.EndSeconds) : 0;
+            }
+        }
+        if (track.Instrument == "multisampler" && track.SampleZones is not { Count: > 0 })
+        {
+            remediationLedger.Add($"{track.Name}: multisampler track has no recordings yet");
         }
         if (track.SampleEditing is { } sampleEditing)
         {

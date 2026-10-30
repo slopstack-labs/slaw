@@ -110,6 +110,19 @@ internal static class DeviceCatalog
         Humanize,
     };
 
+    private static readonly IReadOnlyList<ParameterSpecification> MultisamplerParameters = new[]
+    {
+        new ParameterSpecification("transpose", "Transpose", -24, 24, 0, "st", Integer: true),
+        new ParameterSpecification("velscale", "Vel → Volume", 0, 1, 0.5, "%"),
+        new ParameterSpecification("hold", "Note Length", 0, 1, 1, "toggle", Integer: true),
+        new ParameterSpecification("reverse", "Reverse", 0, 1, 0, "toggle", Integer: true),
+        new ParameterSpecification("attack", "Attack", 0.5, 2000, 1, "ms", Logarithmic: true),
+        new ParameterSpecification("release", "Release", 5, 4000, 200, "ms", Logarithmic: true),
+        new ParameterSpecification("gain", "Gain", 0, 2, 1, "×"),
+        new ParameterSpecification("cutoff", "Filter", 80, 20000, 20000, "Hz", Logarithmic: true),
+        Humanize,
+    };
+
     private static readonly IReadOnlyList<ParameterSpecification> SoundFontParameters = new[]
     {
         new ParameterSpecification("gain", "Gain", 0, 2, 1, "×"),
@@ -215,6 +228,7 @@ internal static class DeviceCatalog
     {
         Plugins.DeviceTypes.Vst3 => Array.Empty<ParameterSpecification>(),
         "sampler" => SamplerParameters,
+        "multisampler" => MultisamplerParameters,
         "soundfont" => SoundFontParameters,
         "kick" or "snare" or "hat" or "clap" or "shaker" => DrumParameters,
         "pluck" => PluckParameters,
@@ -244,6 +258,7 @@ internal static class DeviceCatalog
         "conga" => "Hand Percussion Congas",
         "shaker" => "Bead Shaker",
         "sampler" => "Sampler",
+        "multisampler" => "Multisampler",
         "soundfont" => "SoundFont Player",
         Plugins.DeviceTypes.Vst3 => "VST3 Instrument",
         var oscillatorName => $"{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(oscillatorName)} Oscillator",
@@ -255,6 +270,9 @@ internal static class DeviceCatalog
         "sine" or "square" or "saw" or "triangle" =>
             "Spread (unison detune, 0..50 cents): above 0 the note is two oscillators detuned by ±spread/2 cents, mixed at equal power so the level stays put. " +
             "A saw at 15–30 beats like a Reese bass; at 0 it is one oscillator, aligned with itself as always.",
+        "multisampler" =>
+            "Many recordings on one track, each for a range of keys and velocities, so soft notes play soft takes and every key stays close to its real pitch. " +
+            "Filled by File → Import Sounds… from Ableton presets (.adg). Note Length off lets notes ring out.",
         "epiano" =>
             "Two-operator FM Rhodes. Tine is the bell at the start of each note, Bark the growl of a hard strike; both follow velocity, " +
             "so soft chords stay warm and accents bite. Decay is how long a held middle C rings (higher notes ring shorter). Tremolo is the suitcase amp's, for when the chords need to sway in a meeting.",

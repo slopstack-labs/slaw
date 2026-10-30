@@ -72,6 +72,9 @@ internal interface IStudioHost
     /// <summary>Puts a region of a sampler's audio on a new pitched track, selects it and turns the computer keyboard on.</summary>
     void PlaySliceOnKeys(string sourceTrackIdentifier, double startSeconds, double endSeconds);
 
+    /// <summary>Opens the Import window.</summary>
+    void OpenSoundImport();
+
     /// <summary>Opens (or focuses) a VST3 device's own editor. <paramref name="effectIndex"/> -1 is the track's instrument.</summary>
     void OpenPluginEditor(string trackIdentifier, int effectIndex);
 

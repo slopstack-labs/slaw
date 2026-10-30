@@ -8,13 +8,16 @@ namespace SlopstackLabs.Slaw.Synthesis;
 /// first principles at trigger time; slaw ships zero samples, because samples
 /// would imply someone recorded something on purpose.
 /// </summary>
+/// <summary>A recording a multisampler note is about to play, already decoded.</summary>
+internal sealed record SampleZoneStrike(int MidiNote, Session.SampleZone Zone, SampleData Audio);
+
 internal static partial class InstrumentVoiceSynthesizer
 {
     public static readonly IReadOnlyList<string> SupportedInstruments = new[]
     {
         "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise",
         "epiano", "organ", "mallet", "flute", "guitar", "conga", "shaker",
-        "sampler", "soundfont",
+        "sampler", "multisampler", "soundfont",
     };
 
     private static readonly HashSet<string> PercussiveInstruments = new(StringComparer.OrdinalIgnoreCase)
@@ -48,7 +51,8 @@ internal static partial class InstrumentVoiceSynthesizer
         SampleEditSettings? sampleEditing = null,
         Func<double, double>? pitchBendSemitonesAt = null,
         SoundFonts.SoundFontPreset? soundFontPreset = null,
-        double noteVelocity = 1)
+        double noteVelocity = 1,
+        IReadOnlyList<SampleZoneStrike>? zoneStrikes = null)
     {
         var parameterSpecifications = DeviceCatalog.InstrumentParametersFor(instrumentName);
         double Parameter(string parameterKey) => DeviceCatalog.Resolve(instrumentParameters, parameterSpecifications, parameterKey);
@@ -60,6 +64,12 @@ internal static partial class InstrumentVoiceSynthesizer
             renderedVoice = SumChordVoices(chordNotes
                 .Select(midiNote => RenderSamplerVoice(samplerSource, midiNote, gateDurationSeconds, sampleRate, Parameter, sampleEditing))
                 .ToList());
+        }
+        else if (instrumentName == "multisampler")
+        {
+            renderedVoice = zoneStrikes is not { Count: > 0 }
+                ? Array.Empty<float>()
+                : SumChordVoices(zoneStrikes.Select(strike => RenderZoneVoice(strike, gateDurationSeconds, sampleRate, Parameter)).ToList());
         }
         else if (instrumentName == "soundfont")
         {
@@ -120,6 +130,21 @@ internal static partial class InstrumentVoiceSynthesizer
 
         ApplyOnePoleLowpass(renderedVoice, sampleRate, Parameter("cutoff"));
         return renderedVoice;
+    }
+
+    /// <summary>
+    /// How much a note's velocity turns it down. A multisampler has its own say: its soft takes are
+    /// already quiet, so its Vel → Volume knob limits how far the usual curve applies on top of them.
+    /// </summary>
+    public static double VelocityGain(string instrumentName, IReadOnlyDictionary<string, double>? instrumentParameters, double noteVelocity)
+    {
+        var curvedGain = Session.NotationResolver.VelocityToGain(noteVelocity);
+        if (instrumentName != "multisampler")
+        {
+            return curvedGain;
+        }
+        var sensitivity = DeviceCatalog.Resolve(instrumentParameters, DeviceCatalog.InstrumentParametersFor(instrumentName), "velscale");
+        return 1 - sensitivity * (1 - curvedGain);
     }
 
     private static float[] SumChordVoices(IReadOnlyList<float[]> chordVoices)
@@ -199,6 +224,32 @@ internal static partial class InstrumentVoiceSynthesizer
             regionEnd = Math.Min(sourceSamples.Length, Math.Max(regionStart + 2, (int)(parameter("end") * sourceSamples.Length)));
             semitoneOffset = midiNote - rootNote + parameter("transpose");
         }
+        return RenderSampleRegion(sourceSamples, sourceRate, regionStart, regionEnd, semitoneOffset, gateDurationSeconds, sampleRate, parameter, sampleEditing, 1);
+    }
+
+    /// <summary>One recording of a multisampler at the pitch its key asks for, with the zone's own tuning and level.</summary>
+    private static float[] RenderZoneVoice(SampleZoneStrike strike, double gateDurationSeconds, int sampleRate, Func<string, double> parameter)
+    {
+        var sourceSamples = strike.Audio.Samples;
+        var sourceRate = strike.Audio.SampleRate;
+        var regionStart = Math.Clamp((int)(strike.Zone.StartSeconds * sourceRate), 0, sourceSamples.Length);
+        var regionEnd = strike.Zone.EndSeconds > 0 ? Math.Clamp((int)(strike.Zone.EndSeconds * sourceRate), regionStart, sourceSamples.Length) : sourceSamples.Length;
+        var semitoneOffset = strike.MidiNote - strike.Zone.RootNote + strike.Zone.TuneCents / 100 + parameter("transpose");
+        return RenderSampleRegion(sourceSamples, sourceRate, regionStart, regionEnd, semitoneOffset, gateDurationSeconds, sampleRate, parameter, null, strike.Zone.Gain);
+    }
+
+    private static float[] RenderSampleRegion(
+        float[] sourceSamples,
+        int sourceRate,
+        int regionStart,
+        int regionEnd,
+        double semitoneOffset,
+        double gateDurationSeconds,
+        int sampleRate,
+        Func<string, double> parameter,
+        SampleEditSettings? sampleEditing,
+        double regionGain)
+    {
         if (regionEnd - regionStart < 2)
         {
             return Array.Empty<float>();
@@ -210,7 +261,7 @@ internal static partial class InstrumentVoiceSynthesizer
         var attackFrameCount = Math.Max(1, (int)(parameter("attack") / 1000 * sampleRate));
         var releaseFrameCount = Math.Max(1, (int)(parameter("release") / 1000 * sampleRate));
         var gateFrameCount = (int)(gateDurationSeconds * sampleRate);
-        var sampleGain = parameter("gain");
+        var sampleGain = parameter("gain") * regionGain;
 
         // The sustain loop only makes sense while a note is being held.
         var loopsWhileHeld = sampleEditing is { LoopEnabled: true } && followsNoteLength && !playsReversed;

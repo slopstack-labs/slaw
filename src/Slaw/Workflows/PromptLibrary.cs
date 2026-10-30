@@ -13,7 +13,8 @@ namespace SlopstackLabs.Slaw.Workflows;
 internal static class PromptLibrary
 {
     private static readonly string SupportedInstrumentList =
-        string.Join(", ", InstrumentVoiceSynthesizer.SupportedInstruments.Select(instrumentName => $"\"{instrumentName}\""));
+        // A multisampler needs recordings only the importer can give it; offered to a model it is a silent track.
+        string.Join(", ", InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName != "multisampler").Select(instrumentName => $"\"{instrumentName}\""));
 
     private const string PatternVocabularyDescription = """
         Pattern step vocabulary (one string per step):
@@ -259,6 +260,10 @@ internal static class PromptLibrary
             if (track.Instrument == "soundfont" && track.SoundFont is { } soundFontReference)
             {
                 projectListing.Append(CultureInfo.InvariantCulture, $" soundfont \"{SoundFontDeviceOperations.Describe(soundFontReference)}\"");
+            }
+            if (track.Instrument == "multisampler")
+            {
+                projectListing.Append(CultureInfo.InvariantCulture, $" zones \"{SampleZoneMap.Describe(track.SampleZones)}\"");
             }
             if (track.InstrumentParameters.Count > 0)
             {

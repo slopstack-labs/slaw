@@ -13,6 +13,9 @@ internal enum SoundImportMode
 
     /// <summary>Nothing in the project: the folders join Browser → Samples.</summary>
     SampleLibrary,
+
+    /// <summary>Ableton presets (.adg, .adv): one multisampler track per preset.</summary>
+    AbletonPreset,
 }
 
 /// <summary>What a file name suggests a sound is. <see cref="Order"/> is its place in a kit.</summary>
@@ -138,6 +141,19 @@ internal static class SoundImportPlanner
         soundTrack.Gain = 0.8;
         soundTrack.Clips[sceneIndex] = SlawClip.Empty(project.Scenes[sceneIndex], project.SceneLengthInSteps(sceneIndex));
         return soundTrack;
+    }
+
+    /// <summary>A preset's track: every recording as a zone, with an empty clip to write in.</summary>
+    public static SlawTrack CreateRackTrack(SlawProject project, ImportedRack rack, int sceneIndex)
+    {
+        var rackTrack = AudioTakeAssembler.CreateTakeTrack(project, template: null);
+        rackTrack.Name = rack.Name;
+        rackTrack.Instrument = "multisampler";
+        rackTrack.Gain = 0.8;
+        rackTrack.SampleZones = rack.Zones;
+        rackTrack.InstrumentParameters = new Dictionary<string, double>(rack.InstrumentParameters);
+        rackTrack.Clips[sceneIndex] = SlawClip.Empty(project.Scenes[sceneIndex], project.SceneLengthInSteps(sceneIndex));
+        return rackTrack;
     }
 
     /// <summary>Which key plays the sound at this place in a kit.</summary>

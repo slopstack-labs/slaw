@@ -48,7 +48,8 @@ internal static class ProjectChangeSummarizer
                 trackChanges.Add($"renamed to \"{revisedTrack.Name}\"");
             }
             if (previousTrack.Instrument != revisedTrack.Instrument || previousTrack.Plugin?.ClassId != revisedTrack.Plugin?.ClassId ||
-                previousTrack.SoundFont?.Fingerprint != revisedTrack.SoundFont?.Fingerprint)
+                previousTrack.SoundFont?.Fingerprint != revisedTrack.SoundFont?.Fingerprint ||
+                SampleZoneMap.Describe(previousTrack.SampleZones) != SampleZoneMap.Describe(revisedTrack.SampleZones))
             {
                 trackChanges.Add($"instrument {DescribeInstrument(previousTrack)} → {DescribeInstrument(revisedTrack)}");
             }
@@ -173,6 +174,7 @@ internal static class ProjectChangeSummarizer
     {
         { Instrument: "vst3", Plugin: { } plugin } => $"vst3 {plugin.Name}",
         { Instrument: "soundfont", SoundFont: { } soundFont } => $"soundfont {SoundFontDeviceOperations.Describe(soundFont)}",
+        { Instrument: "multisampler" } => $"multisampler ({SampleZoneMap.Describe(track.SampleZones)})",
         _ => track.Instrument,
     };
 

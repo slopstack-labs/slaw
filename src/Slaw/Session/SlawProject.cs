@@ -134,6 +134,13 @@ internal sealed class SlawTrack
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SoundFontReference? SoundFont { get; set; }
 
+    /// <summary>
+    /// The recordings a "multisampler" track plays, each for a range of keys and velocities.
+    /// Paths are absolute in memory and written relative to the project file when they live below it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<SampleZone>? SampleZones { get; set; }
+
     /// <summary>The VST3 plugin a "vst3" track plays. Its knobs live in <see cref="InstrumentParameters"/> as p&lt;id&gt;.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PluginReference? Plugin { get; set; }
@@ -277,6 +284,33 @@ internal sealed class PluginReference
 }
 
 /// <summary>Which SoundFont preset a track plays: the .sf2 file, a MIDI bank and program, and the preset's name for humans.</summary>
+/// <summary>One recording on a multisampler: where it lives on the keyboard and how it is tuned.</summary>
+internal sealed class SampleZone
+{
+    public string Sample { get; set; } = string.Empty;
+
+    /// <summary>The key that plays the recording at its original pitch.</summary>
+    public int RootNote { get; set; } = 60;
+    public int KeyLow { get; set; }
+    public int KeyHigh { get; set; } = 127;
+
+    /// <summary>MIDI velocities, 1..127: soft and hard takes of one note are two zones.</summary>
+    public int VelocityLow { get; set; } = 1;
+    public int VelocityHigh { get; set; } = 127;
+    public double Gain { get; set; } = 1;
+    public double TuneCents { get; set; }
+
+    /// <summary>Region of the file to play; an end of 0 means to the end of the file.</summary>
+    public double StartSeconds { get; set; }
+    public double EndSeconds { get; set; }
+
+    /// <summary>Zones sharing a group take turns: one member sounds per note, instead of all of them.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? RoundRobinGroup { get; set; }
+
+    public string Fingerprint => FormattableString.Invariant($"{Sample}|{RootNote}|{KeyLow}-{KeyHigh}|{VelocityLow}-{VelocityHigh}|{Gain:R}|{TuneCents:R}|{StartSeconds:R}|{EndSeconds:R}|{RoundRobinGroup}");
+}
+
 internal sealed class SoundFontReference
 {
     public string Path { get; set; } = string.Empty;

@@ -31,7 +31,7 @@ internal sealed record SampleFolderGroup(string Label, string FolderPath, IReadO
 /// </summary>
 internal static class SampleLibrary
 {
-    private const int MaximumCachedEntriesPerCache = 64;
+    private const int MaximumCachedEntriesPerCache = 512;
     public const int MaximumDecodedSeconds = 600;
 
     private static readonly ConcurrentDictionary<(string FullPath, long WriteTicks), SampleData> nativeRateCache = new();

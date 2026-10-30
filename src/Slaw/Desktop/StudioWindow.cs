@@ -303,7 +303,12 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var rightGroup = StudioUi.Row(10, audioStatusText, waveformScope, ComposePanelSelectors());
         DockPanel.SetDock(rightGroup, Dock.Right);
         statusLayout.Children.Add(rightGroup);
-        statusLayout.Children.Add(StudioUi.Row(10, inferenceActivityIndicator, cancelInferenceButton, statusText));
+        // The message gets whatever room is left and trims there, instead of running over the right-hand side.
+        var inferenceGroup = StudioUi.Row(10, inferenceActivityIndicator, cancelInferenceButton);
+        inferenceGroup.Margin = new Thickness(0, 0, 10, 0);
+        DockPanel.SetDock(inferenceGroup, Dock.Left);
+        statusLayout.Children.Add(inferenceGroup);
+        statusLayout.Children.Add(statusText);
         return new Border
         {
             Background = StudioTheme.Surface,
@@ -319,8 +324,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var browserContent = new StackPanel { Spacing = 3, Margin = new Thickness(10) };
 
         var instrumentsSection = AddCollapsibleBrowserSection(browserContent, "Instruments");
-        // "soundfont" gets its own entry below, which asks for the .sf2 straight away.
-        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName != "soundfont"))
+        // "soundfont" gets its own entry below, which asks for the .sf2 straight away; a multisampler comes from the importer.
+        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName is not ("soundfont" or "multisampler")))
         {
             var instrumentEntry = BrowserEntry(DeviceCatalog.InstrumentDisplayName(instrumentName), () => document.AddTrack(instrumentName),
                 "Click to add a track with this instrument, or drag it onto a track to swap its instrument");
@@ -328,6 +333,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             instrumentsSection.Children.Add(instrumentEntry);
         }
         instrumentsSection.Children.Add(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
+        instrumentsSection.Children.Add(BrowserEntry("Ableton Preset… (.adg)", () => OpenSoundImportWindow(), "Import a Simpler or Sampler preset, or a Drum Rack, as a multisampler track"));
         instrumentsSection.Children.Add(BrowserEntry("SoundFont… (.sf2)", () => _ = AddSoundFontTrackFromPickerAsync(),
             "Click to add a track playing a SoundFont preset (General MIDI banks, drum kits); you can also drop a .sf2 onto a track"));
 
@@ -543,6 +549,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             foreach (var samplerTrack in projectSnapshot.Tracks.Where(track => track.Instrument == "sampler" && track.Sample is not null))
             {
                 SampleEditProcessor.TryGetProcessed(samplerTrack.Sample!, samplerTrack.SampleEditing, LiveAudioSession.LiveSampleRate);
+            }
+            foreach (var zone in projectSnapshot.Tracks.Where(track => track.Instrument == "multisampler" && track.SampleZones is not null).SelectMany(track => track.SampleZones!))
+            {
+                SampleEditProcessor.TryGetProcessed(zone.Sample, null, LiveAudioSession.LiveSampleRate);
             }
             liveAudioSession.Engine.PublishProject(projectSnapshot);
         };
@@ -1901,6 +1911,13 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             return;
         }
         var droppedFolders = droppedPaths.Where(Directory.Exists).ToList();
+        if (droppedPaths.Any(SoundImportWindow.IsAbletonFile) || droppedFolders.Any(SoundImportWindow.FolderHoldsPresets))
+        {
+            // Ableton material needs a decision or two, so it goes where those are made.
+            OpenSoundImportWindow(startingPaths: droppedPaths);
+            dragEvent.Handled = true;
+            return;
+        }
         var droppedSamples = droppedPaths.Where(droppedPath => File.Exists(droppedPath) && SampleLibrary.IsSupportedFile(droppedPath)).ToList();
 
         foreach (var droppedFolder in droppedFolders)

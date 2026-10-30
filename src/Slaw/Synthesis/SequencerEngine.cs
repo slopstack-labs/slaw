@@ -292,6 +292,22 @@ internal sealed class SequencerEngine
             }
         }
         var auditionedSoundFont = auditionedTrack.Instrument == "soundfont" ? SoundFonts.SoundFontLibrary.LoadPreset(auditionedTrack.SoundFont) : null;
+        List<SampleZoneStrike>? auditionedZones = null;
+        if (auditionedTrack.Instrument == "multisampler")
+        {
+            auditionedZones = new List<SampleZoneStrike>();
+            foreach (var zone in SampleZoneMap.Select(auditionedTrack.SampleZones, midiNote, Math.Max(0.05, velocity), auditionEntropySource))
+            {
+                try
+                {
+                    auditionedZones.Add(new SampleZoneStrike(midiNote, zone, SampleEditProcessor.LoadProcessed(zone.Sample, null, sampleRate)));
+                }
+                catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+                {
+                    // A recording that has gone missing is silence; the rest of the note still sounds.
+                }
+            }
+        }
         var renderedVoice = InstrumentVoiceSynthesizer.RenderVoice(
             auditionedTrack.Instrument,
             new[] { midiNote },
@@ -302,7 +318,8 @@ internal sealed class SequencerEngine
             samplerSource,
             auditionedTrack.SampleEditing,
             soundFontPreset: auditionedSoundFont,
-            noteVelocity: Math.Max(0.05, velocity));
+            noteVelocity: Math.Max(0.05, velocity),
+            zoneStrikes: auditionedZones);
         if (renderedVoice.Length == 0)
         {
             return;
@@ -310,14 +327,14 @@ internal sealed class SequencerEngine
         // Melodic voices fade on release over the instrument's own release time;
         // drums and plucks are allowed to ring out, as nature intended.
         var releaseSeconds = percussiveInstrument || auditionedTrack.Instrument == "pluck" ||
-                             (auditionedTrack.Instrument == "sampler" && DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor("sampler"), "hold") < 0.5)
+                             (auditionedTrack.Instrument is "sampler" or "multisampler" && DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(auditionedTrack.Instrument), "hold") < 0.5)
             ? 0
             : auditionedTrack.Instrument == "soundfont"
                 // The font's release knob is a multiplier of each zone's own release, not milliseconds.
                 ? 0.25 * DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor("soundfont"), "release")
                 : DeviceCatalog.Resolve(auditionedTrack.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(auditionedTrack.Instrument), "release") / 1000.0;
         // Same curve as recorded notes, so a take plays back as loud as it was played.
-        var auditionVoice = new AuditionVoice(trackIdentifier, midiNote, (float)NotationResolver.VelocityToGain(Math.Max(0.05, velocity)),
+        var auditionVoice = new AuditionVoice(trackIdentifier, midiNote, (float)InstrumentVoiceSynthesizer.VelocityGain(auditionedTrack.Instrument, auditionedTrack.InstrumentParameters, Math.Max(0.05, velocity)),
             renderedVoice, Math.Max(1, (int)(releaseSeconds * sampleRate)), releaseSeconds > 0);
         pendingTransportCommands.Enqueue(() =>
         {
@@ -857,7 +874,7 @@ internal sealed class SequencerEngine
                 }
                 // Each voice normalizes its own notes by 1/sqrt(k); rescale so every
                 // note in the full chord sits at 1/sqrt(n), as if rendered together.
-                var velocityGain = (float)NotationResolver.VelocityToGain(noteVelocity);
+                var velocityGain = (float)InstrumentVoiceSynthesizer.VelocityGain(track.Instrument, instrumentParameters, noteVelocity);
                 runtimeState.ActiveVoices.Add(new ActiveVoice(renderedVoice, velocityGain * humanizedGain * (float)Math.Sqrt(chordNotes.Length / (double)Math.Max(1, stepEvent.MidiNotes.Count)),
                     followsPitchEnvelope: !bendsAtRender, startDelayFrames: strikeOffsetFrames));
             }
@@ -873,7 +890,27 @@ internal sealed class SequencerEngine
     {
         var timbreVelocity = InstrumentVoiceSynthesizer.ShapesTimbreByVelocity(track.Instrument) ? NotationResolver.ClampVelocity(noteVelocity) : 1.0;
         var parameterFingerprint = string.Join(',', instrumentParameters.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value:R}"));
-        var voiceCacheKey = FormattableString.Invariant($"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{track.SoundFont?.Fingerprint}|{string.Join('+', stepEvent.MidiNotes)}|{heldSteps:R}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}|{timbreVelocity:R}");
+        List<SampleZoneStrike>? zoneStrikes = null;
+        var zonePickFingerprint = string.Empty;
+        if (track.Instrument == "multisampler")
+        {
+            // Picked before the cache is asked, so round-robin takes each get their own voice. Decoded
+            // only in the background, as ever: a note whose recording is not ready yet is skipped.
+            zoneStrikes = new List<SampleZoneStrike>();
+            foreach (var midiNote in stepEvent.MidiNotes.Count > 0 ? stepEvent.MidiNotes : new[] { NotationResolver.DefaultTriggerMidiNote })
+            {
+                foreach (var zone in SampleZoneMap.Select(track.SampleZones, midiNote, noteVelocity, noiseEntropySource))
+                {
+                    if (SampleEditProcessor.TryGetProcessed(zone.Sample, null, sampleRate) is not { } zoneAudio)
+                    {
+                        return Array.Empty<float>();
+                    }
+                    zoneStrikes.Add(new SampleZoneStrike(midiNote, zone, zoneAudio));
+                    zonePickFingerprint += $"{midiNote}:{zone.Fingerprint};";
+                }
+            }
+        }
+        var voiceCacheKey = zonePickFingerprint + FormattableString.Invariant($"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{track.SoundFont?.Fingerprint}|{string.Join('+', stepEvent.MidiNotes)}|{heldSteps:R}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}|{timbreVelocity:R}");
         if (renderedVoiceCache.TryGetValue(voiceCacheKey, out var cachedVoice))
         {
             return cachedVoice;
@@ -914,7 +951,8 @@ internal sealed class SequencerEngine
             track.SampleEditing,
             pitchBend?.SemitonesAt,
             soundFontPreset,
-            timbreVelocity);
+            timbreVelocity,
+            zoneStrikes);
         renderedVoiceCache[voiceCacheKey] = renderedVoice;
         return renderedVoice;
     }

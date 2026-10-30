@@ -1350,7 +1350,7 @@ internal sealed class SlawMcpToolset
     {
         const double TargetTrackRms = -24;
         var levelLines = new List<string>();
-        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName != "sampler"))
+        foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName is not ("sampler" or "multisampler")))
         {
             var measuredTrack = new SlawTrack { Name = instrumentName, Instrument = instrumentName, Gain = 1 };
             var measuredPattern = InstrumentVoiceSynthesizer.IsPercussive(instrumentName)

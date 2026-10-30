@@ -45,6 +45,13 @@ internal static class ProjectSerializer
                 track.SoundFont.Path = Path.GetFullPath(Path.Combine(projectDirectory, track.SoundFont.Path));
             }
         }
+        foreach (var zone in loadedProject.Tracks.Where(track => track?.SampleZones is not null).SelectMany(track => track.SampleZones!))
+        {
+            if (zone is { Sample.Length: > 0 } && !Path.IsPathRooted(zone.Sample))
+            {
+                zone.Sample = Path.GetFullPath(Path.Combine(projectDirectory, zone.Sample));
+            }
+        }
         ProjectAlignmentRemediator.Remediate(loadedProject);
         return loadedProject;
     }
@@ -72,6 +79,14 @@ internal static class ProjectSerializer
             if (!relativeSoundFontPath.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relativeSoundFontPath))
             {
                 track.SoundFont.Path = relativeSoundFontPath;
+            }
+        }
+        foreach (var zone in persistedProject.Tracks.Where(track => track.SampleZones is not null).SelectMany(track => track.SampleZones!).Where(zone => Path.IsPathRooted(zone.Sample)))
+        {
+            var relativeZonePath = Path.GetRelativePath(projectDirectory, zone.Sample);
+            if (!relativeZonePath.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relativeZonePath))
+            {
+                zone.Sample = relativeZonePath;
             }
         }
         File.WriteAllText(projectFilePath, Serialize(persistedProject) + Environment.NewLine);
