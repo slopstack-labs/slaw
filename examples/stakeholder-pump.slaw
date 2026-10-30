@@ -3,13 +3,14 @@
   "name": "Stakeholder Pump (Club Edit, Q3 Offsite)",
   "bpm": 124,
   "steps": 16,
+  "swing": 57,
   "scenes": [
     "Jam: Offsite Groove",
     "Jam: Breakout Room"
   ],
   "tracks": [
     {
-      "id": "1638cac3",
+      "id": "7e816735",
       "name": "Bottom-Line Kick",
       "instrument": "kick",
       "instrumentParameters": {
@@ -19,6 +20,7 @@
       "effects": [],
       "gain": 0.34,
       "pan": 0,
+      "swing": 50,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -34,7 +36,7 @@
       ]
     },
     {
-      "id": "da94e357",
+      "id": "e2a83810",
       "name": "Town Hall Clap",
       "instrument": "clap",
       "instrumentParameters": {},
@@ -64,7 +66,7 @@
       ]
     },
     {
-      "id": "37c6cdeb",
+      "id": "33eab8a6",
       "name": "Closed Hats",
       "instrument": "hat",
       "instrumentParameters": {
@@ -81,6 +83,7 @@
       ],
       "gain": 1.5,
       "pan": 0.18,
+      "timing": 3,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -93,7 +96,7 @@
       ]
     },
     {
-      "id": "73c3db5e",
+      "id": "bb972d57",
       "name": "Open-Door Hat",
       "instrument": "hat",
       "instrumentParameters": {
@@ -122,24 +125,13 @@
       ]
     },
     {
-      "id": "ac6c4411",
+      "id": "ba7670ee",
       "name": "Compliance Shaker",
-      "instrument": "noise",
+      "instrument": "shaker",
       "instrumentParameters": {
-        "attack": 1,
-        "decay": 45,
-        "sustain": 0,
-        "release": 30,
-        "cutoff": 11000
+        "decay": 0.8
       },
       "effects": [
-        {
-          "type": "highpass",
-          "enabled": true,
-          "parameters": {
-            "cutoff": 5000
-          }
-        },
         {
           "type": "widen",
           "enabled": true,
@@ -149,21 +141,57 @@
           }
         }
       ],
-      "gain": 1.5,
+      "gain": 1,
       "pan": -0.3,
+      "timing": 5,
       "muted": false,
       "solo": false,
       "aiLocked": false,
       "clips": [
         {
           "name": "Shaker",
-          "pattern": ["C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.6"]
+          "pattern": ["x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.6"]
         },
         null
       ]
     },
     {
-      "id": "e05ea92c",
+      "id": "90fd9062",
+      "name": "Offsite Congas",
+      "instrument": "conga",
+      "instrumentParameters": {
+        "tone": 0.6,
+        "decay": 0.9,
+        "bend": 1
+      },
+      "effects": [
+        {
+          "type": "reverb",
+          "enabled": true,
+          "parameters": {
+            "size": 0.4,
+            "damping": 0.6,
+            "mix": 0.1,
+            "width": 0.8
+          }
+        }
+      ],
+      "gain": 1.1,
+      "pan": 0.28,
+      "timing": 8,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        {
+          "name": "Congas",
+          "pattern": [".", ".", "D4@0.5", ".", ".", "A3@0.7", ".", "D4@0.4", ".", ".", "E4@0.6", ".", "E4@0.4", "A3@0.7", ".", "A3@0.5"]
+        },
+        null
+      ]
+    },
+    {
+      "id": "c4813c92",
       "name": "Breakout Rim",
       "instrument": "snare",
       "instrumentParameters": {
@@ -174,6 +202,7 @@
       "effects": [],
       "gain": 1.2,
       "pan": 0.35,
+      "timing": 6,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -186,7 +215,7 @@
       ]
     },
     {
-      "id": "73597936",
+      "id": "c650f351",
       "name": "Build Snare",
       "instrument": "snare",
       "instrumentParameters": {
@@ -206,6 +235,7 @@
       ],
       "gain": 0.55,
       "pan": 0,
+      "swing": 50,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -215,7 +245,7 @@
       ]
     },
     {
-      "id": "f3988409",
+      "id": "7df3c872",
       "name": "Bouncy Bass",
       "instrument": "saw",
       "instrumentParameters": {
@@ -252,7 +282,7 @@
             "attack": 1,
             "release": 130
           },
-          "sidechainSource": "1638cac3"
+          "sidechainSource": "7e816735"
         }
       ],
       "gain": 1.2,
@@ -272,15 +302,20 @@
       ]
     },
     {
-      "id": "e9667ea9",
+      "id": "79c7f00c",
       "name": "Board Room Organ",
-      "instrument": "square",
+      "instrument": "organ",
       "instrumentParameters": {
+        "sub": 0.15,
+        "body": 1,
+        "upper": 0.6,
+        "sparkle": 0.5,
+        "percussion": 0.8,
+        "click": 0.45,
+        "chorus": 0.3,
         "attack": 1,
-        "decay": 150,
-        "sustain": 0,
-        "release": 50,
-        "cutoff": 3200
+        "release": 60,
+        "cutoff": 6500
       },
       "effects": [
         {
@@ -300,7 +335,7 @@
             "attack": 1,
             "release": 150
           },
-          "sidechainSource": "1638cac3"
+          "sidechainSource": "7e816735"
         },
         {
           "type": "delay",
@@ -313,8 +348,9 @@
           }
         }
       ],
-      "gain": 1,
+      "gain": 0.8,
       "pan": -0.08,
+      "timing": 4,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -327,12 +363,14 @@
       ]
     },
     {
-      "id": "8ea669ac",
+      "id": "8c985537",
       "name": "Piano Stab",
-      "instrument": "pluck",
+      "instrument": "epiano",
       "instrumentParameters": {
-        "length": 380,
-        "brightness": 0.85,
+        "tine": 0.6,
+        "bark": 0.55,
+        "decay": 1600,
+        "release": 120,
         "octave": 1
       },
       "effects": [
@@ -353,11 +391,12 @@
             "attack": 1,
             "release": 150
           },
-          "sidechainSource": "1638cac3"
+          "sidechainSource": "7e816735"
         }
       ],
-      "gain": 1.5,
+      "gain": 0.7,
       "pan": 0.12,
+      "timing": 6,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -370,7 +409,7 @@
       ]
     },
     {
-      "id": "5ca8238b",
+      "id": "acb5fabe",
       "name": "Quarterly Hook",
       "instrument": "saw",
       "instrumentParameters": {
@@ -409,7 +448,7 @@
             "attack": 1,
             "release": 120
           },
-          "sidechainSource": "1638cac3"
+          "sidechainSource": "7e816735"
         }
       ],
       "gain": 0.85,
@@ -426,7 +465,7 @@
       ]
     },
     {
-      "id": "d785d292",
+      "id": "9aa23dcf",
       "name": "Pivot Riser",
       "instrument": "noise",
       "instrumentParameters": {
@@ -465,7 +504,7 @@
       ]
     },
     {
-      "id": "f5827fd1",
+      "id": "dde57443",
       "name": "Crash Memo",
       "instrument": "noise",
       "instrumentParameters": {
@@ -494,7 +533,7 @@
           }
         }
       ],
-      "gain": 0.85,
+      "gain": 1.1,
       "pan": 0.05,
       "muted": false,
       "solo": false,
@@ -526,8 +565,8 @@
   },
   "timeline": [
     {
-      "id": "626020cc",
-      "trackId": "1638cac3",
+      "id": "afcf8c83",
+      "trackId": "7e816735",
       "startStep": 0,
       "lengthSteps": 240,
       "clip": {
@@ -537,8 +576,8 @@
       "endStep": 240
     },
     {
-      "id": "d92f8f70",
-      "trackId": "1638cac3",
+      "id": "a50aa26b",
+      "trackId": "7e816735",
       "startStep": 240,
       "lengthSteps": 16,
       "clip": {
@@ -548,8 +587,8 @@
       "endStep": 256
     },
     {
-      "id": "7c1962d7",
-      "trackId": "37c6cdeb",
+      "id": "635fd2c3",
+      "trackId": "33eab8a6",
       "startStep": 0,
       "lengthSteps": 128,
       "clip": {
@@ -571,8 +610,8 @@
       "endStep": 128
     },
     {
-      "id": "f2a0a3d3",
-      "trackId": "37c6cdeb",
+      "id": "57f73a6b",
+      "trackId": "33eab8a6",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -582,8 +621,8 @@
       "endStep": 384
     },
     {
-      "id": "b3dd31f1",
-      "trackId": "da94e357",
+      "id": "c66d8b46",
+      "trackId": "e2a83810",
       "startStep": 64,
       "lengthSteps": 176,
       "clip": {
@@ -593,8 +632,8 @@
       "endStep": 240
     },
     {
-      "id": "2f77878f",
-      "trackId": "da94e357",
+      "id": "37cd6dcd",
+      "trackId": "e2a83810",
       "startStep": 240,
       "lengthSteps": 16,
       "clip": {
@@ -604,8 +643,8 @@
       "endStep": 256
     },
     {
-      "id": "7ba979ac",
-      "trackId": "e05ea92c",
+      "id": "4844d687",
+      "trackId": "c4813c92",
       "startStep": 64,
       "lengthSteps": 192,
       "clip": {
@@ -615,8 +654,8 @@
       "endStep": 256
     },
     {
-      "id": "1f8131d3",
-      "trackId": "e9667ea9",
+      "id": "768c9e28",
+      "trackId": "79c7f00c",
       "startStep": 64,
       "lengthSteps": 192,
       "clip": {
@@ -646,8 +685,8 @@
       "endStep": 256
     },
     {
-      "id": "e9b2cac3",
-      "trackId": "73c3db5e",
+      "id": "76745fa4",
+      "trackId": "bb972d57",
       "startStep": 128,
       "lengthSteps": 128,
       "clip": {
@@ -657,8 +696,8 @@
       "endStep": 256
     },
     {
-      "id": "afaaef6b",
-      "trackId": "f3988409",
+      "id": "6fe6f141",
+      "trackId": "7df3c872",
       "startStep": 128,
       "lengthSteps": 128,
       "clip": {
@@ -680,8 +719,8 @@
       "endStep": 256
     },
     {
-      "id": "46ceffa9",
-      "trackId": "1638cac3",
+      "id": "9ebdf2ca",
+      "trackId": "7e816735",
       "startStep": 256,
       "lengthSteps": 112,
       "clip": {
@@ -691,8 +730,8 @@
       "endStep": 368
     },
     {
-      "id": "89f9ceaf",
-      "trackId": "1638cac3",
+      "id": "da213cd4",
+      "trackId": "7e816735",
       "startStep": 368,
       "lengthSteps": 16,
       "clip": {
@@ -702,8 +741,8 @@
       "endStep": 384
     },
     {
-      "id": "a2fa1e67",
-      "trackId": "da94e357",
+      "id": "96fadeb0",
+      "trackId": "e2a83810",
       "startStep": 256,
       "lengthSteps": 128,
       "clip": {
@@ -713,8 +752,8 @@
       "endStep": 384
     },
     {
-      "id": "6a740fd1",
-      "trackId": "37c6cdeb",
+      "id": "aca778ec",
+      "trackId": "33eab8a6",
       "startStep": 256,
       "lengthSteps": 128,
       "clip": {
@@ -724,8 +763,8 @@
       "endStep": 384
     },
     {
-      "id": "773e1cfe",
-      "trackId": "73c3db5e",
+      "id": "602bbc14",
+      "trackId": "bb972d57",
       "startStep": 256,
       "lengthSteps": 128,
       "clip": {
@@ -735,19 +774,30 @@
       "endStep": 384
     },
     {
-      "id": "d1dd2065",
-      "trackId": "ac6c4411",
+      "id": "92db56e1",
+      "trackId": "ba7670ee",
       "startStep": 256,
       "lengthSteps": 128,
       "clip": {
         "name": "Shaker",
-        "pattern": ["C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.6"]
+        "pattern": ["x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.6"]
       },
       "endStep": 384
     },
     {
-      "id": "6be9c31f",
-      "trackId": "e05ea92c",
+      "id": "50e7d873",
+      "trackId": "90fd9062",
+      "startStep": 256,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Congas",
+        "pattern": [".", ".", "D4@0.5", ".", ".", "A3@0.7", ".", "D4@0.4", ".", ".", "E4@0.6", ".", ".", "A3@0.7", ".", "D4@0.5"]
+      },
+      "endStep": 384
+    },
+    {
+      "id": "393e9c83",
+      "trackId": "c4813c92",
       "startStep": 256,
       "lengthSteps": 128,
       "clip": {
@@ -757,8 +807,8 @@
       "endStep": 384
     },
     {
-      "id": "cd1aaf7c",
-      "trackId": "f3988409",
+      "id": "b8510e98",
+      "trackId": "7df3c872",
       "startStep": 256,
       "lengthSteps": 128,
       "clip": {
@@ -768,8 +818,8 @@
       "endStep": 384
     },
     {
-      "id": "cd26ee75",
-      "trackId": "e9667ea9",
+      "id": "c82ffd59",
+      "trackId": "79c7f00c",
       "startStep": 256,
       "lengthSteps": 128,
       "clip": {
@@ -779,8 +829,8 @@
       "endStep": 384
     },
     {
-      "id": "4fa897b5",
-      "trackId": "5ca8238b",
+      "id": "97b944aa",
+      "trackId": "acb5fabe",
       "startStep": 256,
       "lengthSteps": 128,
       "clip": {
@@ -810,8 +860,8 @@
       "endStep": 384
     },
     {
-      "id": "22f111c1",
-      "trackId": "5ca8238b",
+      "id": "d9b57d13",
+      "trackId": "acb5fabe",
       "startStep": 384,
       "lengthSteps": 32,
       "clip": {
@@ -837,8 +887,8 @@
       "endStep": 416
     },
     {
-      "id": "b7c59430",
-      "trackId": "5ca8238b",
+      "id": "f40ab6f5",
+      "trackId": "acb5fabe",
       "startStep": 416,
       "lengthSteps": 32,
       "clip": {
@@ -870,8 +920,8 @@
       "endStep": 448
     },
     {
-      "id": "6f1c16c7",
-      "trackId": "1638cac3",
+      "id": "fa526e57",
+      "trackId": "7e816735",
       "startStep": 416,
       "lengthSteps": 32,
       "clip": {
@@ -881,8 +931,31 @@
       "endStep": 448
     },
     {
-      "id": "795849fa",
-      "trackId": "8ea669ac",
+      "id": "5b9cbde8",
+      "trackId": "90fd9062",
+      "startStep": 384,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Breakdown Congas",
+        "pattern": [".", ".", "D4@0.5", ".", ".", "A3@0.7", ".", "D4@0.4", ".", ".", "E4@0.6", ".", ".", "A3@0.7", ".", "D4@0.5"],
+        "automation": {
+          "gain": [
+            {
+              "step": 0,
+              "value": 1.1
+            },
+            {
+              "step": 64,
+              "value": 0.55
+            }
+          ]
+        }
+      },
+      "endStep": 448
+    },
+    {
+      "id": "975d32ef",
+      "trackId": "8c985537",
       "startStep": 384,
       "lengthSteps": 128,
       "clip": {
@@ -908,8 +981,8 @@
       "endStep": 512
     },
     {
-      "id": "93e0bf4b",
-      "trackId": "37c6cdeb",
+      "id": "b09ae4f7",
+      "trackId": "33eab8a6",
       "startStep": 384,
       "lengthSteps": 64,
       "clip": {
@@ -919,8 +992,8 @@
       "endStep": 448
     },
     {
-      "id": "e5ee0921",
-      "trackId": "f3988409",
+      "id": "a8777feb",
+      "trackId": "7df3c872",
       "startStep": 448,
       "lengthSteps": 64,
       "clip": {
@@ -952,8 +1025,8 @@
       "endStep": 512
     },
     {
-      "id": "10c99954",
-      "trackId": "e9667ea9",
+      "id": "7f2652df",
+      "trackId": "79c7f00c",
       "startStep": 448,
       "lengthSteps": 64,
       "clip": {
@@ -989,8 +1062,8 @@
       "endStep": 512
     },
     {
-      "id": "ae15455c",
-      "trackId": "e9667ea9",
+      "id": "7a004a04",
+      "trackId": "79c7f00c",
       "startStep": 512,
       "lengthSteps": 16,
       "clip": {
@@ -1012,8 +1085,8 @@
       "endStep": 528
     },
     {
-      "id": "71a97fa3",
-      "trackId": "37c6cdeb",
+      "id": "e90cccd5",
+      "trackId": "33eab8a6",
       "startStep": 448,
       "lengthSteps": 64,
       "clip": {
@@ -1035,8 +1108,8 @@
       "endStep": 512
     },
     {
-      "id": "1bae8527",
-      "trackId": "73597936",
+      "id": "2eae328e",
+      "trackId": "c650f351",
       "startStep": 448,
       "lengthSteps": 64,
       "clip": {
@@ -1082,8 +1155,8 @@
       "endStep": 512
     },
     {
-      "id": "04de156d",
-      "trackId": "d785d292",
+      "id": "a34e753e",
+      "trackId": "9aa23dcf",
       "startStep": 448,
       "lengthSteps": 64,
       "clip": {
@@ -1129,8 +1202,8 @@
       "endStep": 512
     },
     {
-      "id": "b6fb09dd",
-      "trackId": "da94e357",
+      "id": "3038c69b",
+      "trackId": "e2a83810",
       "startStep": 480,
       "lengthSteps": 32,
       "clip": {
@@ -1160,8 +1233,8 @@
       "endStep": 512
     },
     {
-      "id": "81a3b34a",
-      "trackId": "1638cac3",
+      "id": "c050192b",
+      "trackId": "7e816735",
       "startStep": 480,
       "lengthSteps": 16,
       "clip": {
@@ -1171,8 +1244,8 @@
       "endStep": 496
     },
     {
-      "id": "1efeac48",
-      "trackId": "1638cac3",
+      "id": "6dca4d15",
+      "trackId": "7e816735",
       "startStep": 496,
       "lengthSteps": 16,
       "clip": {
@@ -1182,8 +1255,8 @@
       "endStep": 512
     },
     {
-      "id": "8416d97b",
-      "trackId": "f5827fd1",
+      "id": "9663f98b",
+      "trackId": "dde57443",
       "startStep": 512,
       "lengthSteps": 16,
       "clip": {
@@ -1193,8 +1266,8 @@
       "endStep": 528
     },
     {
-      "id": "97dd29f5",
-      "trackId": "f5827fd1",
+      "id": "d741c383",
+      "trackId": "dde57443",
       "startStep": 640,
       "lengthSteps": 16,
       "clip": {
@@ -1204,8 +1277,8 @@
       "endStep": 656
     },
     {
-      "id": "62650c4a",
-      "trackId": "1638cac3",
+      "id": "9c329b52",
+      "trackId": "7e816735",
       "startStep": 512,
       "lengthSteps": 240,
       "clip": {
@@ -1215,8 +1288,8 @@
       "endStep": 752
     },
     {
-      "id": "6e61dc3e",
-      "trackId": "1638cac3",
+      "id": "cf94db92",
+      "trackId": "7e816735",
       "startStep": 752,
       "lengthSteps": 16,
       "clip": {
@@ -1226,8 +1299,8 @@
       "endStep": 768
     },
     {
-      "id": "e63cb71f",
-      "trackId": "da94e357",
+      "id": "759b4b77",
+      "trackId": "e2a83810",
       "startStep": 512,
       "lengthSteps": 240,
       "clip": {
@@ -1249,8 +1322,8 @@
       "endStep": 752
     },
     {
-      "id": "a2908ce3",
-      "trackId": "da94e357",
+      "id": "66828176",
+      "trackId": "e2a83810",
       "startStep": 752,
       "lengthSteps": 16,
       "clip": {
@@ -1260,8 +1333,8 @@
       "endStep": 768
     },
     {
-      "id": "55fef588",
-      "trackId": "37c6cdeb",
+      "id": "d64e6335",
+      "trackId": "33eab8a6",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1271,8 +1344,8 @@
       "endStep": 768
     },
     {
-      "id": "522769b4",
-      "trackId": "73c3db5e",
+      "id": "ecb62ef5",
+      "trackId": "bb972d57",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1282,19 +1355,52 @@
       "endStep": 768
     },
     {
-      "id": "6c9f90af",
-      "trackId": "ac6c4411",
+      "id": "5c359ef4",
+      "trackId": "ba7670ee",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
         "name": "Shaker",
-        "pattern": ["C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.4", "C5@0.4", "C5@0.2", "C5@0.6", "C5@0.6"]
+        "pattern": ["x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.4", "x@0.4", "x@0.2", "x@0.6", "x@0.6"]
       },
       "endStep": 768
     },
     {
-      "id": "c3697279",
-      "trackId": "e05ea92c",
+      "id": "9c2c9102",
+      "trackId": "90fd9062",
+      "startStep": 512,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Congas",
+        "pattern": [".", ".", "D4@0.5", ".", ".", "A3@0.7", ".", "D4@0.4", ".", ".", "E4@0.6", ".", ".", "A3@0.7", ".", "D4@0.5"]
+      },
+      "endStep": 640
+    },
+    {
+      "id": "1e4e30ac",
+      "trackId": "90fd9062",
+      "startStep": 640,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Congas (busier)",
+        "pattern": [".", ".", "D4@0.5", ".", ".", "A3@0.7", ".", "D4@0.4", ".", ".", "E4@0.6", ".", "E4@0.4", "A3@0.7", ".", "A3@0.5"]
+      },
+      "endStep": 768
+    },
+    {
+      "id": "a951e4dd",
+      "trackId": "90fd9062",
+      "startStep": 768,
+      "lengthSteps": 64,
+      "clip": {
+        "name": "Congas",
+        "pattern": [".", ".", "D4@0.5", ".", ".", "A3@0.7", ".", "D4@0.4", ".", ".", "E4@0.6", ".", ".", "A3@0.7", ".", "D4@0.5"]
+      },
+      "endStep": 832
+    },
+    {
+      "id": "928e82a9",
+      "trackId": "c4813c92",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1304,8 +1410,8 @@
       "endStep": 768
     },
     {
-      "id": "d3c36555",
-      "trackId": "f3988409",
+      "id": "43047132",
+      "trackId": "7df3c872",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1315,8 +1421,8 @@
       "endStep": 768
     },
     {
-      "id": "4d743662",
-      "trackId": "e9667ea9",
+      "id": "475289c6",
+      "trackId": "79c7f00c",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1326,8 +1432,8 @@
       "endStep": 768
     },
     {
-      "id": "3fb327b9",
-      "trackId": "8ea669ac",
+      "id": "4dcd17b2",
+      "trackId": "8c985537",
       "startStep": 640,
       "lengthSteps": 128,
       "clip": {
@@ -1337,8 +1443,8 @@
       "endStep": 768
     },
     {
-      "id": "b18fbaa1",
-      "trackId": "5ca8238b",
+      "id": "fe7fccd7",
+      "trackId": "acb5fabe",
       "startStep": 512,
       "lengthSteps": 128,
       "clip": {
@@ -1348,8 +1454,8 @@
       "endStep": 640
     },
     {
-      "id": "625958fc",
-      "trackId": "5ca8238b",
+      "id": "c13e2afd",
+      "trackId": "acb5fabe",
       "startStep": 640,
       "lengthSteps": 128,
       "clip": {
@@ -1379,8 +1485,8 @@
       "endStep": 768
     },
     {
-      "id": "535c577f",
-      "trackId": "5ca8238b",
+      "id": "5bcb5c56",
+      "trackId": "acb5fabe",
       "startStep": 768,
       "lengthSteps": 32,
       "clip": {
@@ -1402,8 +1508,8 @@
       "endStep": 800
     },
     {
-      "id": "1067c4a7",
-      "trackId": "1638cac3",
+      "id": "4db090d4",
+      "trackId": "7e816735",
       "startStep": 768,
       "lengthSteps": 128,
       "clip": {
@@ -1413,8 +1519,8 @@
       "endStep": 896
     },
     {
-      "id": "6712dc64",
-      "trackId": "da94e357",
+      "id": "0cf82f21",
+      "trackId": "e2a83810",
       "startStep": 768,
       "lengthSteps": 64,
       "clip": {
@@ -1424,8 +1530,8 @@
       "endStep": 832
     },
     {
-      "id": "8cd89b47",
-      "trackId": "37c6cdeb",
+      "id": "c7205f6f",
+      "trackId": "33eab8a6",
       "startStep": 768,
       "lengthSteps": 128,
       "clip": {
@@ -1447,8 +1553,8 @@
       "endStep": 896
     },
     {
-      "id": "ce20901a",
-      "trackId": "73c3db5e",
+      "id": "01d888d4",
+      "trackId": "bb972d57",
       "startStep": 768,
       "lengthSteps": 64,
       "clip": {
@@ -1458,8 +1564,8 @@
       "endStep": 832
     },
     {
-      "id": "cc817187",
-      "trackId": "e05ea92c",
+      "id": "f2a39d52",
+      "trackId": "c4813c92",
       "startStep": 768,
       "lengthSteps": 64,
       "clip": {
@@ -1469,8 +1575,8 @@
       "endStep": 832
     },
     {
-      "id": "a0b55373",
-      "trackId": "f3988409",
+      "id": "0a554d88",
+      "trackId": "7df3c872",
       "startStep": 768,
       "lengthSteps": 64,
       "clip": {
@@ -1492,8 +1598,8 @@
       "endStep": 832
     },
     {
-      "id": "6c80c14e",
-      "trackId": "e9667ea9",
+      "id": "2e6dc86a",
+      "trackId": "79c7f00c",
       "startStep": 768,
       "lengthSteps": 64,
       "clip": {

@@ -3,6 +3,7 @@
   "name": "Synergy Lo-Fi",
   "bpm": 78,
   "steps": 16,
+  "swing": 60,
   "scenes": [
     "Scene 1"
   ],
@@ -33,6 +34,7 @@
       "effects": [],
       "gain": 0.75,
       "pan": 0.1,
+      "timing": 8,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -51,6 +53,7 @@
       "effects": [],
       "gain": 1.24,
       "pan": 0.25,
+      "timing": 6,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -81,12 +84,20 @@
     },
     {
       "id": "5013b901",
-      "name": "Pluck Pipeline",
-      "instrument": "pluck",
-      "instrumentParameters": {},
+      "name": "Pluck Pipeline (epiano)",
+      "instrument": "epiano",
+      "instrumentParameters": {
+        "tine": 0.3,
+        "bark": 0.2,
+        "decay": 2400,
+        "release": 300,
+        "tremolo": 0.45,
+        "rate": 4
+      },
       "effects": [],
-      "gain": 0.78,
+      "gain": 0.4,
       "pan": 0.3,
+      "timing": 12,
       "muted": false,
       "solo": false,
       "aiLocked": false,

@@ -380,7 +380,7 @@ public class SwingAndTimingTests
         Assert.Contains("\"Shaker\" (hat, swing 66.67, timing 9 ms)", addResult);
 
         var updateResult = await CallToolAsync("update_track", new JsonObject { ["track"] = hatTrack.Name, ["swing"] = 90, ["timing"] = 12 });
-        Assert.Contains("swing (project's) → 75", updateResult);
+        Assert.Contains("swing 56 → 75", updateResult);
         Assert.Contains("timing 0 → 12 ms", updateResult);
         Assert.Contains($"{hatTrack.Name}.swing: 90 clamped to 75", updateResult);
         Assert.Equal(75, servedDocument.Project.Tracks[2].Swing);

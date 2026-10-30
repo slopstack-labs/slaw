@@ -56,6 +56,7 @@ internal static class StarterProjectBlueprint
             Effect("reverb", ("size", 0.35), ("mix", 0.18), ("damping", 0.5)));
         var agileHats = Track("Agile Hats", "hat", 1.2, -0.25,
             Effect("highpass", ("cutoff", 2000)));
+        agileHats.Swing = 56;   // a light MPC shuffle on the hats; the kick, bass and stabs stay on the grid
         var bottomLineBass = Track("Bottom-Line Bass", "saw", 1.1, 0,
             Effect("lowpass", ("cutoff", 900), ("resonance", 0.35)),
             Effect("vibe", ("synergy", 0.3)),

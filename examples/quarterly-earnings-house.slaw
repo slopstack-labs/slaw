@@ -10,7 +10,7 @@
   ],
   "tracks": [
     {
-      "id": "c4a51a80",
+      "id": "a7622f4b",
       "name": "Earnings Kick",
       "instrument": "kick",
       "instrumentParameters": {
@@ -35,7 +35,7 @@
       ]
     },
     {
-      "id": "7cdf2b06",
+      "id": "0f9a25bb",
       "name": "Dividend Clap",
       "instrument": "clap",
       "instrumentParameters": {},
@@ -66,7 +66,7 @@
       ]
     },
     {
-      "id": "6d9be8a7",
+      "id": "1506b088",
       "name": "Ticker Hats",
       "instrument": "hat",
       "instrumentParameters": {
@@ -83,6 +83,8 @@
       ],
       "gain": 1.3,
       "pan": 0.2,
+      "swing": 56,
+      "timing": 3,
       "muted": false,
       "solo": false,
       "aiLocked": false,
@@ -99,7 +101,7 @@
       ]
     },
     {
-      "id": "36389c1f",
+      "id": "44020219",
       "name": "Offbeat Hat",
       "instrument": "hat",
       "instrumentParameters": {
@@ -129,7 +131,7 @@
       ]
     },
     {
-      "id": "28025f25",
+      "id": "4f1f15a3",
       "name": "Shuffle Snare",
       "instrument": "snare",
       "instrumentParameters": {
@@ -152,7 +154,7 @@
       ]
     },
     {
-      "id": "08cce30b",
+      "id": "94eeacea",
       "name": "Wobble Bass",
       "instrument": "saw",
       "instrumentParameters": {
@@ -188,7 +190,7 @@
             "attack": 1,
             "release": 110
           },
-          "sidechainSource": "c4a51a80"
+          "sidechainSource": "a7622f4b"
         }
       ],
       "gain": 0.9,
@@ -206,7 +208,7 @@
       ]
     },
     {
-      "id": "4cf1dd81",
+      "id": "029e78ca",
       "name": "Touch Bass (ex-Casio)",
       "instrument": "triangle",
       "instrumentParameters": {
@@ -225,7 +227,7 @@
             "attack": 1,
             "release": 100
           },
-          "sidechainSource": "c4a51a80"
+          "sidechainSource": "a7622f4b"
         }
       ],
       "gain": 0.55,
@@ -246,16 +248,20 @@
       ]
     },
     {
-      "id": "28b9b74a",
+      "id": "9acc7142",
       "name": "Ledger Organ",
-      "instrument": "square",
+      "instrument": "organ",
       "instrumentParameters": {
+        "sub": 0.2,
+        "body": 1,
+        "upper": 0.7,
+        "sparkle": 0.5,
+        "percussion": 0.75,
+        "click": 0.5,
+        "chorus": 0.25,
         "attack": 1,
-        "decay": 160,
-        "sustain": 0.1,
-        "release": 60,
-        "cutoff": 3500,
-        "detune": 5
+        "release": 50,
+        "cutoff": 6000
       },
       "effects": [
         {
@@ -275,7 +281,7 @@
             "attack": 1,
             "release": 130
           },
-          "sidechainSource": "c4a51a80"
+          "sidechainSource": "a7622f4b"
         },
         {
           "type": "delay",
@@ -288,7 +294,7 @@
           }
         }
       ],
-      "gain": 0.8,
+      "gain": 0.9,
       "pan": 0.05,
       "muted": false,
       "solo": false,
@@ -303,7 +309,7 @@
       ]
     },
     {
-      "id": "47e65f6f",
+      "id": "3f3d9a43",
       "name": "Melodic Tom (ex-Casio)",
       "instrument": "sine",
       "instrumentParameters": {
@@ -339,7 +345,7 @@
       ]
     },
     {
-      "id": "fba81249",
+      "id": "a4b7e3aa",
       "name": "Outro Chord",
       "instrument": "triangle",
       "instrumentParameters": {
@@ -383,7 +389,7 @@
       ]
     },
     {
-      "id": "231d0dc6",
+      "id": "344c26cc",
       "name": "Earnings Call Riser",
       "instrument": "noise",
       "instrumentParameters": {
@@ -422,7 +428,7 @@
       ]
     },
     {
-      "id": "c46885a7",
+      "id": "fffefb8c",
       "name": "Crash",
       "instrument": "noise",
       "instrumentParameters": {
@@ -474,8 +480,8 @@
   },
   "timeline": [
     {
-      "id": "beff1d4c",
-      "trackId": "c4a51a80",
+      "id": "138bae47",
+      "trackId": "a7622f4b",
       "startStep": 0,
       "lengthSteps": 128,
       "clip": {
@@ -485,8 +491,8 @@
       "endStep": 128
     },
     {
-      "id": "77681627",
-      "trackId": "6d9be8a7",
+      "id": "e8370474",
+      "trackId": "1506b088",
       "startStep": 0,
       "lengthSteps": 128,
       "clip": {
@@ -508,8 +514,8 @@
       "endStep": 128
     },
     {
-      "id": "79b8981a",
-      "trackId": "4cf1dd81",
+      "id": "0b19e8c4",
+      "trackId": "029e78ca",
       "startStep": 0,
       "lengthSteps": 128,
       "clip": {
@@ -531,8 +537,8 @@
       "endStep": 128
     },
     {
-      "id": "55429560",
-      "trackId": "7cdf2b06",
+      "id": "3ed35f95",
+      "trackId": "0f9a25bb",
       "startStep": 64,
       "lengthSteps": 64,
       "clip": {
@@ -542,8 +548,8 @@
       "endStep": 128
     },
     {
-      "id": "470abbf2",
-      "trackId": "47e65f6f",
+      "id": "bc413dc2",
+      "trackId": "3f3d9a43",
       "startStep": 64,
       "lengthSteps": 64,
       "clip": {
@@ -553,8 +559,8 @@
       "endStep": 128
     },
     {
-      "id": "81fde3e9",
-      "trackId": "231d0dc6",
+      "id": "a5f5d65e",
+      "trackId": "344c26cc",
       "startStep": 96,
       "lengthSteps": 32,
       "clip": {
@@ -600,8 +606,8 @@
       "endStep": 128
     },
     {
-      "id": "ef1d178b",
-      "trackId": "c46885a7",
+      "id": "97e53c8f",
+      "trackId": "fffefb8c",
       "startStep": 128,
       "lengthSteps": 16,
       "clip": {
@@ -611,8 +617,8 @@
       "endStep": 144
     },
     {
-      "id": "48ed82f1",
-      "trackId": "c4a51a80",
+      "id": "ff16e536",
+      "trackId": "a7622f4b",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -622,8 +628,8 @@
       "endStep": 384
     },
     {
-      "id": "1e717334",
-      "trackId": "7cdf2b06",
+      "id": "a4aae9e2",
+      "trackId": "0f9a25bb",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -633,8 +639,8 @@
       "endStep": 384
     },
     {
-      "id": "cee5d81d",
-      "trackId": "6d9be8a7",
+      "id": "941e5fff",
+      "trackId": "1506b088",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -644,8 +650,8 @@
       "endStep": 384
     },
     {
-      "id": "fc89f149",
-      "trackId": "36389c1f",
+      "id": "362b14a9",
+      "trackId": "44020219",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -655,8 +661,8 @@
       "endStep": 384
     },
     {
-      "id": "74da8940",
-      "trackId": "28025f25",
+      "id": "fbe38b7f",
+      "trackId": "4f1f15a3",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -666,8 +672,8 @@
       "endStep": 384
     },
     {
-      "id": "cd12dae5",
-      "trackId": "08cce30b",
+      "id": "c00a5efc",
+      "trackId": "94eeacea",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -1321,8 +1327,8 @@
       "endStep": 384
     },
     {
-      "id": "8bda39ad",
-      "trackId": "28b9b74a",
+      "id": "2c13cae3",
+      "trackId": "9acc7142",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -1362,8 +1368,8 @@
       "endStep": 384
     },
     {
-      "id": "b0571fb3",
-      "trackId": "47e65f6f",
+      "id": "df9e3384",
+      "trackId": "3f3d9a43",
       "startStep": 128,
       "lengthSteps": 256,
       "clip": {
@@ -1373,8 +1379,8 @@
       "endStep": 384
     },
     {
-      "id": "3a824a06",
-      "trackId": "28b9b74a",
+      "id": "6793de11",
+      "trackId": "9acc7142",
       "startStep": 384,
       "lengthSteps": 32,
       "clip": {
@@ -1396,8 +1402,8 @@
       "endStep": 416
     },
     {
-      "id": "34e5fa65",
-      "trackId": "fba81249",
+      "id": "40cd0b8c",
+      "trackId": "a4b7e3aa",
       "startStep": 384,
       "lengthSteps": 128,
       "clip": {
@@ -1419,8 +1425,8 @@
       "endStep": 512
     },
     {
-      "id": "63d05b4f",
-      "trackId": "4cf1dd81",
+      "id": "56d60d9e",
+      "trackId": "029e78ca",
       "startStep": 384,
       "lengthSteps": 64,
       "clip": {
@@ -1442,8 +1448,8 @@
       "endStep": 448
     },
     {
-      "id": "cf753776",
-      "trackId": "6d9be8a7",
+      "id": "1c77a5b9",
+      "trackId": "1506b088",
       "startStep": 384,
       "lengthSteps": 128,
       "clip": {
@@ -1453,8 +1459,8 @@
       "endStep": 512
     },
     {
-      "id": "4b37d9c3",
-      "trackId": "47e65f6f",
+      "id": "c5655c35",
+      "trackId": "3f3d9a43",
       "startStep": 384,
       "lengthSteps": 64,
       "clip": {
@@ -1464,8 +1470,8 @@
       "endStep": 448
     },
     {
-      "id": "092f703b",
-      "trackId": "08cce30b",
+      "id": "fde4c05c",
+      "trackId": "94eeacea",
       "startStep": 448,
       "lengthSteps": 64,
       "clip": {
@@ -1497,8 +1503,8 @@
       "endStep": 512
     },
     {
-      "id": "2b3a1a6c",
-      "trackId": "c4a51a80",
+      "id": "3b4ced67",
+      "trackId": "a7622f4b",
       "startStep": 448,
       "lengthSteps": 64,
       "clip": {
@@ -1520,8 +1526,8 @@
       "endStep": 512
     },
     {
-      "id": "25b91c4a",
-      "trackId": "7cdf2b06",
+      "id": "244da879",
+      "trackId": "0f9a25bb",
       "startStep": 480,
       "lengthSteps": 32,
       "clip": {
@@ -1557,8 +1563,8 @@
       "endStep": 512
     },
     {
-      "id": "9c1c5504",
-      "trackId": "231d0dc6",
+      "id": "12dbf0cd",
+      "trackId": "344c26cc",
       "startStep": 448,
       "lengthSteps": 64,
       "clip": {
@@ -1604,8 +1610,8 @@
       "endStep": 512
     },
     {
-      "id": "3c0ea48e",
-      "trackId": "c46885a7",
+      "id": "5835cd9b",
+      "trackId": "fffefb8c",
       "startStep": 512,
       "lengthSteps": 16,
       "clip": {
@@ -1615,8 +1621,8 @@
       "endStep": 528
     },
     {
-      "id": "8ca8b467",
-      "trackId": "c46885a7",
+      "id": "30fb7667",
+      "trackId": "fffefb8c",
       "startStep": 640,
       "lengthSteps": 16,
       "clip": {
@@ -1626,8 +1632,8 @@
       "endStep": 656
     },
     {
-      "id": "4d18c184",
-      "trackId": "7cdf2b06",
+      "id": "bd462db5",
+      "trackId": "0f9a25bb",
       "startStep": 512,
       "lengthSteps": 16,
       "clip": {
@@ -1649,8 +1655,8 @@
       "endStep": 528
     },
     {
-      "id": "62d5adc9",
-      "trackId": "7cdf2b06",
+      "id": "ce007d2a",
+      "trackId": "0f9a25bb",
       "startStep": 528,
       "lengthSteps": 240,
       "clip": {
@@ -1660,8 +1666,8 @@
       "endStep": 768
     },
     {
-      "id": "87066ce2",
-      "trackId": "c4a51a80",
+      "id": "b4ad7b73",
+      "trackId": "a7622f4b",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1671,8 +1677,8 @@
       "endStep": 768
     },
     {
-      "id": "c720eb0d",
-      "trackId": "6d9be8a7",
+      "id": "c83db4a8",
+      "trackId": "1506b088",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1682,8 +1688,8 @@
       "endStep": 768
     },
     {
-      "id": "099791e2",
-      "trackId": "36389c1f",
+      "id": "a8bbc810",
+      "trackId": "44020219",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1693,8 +1699,8 @@
       "endStep": 768
     },
     {
-      "id": "d85f627d",
-      "trackId": "28025f25",
+      "id": "473e5d42",
+      "trackId": "4f1f15a3",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -1704,8 +1710,8 @@
       "endStep": 768
     },
     {
-      "id": "c747090d",
-      "trackId": "08cce30b",
+      "id": "e2b2eb04",
+      "trackId": "94eeacea",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -2359,8 +2365,8 @@
       "endStep": 768
     },
     {
-      "id": "c6f7e3b0",
-      "trackId": "4cf1dd81",
+      "id": "353ae4b2",
+      "trackId": "029e78ca",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -2378,8 +2384,8 @@
       "endStep": 768
     },
     {
-      "id": "3f3c7f3f",
-      "trackId": "28b9b74a",
+      "id": "7cdf3c57",
+      "trackId": "9acc7142",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -2389,8 +2395,8 @@
       "endStep": 768
     },
     {
-      "id": "42ebe575",
-      "trackId": "47e65f6f",
+      "id": "95a42fad",
+      "trackId": "3f3d9a43",
       "startStep": 512,
       "lengthSteps": 256,
       "clip": {
@@ -2400,8 +2406,8 @@
       "endStep": 768
     },
     {
-      "id": "7fecb88e",
-      "trackId": "c4a51a80",
+      "id": "5c03ba55",
+      "trackId": "a7622f4b",
       "startStep": 768,
       "lengthSteps": 128,
       "clip": {
@@ -2423,8 +2429,8 @@
       "endStep": 896
     },
     {
-      "id": "a58a53b0",
-      "trackId": "6d9be8a7",
+      "id": "b0fdb4c9",
+      "trackId": "1506b088",
       "startStep": 768,
       "lengthSteps": 128,
       "clip": {
@@ -2446,8 +2452,8 @@
       "endStep": 896
     },
     {
-      "id": "a820fae5",
-      "trackId": "4cf1dd81",
+      "id": "cd221d8c",
+      "trackId": "029e78ca",
       "startStep": 768,
       "lengthSteps": 128,
       "clip": {
@@ -2469,8 +2475,8 @@
       "endStep": 896
     },
     {
-      "id": "8c73d2b1",
-      "trackId": "fba81249",
+      "id": "fdb611d8",
+      "trackId": "a4b7e3aa",
       "startStep": 768,
       "lengthSteps": 128,
       "clip": {
@@ -2496,8 +2502,8 @@
       "endStep": 896
     },
     {
-      "id": "a99a210d",
-      "trackId": "47e65f6f",
+      "id": "77bc68e6",
+      "trackId": "3f3d9a43",
       "startStep": 768,
       "lengthSteps": 64,
       "clip": {
@@ -2507,8 +2513,8 @@
       "endStep": 832
     },
     {
-      "id": "f63429bb",
-      "trackId": "7cdf2b06",
+      "id": "4d9494cf",
+      "trackId": "0f9a25bb",
       "startStep": 768,
       "lengthSteps": 64,
       "clip": {
