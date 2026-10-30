@@ -73,6 +73,17 @@ internal sealed class PluginInstancePool
         return null;
     }
 
+    /// <summary>
+    /// The instance for a slot, loading it now if the engine has not needed it
+    /// yet (an instrument loads at its first note). Null if it could not load;
+    /// <see cref="LoadProblem"/> says why.
+    /// </summary>
+    public Task<Vst3PluginInstance?> GetOrLoadAsync(string slotKey, PluginReference pluginReference)
+    {
+        TryGet(slotKey, pluginReference);
+        return entriesBySlot.TryGetValue(slotKey, out var entry) ? entry.Loaded : Task.FromResult<Vst3PluginInstance?>(null);
+    }
+
     /// <summary>The ready instance in a slot, without loading anything.</summary>
     public Vst3PluginInstance? Peek(string slotKey, PluginReference? pluginReference) =>
         entriesBySlot.TryGetValue(slotKey, out var entry) && entry.Reference.IsSamePlugin(pluginReference) ? entry.Instance : null;
@@ -169,6 +180,7 @@ internal sealed class PluginInstancePool
 
     private sealed class PoolEntry
     {
+        private readonly TaskCompletionSource<Vst3PluginInstance?> loadCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private Vst3PluginInstance? instance;
         private bool retired;
 
@@ -177,6 +189,9 @@ internal sealed class PluginInstancePool
         public PluginReference Reference { get; }
 
         public Vst3PluginInstance? Instance => Volatile.Read(ref instance);
+
+        /// <summary>Completes when loading finishes: the instance, or null if it failed or was retired first.</summary>
+        public Task<Vst3PluginInstance?> Loaded => loadCompletion.Task;
 
         public string? Problem { get; private set; }
 
@@ -199,6 +214,10 @@ internal sealed class PluginInstancePool
             {
                 Problem = loadRemediationOpportunity.Message;
             }
+            finally
+            {
+                loadCompletion.TrySetResult(Instance);
+            }
         }
 
         public void Retire()
@@ -208,6 +227,7 @@ internal sealed class PluginInstancePool
                 retired = true;
                 Interlocked.Exchange(ref instance, null)?.Dispose();
             }
+            loadCompletion.TrySetResult(null);
         }
     }
 }

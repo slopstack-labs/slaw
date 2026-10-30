@@ -5,7 +5,8 @@ namespace SlopstackLabs.Slaw.Synthesis;
 /// whether the block is still mono: then only the left span holds the signal,
 /// and the right one is to be read as a copy of it.
 /// </summary>
-internal readonly record struct EffectProcessingContext(int SampleRate, double StepDurationSeconds, bool MonoInput = false);
+/// <param name="TransportStep">Where the playhead is, in (fractional) sixteenth-note steps from the top; null while stopped.</param>
+internal readonly record struct EffectProcessingContext(int SampleRate, double StepDurationSeconds, bool MonoInput = false, double? TransportStep = null);
 
 /// <summary>
 /// A stateful streaming stereo effect. Parameters are re-read on every block, so

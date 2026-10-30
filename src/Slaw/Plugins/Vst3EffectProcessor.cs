@@ -32,7 +32,7 @@ internal sealed class Vst3EffectProcessor : EffectProcessor
             return processingContext.MonoInput;
         }
         MaterializeStereo(leftBlock, rightBlock, processingContext);
-        pluginEffect.SetTransport(60.0 / (processingContext.StepDurationSeconds * 4), playing: true);
+        pluginEffect.SetTransport(60.0 / (processingContext.StepDurationSeconds * 4), processingContext.TransportStep);
         pluginEffect.Process(leftBlock, rightBlock, parameterValues);
         return false;
     }

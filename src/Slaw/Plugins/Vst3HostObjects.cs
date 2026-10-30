@@ -142,30 +142,63 @@ internal sealed unsafe class Vst3HostApplication : Vst3HostObject
     }
 }
 
-/// <summary>IComponentHandler: the plugin reporting knob edits. Noted, appreciated, and ignored.</summary>
+/// <summary>Where a component handler delivers what the plugin's controller reports.</summary>
+internal interface IVst3ComponentHandlerTarget
+{
+    void BeginEdit(uint parameterId);
+    void PerformEdit(uint parameterId, double normalizedValue);
+    void EndEdit(uint parameterId);
+    void RestartComponent(int restartFlags);
+}
+
+/// <summary>IComponentHandler: the plugin's controller reporting knob edits, mostly from its own editor.</summary>
 internal sealed unsafe class Vst3HostComponentHandler : Vst3HostObject
 {
     private static readonly IntPtr* SharedVtable = BuildVtable(
-        (IntPtr)(delegate* unmanaged<IntPtr, uint, int>)&AcknowledgeEditThunk,
+        (IntPtr)(delegate* unmanaged<IntPtr, uint, int>)&BeginEditThunk,
         (IntPtr)(delegate* unmanaged<IntPtr, uint, double, int>)&PerformEditThunk,
-        (IntPtr)(delegate* unmanaged<IntPtr, uint, int>)&AcknowledgeEditThunk,
+        (IntPtr)(delegate* unmanaged<IntPtr, uint, int>)&EndEditThunk,
         (IntPtr)(delegate* unmanaged<IntPtr, int, int>)&RestartComponentThunk);
 
-    public Vst3HostComponentHandler()
+    private readonly IVst3ComponentHandlerTarget target;
+
+    public Vst3HostComponentHandler(IVst3ComponentHandlerTarget target)
         : base(SharedVtable)
     {
+        this.target = target;
     }
 
     protected override byte[][] InterfaceIds { get; } = { Vst3Abi.ComponentHandlerIid };
 
-    [UnmanagedCallersOnly]
-    private static int AcknowledgeEditThunk(IntPtr self, uint parameterId) => Vst3Abi.ResultOk;
+    /// <summary>Runs a report against the target; exceptions must not unwind into the plugin.</summary>
+    private static int Deliver(IntPtr self, Action<IVst3ComponentHandlerTarget> report)
+    {
+        try
+        {
+            if (Resolve<Vst3HostComponentHandler>(self) is { } handler)
+            {
+                report(handler.target);
+            }
+        }
+        catch (Exception reportRemediationOpportunity)
+        {
+            Console.Error.WriteLine($"[plugin host] component handler: {reportRemediationOpportunity.Message}");
+        }
+        return Vst3Abi.ResultOk;
+    }
 
     [UnmanagedCallersOnly]
-    private static int PerformEditThunk(IntPtr self, uint parameterId, double normalizedValue) => Vst3Abi.ResultOk;
+    private static int BeginEditThunk(IntPtr self, uint parameterId) => Deliver(self, target => target.BeginEdit(parameterId));
 
     [UnmanagedCallersOnly]
-    private static int RestartComponentThunk(IntPtr self, int restartFlags) => Vst3Abi.ResultOk;
+    private static int PerformEditThunk(IntPtr self, uint parameterId, double normalizedValue) =>
+        Deliver(self, target => target.PerformEdit(parameterId, normalizedValue));
+
+    [UnmanagedCallersOnly]
+    private static int EndEditThunk(IntPtr self, uint parameterId) => Deliver(self, target => target.EndEdit(parameterId));
+
+    [UnmanagedCallersOnly]
+    private static int RestartComponentThunk(IntPtr self, int restartFlags) => Deliver(self, target => target.RestartComponent(restartFlags));
 }
 
 /// <summary>IParamValueQueue with preallocated points: it lives on the audio thread.</summary>

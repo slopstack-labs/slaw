@@ -5,7 +5,7 @@ using SlopstackLabs.Slaw.Session;
 
 namespace SlopstackLabs.Slaw.Desktop;
 
-/// <summary>VST3 bundles dropped from the file manager: instruments onto tracks, effects into chains.</summary>
+/// <summary>VST3 bundles dropped from the file manager: instruments onto tracks, effects into chains. And their editors.</summary>
 internal sealed partial class StudioWindow
 {
     private readonly StackPanel pluginEntriesPanel = new() { Spacing = 3 };
@@ -84,6 +84,42 @@ internal sealed partial class StudioWindow
             project.Tracks.Add(PluginDeviceOperations.CreateInstrumentTrack(project, PluginDeviceOperations.ToReference(plugin), sceneIndex)), EditScope.Structure);
         document.Select(document.Project.Tracks.Count - 1, sceneIndex);
     }
+
+    public async void OpenPluginEditor(string trackIdentifier, int effectIndex)
+    {
+        var track = document.Project.Tracks.FirstOrDefault(candidate => candidate.Id == trackIdentifier);
+        var plugin = effectIndex < 0
+            ? track?.Plugin
+            : track is not null && effectIndex < track.Effects.Count ? track.Effects[effectIndex].Plugin : null;
+        if (track is null || plugin is null)
+        {
+            return;
+        }
+        if (PluginInstancePool.Live is not { } livePool)
+        {
+            SetStatus(StatusSeverity.Failure, $"the audio engine is not running, so {plugin.Name} is not loaded and has no editor to show");
+            return;
+        }
+        try
+        {
+            var slotKey = effectIndex < 0 ? PluginInstancePool.InstrumentSlot(track.Id) : PluginInstancePool.EffectSlot(track.Id, effectIndex);
+            SetStatus(StatusSeverity.Informational, $"opening {plugin.Name}…");
+            if (await livePool.GetOrLoadAsync(slotKey, plugin) is not { } instance)
+            {
+                SetStatus(StatusSeverity.Failure, $"could not load {plugin.Name}: {livePool.LoadProblem(slotKey) ?? "it was replaced while loading"}");
+                return;
+            }
+            var ownerWindow = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            var editorProblem = await instance.OpenEditorAsync($"{plugin.Name} — {track.Name}", ownerWindow,
+                new PluginEditorParameterSync(document, track.Id, effectIndex, plugin));
+            SetStatus(editorProblem is null ? StatusSeverity.Success : StatusSeverity.Warning, editorProblem ?? $"opened {plugin.Name}");
+        }
+        catch (Exception editorRemediationOpportunity)
+        {
+            SetStatus(StatusSeverity.Failure, $"{plugin.Name}'s editor crashed on the way up: {editorRemediationOpportunity.Message}");
+        }
+    }
+
     private static bool IsPluginBundle(string droppedPath) =>
         droppedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).EndsWith(".vst3", StringComparison.OrdinalIgnoreCase);
 

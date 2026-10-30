@@ -556,6 +556,10 @@ internal sealed partial class DetailView : UserControl
         }
 
         var titleRow = StudioUi.Row(6, instrumentSelector, ComposeInstrumentPluginPicker(track));
+        if (track.Instrument == Plugins.DeviceTypes.Vst3 && track.Plugin is { } editablePlugin)
+        {
+            titleRow.Children.Add(ComposePluginEditorButton(editablePlugin, track.Id, -1));
+        }
         if (host.AiFeaturesEnabled)
         {
             titleRow.Children.Add(StudioUi.AiButton("✨", () => host.TuneDeviceWithAi(trackIndex, -1), "Let the AI design this sound"));
@@ -644,6 +648,10 @@ internal sealed partial class DetailView : UserControl
                     track.Effects.RemoveAt(effectIndex);
                     ClipAutomation.ForgetEffectSlot(track, effectIndex);
                 }, EditScope.Structure), "Remove device", compact: true));
+        if (effectDevice.Type == Plugins.DeviceTypes.Vst3 && effectDevice.Plugin is { } editablePlugin)
+        {
+            titleRow.Children.Add(ComposePluginEditorButton(editablePlugin, track.Id, effectIndex));
+        }
         if (host.AiFeaturesEnabled)
         {
             titleRow.Children.Add(StudioUi.AiButton("✨", () => host.TuneDeviceWithAi(trackIndex, effectIndex), "Let the AI dial this in"));

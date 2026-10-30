@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace SlopstackLabs.Slaw.Plugins;
 
@@ -7,30 +8,100 @@ namespace SlopstackLabs.Slaw.Plugins;
 /// The one thread allowed to load, initialize, query and tear down plugins.
 /// VST3 calls this the "UI thread"; slaw has an Avalonia UI thread already and
 /// would rather a misbehaving plugin froze something less visible.
+///
+/// On Windows it is also a real UI thread: a single-threaded apartment that
+/// pumps window messages, because plugin editors are windows, and plugins
+/// (JUCE ones especially) run their timers and repaints through the message
+/// queue of the thread that created them. Tickers run every
+/// <see cref="TickInterval"/> on every platform.
 /// </summary>
 internal static class PluginHostThread
 {
-    private static readonly BlockingCollection<Action> PendingWork = new();
+    public static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(30);
+
+    private static readonly ConcurrentQueue<Action> PendingWork = new();
+    private static readonly AutoResetEvent WorkAvailable = new(false);
+    private static readonly List<Action> Tickers = new();
     private static readonly Thread HostThread = StartHostThread();
 
     public static bool IsCurrent => Thread.CurrentThread == HostThread;
 
     private static Thread StartHostThread()
     {
-        var hostThread = new Thread(() =>
-        {
-            foreach (var workItem in PendingWork.GetConsumingEnumerable())
-            {
-                workItem();
-            }
-        })
+        var hostThread = new Thread(OperatingSystem.IsWindows() ? RunWindowsMessageLoop : RunWorkLoop)
         {
             IsBackground = true,
             Name = "slaw plugin host",
         };
+        if (OperatingSystem.IsWindows())
+        {
+            hostThread.SetApartmentState(ApartmentState.STA);
+        }
         hostThread.Start();
         return hostThread;
     }
+
+    private static void RunWorkLoop()
+    {
+        while (true)
+        {
+            WorkAvailable.WaitOne(TickInterval);
+            RunPendingWork();
+            RunTickers();
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static unsafe void RunWindowsMessageLoop()
+    {
+        // Plugin editors take drag and drop and the clipboard, both of which want OLE on their thread.
+        Win32Windowing.OleInitialize(IntPtr.Zero);
+        var workAvailableHandle = WorkAvailable.SafeWaitHandle.DangerousGetHandle();
+        var lastTickMilliseconds = Environment.TickCount64;
+        while (true)
+        {
+            RunPendingWork();
+            Win32Windowing.DispatchPendingMessages();
+            if (Environment.TickCount64 - lastTickMilliseconds >= (long)TickInterval.TotalMilliseconds)
+            {
+                lastTickMilliseconds = Environment.TickCount64;
+                RunTickers();
+            }
+            Win32Windowing.MsgWaitForMultipleObjectsEx(1, &workAvailableHandle, (uint)TickInterval.TotalMilliseconds,
+                Win32Windowing.QueueStatusAllInput, Win32Windowing.WaitInputAvailable);
+        }
+    }
+
+    private static void RunPendingWork()
+    {
+        while (PendingWork.TryDequeue(out var workItem))
+        {
+            workItem();
+        }
+    }
+
+    private static void RunTickers()
+    {
+        for (var tickerIndex = Tickers.Count - 1; tickerIndex >= 0; tickerIndex--)
+        {
+            try
+            {
+                Tickers[tickerIndex]();
+            }
+            catch (Exception tickerRemediationOpportunity)
+            {
+                // A ticker that throws once will throw again; it is retired rather than allowed to spam.
+                Console.Error.WriteLine($"[plugin host] ticker retired: {tickerRemediationOpportunity.Message}");
+                Tickers.RemoveAt(tickerIndex);
+            }
+        }
+    }
+
+    /// <summary>Runs <paramref name="ticker"/> every <see cref="TickInterval"/> until removed. Plugin host thread only.</summary>
+    public static void AddTicker(Action ticker) => Tickers.Add(ticker);
+
+    /// <summary>Plugin host thread only.</summary>
+    public static void RemoveTicker(Action ticker) => Tickers.Remove(ticker);
 
     public static Task<T> InvokeAsync<T>(Func<T> pluginWork)
     {
@@ -46,7 +117,7 @@ internal static class PluginHostThread
             }
         }
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-        PendingWork.Add(() =>
+        PendingWork.Enqueue(() =>
         {
             try
             {
@@ -57,6 +128,7 @@ internal static class PluginHostThread
                 completion.SetException(pluginRemediationOpportunity);
             }
         });
+        WorkAvailable.Set();
         return completion.Task;
     }
 

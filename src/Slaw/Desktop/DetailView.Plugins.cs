@@ -10,10 +10,10 @@ using SlopstackLabs.Slaw.Synthesis;
 namespace SlopstackLabs.Slaw.Desktop;
 
 /// <summary>
-/// VST3 devices in the device chain: a picker for instruments and effects, and
-/// a generic knob panel built from whatever parameters the plugin declares.
-/// No plugin editor windows yet — every plugin gets slaw's house style, whether
-/// its vendor's brand guidelines allow it or not.
+/// VST3 devices in the device chain: a picker for instruments and effects, a
+/// generic knob panel built from whatever parameters the plugin declares, and
+/// a button that opens the plugin's own editor (Windows) for when slaw's house
+/// style is not what its vendor's brand guidelines had in mind.
 /// </summary>
 internal sealed partial class DetailView
 {
@@ -23,6 +23,18 @@ internal sealed partial class DetailView
     private readonly Dictionary<string, string> pluginParameterFilters = new(StringComparer.Ordinal);
 
     private static void WarmUpPluginCatalog() => _ = Task.Run(Vst3PluginCatalog.Plugins);
+
+    /// <summary>"Editor": opens the plugin's own window. <paramref name="effectIndex"/> -1 is the instrument.</summary>
+    private Button ComposePluginEditorButton(PluginReference pluginReference, string trackIdentifier, int effectIndex)
+    {
+        var editorButton = StudioUi.Button("Editor", () => host.OpenPluginEditor(trackIdentifier, effectIndex),
+            OperatingSystem.IsWindows()
+                ? $"Open {pluginReference.Name}'s own editor window"
+                : "Plugin editor windows are Windows-only so far; the knobs below drive the plugin",
+            compact: true);
+        editorButton.IsEnabled = OperatingSystem.IsWindows();
+        return editorButton;
+    }
 
     /// <summary>"VST3…": a menu of scanned instruments that loads one into the track.</summary>
     private Button ComposeInstrumentPluginPicker(SlawTrack track)

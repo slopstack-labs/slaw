@@ -796,7 +796,6 @@ internal sealed class SequencerEngine
     private void MixTracks(SlawProject project, Span<float> leftChannel, Span<float> rightChannel)
     {
         var soloEngaged = project.Tracks.Any(track => track.Solo);
-        var processingContext = new EffectProcessingContext(sampleRate, project.StepDurationSeconds);
         var trackLeftBlock = trackLeftScratchBuffer.AsSpan(0, leftChannel.Length);
         var trackRightBlock = trackRightScratchBuffer.AsSpan(0, leftChannel.Length);
         var voiceBlock = voiceScratchBuffer.AsSpan(0, leftChannel.Length);
@@ -805,6 +804,7 @@ internal sealed class SequencerEngine
         var stepProgress = transportMode == TransportMode.Stopped || stepFrameCount <= 0
             ? 0
             : Math.Clamp(1 - samplesUntilNextStep / stepFrameCount, 0, 1);
+        var processingContext = new EffectProcessingContext(sampleRate, project.StepDurationSeconds, TransportStep: TransportStep(stepProgress));
 
         foreach (var track in project.Tracks)
         {
@@ -829,7 +829,7 @@ internal sealed class SequencerEngine
 
             // A plugin instrument is stereo from the start; built-in voices are mono, so a
             // track without one stays mono (left buffer only) until an effect widens it.
-            var trackIsMono = !RenderPluginInstrument(project, track, runtimeState, trackLeftBlock, trackRightBlock, envelopes, clipPosition);
+            var trackIsMono = !RenderPluginInstrument(project, track, runtimeState, trackLeftBlock, trackRightBlock, envelopes, clipPosition, processingContext.TransportStep);
             var monoVoiceBlock = trackIsMono ? trackLeftBlock : voiceBlock;
             var voicesSounded = runtimeState.ActiveVoices.Count > 0;
             if (voicesSounded && !trackIsMono)
@@ -925,7 +925,7 @@ internal sealed class SequencerEngine
     /// A VST3 instrument's block is its voice: rendered first, then through the track's
     /// device chain like any other. Returns true if a plugin wrote the (stereo) block.
     /// </summary>
-    private bool RenderPluginInstrument(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, Span<float> trackLeftBlock, Span<float> trackRightBlock, CompiledEnvelopes? envelopes, double clipPosition)
+    private bool RenderPluginInstrument(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, Span<float> trackLeftBlock, Span<float> trackRightBlock, CompiledEnvelopes? envelopes, double clipPosition, double? transportStep)
     {
         if (track.Instrument != DeviceTypes.Vst3)
         {
@@ -942,12 +942,27 @@ internal sealed class SequencerEngine
         {
             return false;
         }
-        pluginInstrument.SetTransport(project.Bpm, transportMode != TransportMode.Stopped);
+        pluginInstrument.SetTransport(project.Bpm, transportStep);
         // A plugin plays continuously, so its instrument envelopes move per chunk rather than per note.
         pluginInstrument.Process(trackLeftBlock, trackRightBlock, envelopes is { InstrumentEnvelopes.Count: > 0 }
             ? runtimeState.AutomatedInstrumentParameters(track.InstrumentParameters, envelopes, clipPosition)
             : track.InstrumentParameters);
         return true;
+    }
+
+    /// <summary>
+    /// The playhead in steps from the top of whatever is playing, for plugins
+    /// that sync to the beat (sidechain pumpers, synced LFOs and delays). Null while stopped.
+    /// </summary>
+    private double? TransportStep(double stepProgress)
+    {
+        var currentStep = transportMode switch
+        {
+            TransportMode.Session => sessionStep,
+            TransportMode.Timeline => timelineStep,
+            _ => -1,
+        };
+        return currentStep < 0 ? null : currentStep + stepProgress;
     }
 
     private TrackRuntimeState RuntimeStateFor(string trackIdentifier)

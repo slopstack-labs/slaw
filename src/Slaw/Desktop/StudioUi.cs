@@ -69,6 +69,9 @@ internal interface IStudioHost
     /// <summary>Opens (or focuses) the large sample editor window for a sampler track.</summary>
     void OpenSampleEditorWindow(string trackIdentifier);
 
+    /// <summary>Opens (or focuses) a VST3 device's own editor. <paramref name="effectIndex"/> -1 is the track's instrument.</summary>
+    void OpenPluginEditor(string trackIdentifier, int effectIndex);
+
     /// <summary>Whether <paramref name="dragPayload"/> may be dropped on <paramref name="dropTarget"/>.</summary>
     bool CanDrop(DragPayload dragPayload, DropTarget dropTarget);
 

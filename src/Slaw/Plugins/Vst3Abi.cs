@@ -37,6 +37,12 @@ internal static unsafe class Vst3Abi
     public const int ParameterFlagProgramChange = 1 << 15;
     public const int ParameterFlagBypass = 1 << 16;
 
+    public const int RestartParameterValuesChanged = 1 << 2;
+
+    /// <summary>FIDStrings for IEditController::createView and IPlugView::isPlatformTypeSupported (ASCII, NUL-terminated).</summary>
+    public static readonly byte[] EditorViewType = "editor\0"u8.ToArray();
+    public static readonly byte[] PlatformTypeHwnd = "HWND\0"u8.ToArray();
+
     public const uint ProcessContextPlaying = 1 << 1;
     public const uint ProcessContextProjectTimeMusicValid = 1 << 9;
     public const uint ProcessContextTempoValid = 1 << 10;
@@ -63,6 +69,9 @@ internal static unsafe class Vst3Abi
     public static readonly byte[] StreamIid = Uid(0xC3BF6EA2, 0x30994752, 0x9B6BF990, 0x1EE33E9B);
     public static readonly byte[] MessageIid = Uid(0x936F033B, 0xC6C047DB, 0xBB0882F8, 0x13C1E613);
     public static readonly byte[] AttributeListIid = Uid(0x1E5F0AEB, 0xCC7F4533, 0xA2544011, 0x38AD5EE4);
+    public static readonly byte[] PlugViewIid = Uid(0x5BC32507, 0xD06049EA, 0xA6151B52, 0x2B5571EF);
+    public static readonly byte[] PlugFrameIid = Uid(0x367FAF01, 0xAFA94693, 0x8D4DA2A0, 0xED0882A3);
+    public static readonly byte[] PlugViewContentScaleSupportIid = Uid(0x65ED9690, 0x8AC44525, 0x8AADEF7A, 0x72EA703F);
 
     /// <summary>
     /// INLINE_UID: plain big-endian everywhere except Windows, where the SDK
@@ -237,6 +246,19 @@ internal unsafe struct Vst3ParameterInfo
     [FieldOffset(776)] public double DefaultNormalizedValue;
     [FieldOffset(784)] public int UnitId;
     [FieldOffset(788)] public int Flags;
+}
+
+/// <summary>ViewRect: an editor's size in pixels, as left/top/right/bottom.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct Vst3ViewRect
+{
+    public int Left;
+    public int Top;
+    public int Right;
+    public int Bottom;
+
+    public readonly int Width => Right - Left;
+    public readonly int Height => Bottom - Top;
 }
 
 [StructLayout(LayoutKind.Sequential)]

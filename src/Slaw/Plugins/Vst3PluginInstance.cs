@@ -29,15 +29,37 @@ internal sealed record Vst3ParameterDescription(uint Id, string Title, string Un
 }
 
 /// <summary>
+/// What a plugin's own editor did, reported on the plugin host thread while the
+/// editor is open. Implementations marshal to whichever thread they belong to.
+/// </summary>
+internal interface IVst3EditorObserver
+{
+    /// <summary>A gesture began on a parameter, which had <paramref name="normalizedValueBefore"/> until now.</summary>
+    void EditGestureBegan(uint parameterId, double normalizedValueBefore);
+
+    void ParameterEdited(uint parameterId, double normalizedValue);
+
+    void EditGestureEnded(uint parameterId);
+
+    /// <summary>The plugin changed many values at once (a preset load): every parameter's value now.</summary>
+    void ParameterValuesReloaded(IReadOnlyDictionary<uint, double> normalizedValues);
+
+    void EditorClosed();
+}
+
+/// <summary>
 /// A live VST3 plugin: component, audio processor and edit controller, wired
 /// up and processing mono slaw blocks through its stereo buses.
 ///
-/// Lifecycle calls (create, state, dispose) run on <see cref="PluginHostThread"/>;
+/// Lifecycle calls (create, state, editor, dispose) run on <see cref="PluginHostThread"/>;
 /// note and process calls come from the audio thread only. Parameter values are
 /// never stored here: every block re-reads the device's dictionary and sends
 /// what changed, which is how knobs, AI patches and automation all reach the plugin.
+/// What the plugin's own editor changes travels the other way: straight to the
+/// processor, and to an <see cref="IVst3EditorObserver"/> that writes it back
+/// into the dictionary.
 /// </summary>
-internal sealed unsafe class Vst3PluginInstance : IDisposable
+internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHandlerTarget
 {
     public const int MaximumBlockFrames = 8192;
     private const int StateIdle = 0;
@@ -47,14 +69,24 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
 
     private readonly int sampleRate;
     private readonly bool offline;
-    private readonly Vst3HostComponentHandler componentHandler = new();
+    private readonly Vst3HostComponentHandler componentHandler;
     private readonly Vst3HostParameterChanges inputParameterChanges = new();
     private readonly Vst3HostParameterChanges outputParameterChanges = new();
     private readonly Vst3HostEventList inputEvents = new();
     private readonly Vst3HostEventList outputEvents = new();
-    private readonly Dictionary<uint, double> lastSentValues = new();
+    private readonly Dictionary<uint, double> lastTableValues = new();
     private readonly HashSet<int> soundingNotes = new();
     private readonly List<IntPtr> ownedAllocations = new();
+
+    /// <summary>Edits from the plugin's editor, host thread → audio thread, for the processor.</summary>
+    private readonly ParameterChangeRing editorEdits = new(512);
+
+    /// <summary>Values the processor was sent or reported, audio thread → host thread, for the controller.</summary>
+    private readonly ParameterChangeRing controllerUpdates = new(2048);
+
+    private Action? controllerUpdateTicker;
+    private object? editorWindow;
+    private IVst3EditorObserver? editorObserver;
 
     private IntPtr component;
     private IntPtr audioProcessor;
@@ -80,6 +112,7 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
         this.offline = offline;
         Name = name;
         IsInstrument = isInstrument;
+        componentHandler = new Vst3HostComponentHandler(this);
     }
 
     public string Name { get; }
@@ -155,6 +188,12 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
         ((delegate* unmanaged<IntPtr, byte, int>)Vst3Abi.Slot(component, 11))(component, 1);
         active = true;
         ((delegate* unmanaged<IntPtr, byte, int>)Vst3Abi.Slot(audioProcessor, 8))(audioProcessor, 1);
+
+        if (!offline && editController != IntPtr.Zero)
+        {
+            controllerUpdateTicker = ForwardUpdatesToController;
+            PluginHostThread.AddTicker(controllerUpdateTicker);
+        }
     }
 
     private void CreateEditController(Vst3Module module)
@@ -404,12 +443,134 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
         }
     }
 
+    // ── The plugin's own editor (plugin host thread) ──────────────────────────
+
+    /// <summary>
+    /// Opens the plugin's editor window, or brings it forward if it is open.
+    /// Returns why it could not, or null. <paramref name="observer"/> hears about
+    /// edits made in the editor until it closes.
+    /// </summary>
+    public Task<string?> OpenEditorAsync(string title, IntPtr ownerWindow, IVst3EditorObserver observer) =>
+        PluginHostThread.InvokeAsync(() => OpenEditorOnHostThread(title, ownerWindow, observer));
+
+    private string? OpenEditorOnHostThread(string title, IntPtr ownerWindow, IVst3EditorObserver observer)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return "plugin editors open on Windows only so far — the knobs in the device view still work";
+        }
+        if (Volatile.Read(ref lifecycleState) == StateRetired || editController == IntPtr.Zero)
+        {
+            return $"{Name} has no editor of its own — its knobs are in the device view";
+        }
+        if (editorWindow is Vst3EditorWindow openWindow)
+        {
+            openWindow.BringToFront();
+            return null;
+        }
+        try
+        {
+            editorObserver = observer;
+            editorWindow = Vst3EditorWindow.Open(editController, Name, title, ownerWindow, EditorWindowClosed);
+            return null;
+        }
+        catch (InvalidOperationException editorRemediationOpportunity)
+        {
+            editorObserver = null;
+            return editorRemediationOpportunity.Message;
+        }
+    }
+
+    private void EditorWindowClosed()
+    {
+        editorWindow = null;
+        var closedObserver = editorObserver;
+        editorObserver = null;
+        closedObserver?.EditorClosed();
+    }
+
+    private void CloseEditor()
+    {
+        if (OperatingSystem.IsWindows() && editorWindow is Vst3EditorWindow openWindow)
+        {
+            openWindow.Close();
+        }
+    }
+
+    /// <summary>Ticker: tells the controller (and so the editor) what the processor was sent or reported.</summary>
+    private void ForwardUpdatesToController()
+    {
+        if (editController == IntPtr.Zero)
+        {
+            return;
+        }
+        var setParamNormalized = (delegate* unmanaged<IntPtr, uint, double, int>)Vst3Abi.Slot(editController, 15);
+        while (controllerUpdates.TryRead(out var parameterId, out var normalizedValue))
+        {
+            setParamNormalized(editController, parameterId, normalizedValue);
+        }
+    }
+
+    private double ControllerValue(uint parameterId) =>
+        ((delegate* unmanaged<IntPtr, uint, double>)Vst3Abi.Slot(editController, 14))(editController, parameterId);
+
+    void IVst3ComponentHandlerTarget.BeginEdit(uint parameterId)
+    {
+        if (editorObserver is { } observer && editController != IntPtr.Zero)
+        {
+            observer.EditGestureBegan(parameterId, ControllerValue(parameterId));
+        }
+    }
+
+    void IVst3ComponentHandlerTarget.PerformEdit(uint parameterId, double normalizedValue)
+    {
+        if (!double.IsFinite(normalizedValue))
+        {
+            return;
+        }
+        normalizedValue = Math.Clamp(normalizedValue, 0, 1);
+        // The controller already has the value; a processor that is a separate object hears of it only from the host.
+        lock (editorEdits)
+        {
+            editorEdits.TryWrite(parameterId, normalizedValue);
+        }
+        editorObserver?.ParameterEdited(parameterId, normalizedValue);
+    }
+
+    void IVst3ComponentHandlerTarget.EndEdit(uint parameterId) => editorObserver?.EditGestureEnded(parameterId);
+
+    void IVst3ComponentHandlerTarget.RestartComponent(int restartFlags)
+    {
+        if ((restartFlags & Vst3Abi.RestartParameterValuesChanged) == 0)
+        {
+            return;
+        }
+        // Some plugins call this from their audio thread; the controller is only asked from the host thread.
+        _ = PluginHostThread.InvokeAsync(() =>
+        {
+            if (editorObserver is not { } observer || editController == IntPtr.Zero)
+            {
+                return;
+            }
+            observer.ParameterValuesReloaded(Parameters.ToDictionary(parameter => parameter.Id, parameter => ControllerValue(parameter.Id)));
+        });
+    }
+
     // ── Audio thread ──────────────────────────────────────────────────────────
 
-    public void SetTransport(double beatsPerMinute, bool playing)
+    /// <summary>
+    /// Tempo and playhead for the next block. <paramref name="transportStep"/> is
+    /// the song position in sixteenth-note steps (null while stopped), so beat-synced
+    /// plugins pump on slaw's beat rather than on the moment they happened to load.
+    /// </summary>
+    public void SetTransport(double beatsPerMinute, double? transportStep)
     {
         tempo = beatsPerMinute;
-        transportPlaying = playing;
+        transportPlaying = transportStep is not null;
+        if (transportStep is { } playheadStep && beatsPerMinute > 0)
+        {
+            processContext->ProjectTimeSamples = (long)Math.Round(playheadStep / 4 * 60.0 / beatsPerMinute * sampleRate);
+        }
     }
 
     public void NoteOn(int midiNote, float velocity)
@@ -505,6 +666,7 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
             outputBuses[busIndex].SilenceFlags = 0;
         }
 
+        QueueEditorEdits();
         QueueParameterChanges(parameterValues);
 
         var projectTimeSeconds = (double)processContext->ProjectTimeSamples / sampleRate;
@@ -534,6 +696,7 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
 
         ((delegate* unmanaged<IntPtr, Vst3ProcessData*, int>)Vst3Abi.Slot(audioProcessor, 9))(audioProcessor, processData);
 
+        ForwardOutputParameterChanges();
         inputEvents.Clear();
         inputParameterChanges.Clear();
         processContext->ProjectTimeSamples += frameCount;
@@ -560,7 +723,38 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
         }
     }
 
-    /// <summary>Sends every p&lt;id&gt; value that changed since the last block (as many as fit; the rest next time).</summary>
+    /// <summary>Hands the processor what the plugin's own editor changed since the last block.</summary>
+    private void QueueEditorEdits()
+    {
+        while (inputParameterChanges.Count < Vst3HostParameterChanges.QueueCapacity && editorEdits.TryRead(out var parameterId, out var normalizedValue))
+        {
+            inputParameterChanges.QueueFor(parameterId, out _)?.AddPoint(0, normalizedValue);
+        }
+    }
+
+    /// <summary>Values the processor changed on its own (meters, linked knobs) are passed on to the controller.</summary>
+    private void ForwardOutputParameterChanges()
+    {
+        if (controllerUpdateTicker is null)
+        {
+            return;
+        }
+        for (var queueIndex = 0; queueIndex < outputParameterChanges.Count; queueIndex++)
+        {
+            var valueQueue = outputParameterChanges.QueueAt(queueIndex);
+            if (valueQueue.PointCount > 0)
+            {
+                controllerUpdates.TryWrite(valueQueue.ParameterId, valueQueue.PointAt(valueQueue.PointCount - 1).Value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sends every p&lt;id&gt; value whose dictionary entry changed since the last
+    /// block (as many as fit; the rest next time). Only changes are sent, not
+    /// differences from what the plugin holds: a knob turned in the plugin's own
+    /// editor stays turned until slaw's value for it actually moves.
+    /// </summary>
     private void QueueParameterChanges(IReadOnlyDictionary<string, double>? parameterValues)
     {
         if (parameterValues is null)
@@ -594,7 +788,7 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
             return true;
         }
         var normalizedValue = Math.Clamp(parameterValue, 0, 1);
-        if (lastSentValues.TryGetValue(parameterId, out var lastSentValue) && Math.Abs(lastSentValue - normalizedValue) < 1e-9)
+        if (lastTableValues.TryGetValue(parameterId, out var lastTableValue) && Math.Abs(lastTableValue - normalizedValue) < 1e-9)
         {
             return true;
         }
@@ -603,7 +797,11 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
             return false;
         }
         valueQueue.AddPoint(0, normalizedValue);
-        lastSentValues[parameterId] = normalizedValue;
+        lastTableValues[parameterId] = normalizedValue;
+        if (controllerUpdateTicker is not null)
+        {
+            controllerUpdates.TryWrite(parameterId, normalizedValue);
+        }
         return true;
     }
 
@@ -623,6 +821,11 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable
     private void TearDown()
     {
         Volatile.Write(ref lifecycleState, StateRetired);
+        CloseEditor();
+        if (controllerUpdateTicker is not null)
+        {
+            PluginHostThread.RemoveTicker(controllerUpdateTicker);
+        }
         if (audioProcessor != IntPtr.Zero && active)
         {
             ((delegate* unmanaged<IntPtr, byte, int>)Vst3Abi.Slot(audioProcessor, 8))(audioProcessor, 0);
