@@ -120,4 +120,25 @@ public class McpServerTests
         await CallAsync(dispatcher, 6, "tools/call", new JsonObject { ["name"] = "undo" });
         Assert.Null(servedDocument.Project.Tracks.Single(track => track.Name == "Bottom-Line Bass").Clips[0]!.Automation);
     }
+
+    [Fact]
+    public async Task ApplyPatchAcceptsAnUnwrappedPatchAndExplainsTheWrapperOtherwise()
+    {
+        var (dispatcher, servedDocument) = CreateHeadlessServer();
+        var unwrappedResponse = await CallAsync(dispatcher, 1, "tools/call", new JsonObject
+        {
+            ["name"] = "apply_patch",
+            ["arguments"] = new JsonObject { ["bpm"] = 133 },
+        });
+        Assert.False(unwrappedResponse["result"]!["isError"]!.GetValue<bool>());
+        Assert.Equal(133, servedDocument.Project.Bpm);
+
+        var emptyResponse = await CallAsync(dispatcher, 2, "tools/call", new JsonObject
+        {
+            ["name"] = "apply_patch",
+            ["arguments"] = new JsonObject { ["tempo"] = 90 },
+        });
+        Assert.True(emptyResponse["result"]!["isError"]!.GetValue<bool>());
+        Assert.Contains("{\"patch\": {...}}", emptyResponse["result"]!["content"]![0]!["text"]!.GetValue<string>());
+    }
 }

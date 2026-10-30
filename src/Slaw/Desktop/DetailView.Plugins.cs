@@ -27,12 +27,13 @@ internal sealed partial class DetailView
     /// <summary>"Editor": opens the plugin's own window. <paramref name="effectIndex"/> -1 is the instrument.</summary>
     private Button ComposePluginEditorButton(PluginReference pluginReference, string trackIdentifier, int effectIndex)
     {
+        string? unavailabilityReason = OperatingSystem.IsWindows() ? null
+            : OperatingSystem.IsLinux() ? Vst3LinuxEditorWindow.UnavailabilityReason()
+            : "Plugin editor windows open on Windows and Linux (X11) only so far; the knobs below drive the plugin";
         var editorButton = StudioUi.Button("Editor", () => host.OpenPluginEditor(trackIdentifier, effectIndex),
-            OperatingSystem.IsWindows()
-                ? $"Open {pluginReference.Name}'s own editor window"
-                : "Plugin editor windows are Windows-only so far; the knobs below drive the plugin",
+            unavailabilityReason ?? $"Open {pluginReference.Name}'s own editor window",
             compact: true);
-        editorButton.IsEnabled = OperatingSystem.IsWindows();
+        editorButton.IsEnabled = unavailabilityReason is null;
         return editorButton;
     }
 

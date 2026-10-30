@@ -42,6 +42,7 @@ internal static unsafe class Vst3Abi
     /// <summary>FIDStrings for IEditController::createView and IPlugView::isPlatformTypeSupported (ASCII, NUL-terminated).</summary>
     public static readonly byte[] EditorViewType = "editor\0"u8.ToArray();
     public static readonly byte[] PlatformTypeHwnd = "HWND\0"u8.ToArray();
+    public static readonly byte[] PlatformTypeX11EmbedWindowId = "X11EmbedWindowID\0"u8.ToArray();
 
     public const uint ProcessContextPlaying = 1 << 1;
     public const uint ProcessContextProjectTimeMusicValid = 1 << 9;
@@ -69,9 +70,14 @@ internal static unsafe class Vst3Abi
     public static readonly byte[] StreamIid = Uid(0xC3BF6EA2, 0x30994752, 0x9B6BF990, 0x1EE33E9B);
     public static readonly byte[] MessageIid = Uid(0x936F033B, 0xC6C047DB, 0xBB0882F8, 0x13C1E613);
     public static readonly byte[] AttributeListIid = Uid(0x1E5F0AEB, 0xCC7F4533, 0xA2544011, 0x38AD5EE4);
-    public static readonly byte[] PlugViewIid = Uid(0x5BC32507, 0xD06049EA, 0xA6151B52, 0x2B5571EF);
+    public static readonly byte[] PlugViewIid = Uid(0x5BC32507, 0xD06049EA, 0xA6151B52, 0x2B755B29);
     public static readonly byte[] PlugFrameIid = Uid(0x367FAF01, 0xAFA94693, 0x8D4DA2A0, 0xED0882A3);
     public static readonly byte[] PlugViewContentScaleSupportIid = Uid(0x65ED9690, 0x8AC44525, 0x8AADEF7A, 0x72EA703F);
+
+    // Steinberg::Linux (pluginterfaces/gui/iplugview.h): the run loop a host lends Linux editors.
+    public static readonly byte[] RunLoopIid = Uid(0x18C35366, 0x97764F1A, 0x9C5B8385, 0x7A871389);
+    public static readonly byte[] EventHandlerIid = Uid(0x561E65C9, 0x13A0496F, 0x813A2C35, 0x654D7983);
+    public static readonly byte[] TimerHandlerIid = Uid(0x10BDD94F, 0x41424774, 0x821FAD8F, 0xECA72CA9);
 
     /// <summary>
     /// INLINE_UID: plain big-endian everywhere except Windows, where the SDK

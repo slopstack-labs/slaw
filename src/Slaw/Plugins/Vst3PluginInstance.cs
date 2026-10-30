@@ -546,23 +546,35 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
 
     private string? OpenEditorOnHostThread(string title, IntPtr ownerWindow, IVst3EditorObserver observer)
     {
-        if (!OperatingSystem.IsWindows())
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
         {
-            return "plugin editors open on Windows only so far — the knobs in the device view still work";
+            return "plugin editors open on Windows and Linux (X11) only so far — the knobs in the device view still work";
         }
         if (Volatile.Read(ref lifecycleState) == StateRetired || editController == IntPtr.Zero)
         {
             return $"{Name} has no editor of its own — its knobs are in the device view";
         }
-        if (editorWindow is Vst3EditorWindow openWindow)
+        if (OperatingSystem.IsWindows() && editorWindow is Vst3EditorWindow openWindow)
         {
             openWindow.BringToFront();
+            return null;
+        }
+        if (OperatingSystem.IsLinux() && editorWindow is Vst3LinuxEditorWindow openLinuxWindow)
+        {
+            openLinuxWindow.BringToFront();
             return null;
         }
         try
         {
             editorObserver = observer;
-            editorWindow = Vst3EditorWindow.Open(editController, Name, title, ownerWindow, EditorWindowClosed);
+            if (OperatingSystem.IsWindows())
+            {
+                editorWindow = Vst3EditorWindow.Open(editController, Name, title, ownerWindow, EditorWindowClosed);
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                editorWindow = Vst3LinuxEditorWindow.Open(editController, Name, title, ownerWindow, EditorWindowClosed);
+            }
             return null;
         }
         catch (InvalidOperationException editorRemediationOpportunity)
@@ -586,7 +598,14 @@ internal sealed unsafe class Vst3PluginInstance : IDisposable, IVst3ComponentHan
         {
             openWindow.Close();
         }
+        else if (OperatingSystem.IsLinux() && editorWindow is Vst3LinuxEditorWindow openLinuxWindow)
+        {
+            openLinuxWindow.Close();
+        }
     }
+
+    /// <summary>The X11 window the editor lives in, or zero (Linux; tests and diagnostics). Plugin host thread.</summary>
+    internal ulong LinuxEditorWindowId => OperatingSystem.IsLinux() && editorWindow is Vst3LinuxEditorWindow openLinuxWindow ? (ulong)openLinuxWindow.WindowId : 0;
 
     /// <summary>Ticker: tells the controller (and so the editor) what the processor was sent or reported.</summary>
     private void ForwardUpdatesToController()

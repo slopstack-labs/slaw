@@ -19,7 +19,7 @@ internal static class ProjectPatchApplier
     internal sealed record PatchOutcome(SlawProject Project, string? ModelSummary, int LockedTrackEditsIgnored, IReadOnlyList<string> Warnings);
 
     /// <summary>Every top-level key a patch may carry; anything else is reported as ignored.</summary>
-    private static readonly HashSet<string> KnownPatchKeys = new(StringComparer.Ordinal)
+    internal static readonly HashSet<string> KnownPatchKeys = new(StringComparer.Ordinal)
     {
         "summary", "reset", "name", "bpm", "steps", "scenes", "removeScenes", "arrangement", "tracks", "timeline", "master", "format", "aiProvenance", "loops",
     };
