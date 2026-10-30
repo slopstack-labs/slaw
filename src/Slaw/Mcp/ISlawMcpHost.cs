@@ -25,6 +25,16 @@ internal interface ISlawMcpHost
     /// <summary>Called after every successful mutating tool call (headless: autosave; live: tell the user).</summary>
     void OnAgentEdit(string clientName, string editDescription);
 
+    /// <summary>
+    /// Opens a project file as the document, like File → Open (stops playback, updates the
+    /// window and chats). Headless hosts just swap the document and its file.
+    /// </summary>
+    void OpenProject(Session.SlawProject openedProject, string projectFilePath)
+    {
+        Document.FilePath = projectFilePath;
+        Document.ReplaceProject(openedProject, "open project", undoable: false);
+    }
+
     /// <summary>The user's sample library.</summary>
     IReadOnlyList<string> SampleLibraryFiles { get; }
 

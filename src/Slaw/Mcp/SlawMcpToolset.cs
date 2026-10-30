@@ -40,7 +40,8 @@ internal sealed class SlawMcpToolset
         "turns the pad down on every kick (VST3 effects with a sidechain input get the audio there; the source is taken after its effects and before its fader, " +
         "so a muted track still keys; no track may key itself or close a loop). The MASTER chain (apply_patch master.effects, or add_effect with track \"master\") " +
         "processes the sum of all tracks before the master's drive/lowpass/delay/gain; master effects may use a sidechain too.\n" +
-        "START FROM SCRATCH: new_project (or apply_patch with \"reset\": true) clears every track, clip and scene in one undoable step.\n" +
+        "START FROM SCRATCH: new_project (or apply_patch with \"reset\": true) clears every track, clip and scene in one undoable step. " +
+        "open_project loads an existing .slaw file instead (save_project first to keep the current one).\n" +
         "WORKFLOW: get_catalog → add_track / apply_patch tracks (instruments, effects) → place arrangement clips → set_automation → " +
         "render with levels:true (writes a WAV and reports each track's level, per bar range, and tracks far quieter than the rest) → get_project to check positions. " +
         "Removing a track (apply_patch remove: true) also removes its session and arrangement clips.\n" +
@@ -339,6 +340,41 @@ internal sealed class SlawMcpToolset
                        string.Join(", ", document.Project.Scenes.Select((sceneName, remainingIndex) => $"{remainingIndex}=\"{sceneName}\""));
             }));
 
+        Register("open_project",
+            "Open a .slaw project file as the current project, like File → Open (in the live studio it appears in the window; " +
+            "the headless server then autosaves to that file). Refuses while the open project has unsaved changes unless discardUnsaved is true. " +
+            "Not undoable: save_project first if the current project should be kept.",
+            Schema(new JsonObject
+            {
+                ["path"] = Property("string", "Path to a .slaw file."),
+                ["discardUnsaved"] = Property("boolean", "Open even though the current project has unsaved changes (they are lost). Default false."),
+            }, "path"),
+            async (toolArguments, clientName, _) =>
+            {
+                var projectPath = Path.GetFullPath(ReadString(toolArguments["path"]) ?? throw new McpInvalidParamsException("path is required: a .slaw file"));
+                SlawProject openedProject;
+                try
+                {
+                    openedProject = await Task.Run(() => ProjectSerializer.Load(projectPath));
+                }
+                catch (Exception openRemediationOpportunity) when (openRemediationOpportunity is IOException or System.Text.Json.JsonException or UnauthorizedAccessException)
+                {
+                    throw new McpInvalidParamsException($"cannot open {projectPath}: {openRemediationOpportunity.Message}");
+                }
+                return await host.InvokeAsync(() =>
+                {
+                    var document = host.Document;
+                    if (document.UnsavedChanges && !(toolArguments["discardUnsaved"] is JsonValue discardValue && discardValue.TryGetValue<bool>(out var discardRequested) && discardRequested))
+                    {
+                        throw new McpInvalidParamsException(
+                            $"the open project \"{document.Project.Name}\" has unsaved changes: save_project first, or pass discardUnsaved: true to drop them");
+                    }
+                    host.OpenProject(openedProject, projectPath);
+                    host.OnAgentEdit(clientName, $"opened {Path.GetFileName(projectPath)}");
+                    return $"opened {projectPath}\n\n" + PromptLibrary.DescribeProjectForPatching(host.Document.Project);
+                });
+            });
+
         Register("new_project",
             "Start from scratch: replace the open project with an empty one (no tracks, no session or arrangement clips, one empty scene, default master bus), " +
             "optionally named and at a tempo. One undoable step in the studio. The project keeps its file path, so the next save overwrites that file " +
@@ -474,7 +510,7 @@ internal sealed class SlawMcpToolset
                     var audioSeconds = placedAudio.Samples.Length / (double)placedAudio.SampleRate;
                     var lastClip = placedClips[^1];
                     return FormattableString.Invariant(
-                        $"placed \"{Path.GetFileName(audioPath)}\" ({audioSeconds:0.0} s) on {(needsNewTrack ? "new " : string.Empty)}track \"{audioTrack.Name}\" (id {audioTrack.Id}) as {placedClips.Count} arrangement clip(s) from {FreeTimeline.FormatPosition(startStep)} to {FreeTimeline.FormatPosition(lastClip.EndStep)} (exclusive), cut at {project.Bpm:0.##} BPM; clip ids: {string.Join(", ", placedClips.Select(clip => clip.Id))}.") +
+                        $"placed \"{Path.GetFileName(audioPath)}\" ({audioSeconds:0.0} s) on {(needsNewTrack ? "new " : string.Empty)}track \"{audioTrack.Name}\" (id {audioTrack.Id}) as {placedClips.Count} arrangement clip(s) from bar {startStep / 16 + 1} (step {startStep}) to bar {lastClip.EndStep / 16 + 1}, step {lastClip.EndStep % 16} within it (absolute step {lastClip.EndStep}, exclusive), cut at {project.Bpm:0.##} BPM; clip ids: {string.Join(", ", placedClips.Select(clip => clip.Id))}.") +
                         (requestedTrack is not null && needsNewTrack ? $" \"{requestedTrack.Name}\" already played other audio, so this went on a new track next to it." : string.Empty) +
                         " Change the tempo afterwards and the slices drift: set the tempo first, then place audio.";
                 });

@@ -182,4 +182,40 @@ public class McpServerTests
             Directory.Delete(workingFolder, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task OpenProjectRefusesToDropUnsavedWorkUnlessToldTo()
+    {
+        var workingFolder = Directory.CreateTempSubdirectory("slaw-open-project-").FullName;
+        try
+        {
+            var savedProject = ProjectSerializer.CreateBlankProject("Opened Song", 97);
+            var projectPath = Path.Combine(workingFolder, "opened-song.slaw");
+            ProjectSerializer.Save(savedProject, projectPath);
+
+            var (dispatcher, servedDocument) = CreateHeadlessServer();
+            servedDocument.UnsavedChanges = true;
+            var refused = await CallAsync(dispatcher, 1, "tools/call", new JsonObject
+            {
+                ["name"] = "open_project",
+                ["arguments"] = new JsonObject { ["path"] = projectPath },
+            });
+            Assert.True(refused["result"]!["isError"]!.GetValue<bool>());
+            Assert.Contains("unsaved changes", refused["result"]!["content"]![0]!["text"]!.GetValue<string>());
+
+            var opened = await CallAsync(dispatcher, 2, "tools/call", new JsonObject
+            {
+                ["name"] = "open_project",
+                ["arguments"] = new JsonObject { ["path"] = projectPath, ["discardUnsaved"] = true },
+            });
+            Assert.False(opened["result"]!["isError"]!.GetValue<bool>());
+            Assert.Equal("Opened Song", servedDocument.Project.Name);
+            Assert.Equal(97, servedDocument.Project.Bpm);
+            Assert.Equal(Path.GetFullPath(projectPath), servedDocument.FilePath);
+        }
+        finally
+        {
+            Directory.Delete(workingFolder, recursive: true);
+        }
+    }
 }

@@ -1930,6 +1930,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         public string HostDescription => "live slaw studio";
 
+        public void OpenProject(SlawProject openedProject, string projectFilePath)
+        {
+            studioWindow.StopPlayback();
+            studioWindow.document.FilePath = projectFilePath;
+            studioWindow.document.ReplaceProject(openedProject, "open project", undoable: false);
+            studioWindow.RefreshChrome();
+            studioWindow.SetStatus(StatusSeverity.Success, $"opened {projectFilePath} (via MCP)");
+        }
+
         public bool IsLive => true;
 
         public StudioDocument Document => studioWindow.document;
