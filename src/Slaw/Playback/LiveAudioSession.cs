@@ -16,15 +16,16 @@ internal sealed class LiveAudioSession : IDisposable
 
     private readonly int latencyMilliseconds;
     private readonly string preferredSubstrate;
+    private readonly string? outputDeviceName;
     private Thread? renderThread;
     private volatile bool shutdownRequested;
     private IAudioOutputSink? audioSink;
-    private string? coreAudioRefusal;
 
-    public LiveAudioSession(int latencyMilliseconds, string preferredSubstrate)
+    public LiveAudioSession(int latencyMilliseconds, string preferredSubstrate, string? outputDeviceName)
     {
         this.latencyMilliseconds = Math.Clamp(latencyMilliseconds, 20, 500);
         this.preferredSubstrate = preferredSubstrate;
+        this.outputDeviceName = outputDeviceName;
         Engine = new SequencerEngine(LiveSampleRate, noiseSeed: Environment.TickCount);
     }
 
@@ -32,6 +33,12 @@ internal sealed class LiveAudioSession : IDisposable
 
     /// <summary>The audio substrate in use, once started.</summary>
     public string? SubstrateName => audioSink?.SubstrateName;
+
+    /// <summary>The output device in use, once started.</summary>
+    public string? DeviceLabel { get; private set; }
+
+    /// <summary>Why the session is not on the device Settings asked for, when it is not.</summary>
+    public string? DeviceNotice { get; private set; }
 
     /// <summary>Raised on the render thread if the sink fails; the session is dead afterwards.</summary>
     public event Action<string>? Faulted;
@@ -48,10 +55,10 @@ internal sealed class LiveAudioSession : IDisposable
         {
             return;
         }
-        audioSink = OpenAudioSink()
-            ?? throw new InvalidOperationException(OperatingSystem.IsMacOS()
-                ? $"no live audio substrate found — Core Audio refused ({coreAudioRefusal ?? "not selected"}) and no fallback player is installed"
-                : $"no live audio substrate found — install one of: {string.Join(", ", PipedProcessAudioSink.SupportedSubstrateNames)}");
+        var openedOutput = AudioOutputFactory.Open(LiveSampleRate, latencyMilliseconds, preferredSubstrate, outputDeviceName);
+        audioSink = openedOutput.Sink;
+        DeviceLabel = openedOutput.DeviceLabel;
+        DeviceNotice = openedOutput.DeviceNotice;
         shutdownRequested = false;
         renderThread = new Thread(RunRenderLoop)
         {
@@ -60,27 +67,6 @@ internal sealed class LiveAudioSession : IDisposable
             Priority = ThreadPriority.AboveNormal,
         };
         renderThread.Start();
-    }
-
-    private IAudioOutputSink? OpenAudioSink()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return new WindowsWaveOutAudioSink(LiveSampleRate);
-        }
-        // On macOS, Core Audio needs nothing installed; a piped player is used only when chosen in Settings or as a fallback
-        if (OperatingSystem.IsMacOS() && !PipedProcessAudioSink.SupportedSubstrateNames.Contains(preferredSubstrate))
-        {
-            try
-            {
-                return new MacAudioQueueAudioSink(LiveSampleRate, latencyMilliseconds);
-            }
-            catch (Exception coreAudioRemediationOpportunity) when (coreAudioRemediationOpportunity is IOException or DllNotFoundException or EntryPointNotFoundException)
-            {
-                coreAudioRefusal = coreAudioRemediationOpportunity.Message;
-            }
-        }
-        return PipedProcessAudioSink.TryStart(LiveSampleRate, latencyMilliseconds, preferredSubstrate);
     }
 
     private void RunRenderLoop()

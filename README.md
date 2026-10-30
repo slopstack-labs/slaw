@@ -350,7 +350,7 @@ The take is saved as a 24-bit WAV in `recordings/` next to the project (or next 
 - **Takes don't overwrite each other.** A track holds one sample. If other scenes still play the old take, the new one goes on a fresh track (*Vocal Stakeholder 1 · take 2*) with the same effects and mix.
 - **Rec stays engaged after you stop,** so pressing play again records the next take. Disengage it when the session wraps.
 - **Latency.** slaw places each take where you *heard* the beat, so output latency is already compensated. **Settings → Audio → Input latency** (default 20 ms) is trimmed from the head of every take to cover the microphone and driver. If takes land late, raise it.
-- **Recording tools.** On Linux, slaw records through `pw-record`, then `parec`, then `arecord`, whichever is installed, and Settings picks the input device. On Windows it uses waveIn. On macOS it uses Core Audio with nothing to install, always from the default input in System Settings → Sound; the first time you arm a track macOS asks for microphone permission, and if it was refused, slaw stops and says where to allow it.
+- **Recording tools.** On Linux, slaw records through `pw-record`, then `parec`, then `arecord`, whichever is installed, and Settings picks the input device. On Windows it uses waveIn, and Settings picks the input device there too. On macOS it uses Core Audio with nothing to install, always from the default input in System Settings → Sound; the first time you arm a track macOS asks for microphone permission, and if it was refused, slaw stops and says where to allow it.
 - **No input monitoring.** slaw's output runs through a pipe with tens of milliseconds of buffering, so hearing yourself through it would be a slapback delay with a feedback roadmap. Use your interface's direct monitoring, or PipeWire's.
 - **Agents can't record.** They can't sing either. They see takes like any other sample in `get_project`.
 
@@ -622,7 +622,7 @@ The toolbar has a master **AI** switch (also in Settings). With it off, slaw is 
 |-----|----------|
 | AI | Provider, model, API key (with optional "remember"), base URL, Ollama endpoint, timeout, co-pilot on/off and interjection interval, Autopilot remediation cycles, and a **Test connection** button |
 | Samples | Sample folders: add, remove, rescan |
-| Audio | Live audio substrate, latency; recording tool, input device, input latency |
+| Audio | Output device with **Test output** (plays two notes through the selection, saved or not), live audio substrate, latency; recording tool, input device with **Test input** (a level meter that keeps nothing), input latency. Windows and Linux offer the device lists; on macOS slaw follows System Settings → Sound. If a chosen output is unplugged, slaw plays through the system default and says so; if a chosen input on Windows is unplugged, the take is refused. On Windows, latency sets waveOut's real queue and starts at 48 ms, the lowest value that held up when measured |
 | About | Provenance |
 
 Settings persist in the per-user config folder (`~/.config/slaw/settings.json` on Linux). CLI flags override them for one session.

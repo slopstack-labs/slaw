@@ -4,9 +4,10 @@ using System.Runtime.Versioning;
 namespace SlopstackLabs.Slaw.Playback;
 
 /// <summary>
-/// Records the default Windows input device through winmm's waveIn API: the
-/// same 1991 subsystem that plays slaw's output, now also entrusted with
-/// listening. Four buffers circulate between slaw and the driver; a thread
+/// Records a Windows input device through winmm's waveIn API: the same 1991
+/// subsystem that plays slaw's output, now also entrusted with listening. A
+/// device that has gone away refuses the take instead of quietly recording some
+/// other microphone. Four buffers circulate between slaw and the driver; a thread
 /// polls for filled ones, because the stakeholder still does not attend callbacks.
 /// </summary>
 [SupportedOSPlatform("windows")]
@@ -19,9 +20,11 @@ internal sealed class WindowsWaveInAudioInput : AudioInputSourceBase
 
     private const uint WaveMapperDeviceIdentifier = uint.MaxValue;
     private const uint CallbackNullFlag = 0;
+    private const uint WaveMappedFlag = 0x4;
     private const ushort WaveFormatPcmTag = 1;
     private const uint HeaderDoneFlag = 0x1;
 
+    private readonly string? inputDeviceName;
     private readonly IntPtr[] queuedBufferHeaderPointers = new IntPtr[QueuedBufferRingLength];
     private readonly IntPtr[] queuedBufferSampleDataPointers = new IntPtr[QueuedBufferRingLength];
     private readonly bool[] queuedBufferHeaderPreparedFlags = new bool[QueuedBufferRingLength];
@@ -30,9 +33,10 @@ internal sealed class WindowsWaveInAudioInput : AudioInputSourceBase
     private Thread? captureThread;
     private volatile bool shutdownRequested;
 
-    public WindowsWaveInAudioInput(int sampleRate)
+    public WindowsWaveInAudioInput(int sampleRate, string? inputDeviceName)
         : base(sampleRate)
     {
+        this.inputDeviceName = string.IsNullOrWhiteSpace(inputDeviceName) ? null : inputDeviceName;
     }
 
     public override string SubstrateName => "waveIn";
@@ -42,6 +46,14 @@ internal sealed class WindowsWaveInAudioInput : AudioInputSourceBase
         if (waveInDeviceHandle != IntPtr.Zero)
         {
             return;
+        }
+        var deviceIdentifier = WaveMapperDeviceIdentifier;
+        var openFlags = CallbackNullFlag;
+        if (inputDeviceName is not null)
+        {
+            deviceIdentifier = WindowsWaveDeviceDirectory.FindInputDevice(inputDeviceName)
+                ?? throw new InvalidOperationException($"input device \"{inputDeviceName}\" is not connected — pick another in Settings → Audio");
+            openFlags |= WaveMappedFlag;
         }
         var requestedWaveFormat = new WaveFormatExRecord
         {
@@ -53,7 +65,7 @@ internal sealed class WindowsWaveInAudioInput : AudioInputSourceBase
             wBitsPerSample = BitsPerSample,
             cbSize = 0,
         };
-        var openResult = waveInOpen(out waveInDeviceHandle, WaveMapperDeviceIdentifier, ref requestedWaveFormat, IntPtr.Zero, IntPtr.Zero, CallbackNullFlag);
+        var openResult = waveInOpen(out waveInDeviceHandle, deviceIdentifier, ref requestedWaveFormat, IntPtr.Zero, IntPtr.Zero, openFlags);
         if (openResult != 0)
         {
             waveInDeviceHandle = IntPtr.Zero;

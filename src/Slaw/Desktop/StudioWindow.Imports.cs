@@ -194,6 +194,10 @@ internal sealed partial class StudioWindow
         entries.Add(new CommandPaletteEntry("View: Arrangement", null, () => SelectMainView(arrangementView: true)));
         entries.Add(new CommandPaletteEntry("File: Import MIDI…", null, () => _ = ImportMidiFromPickerAsync()));
         entries.Add(new CommandPaletteEntry("Create: Audio Track (mic)", null, AddAudioTrack));
+        entries.Add(new CommandPaletteEntry("Audio: Choose Output Device…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
+        entries.Add(new CommandPaletteEntry("Audio: Choose Input Device…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
+        entries.Add(new CommandPaletteEntry("Audio: Test Output or Input…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
+        entries.Add(new CommandPaletteEntry("Audio: Set Latency…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Import Sounds: Ableton Preset (.adg)…", null, () => OpenSoundImportWindow(SoundImportMode.AbletonPreset)));
         entries.Add(new CommandPaletteEntry("Import Sounds: as Drum Kit…", null, () => OpenSoundImportWindow(SoundImportMode.DrumKit)));
         entries.Add(new CommandPaletteEntry("Import Sounds: as Separate Tracks…", null, () => OpenSoundImportWindow(SoundImportMode.SeparateTracks)));

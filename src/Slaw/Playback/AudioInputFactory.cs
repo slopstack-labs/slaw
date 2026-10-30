@@ -9,7 +9,7 @@ internal static class AudioInputFactory
         unavailabilityReason = null;
         if (OperatingSystem.IsWindows())
         {
-            return new WindowsWaveInAudioInput(sampleRate);
+            return new WindowsWaveInAudioInput(sampleRate, inputDeviceName);
         }
         if (OperatingSystem.IsLinux())
         {
@@ -24,6 +24,12 @@ internal static class AudioInputFactory
     }
 
     /// <summary>Input devices the user may pick in Settings; empty means "the default device only".</summary>
-    public static IReadOnlyList<string> ListInputDevices() =>
-        OperatingSystem.IsLinux() ? PipedProcessAudioInput.ListInputDevices() : Array.Empty<string>();
+    public static IReadOnlyList<string> ListInputDevices()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return WindowsWaveDeviceDirectory.ListInputDevices();
+        }
+        return OperatingSystem.IsLinux() ? PipedProcessAudioInput.ListInputDevices() : Array.Empty<string>();
+    }
 }

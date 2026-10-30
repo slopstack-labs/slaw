@@ -9,29 +9,36 @@ namespace SlopstackLabs.Slaw.Playback;
 /// </summary>
 internal sealed class PipedProcessAudioSink : IAudioOutputSink
 {
-    private sealed record PipedPlayerCandidate(string ExecutableName, Func<int, int, string[]> ArgumentsFor);
+    private sealed record PipedPlayerCandidate(string ExecutableName, Func<int, int, string?, string[]> ArgumentsFor);
 
     private static readonly PipedPlayerCandidate[] PlayerCandidates =
     {
-        new("pw-cat", (sampleRate, latencyMilliseconds) => new[]
-        {
-            "--playback", "--raw", "--format", "s16", "--rate", $"{sampleRate}", "--channels", "2", "--latency", $"{latencyMilliseconds}ms", "-",
-        }),
-        new("pacat", (sampleRate, latencyMilliseconds) => new[]
-        {
-            "--playback", "--format=s16le", $"--rate={sampleRate}", "--channels=2", $"--latency-msec={latencyMilliseconds}",
-        }),
-        new("aplay", (sampleRate, latencyMilliseconds) => new[]
+        new("pw-cat", (sampleRate, latencyMilliseconds, outputDevice) => outputDevice is null
+            ? new[] { "--playback", "--raw", "--format", "s16", "--rate", $"{sampleRate}", "--channels", "2", "--latency", $"{latencyMilliseconds}ms", "-" }
+            : new[] { "--playback", "--raw", "--format", "s16", "--rate", $"{sampleRate}", "--channels", "2", "--latency", $"{latencyMilliseconds}ms", "--target", outputDevice, "-" }),
+        new("pacat", (sampleRate, latencyMilliseconds, outputDevice) => outputDevice is null
+            ? new[] { "--playback", "--format=s16le", $"--rate={sampleRate}", "--channels=2", $"--latency-msec={latencyMilliseconds}" }
+            : new[] { "--playback", "--format=s16le", $"--rate={sampleRate}", "--channels=2", $"--latency-msec={latencyMilliseconds}", $"--device={outputDevice}" }),
+        new("aplay", (sampleRate, latencyMilliseconds, _) => new[]
         {
             "-q", "-t", "raw", "-f", "S16_LE", "-r", $"{sampleRate}", "-c", "2", "-B", $"{latencyMilliseconds * 1000}", "-",
         }),
-        new("play", (sampleRate, _) => new[]
+        new("play", (sampleRate, _, _) => new[]
         {
             "-q", "-t", "raw", "-r", $"{sampleRate}", "-e", "signed-integer", "-b", "16", "-c", "2", "-",
         }),
     };
 
     public static IReadOnlyList<string> SupportedSubstrateNames => PlayerCandidates.Select(candidate => candidate.ExecutableName).ToArray();
+
+    /// <summary>Whether a player understands PipeWire/PulseAudio sink names; the ALSA ones play the default.</summary>
+    public static bool CanTargetDevice(string substrateName) => substrateName is "pw-cat" or "pacat";
+
+    /// <summary>Output devices PipeWire/PulseAudio know about (via <c>pactl list short sinks</c>). Empty when pactl is absent.</summary>
+    public static IReadOnlyList<string> ListOutputDevices() => PipedProcessAudioInput.ListPulseDevices("sinks");
+
+    internal static IReadOnlyList<string> ArgumentsFor(string substrateName, int sampleRate, int latencyMilliseconds, string? outputDevice) =>
+        PlayerCandidates.First(candidate => candidate.ExecutableName == substrateName).ArgumentsFor(sampleRate, latencyMilliseconds, outputDevice);
 
     private readonly Process playerProcess;
     private readonly Stream playerInputStream;
@@ -55,7 +62,7 @@ internal sealed class PipedProcessAudioSink : IAudioOutputSink
     /// Starts the first available player (or the preferred one), or returns null
     /// when the host has none of them installed.
     /// </summary>
-    public static PipedProcessAudioSink? TryStart(int sampleRate, int latencyMilliseconds, string preferredSubstrate)
+    public static PipedProcessAudioSink? TryStart(int sampleRate, int latencyMilliseconds, string preferredSubstrate, string? outputDevice)
     {
         var orderedCandidates = PlayerCandidates
             .OrderBy(candidate => candidate.ExecutableName == preferredSubstrate ? 0 : 1)
@@ -75,7 +82,7 @@ internal sealed class PipedProcessAudioSink : IAudioOutputSink
                 RedirectStandardError = true,
                 CreateNoWindow = true,
             };
-            foreach (var playerArgument in playerCandidate.ArgumentsFor(sampleRate, latencyMilliseconds))
+            foreach (var playerArgument in playerCandidate.ArgumentsFor(sampleRate, latencyMilliseconds, outputDevice))
             {
                 playerStartInfo.ArgumentList.Add(playerArgument);
             }

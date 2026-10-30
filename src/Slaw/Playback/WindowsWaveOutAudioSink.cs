@@ -4,45 +4,55 @@ using System.Runtime.Versioning;
 namespace SlopstackLabs.Slaw.Playback;
 
 /// <summary>
-/// Streams audio to the default Windows output device through winmm's waveOut
-/// API, an interface last meaningfully revised when a "multimedia PC" was a
-/// purchasing category. Negotiation with it is conducted through four
-/// unmanaged buffers, a handful of header structs, and polite polling, because
-/// the stakeholder (a 1991 audio subsystem) does not attend callbacks.
+/// Streams audio to a Windows output device through winmm's waveOut API, an
+/// interface last meaningfully revised when a "multimedia PC" was a purchasing
+/// category. Negotiation with it is conducted through four unmanaged buffers
+/// sized from the latency setting, a handful of header structs, and polite
+/// polling, because the stakeholder (a 1991 audio subsystem) does not attend
+/// callbacks.
 /// </summary>
 [SupportedOSPlatform("windows")]
 internal sealed class WindowsWaveOutAudioSink : IAudioOutputSink
 {
-    private const int QueuedBufferRingLength = 4;
-    private const int FramesPerQueuedBuffer = 1024;
+    private const int QueuedBufferRingLength = WindowsWaveDeviceDirectory.QueuedBufferRingLength;
     private const int ChannelCount = 2;
     private const int BitsPerSample = 16;
     private const int BytesPerFrame = ChannelCount * BitsPerSample / 8;
-    private const int SamplesPerQueuedBuffer = FramesPerQueuedBuffer * ChannelCount;
-    private const int BytesPerQueuedBuffer = FramesPerQueuedBuffer * BytesPerFrame;
 
     private const uint WaveMapperDeviceIdentifier = uint.MaxValue;
     private const uint CallbackNullFlag = 0;
+    private const uint WaveMappedFlag = 0x4;
     private const ushort WaveFormatPcmTag = 1;
     private const uint HeaderDoneFlag = 0x1;
     private const uint HeaderPreparedFlag = 0x2;
+    private const uint OneMillisecondTimerPeriod = 1;
 
+    private readonly int samplesPerQueuedBuffer;
+    private readonly int bytesPerQueuedBuffer;
+    private readonly bool timerPeriodRaised;
     private readonly IntPtr waveOutDeviceHandle;
     private readonly IntPtr[] queuedBufferHeaderPointers = new IntPtr[QueuedBufferRingLength];
     private readonly IntPtr[] queuedBufferSampleDataPointers = new IntPtr[QueuedBufferRingLength];
     private readonly bool[] queuedBufferHeaderPreparedFlags = new bool[QueuedBufferRingLength];
     private readonly bool[] queuedBufferEverSubmittedFlags = new bool[QueuedBufferRingLength];
     private readonly int waveOutHeaderStructureByteCount = Marshal.SizeOf<WaveOutHeaderRecord>();
-    private readonly short[] scratchSampleConversionBuffer = new short[SamplesPerQueuedBuffer];
+    private readonly short[] scratchSampleConversionBuffer;
 
     private int currentBufferIndex;
     private int currentBufferFilledSampleCount;
     private bool currentBufferAcquired;
     private bool disposed;
 
-    public WindowsWaveOutAudioSink(int sampleRate)
+    /// <param name="sampleRate">Frames per second handed to the device.</param>
+    /// <param name="latencyMilliseconds">How much audio may wait in the queue, shared across the four buffers.</param>
+    /// <param name="deviceIdentifier">A number from <see cref="WindowsWaveDeviceDirectory"/>, or null for the system default.</param>
+    public WindowsWaveOutAudioSink(int sampleRate, int latencyMilliseconds, uint? deviceIdentifier)
     {
         SampleRate = sampleRate;
+        var framesPerQueuedBuffer = WindowsWaveDeviceDirectory.FramesPerQueuedBufferFor(sampleRate, latencyMilliseconds);
+        samplesPerQueuedBuffer = framesPerQueuedBuffer * ChannelCount;
+        bytesPerQueuedBuffer = framesPerQueuedBuffer * BytesPerFrame;
+        scratchSampleConversionBuffer = new short[samplesPerQueuedBuffer];
 
         var requestedWaveFormat = new WaveFormatExRecord
         {
@@ -57,24 +67,27 @@ internal sealed class WindowsWaveOutAudioSink : IAudioOutputSink
 
         var openResult = waveOutOpen(
             out waveOutDeviceHandle,
-            WaveMapperDeviceIdentifier,
+            deviceIdentifier ?? WaveMapperDeviceIdentifier,
             ref requestedWaveFormat,
             IntPtr.Zero,
             IntPtr.Zero,
-            CallbackNullFlag);
+            deviceIdentifier is null ? CallbackNullFlag : CallbackNullFlag | WaveMappedFlag);
         ThrowIfWaveOutCallFailed(openResult, nameof(waveOutOpen));
+
+        // The default 15.6 ms sleep would outlast a whole buffer at low latency settings.
+        timerPeriodRaised = timeBeginPeriod(OneMillisecondTimerPeriod) == 0;
 
         try
         {
             for (var ringSlotIndex = 0; ringSlotIndex < QueuedBufferRingLength; ringSlotIndex++)
             {
-                queuedBufferSampleDataPointers[ringSlotIndex] = Marshal.AllocHGlobal(BytesPerQueuedBuffer);
+                queuedBufferSampleDataPointers[ringSlotIndex] = Marshal.AllocHGlobal(bytesPerQueuedBuffer);
                 queuedBufferHeaderPointers[ringSlotIndex] = Marshal.AllocHGlobal(waveOutHeaderStructureByteCount);
 
                 var freshlyMintedHeader = new WaveOutHeaderRecord
                 {
                     lpData = queuedBufferSampleDataPointers[ringSlotIndex],
-                    dwBufferLength = BytesPerQueuedBuffer,
+                    dwBufferLength = (uint)bytesPerQueuedBuffer,
                 };
                 Marshal.StructureToPtr(freshlyMintedHeader, queuedBufferHeaderPointers[ringSlotIndex], false);
 
@@ -111,7 +124,7 @@ internal sealed class WindowsWaveOutAudioSink : IAudioOutputSink
                 currentBufferFilledSampleCount = 0;
             }
 
-            var remainingRoomInBuffer = SamplesPerQueuedBuffer - currentBufferFilledSampleCount;
+            var remainingRoomInBuffer = samplesPerQueuedBuffer - currentBufferFilledSampleCount;
             var samplesToConvertNow = Math.Min(remainingRoomInBuffer, interleavedStereoSamples.Length - consumedSampleCount);
 
             for (var sampleOffset = 0; sampleOffset < samplesToConvertNow; sampleOffset++)
@@ -134,7 +147,7 @@ internal sealed class WindowsWaveOutAudioSink : IAudioOutputSink
             currentBufferFilledSampleCount += samplesToConvertNow;
             consumedSampleCount += samplesToConvertNow;
 
-            if (currentBufferFilledSampleCount == SamplesPerQueuedBuffer)
+            if (currentBufferFilledSampleCount == samplesPerQueuedBuffer)
             {
                 SubmitCurrentBufferToDevice();
             }
@@ -190,6 +203,11 @@ internal sealed class WindowsWaveOutAudioSink : IAudioOutputSink
 
     private void ReleaseEverything()
     {
+        if (timerPeriodRaised)
+        {
+            _ = timeEndPeriod(OneMillisecondTimerPeriod);
+        }
+
         if (waveOutDeviceHandle != IntPtr.Zero)
         {
             _ = waveOutReset(waveOutDeviceHandle);
@@ -281,4 +299,10 @@ internal sealed class WindowsWaveOutAudioSink : IAudioOutputSink
 
     [DllImport("winmm.dll")]
     private static extern uint waveOutClose(IntPtr hwo);
+
+    [DllImport("winmm.dll")]
+    private static extern uint timeBeginPeriod(uint uPeriod);
+
+    [DllImport("winmm.dll")]
+    private static extern uint timeEndPeriod(uint uPeriod);
 }

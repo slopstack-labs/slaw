@@ -725,7 +725,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private LiveAudioSession CreateLiveAudioSession()
     {
-        var createdSession = new LiveAudioSession(preferences.AudioLatencyMilliseconds, preferences.AudioSubstrate);
+        var createdSession = new LiveAudioSession(preferences.AudioLatencyMilliseconds, preferences.AudioSubstrate, preferences.AudioOutputDevice);
         createdSession.Faulted += faultDescription => Dispatcher.UIThread.Post(() =>
         {
             audioStatusText.Text = "audio: offline";
@@ -741,6 +741,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             liveAudioSession.Start();
             RefreshAudioStatus();
             transportTimer.Start();
+            if (liveAudioSession.DeviceNotice is { } deviceNotice)
+            {
+                SetStatus(StatusSeverity.Warning, deviceNotice);
+            }
         }
         catch (InvalidOperationException audioRemediationOpportunity)
         {
@@ -1089,16 +1093,17 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     // ── Settings ──────────────────────────────────────────────────────────────
 
-    private async Task OpenSettingsAsync()
+    private async Task OpenSettingsAsync(bool openAudioTab = false)
     {
-        var settingsWindow = new SettingsWindow(preferences);
+        var settingsWindow = new SettingsWindow(preferences, openAudioTab);
         await settingsWindow.ShowDialog(this);
         if (settingsWindow.Result is not { } revisedPreferences)
         {
             return;
         }
         var audioSettingsChanged = revisedPreferences.AudioSubstrate != preferences.AudioSubstrate ||
-                                   revisedPreferences.AudioLatencyMilliseconds != preferences.AudioLatencyMilliseconds;
+                                   revisedPreferences.AudioLatencyMilliseconds != preferences.AudioLatencyMilliseconds ||
+                                   revisedPreferences.AudioOutputDevice != preferences.AudioOutputDevice;
         preferences = revisedPreferences;
         PersistPreferences();
         synchronizingControls = true;
@@ -1115,6 +1120,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             RestartLiveAudio();
         }
         _ = RescanSampleLibraryAsync();
+        if (audioSettingsChanged && (liveAudioSession.DeviceNotice is not null || !liveAudioSession.IsRunning))
+        {
+            return; // StartLiveAudio has already said what went wrong; "settings saved" must not paper over it.
+        }
         SetStatus(StatusSeverity.Success, "settings saved");
     }
 
@@ -1984,7 +1993,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private void RefreshAudioStatus()
     {
         var audioDescription = liveAudioSession.IsRunning
-            ? FormattableString.Invariant($"audio: {liveAudioSession.SubstrateName} · {LiveAudioSession.LiveSampleRate / 1000.0:0.#} kHz · {preferences.AudioLatencyMilliseconds} ms")
+            ? FormattableString.Invariant($"audio: {liveAudioSession.SubstrateName} · {liveAudioSession.DeviceLabel} · {LiveAudioSession.LiveSampleRate / 1000.0:0.#} kHz · {preferences.AudioLatencyMilliseconds} ms")
             : "audio: offline";
         audioStatusText.Text = mcpHttpTransport is { } runningTransport
             ? $"{audioDescription}   ·   MCP: 127.0.0.1:{runningTransport.Port}"

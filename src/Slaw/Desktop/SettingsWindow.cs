@@ -38,6 +38,9 @@ internal sealed partial class SettingsWindow : Window
     private readonly List<Control> aiDependentControls = new();
 
     private readonly ComboBox audioSubstrateComboBox;
+    private readonly ComboBox audioOutputDeviceComboBox;
+    private readonly Button testOutputButton;
+    private readonly TextBlock testOutputResultTextBlock;
     private readonly NumericUpDown audioLatencyNumericUpDown;
     private readonly RecordingSettingsForm recordingSettingsForm;
 
@@ -50,7 +53,7 @@ internal sealed partial class SettingsWindow : Window
     /// <summary>The accepted preferences, or null if the user cancelled (or closed the window like a normal person).</summary>
     public StudioPreferences? Result { get; private set; }
 
-    public SettingsWindow(StudioPreferences currentPreferences)
+    public SettingsWindow(StudioPreferences currentPreferences, bool openAudioTab = false)
     {
         workingPreferences = currentPreferences.Clone();
         workingSampleFolders = new ObservableCollection<string>(workingPreferences.SampleFolders ?? new List<string>());
@@ -64,8 +67,8 @@ internal sealed partial class SettingsWindow : Window
         sampleFoldersListBox.SelectionChanged += (_, _) => RefreshRemoveSampleFolderEnablement();
 
         Title = "slaw — Settings";
-        Width = 560;
-        Height = 600;
+        Width = 660;
+        Height = 640;
         CanResize = false;
         Background = StudioTheme.Background;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -129,11 +132,32 @@ internal sealed partial class SettingsWindow : Window
                 .Concat(OperatingSystem.IsMacOS() ? new[] { MacAudioQueueAudioSink.CoreAudioSubstrateName } : Array.Empty<string>())
                 .Concat(PipedProcessAudioSink.SupportedSubstrateNames).ToArray(),
             MinWidth = 160,
+            IsEnabled = !OperatingSystem.IsWindows(),
         };
         audioSubstrateComboBox.SelectedItem = (audioSubstrateComboBox.ItemsSource as string[])!
             .Contains(workingPreferences.AudioSubstrate) ? workingPreferences.AudioSubstrate : "auto";
-        audioLatencyNumericUpDown = BuildNumericUpDown(workingPreferences.AudioLatencyMilliseconds, 20, 500);
+        var outputDeviceChoices = new List<string> { AudioOutputFactory.SystemDefaultDeviceLabel };
+        outputDeviceChoices.AddRange(AudioOutputFactory.ListOutputDevices());
+        if (workingPreferences.AudioOutputDevice is { } savedOutputDevice && !outputDeviceChoices.Contains(savedOutputDevice))
+        {
+            outputDeviceChoices.Add(savedOutputDevice);
+        }
+        audioOutputDeviceComboBox = new ComboBox
+        {
+            ItemsSource = outputDeviceChoices,
+            SelectedItem = workingPreferences.AudioOutputDevice ?? AudioOutputFactory.SystemDefaultDeviceLabel,
+            MinWidth = 320,
+            IsEnabled = outputDeviceChoices.Count > 1,
+        };
+        testOutputResultTextBlock = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 12,
+        };
+        testOutputButton = StudioUi.Button("Test output", () => _ = RunOutputTestAsync());
+        audioLatencyNumericUpDown = BuildNumericUpDown(workingPreferences.AudioLatencyMilliseconds, OperatingSystem.IsWindows() ? WindowsWaveDeviceDirectory.MinimumLatencyMilliseconds : 20, 500);
         recordingSettingsForm = new RecordingSettingsForm(workingPreferences);
+        Closed += (_, _) => recordingSettingsForm.StopInputTest();
 
         providerComboBox.SelectionChanged += (_, _) => RefreshDefaultModelCaption();
         aiFeaturesToggle.IsCheckedChanged += (_, _) => RefreshAiDependentEnablement();
@@ -150,6 +174,7 @@ internal sealed partial class SettingsWindow : Window
                 new TabItem { Header = "Integrations", Content = WrapInScrollViewer(BuildIntegrationsTab()) },
                 new TabItem { Header = "About", Content = WrapInScrollViewer(BuildAboutTab()) },
             },
+            SelectedIndex = openAudioTab ? 1 : 0,
         };
 
         var buttonRow = StudioUi.Row(8,
@@ -179,12 +204,17 @@ internal sealed partial class SettingsWindow : Window
         HorizontalAlignment = HorizontalAlignment.Left,
     };
 
-    private static ScrollViewer WrapInScrollViewer(Control tabContent) => new()
+    private static ScrollViewer WrapInScrollViewer(Control tabContent)
     {
-        Padding = new Thickness(16),
-        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-        Content = tabContent,
-    };
+        // The viewer lays its content out across its full width, padding or not, so captions need their own gutter or they run off the edge.
+        tabContent.Margin = new Thickness(0, 0, 20, 0);
+        return new ScrollViewer
+        {
+            Padding = new Thickness(16),
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Content = tabContent,
+        };
+    }
 
     private Control TrackAiDependent(Control dependentControl)
     {
@@ -283,7 +313,7 @@ internal sealed partial class SettingsWindow : Window
         var tabPanel = new StackPanel { Spacing = 12 };
         var formGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("150,*"), RowSpacing = 10, ColumnSpacing = 8 };
         var substrateCaption = OperatingSystem.IsWindows()
-            ? StudioUi.Caption("On Windows, waveOut is always used. This setting is decorative, like most settings.")
+            ? StudioUi.Caption("On Windows, waveOut is always used.")
             : OperatingSystem.IsMacOS()
                 ? StudioUi.Caption("auto uses Core Audio, which needs nothing installed. Pick a player only to route through it on purpose.")
                 : null;
@@ -292,11 +322,21 @@ internal sealed partial class SettingsWindow : Window
             substrateCaption.TextWrapping = TextWrapping.Wrap;
             substrateCaption.TextTrimming = TextTrimming.None;
         }
-        var latencyCaption = StudioUi.Caption("Lower is snappier; higher survives a busy CPU. Edits are heard on the next step either way.");
+        var latencyCaption = StudioUi.Caption("Lower is snappier; higher survives a busy CPU. If playback crackles, raise it. Edits are heard on the next step either way.");
         latencyCaption.TextWrapping = TextWrapping.Wrap;
         latencyCaption.TextTrimming = TextTrimming.None;
+        var outputDeviceCaption = StudioUi.Caption(OperatingSystem.IsMacOS()
+            ? "The default output in System Settings → Sound."
+            : OperatingSystem.IsWindows()
+                ? "If the device is unplugged, slaw plays through the system default and says so."
+                : "pw-cat and pacat can target a device; aplay and play use the default. If the device is unplugged, slaw plays through the system default and says so.");
+        outputDeviceCaption.TextWrapping = TextWrapping.Wrap;
+        outputDeviceCaption.TextTrimming = TextTrimming.None;
 
         var row = 0;
+        FormRow(formGrid, row++, "Output device", audioOutputDeviceComboBox, outputDeviceCaption);
+        testOutputButton.HorizontalAlignment = HorizontalAlignment.Left;
+        FormRow(formGrid, row++, string.Empty, testOutputButton, testOutputResultTextBlock);
         FormRow(formGrid, row++, "Live audio substrate", audioSubstrateComboBox, substrateCaption);
         FormRow(formGrid, row++, "Latency (ms)", audioLatencyNumericUpDown, latencyCaption);
         tabPanel.Children.Add(formGrid);
@@ -466,6 +506,37 @@ internal sealed partial class SettingsWindow : Window
     private static string? NullIfBlank(string? possiblyBlankText) =>
         string.IsNullOrWhiteSpace(possiblyBlankText) ? null : possiblyBlankText.Trim();
 
+    private string? SelectedOutputDevice() =>
+        audioOutputDeviceComboBox.SelectedItem is string selectedDevice && selectedDevice != AudioOutputFactory.SystemDefaultDeviceLabel ? selectedDevice : null;
+
+    /// <summary>Plays the test tone through what the form says now, saved or not, beside anything the studio is playing.</summary>
+    private async Task RunOutputTestAsync()
+    {
+        testOutputButton.IsEnabled = false;
+        testOutputResultTextBlock.Foreground = StudioTheme.TextMuted;
+        testOutputResultTextBlock.Text = "playing…";
+        var latencyMilliseconds = ReadWholeNumber(audioLatencyNumericUpDown, workingPreferences.AudioLatencyMilliseconds);
+        var substrate = audioSubstrateComboBox.SelectedItem as string ?? "auto";
+        var outputDevice = SelectedOutputDevice();
+        try
+        {
+            var played = await Task.Run(() => AudioOutputFactory.PlayTestTone(LiveAudioSession.LiveSampleRate, latencyMilliseconds, substrate, outputDevice));
+            testOutputResultTextBlock.Foreground = played.DeviceNotice is null ? StudioTheme.Playhead : StudioTheme.Failure;
+            testOutputResultTextBlock.Text = played.DeviceNotice is { } deviceNotice
+                ? $"✗ {deviceNotice}"
+                : $"✓ Sent to {played.DeviceLabel} via {played.SubstrateName}. If you heard two notes, the supply chain is intact.";
+        }
+        catch (Exception outputTestRemediationOpportunity) when (outputTestRemediationOpportunity is InvalidOperationException or IOException)
+        {
+            testOutputResultTextBlock.Foreground = StudioTheme.Failure;
+            testOutputResultTextBlock.Text = $"✗ {outputTestRemediationOpportunity.Message}";
+        }
+        finally
+        {
+            testOutputButton.IsEnabled = true;
+        }
+    }
+
     private static int ReadWholeNumber(NumericUpDown numericUpDown, int fallbackValue) =>
         numericUpDown.Value is { } currentValue ? (int)Math.Round(currentValue) : fallbackValue;
 
@@ -484,6 +555,7 @@ internal sealed partial class SettingsWindow : Window
         workingPreferences.AutopilotRemediationCycles = ReadWholeNumber(remediationCyclesNumericUpDown, workingPreferences.AutopilotRemediationCycles);
         workingPreferences.AudioSubstrate = audioSubstrateComboBox.SelectedItem as string ?? "auto";
         workingPreferences.AudioLatencyMilliseconds = ReadWholeNumber(audioLatencyNumericUpDown, workingPreferences.AudioLatencyMilliseconds);
+        workingPreferences.AudioOutputDevice = SelectedOutputDevice();
         recordingSettingsForm.ApplyTo(workingPreferences);
         workingPreferences.SampleFolders = new List<string>(workingSampleFolders);
         ApplyPluginFoldersToWorkingPreferences();

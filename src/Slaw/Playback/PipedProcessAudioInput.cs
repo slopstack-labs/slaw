@@ -212,7 +212,10 @@ internal sealed class PipedProcessAudioInput : AudioInputSourceBase
     /// Capture devices PipeWire/PulseAudio know about (via <c>pactl list short sources</c>),
     /// without the ".monitor" sources that would record slaw's own output. Empty when pactl is absent.
     /// </summary>
-    public static IReadOnlyList<string> ListInputDevices()
+    public static IReadOnlyList<string> ListInputDevices() => ListPulseDevices("sources");
+
+    /// <summary>Names from <c>pactl list short</c> for "sources" or "sinks". Empty when pactl is absent.</summary>
+    internal static IReadOnlyList<string> ListPulseDevices(string deviceKind)
     {
         if (PlaybackDeviceNegotiator.ResolveExecutableOnPath("pactl") is not { } pactlPath)
         {
@@ -227,7 +230,7 @@ internal sealed class PipedProcessAudioInput : AudioInputSourceBase
                 RedirectStandardError = true,
                 CreateNoWindow = true,
             };
-            foreach (var listingArgument in new[] { "list", "short", "sources" })
+            foreach (var listingArgument in new[] { "list", "short", deviceKind })
             {
                 listingStartInfo.ArgumentList.Add(listingArgument);
             }

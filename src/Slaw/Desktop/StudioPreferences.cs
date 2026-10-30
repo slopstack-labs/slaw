@@ -56,10 +56,13 @@ internal sealed class StudioPreferences
     public string AudioSubstrate { get; set; } = "auto";
     public int AudioLatencyMilliseconds { get; set; } = 60;
 
+    /// <summary>Output device by name (waveOut device, or PipeWire/PulseAudio sink); null plays through the system default.</summary>
+    public string? AudioOutputDevice { get; set; }
+
     /// <summary>Preferred recording tool ("auto", "pw-record", "parec", "arecord"); Windows always uses waveIn.</summary>
     public string RecordingSubstrate { get; set; } = "auto";
 
-    /// <summary>PipeWire/PulseAudio source to record from; null records the system default.</summary>
+    /// <summary>Input device by name (waveIn device, or PipeWire/PulseAudio source); null records the system default.</summary>
     public string? RecordingInputDevice { get; set; }
 
     /// <summary>
