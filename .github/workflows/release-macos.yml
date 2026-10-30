@@ -1,0 +1,85 @@
+name: macOS disk images
+
+# Manual only. Builds slaw.app for Apple Silicon and Intel and wraps each in a
+# drag-to-install .dmg with the turntable background (installer/macos/).
+# Optionally attaches them to an existing GitHub release with the same tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.2.0 or v0.2.0-beta.1)'
+        required: true
+      attach_to_release:
+        description: 'Upload the .dmg files to the existing release with this tag'
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  DMGBUILD_VERSION: 1.6.7
+
+jobs:
+  dmg:
+    name: Disk image ${{ matrix.rid }}
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        rid: [osx-arm64, osx-x64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dmgbuild
+        run: pip install "dmgbuild==$DMGBUILD_VERSION"
+
+      - name: Build disk image
+        env:
+          TAG: ${{ github.event.inputs.version }}
+        run: installer/macos/build-dmg.sh "${{ matrix.rid }}" "$TAG" out/macos
+
+      - name: Smoke test
+        # The runner is Apple Silicon, so only the arm64 build can be launched here
+        if: matrix.rid == 'osx-arm64'
+        env:
+          TAG: ${{ github.event.inputs.version }}
+        run: |
+          mount_point="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mount_point" "out/macos/slaw-$TAG-osx-arm64.dmg"
+          test -L "$mount_point/Applications"
+          codesign --verify --deep --strict "$mount_point/slaw.app"
+          "$mount_point/slaw.app/Contents/MacOS/slaw" --version
+          hdiutil detach "$mount_point"
+
+      - name: Upload disk image
+        uses: actions/upload-artifact@v4
+        with:
+          name: slaw-${{ matrix.rid }}-dmg
+          path: out/macos/slaw-*.dmg
+
+  attach:
+    name: Attach to release
+    needs: dmg
+    if: github.event.inputs.attach_to_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: slaw-*-dmg
+          merge-multiple: true
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.version }}
+        run: gh release upload "$TAG" slaw-*.dmg --clobber --repo "${{ github.repository }}"

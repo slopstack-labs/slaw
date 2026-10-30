@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  setup.exe for slaw (WiX Toolset v5 Burn bundle). Wraps slaw.msi in the
+  custom SlawSetup window, which has turntables.
+
+  Build-time variables (wix build -d Name=Value):
+    ProductVersion  numeric version, e.g. 0.2.0
+    DisplayVersion  version shown in the window, e.g. v0.2.0-beta.1
+    MsiPath         the slaw.msi built from installer/slaw.wxs
+    SetupUiDir      build output of installer/SlawSetup
+    AssetsDir       output of installer/New-InstallerAssets.ps1
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Bundle Name="slaw"
+          Manufacturer="slopstack labs"
+          Version="$(var.ProductVersion)"
+          UpgradeCode="E83E2A62-EB94-4A51-8A3E-EF530C990B63"
+          IconSourceFile="$(var.AssetsDir)\slaw.ico"
+          AboutUrl="https://github.com/slopstack-labs/slaw"
+          HelpUrl="https://github.com/slopstack-labs/slaw/issues"
+          DisableModify="yes">
+
+    <BootstrapperApplication SourceFile="$(var.SetupUiDir)\SlawSetup.exe">
+      <Payload SourceFile="$(var.SetupUiDir)\SlawSetup.exe.config" />
+      <Payload SourceFile="$(var.SetupUiDir)\WixToolset.BootstrapperApplicationApi.dll" />
+      <Payload SourceFile="$(var.SetupUiDir)\mbanative.dll" />
+    </BootstrapperApplication>
+
+    <Variable Name="SlawDisplayVersion" Type="string" Value="$(var.DisplayVersion)" />
+
+    <Chain>
+      <MsiPackage Id="SlawMsi" SourceFile="$(var.MsiPath)" EnableFeatureSelection="yes">
+        <!-- Only set on a fresh install; repairs and uninstalls use the folder the MSI remembers -->
+        <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" Condition="InstallFolder" />
+      </MsiPackage>
+    </Chain>
+
+  </Bundle>
+</Wix>

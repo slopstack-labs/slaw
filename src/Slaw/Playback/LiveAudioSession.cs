@@ -19,6 +19,7 @@ internal sealed class LiveAudioSession : IDisposable
     private Thread? renderThread;
     private volatile bool shutdownRequested;
     private IAudioOutputSink? audioSink;
+    private string? coreAudioRefusal;
 
     public LiveAudioSession(int latencyMilliseconds, string preferredSubstrate)
     {
@@ -49,7 +50,7 @@ internal sealed class LiveAudioSession : IDisposable
         }
         audioSink = OpenAudioSink()
             ?? throw new InvalidOperationException(OperatingSystem.IsMacOS()
-                ? "no live audio substrate found — install sox (brew install sox) so slaw can stream through `play`"
+                ? $"no live audio substrate found — Core Audio refused ({coreAudioRefusal ?? "not selected"}) and no fallback player is installed"
                 : $"no live audio substrate found — install one of: {string.Join(", ", PipedProcessAudioSink.SupportedSubstrateNames)}");
         shutdownRequested = false;
         renderThread = new Thread(RunRenderLoop)
@@ -66,6 +67,18 @@ internal sealed class LiveAudioSession : IDisposable
         if (OperatingSystem.IsWindows())
         {
             return new WindowsWaveOutAudioSink(LiveSampleRate);
+        }
+        // On macOS, Core Audio needs nothing installed; a piped player is used only when chosen in Settings or as a fallback
+        if (OperatingSystem.IsMacOS() && !PipedProcessAudioSink.SupportedSubstrateNames.Contains(preferredSubstrate))
+        {
+            try
+            {
+                return new MacAudioQueueAudioSink(LiveSampleRate, latencyMilliseconds);
+            }
+            catch (Exception coreAudioRemediationOpportunity) when (coreAudioRemediationOpportunity is IOException or DllNotFoundException or EntryPointNotFoundException)
+            {
+                coreAudioRefusal = coreAudioRemediationOpportunity.Message;
+            }
         }
         return PipedProcessAudioSink.TryStart(LiveSampleRate, latencyMilliseconds, preferredSubstrate);
     }
