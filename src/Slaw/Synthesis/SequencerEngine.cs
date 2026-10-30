@@ -4,30 +4,40 @@ using SlopstackLabs.Slaw.Session;
 
 namespace SlopstackLabs.Slaw.Synthesis;
 
+/// <summary>
+/// What is playing. <see cref="Timeline"/> is the arrangement: the linear
+/// timeline of clips. <see cref="Session"/> is clips launched from the grid
+/// with no arrangement underneath.
+/// </summary>
 internal enum TransportMode
 {
     Stopped,
     Session,
-    Arrangement,
     Timeline,
 }
 
-/// <summary>What one track is doing right now, for the UI to draw. <paramref name="TimelineClipId"/> is set while a free-timeline clip plays.</summary>
-internal readonly record struct TrackTransportState(int? PlayingScene, int? ClipStep, int? QueuedScene, string? TimelineClipId = null);
+/// <summary>
+/// What one track is doing right now, for the UI to draw. <paramref name="TimelineClipId"/> is set
+/// while an arrangement clip plays. <paramref name="OverridesArrangement"/> is set while the
+/// arrangement plays but this track follows a launched session clip (or a stop) instead.
+/// </summary>
+internal readonly record struct TrackTransportState(int? PlayingScene, int? ClipStep, int? QueuedScene, string? TimelineClipId = null, bool OverridesArrangement = false);
 
 /// <summary>An immutable picture of the transport, republished after every step.</summary>
 internal sealed record TransportSnapshot(
     TransportMode Mode,
-    long ArrangementStep,
-    int? ArrangementSection,
     IReadOnlyDictionary<string, TrackTransportState> Tracks,
     double PreviewProgress,
     long PublishedTimestamp = 0,
     double StepDurationSeconds = 0,
-    long TimelineStep = -1)
+    long TimelineStep = -1,
+    bool ReturnToArrangementQueued = false)
 {
     public static readonly TransportSnapshot Idle = new(
-        TransportMode.Stopped, -1, null, new Dictionary<string, TrackTransportState>(), -1);
+        TransportMode.Stopped, new Dictionary<string, TrackTransportState>(), -1);
+
+    /// <summary>True while any track plays session material over the arrangement (Back to Arrangement lights up).</summary>
+    public bool ArrangementOverridden => Mode == TransportMode.Timeline && Tracks.Values.Any(trackState => trackState.OverridesArrangement);
 }
 
 /// <summary>
@@ -69,11 +79,13 @@ internal sealed class SequencerEngine
     private TransportMode transportMode = TransportMode.Stopped;
     private double samplesUntilNextStep;
     private long sessionStep = -1;
-    private long arrangementStep = -1;
-    private int? arrangementSection;
-    private bool arrangementLoops = true;
     private long timelineStep = -1;
     private bool timelineLoops = true;
+
+    // Session launches over the arrangement are quantized to the bar on a clock
+    // that never wraps, so a loop brace cannot confuse a launched clip's position.
+    private long timelineTickCount = -1;
+    private bool returnToArrangementQueued;
     private SlawProject? timelineIndexedProject;
     private readonly Dictionary<string, List<TimelineClip>> timelineClipsByTrack = new();
 
@@ -109,7 +121,7 @@ internal sealed class SequencerEngine
     /// <summary>The latest transport state. Safe to read from any thread.</summary>
     public TransportSnapshot Transport => Volatile.Read(ref publishedTransport);
 
-    /// <summary>True once a non-looping arrangement has played its final step.</summary>
+    /// <summary>True once a non-looping arrangement (a bounce) has played its final step.</summary>
     public bool ArrangementFinished { get; private set; }
 
     // ── Commands (any thread) ─────────────────────────────────────────────────
@@ -120,31 +132,27 @@ internal sealed class SequencerEngine
     /// </summary>
     public void PublishProject(SlawProject projectSnapshot) => Volatile.Write(ref publishedProject, projectSnapshot);
 
-    public void PlayArrangement(long startStep = 0, bool loop = true) => pendingTransportCommands.Enqueue(() =>
-    {
-        ReleaseAllSessionClips();
-        transportMode = TransportMode.Arrangement;
-        arrangementStep = startStep - 1;
-        arrangementLoops = loop;
-        ArrangementFinished = false;
-        samplesUntilNextStep = 0;
-    });
-
     /// <summary>
-    /// Plays the free timeline from <paramref name="startStep"/>. Live playback wraps
-    /// at the loop brace (or the end); bounces pass <paramref name="loop"/> false and stop at the end.
+    /// Plays the arrangement (the timeline) from <paramref name="startStep"/>. Live playback
+    /// wraps at the loop brace (or the end); bounces pass <paramref name="loop"/> false and stop
+    /// at the end. Every track starts out following the arrangement.
     /// </summary>
     public void PlayTimeline(long startStep = 0, bool loop = true) => pendingTransportCommands.Enqueue(() =>
     {
         ReleaseAllSessionClips();
         transportMode = TransportMode.Timeline;
         timelineStep = Math.Max(0, startStep) - 1;
+        timelineTickCount = -1;
         timelineLoops = loop;
         ArrangementFinished = false;
         samplesUntilNextStep = 0;
     });
 
-    /// <summary>Launches every clip in a scene (tracks with an empty slot stop).</summary>
+    /// <summary>
+    /// Launches every clip in a scene. Without an arrangement playing, tracks with an
+    /// empty slot stop; over the arrangement, only the scene's clips take over their
+    /// tracks and the rest keep following the arrangement.
+    /// </summary>
     public void LaunchScene(int sceneIndex) => pendingTransportCommands.Enqueue(() =>
     {
         var project = Volatile.Read(ref publishedProject);
@@ -154,8 +162,33 @@ internal sealed class SequencerEngine
         }
         foreach (var track in project.Tracks)
         {
-            QueueClipLaunch(track.Id, track.ClipAt(sceneIndex) is null ? null : sceneIndex);
+            var sceneClip = track.ClipAt(sceneIndex);
+            if (sceneClip is null && transportMode == TransportMode.Timeline)
+            {
+                continue;
+            }
+            QueueClipLaunch(track.Id, sceneClip is null ? null : sceneIndex);
         }
+    });
+
+    /// <summary>
+    /// Hands every track that a session launch took over back to the arrangement,
+    /// on the next bar. Without the arrangement playing it simply forgets the overrides.
+    /// </summary>
+    public void BackToArrangement() => pendingTransportCommands.Enqueue(() =>
+    {
+        if (transportMode == TransportMode.Timeline)
+        {
+            returnToArrangementQueued = trackRuntimeStates.Values.Any(runtimeState => runtimeState.OverridesArrangement || runtimeState.HasQueuedLaunch);
+        }
+        else
+        {
+            foreach (var runtimeState in trackRuntimeStates.Values)
+            {
+                runtimeState.OverridesArrangement = false;
+            }
+        }
+        PublishTransport();
     });
 
     public void LaunchClip(string trackIdentifier, int sceneIndex) =>
@@ -168,7 +201,6 @@ internal sealed class SequencerEngine
     {
         transportMode = TransportMode.Stopped;
         ReleaseAllSessionClips();
-        arrangementSection = null;
         PublishTransport();
     });
 
@@ -397,14 +429,17 @@ internal sealed class SequencerEngine
     private void QueueClipLaunch(string trackIdentifier, int? sceneIndex)
     {
         var runtimeState = RuntimeStateFor(trackIdentifier);
-        if (transportMode != TransportMode.Session)
+        if (transportMode == TransportMode.Timeline)
         {
-            // Launching from a stopped transport (or out of the arrangement)
-            // starts the session clock immediately.
-            if (transportMode is TransportMode.Arrangement or TransportMode.Timeline)
-            {
-                ReleaseAllSessionClips();
-            }
+            // Over the arrangement a launch (or a stop) takes this track over on the next
+            // bar; the other tracks keep following the arrangement until Back to Arrangement.
+            runtimeState.QueuedScene = sceneIndex;
+            runtimeState.HasQueuedLaunch = true;
+            returnToArrangementQueued = false;
+        }
+        else if (transportMode != TransportMode.Session)
+        {
+            // Launching from a stopped transport starts the session clock immediately.
             transportMode = TransportMode.Session;
             sessionStep = -1;
             samplesUntilNextStep = 0;
@@ -436,7 +471,9 @@ internal sealed class SequencerEngine
             runtimeState.CurrentClipStep = null;
             runtimeState.PlayingClip = null;
             runtimeState.PlayingTimelineClipId = null;
+            runtimeState.OverridesArrangement = false;
         }
+        returnToArrangementQueued = false;
     }
 
     private void AdvanceStep(SlawProject project)
@@ -466,46 +503,6 @@ internal sealed class SequencerEngine
                 runtimeState.CurrentClipStep = clipStep;
                 runtimeState.PlayingClip = playingClip;
                 TriggerStep(project, track, runtimeState, playingClip, clipStep);
-            }
-        }
-        else if (transportMode == TransportMode.Arrangement)
-        {
-            arrangementStep++;
-            var arrangementLength = project.ArrangementLengthInSteps();
-            if (arrangementLength == 0 || arrangementStep >= arrangementLength)
-            {
-                if (arrangementLength > 0 && arrangementLoops)
-                {
-                    arrangementStep = 0;
-                }
-                else
-                {
-                    transportMode = TransportMode.Stopped;
-                    ArrangementFinished = true;
-                    arrangementSection = null;
-                    ReleaseAllSessionClips();
-                    PublishTransport();
-                    return;
-                }
-            }
-
-            var (sectionIndex, stepInSection) = LocateArrangementStep(project, arrangementStep);
-            arrangementSection = sectionIndex;
-            var sceneIndex = project.Arrangement[sectionIndex].Scene;
-            foreach (var track in project.Tracks)
-            {
-                var runtimeState = RuntimeStateFor(track.Id);
-                runtimeState.PlayingScene = sceneIndex;
-                runtimeState.CurrentClipStep = null;
-                runtimeState.PlayingClip = null;
-                if (track.ClipAt(sceneIndex) is not { Pattern.Count: > 0 } sectionClip)
-                {
-                    continue;
-                }
-                var clipStep = (int)(stepInSection % sectionClip.Pattern.Count);
-                runtimeState.CurrentClipStep = clipStep;
-                runtimeState.PlayingClip = sectionClip;
-                TriggerStep(project, track, runtimeState, sectionClip, clipStep);
             }
         }
         else if (transportMode == TransportMode.Timeline && !AdvanceTimelineStep(project))
@@ -551,10 +548,15 @@ internal sealed class SequencerEngine
         }
     }
 
-    /// <summary>Plays one step of the free timeline. Returns false when playback ran off the end and stopped.</summary>
+    /// <summary>
+    /// Plays one step of the arrangement. Tracks a session launch took over play their
+    /// session clip (or nothing, after a stop) instead. Returns false when playback ran
+    /// off the end and stopped.
+    /// </summary>
     private bool AdvanceTimelineStep(SlawProject project)
     {
         timelineStep++;
+        timelineTickCount++;
         if (project.TimelineLoop is { IsValid: true } loopRegion && timelineLoops && timelineStep == loopRegion.EndStep)
         {
             timelineStep = loopRegion.StartStep;
@@ -585,13 +587,43 @@ internal sealed class SequencerEngine
                 timelineClipsByTrack[track.Id] = FreeTimeline.ClipsForTrack(project, track.Id);
             }
         }
+        var launchBoundaryReached = timelineTickCount % LaunchQuantizationSteps == 0;
+        if (returnToArrangementQueued && launchBoundaryReached)
+        {
+            returnToArrangementQueued = false;
+            foreach (var runtimeState in trackRuntimeStates.Values)
+            {
+                runtimeState.OverridesArrangement = false;
+                runtimeState.HasQueuedLaunch = false;
+                runtimeState.QueuedScene = null;
+            }
+        }
         foreach (var track in project.Tracks)
         {
             var runtimeState = RuntimeStateFor(track.Id);
-            runtimeState.PlayingScene = null;
+            if (runtimeState.HasQueuedLaunch && launchBoundaryReached)
+            {
+                runtimeState.OverridesArrangement = true;
+                runtimeState.PlayingScene = runtimeState.QueuedScene;
+                runtimeState.ClipOriginStep = timelineTickCount;
+                runtimeState.HasQueuedLaunch = false;
+                runtimeState.QueuedScene = null;
+            }
             runtimeState.CurrentClipStep = null;
             runtimeState.PlayingClip = null;
             runtimeState.PlayingTimelineClipId = null;
+            if (runtimeState.OverridesArrangement)
+            {
+                if (runtimeState.PlayingScene is { } overridingScene && track.ClipAt(overridingScene) is { Pattern.Count: > 0 } sessionClip)
+                {
+                    var sessionClipStep = (int)((timelineTickCount - runtimeState.ClipOriginStep) % sessionClip.Pattern.Count);
+                    runtimeState.CurrentClipStep = sessionClipStep;
+                    runtimeState.PlayingClip = sessionClip;
+                    TriggerStep(project, track, runtimeState, sessionClip, sessionClipStep);
+                }
+                continue;
+            }
+            runtimeState.PlayingScene = null;
             if (FreeTimeline.ClipAt(timelineClipsByTrack[track.Id], timelineStep) is not { Clip.Pattern.Count: > 0 } timelineClip)
             {
                 continue;
@@ -603,22 +635,6 @@ internal sealed class SequencerEngine
             TriggerStep(project, track, runtimeState, timelineClip.Clip, clipStep);
         }
         return true;
-    }
-
-    internal static (int SectionIndex, long StepInSection) LocateArrangementStep(SlawProject project, long arrangementStep)
-    {
-        var sectionStartStep = 0L;
-        for (var sectionIndex = 0; sectionIndex < project.Arrangement.Count; sectionIndex++)
-        {
-            var section = project.Arrangement[sectionIndex];
-            var sectionLength = (long)project.SceneLengthInSteps(section.Scene) * Math.Max(1, section.Repeats);
-            if (arrangementStep < sectionStartStep + sectionLength)
-            {
-                return (sectionIndex, arrangementStep - sectionStartStep);
-            }
-            sectionStartStep += sectionLength;
-        }
-        return (Math.Max(0, project.Arrangement.Count - 1), 0);
     }
 
     private void TriggerStep(SlawProject project, SlawTrack track, TrackRuntimeState runtimeState, SlawClip clip, int clipStep)
@@ -881,13 +897,15 @@ internal sealed class SequencerEngine
     {
         var trackStates = trackRuntimeStates.ToDictionary(
             pair => pair.Key,
-            pair => new TrackTransportState(pair.Value.PlayingScene, pair.Value.CurrentClipStep, pair.Value.HasQueuedLaunch ? pair.Value.QueuedScene ?? -1 : null, pair.Value.PlayingTimelineClipId));
+            pair => new TrackTransportState(pair.Value.PlayingScene, pair.Value.CurrentClipStep, pair.Value.HasQueuedLaunch ? pair.Value.QueuedScene ?? -1 : null,
+                pair.Value.PlayingTimelineClipId, pair.Value.OverridesArrangement));
         var previewProgress = previewLeft is null ? -1 : (double)previewPosition / previewLeft.Length;
         var project = Volatile.Read(ref publishedProject);
         Volatile.Write(ref publishedTransport, new TransportSnapshot(
-            transportMode, arrangementStep, arrangementSection, trackStates, previewProgress,
+            transportMode, trackStates, previewProgress,
             System.Diagnostics.Stopwatch.GetTimestamp(), project?.StepDurationSeconds ?? 0,
-            transportMode == TransportMode.Timeline ? timelineStep : -1));
+            transportMode == TransportMode.Timeline ? timelineStep : -1,
+            returnToArrangementQueued));
     }
 
     // ── Runtime state ─────────────────────────────────────────────────────────
@@ -1069,8 +1087,11 @@ internal sealed class SequencerEngine
         /// <summary>The clip whose step <see cref="CurrentClipStep"/> is, in any transport mode; envelopes follow it.</summary>
         public SlawClip? PlayingClip { get; set; }
 
-        /// <summary>The free-timeline clip playing on this track, for the UI.</summary>
+        /// <summary>The arrangement clip playing on this track, for the UI.</summary>
         public string? PlayingTimelineClipId { get; set; }
+
+        /// <summary>While the arrangement plays, this track follows a session launch (or a stop) instead of its timeline clips.</summary>
+        public bool OverridesArrangement { get; set; }
 
         private readonly Dictionary<SlawClip, CompiledEnvelopes> compiledEnvelopes = new(ReferenceEqualityComparer.Instance);
         private readonly List<Dictionary<string, double>> automatedEffectParameters = new();

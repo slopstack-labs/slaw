@@ -246,6 +246,8 @@ public class Vst3HostingTests : IDisposable
         track.Effects = effects.ToList();
         track.Clips = Enumerable.Repeat<SlawClip?>(null, project.Scenes.Count).ToList();
         track.Clips[0] = new SlawClip { Pattern = "A4 _ _ _ _ _ _ _ . . . . . . . .".Split(' ').ToList() };
+        // The starter's own song is on the timeline; this project's song is the one scene.
+        project.Timeline.Clear();
         project.Arrangement = new List<ArrangementSection> { new() { Scene = 0, Repeats = 1 } };
         project.Master.DelayMix = 0;
         return project;

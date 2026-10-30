@@ -269,9 +269,9 @@ internal static class Program
 
         return SlawDesktopApplication.Launch(
             new StudioLaunchParameters(studioProject, requestedProjectPath, studioPreferences,
-                OpenInArrangementView: string.Equals(commandLineIntent.Option("view"), "arrangement", StringComparison.OrdinalIgnoreCase),
-                OpenSampleEditor: string.Equals(commandLineIntent.Option("view"), "sample", StringComparison.OrdinalIgnoreCase),
-                OpenInFreeView: string.Equals(commandLineIntent.Option("view"), "free", StringComparison.OrdinalIgnoreCase)),
+                // "free" is what the arrangement was called while it was still the third view.
+                OpenInArrangementView: commandLineIntent.Option("view")?.ToLowerInvariant() is "arrangement" or "free",
+                OpenSampleEditor: string.Equals(commandLineIntent.Option("view"), "sample", StringComparison.OrdinalIgnoreCase)),
             rawArguments);
     }
 

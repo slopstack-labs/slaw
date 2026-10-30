@@ -134,7 +134,7 @@ public class AudioRecordingTests
             Assert.Equal(0, vocalTrack.InstrumentParameters["hold"]);
             Assert.True(AudioTakeAssembler.NeedsFreshTimelineTrack(project, vocalTrack));
 
-            var render = OfflineArrangementRenderer.RenderTimeline(project, TakeSampleRate).Left;
+            var render = OfflineArrangementRenderer.Render(project, TakeSampleRate).Left;
             var stepFrames = (int)(project.StepDurationSeconds * TakeSampleRate);
             Assert.True(render.Take(16 * stepFrames - 10).Max(Math.Abs) < 0.001, "nothing plays before the take's bar");
             // Around each slice boundary the tone carries on: no gate gap, no declick hole longer than a few milliseconds.

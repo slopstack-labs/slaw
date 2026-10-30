@@ -1,84 +1,83 @@
 using System.Text.Json;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using SlopstackLabs.Slaw.Session;
 using SlopstackLabs.Slaw.Synthesis;
 
 namespace SlopstackLabs.Slaw.Desktop;
 
-/// <summary>The Free view: the studio's third main view, its transport, and its keys.</summary>
+/// <summary>
+/// The Arrangement: the song as one linear timeline, its transport, its keys, and
+/// the session launched over it (Ableton-style: a launched clip takes its track
+/// over until Back to Arrangement).
+/// </summary>
 internal sealed partial class StudioWindow
 {
-    private readonly ToggleButton freeViewToggle = new() { Content = "Free", Padding = new Thickness(12, 5) };
-    private FreeTimelineView? freeTimelineView;
-    private bool freeViewActive;
-
-    /// <summary>Builds the Free view and keeps it in step with the document. Called once from the constructor.</summary>
-    private void WireFreeTimeline()
-    {
-        freeTimelineView = new FreeTimelineView(document, this);
-        ToolTip.SetTip(freeViewToggle, "Free view (Tab) — place clips anywhere in time, unbound by scenes and sections");
-        freeViewToggle.Click += (_, _) => SelectFreeView();
-        document.Changed += editScope =>
-        {
-            if (editScope == EditScope.Structure)
-            {
-                freeTimelineView.Rebuild();
-            }
-            else
-            {
-                freeTimelineView.RefreshContent();
-            }
-        };
-        document.SelectionChanged += freeTimelineView.RefreshSelection;
-    }
-
-    private void SelectFreeView()
-    {
-        SelectMainView(arrangementView: false);
-        freeViewActive = true;
-        mainViewHost.Content = freeTimelineView;
-        sessionViewToggle.IsChecked = false;
-        freeViewToggle.IsChecked = true;
-    }
-
-    /// <summary>Tab: Session → Arrangement → Free → Session.</summary>
-    private void CycleMainView()
-    {
-        if (freeViewActive)
-        {
-            SelectMainView(arrangementView: false);
-        }
-        else if (arrangementViewActive)
-        {
-            SelectFreeView();
-        }
-        else
-        {
-            SelectMainView(arrangementView: true);
-        }
-    }
+    /// <summary>Where Space starts the arrangement and where "at cursor" puts things.</summary>
+    public long ArrangementCursorStep => arrangementView.CursorStep;
 
     public void PlayTimelineFrom(long startStep)
     {
         if (document.Project.Timeline.Count == 0)
         {
-            SetStatus(StatusSeverity.Warning, "the free timeline is empty. double-click a lane, drop a session clip, or import the arrangement.");
+            SetStatus(StatusSeverity.Warning, "the arrangement is empty. double-click a lane, drop a session clip or scene, or place a scene at the cursor.");
             return;
         }
         liveAudioSession.Engine.PlayTimeline(startStep, loop: true);
-        SetStatus(StatusSeverity.Informational, $"♪ playing the free timeline from {FreeTimeline.FormatPosition((int)startStep)} — edits are live");
+        SetStatus(StatusSeverity.Informational, $"♪ playing the arrangement from {FreeTimeline.FormatPosition((int)startStep)} — launch session clips over it any time");
+    }
+
+    /// <summary>Hands every track a session launch took over back to the arrangement, on the next bar.</summary>
+    public void BackToArrangement()
+    {
+        liveAudioSession.Engine.BackToArrangement();
+        SetStatus(StatusSeverity.Informational, "back to the arrangement on the next bar — the session has been thanked for its contribution");
+    }
+
+    public void PlaceSceneInArrangement(int sceneIndex)
+    {
+        var cursorStep = (int)ArrangementCursorStep;
+        var placedClipCount = document.PlaceSceneInArrangement(sceneIndex, cursorStep);
+        SetStatus(placedClipCount > 0 ? StatusSeverity.Success : StatusSeverity.Warning, placedClipCount > 0
+            ? $"placed {placedClipCount} clip(s) of \"{document.Project.Scenes[sceneIndex]}\" at {FreeTimeline.FormatPosition(cursorStep)}"
+            : "that scene has no clips to place");
+    }
+
+    public void PlaceClipInArrangement(int trackIndex, int sceneIndex)
+    {
+        var cursorStep = (int)ArrangementCursorStep;
+        if (document.PlaceClipInArrangement(trackIndex, sceneIndex, cursorStep))
+        {
+            SetStatus(StatusSeverity.Success, $"placed the clip at {FreeTimeline.FormatPosition(cursorStep)} in the arrangement");
+        }
+    }
+
+    /// <summary>Deletes a track (one undo step), disarming recording first if it was the armed one.</summary>
+    public void DeleteTrack(int trackIndex)
+    {
+        if (trackIndex < 0 || trackIndex >= document.Project.Tracks.Count)
+        {
+            return;
+        }
+        if (document.Project.Tracks.Count <= 1)
+        {
+            SetStatus(StatusSeverity.Warning, "the last track stays: a song needs at least one stakeholder.");
+            return;
+        }
+        if (recordArmedTrackId == document.Project.Tracks[trackIndex].Id)
+        {
+            DisarmRecording();
+        }
+        document.RemoveTrack(trackIndex);
     }
 
     /// <summary>
-    /// The Free view's take on the shared shortcuts: Space plays from the ruler
-    /// cursor, Delete and Ctrl+D act on the selected timeline clip, Ctrl+V pastes
-    /// at the cursor. Returns false for everything it leaves to the other views.
+    /// The Arrangement view's take on the shared shortcuts: Space plays from the ruler
+    /// cursor, Delete and Ctrl+D act on the selected arrangement clip (or Delete on the
+    /// track whose header was clicked last), Ctrl+V pastes at the cursor. Returns false
+    /// for everything it leaves to the shared handling.
     /// </summary>
     private bool TryExecuteTimelineCommand(StudioCommand studioCommand)
     {
-        if (!freeViewActive || freeTimelineView is null)
+        if (!arrangementViewActive)
         {
             return false;
         }
@@ -94,11 +93,14 @@ internal sealed partial class StudioWindow
                 {
                     PlayTimelineFrom(studioCommand == StudioCommand.LaunchSelection && document.SelectedTimelineClip is { } selectedClip
                         ? selectedClip.StartStep
-                        : freeTimelineView.CursorStep);
+                        : arrangementView.CursorStep);
                 }
                 return true;
             case StudioCommand.DeleteClip when selectedTimelineClipId is not null:
                 FreeTimelineCommands.Delete(document, selectedTimelineClipId);
+                return true;
+            case StudioCommand.DeleteClip when arrangementView.TrackHeaderSelected:
+                DeleteTrack(document.SelectedTrackIndex);
                 return true;
             case StudioCommand.CutClip when selectedTimelineClipId is not null:
                 CopySelectedClip();
@@ -110,11 +112,11 @@ internal sealed partial class StudioWindow
             case StudioCommand.PasteClip when copiedClipPayload is not null:
                 if (JsonSerializer.Deserialize<SlawClip>(copiedClipPayload, ProjectSerializer.LenientSerializationOptions) is { Pattern.Count: > 0 } copiedClip)
                 {
-                    FreeTimelineCommands.Paste(document, copiedClip, freeTimelineView.CursorStep);
+                    FreeTimelineCommands.Paste(document, copiedClip, arrangementView.CursorStep);
                 }
                 return true;
             case StudioCommand.DeleteClip or StudioCommand.CutClip or StudioCommand.DuplicateClip or StudioCommand.CreateClip:
-                // Nothing selected on the timeline: these keys must not reach for an invisible scene slot.
+                // Nothing selected in the arrangement: these keys must not reach for an invisible scene slot.
                 return true;
             default:
                 return false;

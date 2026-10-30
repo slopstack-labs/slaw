@@ -222,17 +222,10 @@ internal sealed partial class StudioWindow
                 PlayFromSelectedScene();
                 break;
             case StudioCommand.SwitchView:
-                CycleMainView();
+                SelectMainView(arrangementView: !arrangementViewActive);
                 break;
             case StudioCommand.LaunchSelection:
-                if (arrangementViewActive)
-                {
-                    PlayFromSelectedScene();
-                }
-                else
-                {
-                    LaunchClip(document.SelectedTrackIndex, document.SelectedSceneIndex);
-                }
+                LaunchClip(document.SelectedTrackIndex, document.SelectedSceneIndex);
                 break;
             case StudioCommand.LaunchSelectedScene:
                 LaunchScene(document.SelectedSceneIndex);
@@ -268,10 +261,6 @@ internal sealed partial class StudioWindow
                 }
                 break;
             case StudioCommand.DuplicateClip:
-                if (arrangementViewActive && arrangementView.DuplicateSelectedSection())
-                {
-                    break;
-                }
                 if (document.SelectedClip is not null)
                 {
                     document.DuplicateClipDown(document.SelectedTrackIndex, document.SelectedSceneIndex);
@@ -284,10 +273,6 @@ internal sealed partial class StudioWindow
                 }
                 break;
             case StudioCommand.DeleteClip:
-                if (arrangementViewActive && arrangementView.RemoveSelectedSection())
-                {
-                    break;
-                }
                 if (document.SelectedClip is not null)
                 {
                     document.DeleteClip(document.SelectedTrackIndex, document.SelectedSceneIndex);
@@ -353,17 +338,11 @@ internal sealed partial class StudioWindow
     }
 
     /// <summary>
-    /// Shift+Space: Arrangement view plays from the first section that uses the
-    /// selected scene; Session view relaunches that scene right away.
+    /// Shift+Space in the Session view: relaunch the selected scene right away
+    /// (the Arrangement view plays from its cursor instead).
     /// </summary>
     private void PlayFromSelectedScene()
     {
-        if (arrangementViewActive)
-        {
-            var sectionIndex = document.Project.Arrangement.FindIndex(section => section.Scene == document.SelectedSceneIndex);
-            PlayArrangementFrom(Math.Max(0, sectionIndex));
-            return;
-        }
         liveAudioSession.Engine.Stop();
         LaunchScene(document.SelectedSceneIndex);
     }

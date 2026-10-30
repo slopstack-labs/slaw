@@ -42,6 +42,9 @@ internal static class ProjectPatchApplier
                 patchedProject.Scenes = patchedScenes;
             }
         }
+        // Legacy: a scene sequence rebuilds the arrangement timeline from those scenes,
+        // once the patch's tracks and clips are in (see below).
+        List<ArrangementSection>? legacyArrangement = null;
         if (projectPatch["arrangement"] is JsonArray arrangementArray)
         {
             var patchedArrangement = arrangementArray
@@ -55,7 +58,7 @@ internal static class ProjectPatchApplier
                 .ToList();
             if (patchedArrangement.Count > 0)
             {
-                patchedProject.Arrangement = patchedArrangement;
+                legacyArrangement = patchedArrangement;
             }
         }
 
@@ -91,6 +94,13 @@ internal static class ProjectPatchApplier
                 }
                 ApplyTrackPatch(targetTrack, trackPatch, patchedProject.Steps);
             }
+        }
+
+        if (legacyArrangement is not null)
+        {
+            // It describes the whole song, as it always did: the timeline is replaced.
+            patchedProject.Timeline = FreeTimeline.FlattenSections(patchedProject, legacyArrangement);
+            patchedProject.Arrangement.Clear();
         }
 
         if (projectPatch["timeline"] is JsonArray timelinePatchArray)
@@ -274,7 +284,7 @@ internal static class ProjectPatchApplier
     }
 
     /// <summary>
-    /// Free-timeline edits: <c>[{"id": "new", "track": "Bass", "start": 16, "length": 32, "pattern": "A1 . . .", "automation": {...}}]</c>.
+    /// Arrangement (timeline) edits: <c>[{"id": "new", "track": "Bass", "start": 16, "length": 32, "pattern": "A1 . . .", "automation": {...}}]</c>.
     /// An existing id updates only the fields given; <c>"remove": true</c> deletes. Start and length are in steps (16 per bar).
     /// Returns how many edits were refused because they touched a locked track.
     /// </summary>

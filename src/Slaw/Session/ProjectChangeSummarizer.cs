@@ -24,12 +24,6 @@ internal static class ProjectChangeSummarizer
         {
             changeSummary.Add($"scenes are now: {string.Join(", ", revisedProject.Scenes)}");
         }
-        var previousArrangement = string.Join(",", previousProject.Arrangement.Select(section => $"{section.Scene}x{section.Repeats}"));
-        var revisedArrangement = string.Join(",", revisedProject.Arrangement.Select(section => $"{section.Scene}x{section.Repeats}"));
-        if (previousArrangement != revisedArrangement)
-        {
-            changeSummary.Add($"rearranged the song into {revisedProject.Arrangement.Count} section(s)");
-        }
 
         var previousTracksById = previousProject.Tracks.ToDictionary(track => track.Id);
         foreach (var revisedTrack in revisedProject.Tracks)
@@ -101,7 +95,7 @@ internal static class ProjectChangeSummarizer
             previousTimelineClips.TryGetValue(revisedClip.Key, out var previousClip) && previousClip != revisedClip.Value);
         if (addedTimelineClips + removedTimelineClips + editedTimelineClips > 0)
         {
-            changeSummary.Add($"free timeline: {addedTimelineClips} clip(s) placed, {editedTimelineClips} revised, {removedTimelineClips} offboarded");
+            changeSummary.Add($"arrangement: {addedTimelineClips} clip(s) placed, {editedTimelineClips} revised, {removedTimelineClips} offboarded");
         }
         if (changeSummary.Count == 0)
         {

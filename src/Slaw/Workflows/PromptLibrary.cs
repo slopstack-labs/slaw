@@ -213,7 +213,7 @@ internal static class PromptLibrary
           ],
           "master": {"drive": 2.0}
         }
-        - "scenes" and "arrangement" replace the whole list when given; "clips" maps a scene index to a pattern string.
+        - "scenes" replaces the scene list; "clips" maps a scene index to a pattern string. "arrangement" lays scenes out as the song (it replaces the arrangement timeline); "timeline" places single clips at exact steps instead.
         - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence; "@0.5" after a note or "x" sets its velocity (0..1, default 1).
         - Effects replace the track's whole effect list when given.
         - Optional clip envelopes: "automation": {"<scene>": {"fx.0.cutoff": [[0, 300], [16, 6000]]} } on a track sweeps effect 0's cutoff over the clip ([step, value] pairs). Targets: gain, pan, pitch (semitones), fx.<effectIndex>.<param>, inst.<param>.
@@ -239,8 +239,6 @@ internal static class PromptLibrary
         projectListing.Append(CultureInfo.InvariantCulture, $"name \"{project.Name}\", bpm {project.Bpm:0}\n");
         projectListing.Append(CultureInfo.InvariantCulture,
             $"scenes: {string.Join(", ", project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}=\"{sceneName}\""))}\n");
-        projectListing.Append(CultureInfo.InvariantCulture,
-            $"arrangement: {string.Join(", ", project.Arrangement.Select(section => $"scene {section.Scene} x{section.Repeats}"))}\n");
         foreach (var track in project.Tracks)
         {
             projectListing.Append(CultureInfo.InvariantCulture,
@@ -276,9 +274,13 @@ internal static class PromptLibrary
                 }
             }
         }
-        if (project.Timeline.Count > 0)
+        if (project.Timeline.Count == 0)
         {
-            projectListing.Append(CultureInfo.InvariantCulture, $"free timeline ({FreeTimeline.LengthInSteps(project) / 16.0:0.#} bars; start/length in steps, 16 per bar):\n");
+            projectListing.Append("arrangement timeline: empty\n");
+        }
+        else
+        {
+            projectListing.Append(CultureInfo.InvariantCulture, $"arrangement timeline ({FreeTimeline.LengthInSteps(project) / 16.0:0.#} bars; start/length in steps, 16 per bar):\n");
             foreach (var timelineClip in project.Timeline.OrderBy(timelineClip => timelineClip.StartStep))
             {
                 var trackName = project.Tracks.FirstOrDefault(track => track.Id == timelineClip.TrackId)?.Name ?? "?";
@@ -388,6 +390,25 @@ internal static class PromptLibrary
         sceneIndex >= 0 && sceneIndex < project.Scenes.Count ? project.Scenes[sceneIndex] : $"Scene {sceneIndex + 1}";
 
     /// <summary>
+    /// The arrangement timeline in a line per stretch of bars, e.g. "bars 1–8: Kick, Bass, Pad":
+    /// enough for a reviewer to hear the song's shape without reading every clip.
+    /// </summary>
+    private static string DescribeTimelineSections(SlawProject project)
+    {
+        if (project.Timeline.Count == 0)
+        {
+            return "Arrangement: empty (everything lives in the session).\n";
+        }
+        var sectionLines = project.Timeline
+            .GroupBy(timelineClip => (timelineClip.StartStep, timelineClip.EndStep))
+            .OrderBy(section => section.Key.StartStep)
+            .Take(24)
+            .Select(section => string.Create(CultureInfo.InvariantCulture,
+                $"  bars {section.Key.StartStep / 16 + 1}–{(section.Key.EndStep + 15) / 16}: {string.Join(", ", section.Select(timelineClip => project.Tracks.FirstOrDefault(track => track.Id == timelineClip.TrackId)?.Name ?? "?").Distinct())}"));
+        return string.Create(CultureInfo.InvariantCulture, $"Arrangement ({FreeTimeline.LengthInSteps(project) / 16.0:0.#} bars):\n{string.Join("\n", sectionLines)}\n");
+    }
+
+    /// <summary>
     /// A compact textual rendering of the project, cheaper in tokens than the
     /// project JSON and easier for small local models to follow.
     /// </summary>
@@ -396,8 +417,7 @@ internal static class PromptLibrary
         var arrangementDescription = new StringBuilder();
         arrangementDescription.Append(CultureInfo.InvariantCulture,
             $"Project \"{project.Name}\" — {project.Bpm:0} BPM. Scenes: {string.Join(", ", project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}={sceneName}"))}.\n");
-        arrangementDescription.Append(CultureInfo.InvariantCulture,
-            $"Arrangement: {string.Join(" → ", project.Arrangement.Select(section => $"{SceneName(project, section.Scene)}×{section.Repeats}"))}.\n");
+        arrangementDescription.Append(DescribeTimelineSections(project));
         arrangementDescription.Append("Tracks:\n");
         foreach (var track in project.Tracks)
         {

@@ -141,6 +141,27 @@ internal sealed class SessionGridView : UserControl
             Padding = new Thickness(6, 4),
             Child = headerContent,
         };
+        ToolTip.SetTip(nameInput, track.Name);
+        var trackMenu = new ContextMenu();
+        AddMenuItem(trackMenu, "Rename…", () =>
+        {
+            nameInput.Focus();
+            nameInput.SelectAll();
+        });
+        if (document.Project.Tracks.Count < ProjectAlignmentRemediator.MaximumTrackCount)
+        {
+            AddMenuItem(trackMenu, "Duplicate track", () => document.DuplicateTrack(trackIndex));
+        }
+        if (track.Instrument == "sampler")
+        {
+            AddMenuItem(trackMenu, host.IsArmedForRecording(track.Id) ? "Disarm recording" : "Arm for recording", () => host.ToggleRecordArm(track.Id));
+        }
+        if (document.Project.Tracks.Count > 1)
+        {
+            trackMenu.Items.Add(new Separator());
+            AddMenuItem(trackMenu, "Delete track", () => host.DeleteTrack(trackIndex));
+        }
+        trackHeader.ContextMenu = trackMenu;
         StudioDragDrop.MakeDropTarget(trackHeader, host, () => new DropTarget(DropTargetKind.Track, trackIndex));
         return trackHeader;
     }
@@ -186,6 +207,7 @@ internal sealed class SessionGridView : UserControl
             else
             {
                 AddMenuItem(slotMenu, "Launch clip", () => host.LaunchClip(trackIndex, sceneIndex));
+                AddMenuItem(slotMenu, "Place in arrangement at cursor", () => host.PlaceClipInArrangement(trackIndex, sceneIndex));
                 AddMenuItem(slotMenu, "Duplicate to next scene", () => document.DuplicateClipDown(trackIndex, sceneIndex));
                 AddMenuItem(slotMenu, "Delete clip", () => document.DeleteClip(trackIndex, sceneIndex));
             }
@@ -228,8 +250,7 @@ internal sealed class SessionGridView : UserControl
 
         var sceneMenu = new ContextMenu();
         AddMenuItem(sceneMenu, "Launch scene", () => host.LaunchScene(sceneIndex));
-        AddMenuItem(sceneMenu, "Append to arrangement", () => document.Edit("appended a scene to the arrangement",
-            project => project.Arrangement.Add(new ArrangementSection { Scene = sceneIndex, Repeats = 2 }), EditScope.Structure));
+        AddMenuItem(sceneMenu, "Place in arrangement at cursor", () => host.PlaceSceneInArrangement(sceneIndex));
         AddMenuItem(sceneMenu, "Duplicate scene", () => document.DuplicateScene(sceneIndex));
         AddMenuItem(sceneMenu, "Delete scene", () => document.RemoveScene(sceneIndex));
 
@@ -345,7 +366,7 @@ internal sealed class SessionGridView : UserControl
         }
 
         var stripFooter = StudioUi.Row(4,
-            StudioUi.Button("✕", () => document.RemoveTrack(trackIndex), "Delete track", compact: true));
+            StudioUi.Button("✕", () => host.DeleteTrack(trackIndex), "Delete track", compact: true));
         if (host.AiFeaturesEnabled)
         {
             stripFooter.Children.Add(StudioUi.AiButton("✨ Name", () => host.RenameTrackWithAi(trackIndex), "Let the AI rebrand this track"));

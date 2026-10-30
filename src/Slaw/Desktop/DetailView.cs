@@ -188,7 +188,7 @@ internal sealed partial class DetailView : UserControl
         }
         var selectedTimelineClip = document.SelectedTimelineClip;
         var sceneName = selectedTimelineClip is not null
-            ? $"Free timeline @ {FreeTimeline.FormatPosition(selectedTimelineClip.StartStep)}"
+            ? $"Arrangement @ {FreeTimeline.FormatPosition(selectedTimelineClip.StartStep)}"
             : sceneIndex < document.Project.Scenes.Count ? document.Project.Scenes[sceneIndex] : "?";
         var headerRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
         var titleRow = StudioUi.Row(8,
@@ -268,7 +268,7 @@ internal sealed partial class DetailView : UserControl
             }, EditScope.Structure), "Silence every step", compact: true),
             selectedTimelineClip is null
                 ? StudioUi.Button("▶ Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true)
-                : StudioUi.Button("▶ Here", () => host.PlayTimelineFrom(selectedTimelineClip.StartStep), "Play the free timeline from this clip", compact: true),
+                : StudioUi.Button("▶ Here", () => host.PlayTimelineFrom(selectedTimelineClip.StartStep), "Play the arrangement from this clip", compact: true),
         })
         {
             clipActions.Children.Add(clipActionControl);

@@ -28,10 +28,24 @@ internal sealed class SlawProject
 
     public List<string> Scenes { get; set; } = new();
     public List<SlawTrack> Tracks { get; set; } = new();
+    /// <summary>
+    /// Legacy input only: the scene sequence older files (and models) write. Remediation
+    /// flattens it onto <see cref="Timeline"/> — the arrangement — and empties it, so it is
+    /// read but never written back.
+    /// </summary>
+    [JsonIgnore]
     public List<ArrangementSection> Arrangement { get; set; } = new();
+
+    [JsonPropertyName("arrangement")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ArrangementSection>? SerializedArrangement
+    {
+        get => Arrangement.Count > 0 ? Arrangement : null;
+        set => Arrangement = value ?? new List<ArrangementSection>();
+    }
     public MasterChainParameters Master { get; set; } = new();
 
-    /// <summary>Clips placed freely in time, independent of scenes (see <see cref="FreeTimeline"/>).</summary>
+    /// <summary>The arrangement: clips placed freely in time, independent of scenes (see <see cref="FreeTimeline"/>).</summary>
     [JsonIgnore]
     public List<TimelineClip> Timeline { get; set; } = new();
 
@@ -44,7 +58,7 @@ internal sealed class SlawProject
         set => Timeline = value ?? new List<TimelineClip>();
     }
 
-    /// <summary>The free timeline's loop brace; null plays the whole timeline.</summary>
+    /// <summary>The arrangement's loop brace; null plays the whole timeline.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TimelineLoopRegion? TimelineLoop { get; set; }
 
@@ -74,9 +88,6 @@ internal sealed class SlawProject
             .Max();
         return longestClipLength > 0 ? longestClipLength : Steps;
     }
-
-    public int ArrangementLengthInSteps() =>
-        Arrangement.Sum(section => SceneLengthInSteps(section.Scene) * Math.Max(1, section.Repeats));
 }
 
 internal sealed class SlawTrack

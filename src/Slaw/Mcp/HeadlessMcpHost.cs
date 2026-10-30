@@ -81,7 +81,7 @@ internal sealed class HeadlessMcpHost : ISlawMcpHost
         }
     }
 
-    public string ControlTransport(string transportAction, int sceneIndex, int sectionIndex) =>
+    public string ControlTransport(string transportAction, int sceneIndex, int startBar) =>
         "transport needs the live studio; this is the headless server";
 
     /// <summary>Used by tests and diagnostics: the preferences this host was created with.</summary>

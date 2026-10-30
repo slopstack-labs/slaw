@@ -23,7 +23,7 @@ internal sealed class TimelineClip
     public int EndStep => StartStep + LengthSteps;
 }
 
-/// <summary>The free timeline's loop brace: playback wraps from <see cref="EndStep"/> back to <see cref="StartStep"/>.</summary>
+/// <summary>The arrangement's loop brace: playback wraps from <see cref="EndStep"/> back to <see cref="StartStep"/>.</summary>
 internal sealed class TimelineLoopRegion
 {
     public int StartStep { get; set; }
@@ -33,8 +33,9 @@ internal sealed class TimelineLoopRegion
 }
 
 /// <summary>
-/// The free timeline: the arrangement for people who do not think in scenes.
-/// Clips sit at any step on any track, independent of scenes and sections.
+/// The arrangement: one linear timeline where clips sit at any step on any
+/// track, independent of scenes. Scenes live in the session and can be placed
+/// here (or launched over it) whenever they are useful.
 /// Overlapping clips on one track are allowed and resolved at playback: the one
 /// that started later wins, the way the clip on top wins in every arranger
 /// since tape. Nothing is trimmed, so moving a clip away reveals what it covered.
@@ -103,16 +104,20 @@ internal static class FreeTimeline
             ProjectSerializer.LenientSerializationOptions)!;
 
     /// <summary>
-    /// Flattens the scene-based arrangement into timeline clips: one per track per
-    /// section that has a clip, spanning the whole section, so the song sounds the
-    /// same and every section can then be edited on its own.
+    /// Flattens a legacy scene sequence into timeline clips starting at <paramref name="startStep"/>:
+    /// one per track per section that has a clip, spanning the whole section, so the
+    /// song sounds the same and every section can then be edited on its own.
     /// </summary>
-    public static List<TimelineClip> FlattenArrangement(SlawProject project)
+    public static List<TimelineClip> FlattenSections(SlawProject project, IEnumerable<ArrangementSection> sections, int startStep = 0)
     {
         var flattenedClips = new List<TimelineClip>();
-        var sectionStartStep = 0;
-        foreach (var section in project.Arrangement)
+        var sectionStartStep = startStep;
+        foreach (var section in sections)
         {
+            if (section.Scene < 0 || section.Scene >= project.Scenes.Count)
+            {
+                continue;
+            }
             var sectionLength = project.SceneLengthInSteps(section.Scene) * Math.Max(1, section.Repeats);
             foreach (var track in project.Tracks)
             {
@@ -130,6 +135,32 @@ internal static class FreeTimeline
             sectionStartStep += sectionLength;
         }
         return flattenedClips;
+    }
+
+    /// <summary>The legacy scene sequence (<see cref="SlawProject.Arrangement"/>) as timeline clips.</summary>
+    public static List<TimelineClip> FlattenArrangement(SlawProject project) => FlattenSections(project, project.Arrangement);
+
+    /// <summary>A scene's clips as timeline clips at <paramref name="startStep"/>, each as long as the scene.</summary>
+    public static List<TimelineClip> PlaceScene(SlawProject project, int sceneIndex, int startStep, int repeats = 1) =>
+        FlattenSections(project, new[] { new ArrangementSection { Scene = sceneIndex, Repeats = repeats } }, startStep);
+
+    /// <summary>
+    /// Migrates a legacy scene sequence: the arrangement is the timeline now. A project with
+    /// no timeline clips gets its sections flattened onto it; either way the old sequence is
+    /// dropped, so it is never written back. Returns true if anything changed.
+    /// </summary>
+    public static bool MigrateLegacyArrangement(SlawProject project)
+    {
+        if (project.Arrangement.Count == 0)
+        {
+            return false;
+        }
+        if (project.Timeline.Count == 0)
+        {
+            project.Timeline.AddRange(FlattenArrangement(project));
+        }
+        project.Arrangement.Clear();
+        return true;
     }
 
     /// <summary>"bar.step", one-based, the way a producer reads a position: step 20 is "2.5".</summary>

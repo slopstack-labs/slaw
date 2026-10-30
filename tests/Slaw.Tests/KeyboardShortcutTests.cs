@@ -120,6 +120,6 @@ public class KeyboardShortcutTests
         Assert.False(PlaybackToggle.IsAudiblyPlaying(silentSession));
         Assert.False(PlaybackToggle.IsAudiblyPlaying(queuedStopOnly));
         Assert.True(PlaybackToggle.IsAudiblyPlaying(queuedSession));
-        Assert.True(PlaybackToggle.IsAudiblyPlaying(TransportSnapshot.Idle with { Mode = TransportMode.Arrangement }));
+        Assert.True(PlaybackToggle.IsAudiblyPlaying(TransportSnapshot.Idle with { Mode = TransportMode.Timeline }));
     }
 }

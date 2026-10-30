@@ -43,9 +43,11 @@ public class SmokeTests
         var remediatedPattern = remediatedTrack.Clips[0]!.Pattern;
         Assert.Equal(3, remediatedPattern.Count);
         Assert.Equal(new[] { "A1", "_", "." }, remediatedPattern.Take(3));
-        var migratedSection = Assert.Single(arrangementDeliverable.Project.Arrangement);
-        Assert.Equal(0, migratedSection.Scene);
-        Assert.Equal(2, migratedSection.Repeats);
+        // "loops": 2 becomes two plays of the scene on the arrangement timeline.
+        var composedProject = arrangementDeliverable.Project;
+        Assert.Empty(composedProject.Arrangement);
+        var arrangementClip = Assert.Single(composedProject.Timeline);
+        Assert.Equal(2 * composedProject.SceneLengthInSteps(0), arrangementClip.LengthSteps);
         Assert.NotEmpty(arrangementDeliverable.RemediationLedger);
     }
 
@@ -155,9 +157,10 @@ public class SmokeTests
 
         Assert.Equal("slaw-project/v2", migratedProject.Format);
         Assert.Single(migratedProject.Scenes);
-        var migratedSection = Assert.Single(migratedProject.Arrangement);
-        Assert.Equal(0, migratedSection.Scene);
-        Assert.Equal(3, migratedSection.Repeats);
+        Assert.Empty(migratedProject.Arrangement);
+        var arrangementClip = Assert.Single(migratedProject.Timeline);
+        Assert.Equal(0, arrangementClip.StartStep);
+        Assert.Equal(3 * migratedProject.SceneLengthInSteps(0), arrangementClip.LengthSteps);
         Assert.False(string.IsNullOrEmpty(migratedProject.Tracks[0].Id));
     }
 

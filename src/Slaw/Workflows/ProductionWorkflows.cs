@@ -125,6 +125,13 @@ internal static class ProductionWorkflows
         }
 
         var remediationLedger = ProjectAlignmentRemediator.Remediate(composedProject);
+        if (composedProject.Timeline.Count == 0)
+        {
+            // The model wrote scenes but no song order: play every scene twice, top to bottom.
+            composedProject.Timeline = FreeTimeline.FlattenSections(composedProject,
+                composedProject.Scenes.Select((_, sceneIndex) => new ArrangementSection { Scene = sceneIndex, Repeats = 2 }));
+            remediationLedger.Add("arrangement: none given, so every scene plays twice in order");
+        }
         if (!composedProject.Tracks.Any(track => track.Clips.OfType<SlawClip>().Any(clip => clip.Pattern.Any(step => NotationResolver.ResolveOrRest(step).Kind == StepEventKind.Trigger))))
         {
             throw new ArrangementMisalignmentException("arrangement contains no audible steps (every pattern is silence)");
@@ -430,6 +437,19 @@ internal static class ProductionWorkflows
                 lockEnforcementCount++;
             }
             revisedProject.Tracks[revisedTrackIndex] = preservedTrack;
+
+            // A locked track's part of the arrangement is protected as well.
+            var originalClips = originalProject.Timeline.Where(timelineClip => timelineClip.TrackId == lockedTrack.Id).ToList();
+            var revisedClips = revisedProject.Timeline.Where(timelineClip => timelineClip.TrackId == lockedTrack.Id).ToList();
+            static string Fingerprint(IEnumerable<TimelineClip> timelineClips) =>
+                string.Join("|", timelineClips.Select(timelineClip => System.Text.Json.JsonSerializer.Serialize(timelineClip, ProjectSerializer.LenientSerializationOptions)));
+            if (Fingerprint(originalClips) != Fingerprint(revisedClips))
+            {
+                lockEnforcementCount++;
+                revisedProject.Timeline.RemoveAll(timelineClip => timelineClip.TrackId == lockedTrack.Id);
+                revisedProject.Timeline.AddRange(originalClips.Select(timelineClip => System.Text.Json.JsonSerializer.Deserialize<TimelineClip>(
+                    System.Text.Json.JsonSerializer.Serialize(timelineClip, ProjectSerializer.LenientSerializationOptions), ProjectSerializer.LenientSerializationOptions)!));
+            }
         }
         return lockEnforcementCount;
     }

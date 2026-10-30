@@ -18,10 +18,16 @@ namespace SlopstackLabs.Slaw.Mcp;
 internal sealed class SlawMcpToolset
 {
     public const string ServerInstructions =
-        "slaw is an AI-native step-sequencing DAW. A project has tracks (each with an instrument, effects and mixer settings), " +
-        "scenes (rows of clips) and an arrangement (the song order: scene + repeats). Each track holds one clip per scene; a clip " +
-        "is a pattern of sixteenth-note steps written as a space-separated string: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, " +
-        "\"_\" hold the previous note, \".\" silence; \"C4@0.5\" or \"x@0.5\" sets a velocity (0..1, default 1). Start with get_project and get_catalog. Prefer apply_patch for multi-part edits. " +
+        "slaw is an AI-native step-sequencing DAW with two places for music, like Ableton Live. " +
+        "TRACKS each have an instrument, effects and mixer settings. " +
+        "The SESSION holds clips by scene: every track has one clip slot per scene (a grid of loops to jam with and launch). " +
+        "The ARRANGEMENT is the song: one linear timeline, measured in sixteenth-note steps, 16 steps per bar (bar 1 starts at step 0, bar 2 at step 16). " +
+        "An arrangement clip sits on one track at a start step for a length in steps; its pattern loops to fill that length " +
+        "(a 16-step drum pattern with length 128 plays 8 bars). Scenes are NOT the song order any more: only the arrangement is played and rendered. " +
+        "A pattern is a space-separated string of steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \"C4:8\" a note held 8 steps, " +
+        "\"_\" hold the previous note, \".\" silence; \"C4@0.5\" or \"x@0.5\" sets a velocity (0..1, default 1). " +
+        "Start with get_project and get_catalog. Write session clips with set_clip or apply_patch \"tracks\"/\"clips\"; place clips in the arrangement with " +
+        "apply_patch \"timeline\" (track, start, length, pattern). Prefer apply_patch for multi-part edits. " +
         "Tracks marked LOCKED are protected from AI edits and must not be changed.";
 
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
@@ -115,16 +121,18 @@ internal sealed class SlawMcpToolset
                 "\nVST3 plugins: instrument \"vst3\" and effect type \"vst3\" host the user's installed plugins (see list_plugins). " +
                 "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
                 "with normalized values 0..1; describe_plugin lists them with titles." +
-                "\nFree timeline (apply_patch \"timeline\"): clips placed at any step on any track, independent of scenes and the arrangement. Play it with transport play_timeline, bounce it with render source \"timeline\"."));
+                "\nArrangement (apply_patch \"timeline\"): the song, as clips placed at any step on any track (16 steps per bar), independent of scenes. " +
+                "Play it with transport play_arrangement (from a bar); render bounces it."));
 
         Register("apply_patch",
-            "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], arrangement [{scene, repeats}], " +
+            "Apply a patch describing only what should change. Keys (all optional): bpm, name, scenes [names], " +
             "tracks [{id (existing id or \"new\"), name, instrument, sample, gain, pan, muted, solo, instrumentParameters {key: number}, " +
             "effects [{type, enabled, parameters}] (replaces the list), clips {\"<sceneIndex>\": \"x . . . x . . .\" or null}, " +
             "automation {\"<sceneIndex>\": {\"<target>\": [[step, value], ...] or null}} (merged into that clip's envelopes, see get_catalog), remove: true}], " +
             "timeline [{id (existing timeline clip id or \"new\"), track (id, name or index), start (steps, 16 per bar), length (steps; the pattern loops to fill it), " +
-            "pattern, name, automation {\"<target>\": [[step, value], ...]}, remove: true}] (the free timeline: clips anywhere in time, independent of scenes; " +
+            "pattern, name, automation {\"<target>\": [[step, value], ...]}, remove: true}] (the arrangement: the song as clips anywhere in time, independent of scenes; " +
             "where clips overlap on a track the later-starting one plays), " +
+            "arrangement [{scene, repeats}] (shortcut: lays those session scenes end to end and REPLACES the whole arrangement timeline with them), " +
             "master {gain, drive, lowpassHz, delaySteps, delayFeedback, delayMix}. Undoable in the studio.",
             Schema(new JsonObject { ["patch"] = Property("object", "The patch object.") }, "patch"),
             async (toolArguments, clientName, _) =>
@@ -380,13 +388,13 @@ internal sealed class SlawMcpToolset
             });
 
         Register("transport",
-            "Control playback in the running studio: play_scene (launch a scene), play_arrangement (from a section), play_timeline (the free timeline, from a bar), or stop. Live studio only.",
+            "Control playback in the running studio: play_arrangement (the song, from a bar), play_scene (launch a session scene; while the arrangement plays, " +
+            "the scene's clips take their tracks over from the next bar), back_to_arrangement (return those tracks to the arrangement), or stop. Live studio only.",
             Schema(new JsonObject
             {
-                ["action"] = EnumProperty("What to do.", "play_scene", "play_arrangement", "play_timeline", "stop"),
+                ["action"] = EnumProperty("What to do. play_timeline is an alias of play_arrangement.", "play_arrangement", "play_scene", "back_to_arrangement", "stop", "play_timeline"),
                 ["scene"] = Property("integer", "Scene index for play_scene."),
-                ["section"] = Property("integer", "Arrangement section index for play_arrangement (default 0)."),
-                ["bar"] = Property("integer", "0-based bar for play_timeline (default 0)."),
+                ["bar"] = Property("integer", "0-based bar to start play_arrangement from (default 0)."),
             }, "action"),
             async (toolArguments, _, _) =>
             {
@@ -396,18 +404,16 @@ internal sealed class SlawMcpToolset
                 }
                 var transportAction = ReadString(toolArguments["action"]) ?? "stop";
                 var sceneIndex = (int)(ReadDouble(toolArguments["scene"]) ?? 0);
-                var sectionIndex = transportAction == "play_timeline"
-                    ? (int)(ReadDouble(toolArguments["bar"]) ?? 0)
-                    : (int)(ReadDouble(toolArguments["section"]) ?? 0);
-                return await host.InvokeAsync(() => host.ControlTransport(transportAction, sceneIndex, sectionIndex));
+                var startBar = (int)(ReadDouble(toolArguments["bar"]) ?? 0);
+                return await host.InvokeAsync(() => host.ControlTransport(transportAction, sceneIndex, startBar));
             });
 
         Register("render",
-            "Bounce the arrangement (or the free timeline) to a 16-bit WAV file and report its duration and peak level.",
+            "Bounce the arrangement (the song timeline) to a 16-bit WAV file and report its duration and peak level.",
             Schema(new JsonObject
             {
                 ["path"] = Property("string", "Output .wav path (default: next to the project, or a temp file)."),
-                ["source"] = EnumProperty("What to render (default arrangement).", "arrangement", "timeline"),
+                ["source"] = EnumProperty("What to render: the arrangement (timeline is an alias).", "arrangement", "timeline"),
             }),
             async (toolArguments, _, cancellationToken) =>
             {
@@ -417,14 +423,13 @@ internal sealed class SlawMcpToolset
                         ? Path.ChangeExtension(projectPath, ".wav")
                         : Path.Combine(Path.GetTempPath(), $"slaw-mcp-{Environment.ProcessId}.wav")));
                 var outputPath = Path.GetFullPath(ReadString(toolArguments["path"]) ?? defaultOutputPath);
-                var rendersTimeline = ReadString(toolArguments["source"]) == "timeline";
-                if (rendersTimeline && projectSnapshot.Timeline.Count == 0)
+                if (projectSnapshot.Timeline.Count == 0)
                 {
-                    throw new McpInvalidParamsException("the free timeline is empty; add clips with apply_patch {\"timeline\": [...]} first");
+                    throw new McpInvalidParamsException("the arrangement is empty; place clips with apply_patch {\"timeline\": [{\"track\": ..., \"start\": 0, \"length\": 64, \"pattern\": ...}]} first");
                 }
                 var renderedArrangement = await Task.Run(() =>
                 {
-                    var arrangementBuffer = rendersTimeline ? OfflineArrangementRenderer.RenderTimeline(projectSnapshot) : OfflineArrangementRenderer.Render(projectSnapshot);
+                    var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot);
                     WaveFileMaterializer.Write(outputPath, arrangementBuffer);
                     return arrangementBuffer;
                 }, cancellationToken);

@@ -102,7 +102,7 @@ public class FreeTimelineTests
             [ClipAutomation.GainTarget] = new() { new() { Step = 0, Value = 0 }, new() { Step = 16, Value = 1 } },
         };
         project.Timeline.Add(fadingClip);
-        var rendered = OfflineArrangementRenderer.RenderTimeline(project, TestSampleRate).Left;
+        var rendered = OfflineArrangementRenderer.Render(project, TestSampleRate).Left;
         var window = TestSampleRate / 8;
         var openingPeak = rendered.Skip(100).Take(window).Max(Math.Abs);
         var closingPeak = rendered.Skip((int)(1.6 * TestSampleRate) - window).Take(window).Max(Math.Abs);
@@ -114,7 +114,7 @@ public class FreeTimelineTests
     {
         var project = OneTrackProject();
         project.Timeline.Add(Place(project, 32, 16, "x . . ."));
-        var rendered = OfflineArrangementRenderer.RenderTimeline(project, TestSampleRate);
+        var rendered = OfflineArrangementRenderer.Render(project, TestSampleRate);
         // 48 steps at 120 BPM (0.125 s each) = 6 s, plus the 1.5 s release tail; nothing before the clip at 4 s.
         Assert.InRange(rendered.DurationSeconds, 7.49, 7.51);
         Assert.Equal(0f, rendered.Left.Take(TestSampleRate * 4 - 100).Max(Math.Abs));
@@ -125,6 +125,8 @@ public class FreeTimelineTests
     public void FlattensTheArrangementIntoOneClipPerTrackPerSection()
     {
         var project = ProjectSerializer.CreateStarterProject("flatten");
+        project.Timeline.Clear();
+        project.Arrangement = new List<ArrangementSection> { new() { Scene = 0, Repeats = 2 }, new() { Scene = 1, Repeats = 4 }, new() { Scene = 0, Repeats = 1 } };
         var flattened = FreeTimeline.FlattenArrangement(project);
 
         var expectedClipCount = project.Arrangement.Sum(section => project.Tracks.Count(track => track.ClipAt(section.Scene) is not null));
@@ -136,7 +138,7 @@ public class FreeTimelineTests
             Assert.All(flattened.Where(timelineClip => timelineClip.StartStep == sectionStart), timelineClip => Assert.Equal(sectionLength, timelineClip.LengthSteps));
             sectionStart += sectionLength;
         }
-        Assert.Equal(project.ArrangementLengthInSteps(), flattened.Max(timelineClip => timelineClip.EndStep));
+        Assert.Equal(sectionStart, flattened.Max(timelineClip => timelineClip.EndStep));
         // Copies, not references: editing the timeline leaves the scenes alone.
         flattened[0].Clip.Pattern[0] = "C7";
         Assert.NotEqual("C7", project.Tracks.Single(track => track.Id == flattened[0].TrackId).Clips.OfType<SlawClip>().First().Pattern[0]);
@@ -199,7 +201,9 @@ public class FreeTimelineTests
     [Fact]
     public async Task AgentsPatchListAndRenderTheTimelineOverMcp()
     {
-        var servedDocument = new Desktop.StudioDocument(ProjectSerializer.CreateStarterProject("mcp"), filePath: null);
+        var starterProject = ProjectSerializer.CreateStarterProject("mcp");
+        starterProject.Timeline.Clear();
+        var servedDocument = new Desktop.StudioDocument(starterProject, filePath: null);
         var headlessHost = new Mcp.HeadlessMcpHost(servedDocument, new Desktop.StudioPreferences { AiFeaturesEnabled = false });
         var dispatcher = new Mcp.McpProtocolDispatcher(new Mcp.SlawMcpToolset(headlessHost));
         async Task<string> CallToolAsync(string toolName, JsonObject toolArguments)

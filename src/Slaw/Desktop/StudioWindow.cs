@@ -66,7 +66,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     // ── Views and controls ────────────────────────────────────────────────────
 
     private readonly SessionGridView sessionView;
-    private readonly ArrangementTimelineView arrangementView;
+    private readonly ArrangementView arrangementView;
+    private readonly Button backToArrangementButton;
     private readonly DetailView detailView;
     private readonly ContentControl mainViewHost = new();
     private readonly ContentControl browserHost = new();
@@ -114,6 +115,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
         playButton = StudioUi.AccentButton("▶  Play", TogglePlayback, "Play / stop (Space)");
+        backToArrangementButton = StudioUi.Button("⤺ Back to Arrangement", BackToArrangement,
+            "Session clips are playing over the arrangement. Hand every track back to it on the next bar.", compact: false);
+        backToArrangementButton.Foreground = StudioTheme.Warning;
+        backToArrangementButton.BorderBrush = StudioTheme.Warning;
+        backToArrangementButton.IsVisible = false;
         cancelInferenceButton = StudioUi.Button("✕ Cancel", CancelActiveInference, "Stop waiting for the model", compact: true);
         cancelInferenceButton.IsVisible = false;
         inferenceProgressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => RefreshInferenceProgress());
@@ -144,13 +150,12 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         };
 
         sessionView = new SessionGridView(document, this);
-        arrangementView = new ArrangementTimelineView(document, this);
+        arrangementView = new ArrangementView(document, this);
         detailView = new DetailView(document, this);
 
         Content = ComposeLayout();
         WireDocument();
         WireControls();
-        WireFreeTimeline();
 
         transportTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => AdvanceTransportDisplay());
         WireKeyboard();
@@ -185,10 +190,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         MaterializeInferenceProvider(announce: false);
         ApplyAiFeatureVisibility();
         SelectMainView(arrangementView: launchParameters.OpenInArrangementView);
-        if (launchParameters.OpenInFreeView)
-        {
-            SelectFreeView();
-        }
         if (launchParameters.OpenSampleEditor)
         {
             var firstSamplerIndex = document.Project.Tracks.FindIndex(track => track.Instrument == "sampler");
@@ -293,10 +294,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         AddTransportControl(StudioUi.Button("↶", PerformUndo, "Undo (Ctrl+Z)", compact: true));
         AddTransportControl(StudioUi.Button("↷", PerformRedo, "Redo (Ctrl+Shift+Z)", compact: true));
         AddTransportControl(StudioUi.VerticalSeparator());
-        AddTransportControl(StudioUi.Row(0, sessionViewToggle, arrangementViewToggle, freeViewToggle));
+        AddTransportControl(StudioUi.Row(0, sessionViewToggle, arrangementViewToggle));
         AddTransportControl(StudioUi.VerticalSeparator());
         AddTransportControl(playButton);
         AddTransportControl(StudioUi.Button("■", StopPlayback, "Stop", compact: false));
+        AddTransportControl(backToArrangementButton);
         AddTransportControl(ComposeRecordControls());
         AddTransportControl(ComposeComputerKeyboardControls());
         AddTransportControl(StudioUi.Row(6, StudioUi.Caption("BPM", 12), tempoInput));
@@ -552,7 +554,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         sessionViewToggle.Click += (_, _) => SelectMainView(arrangementView: false);
         StudioDragDrop.MakeDropTarget(arrangementViewToggle, this, () => new DropTarget(DropTargetKind.ArrangementEnd));
-        ToolTip.SetTip(arrangementViewToggle, "Arrangement view (Tab) — drop a scene here to append it to the song");
+        ToolTip.SetTip(arrangementViewToggle, "Arrangement view (Tab) — the song as one timeline; drop a scene here to add it at the end");
         arrangementViewToggle.Click += (_, _) => SelectMainView(arrangementView: true);
         tempoInput.ValueChanged += (_, _) =>
         {
@@ -625,8 +627,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         mainViewHost.Content = arrangementView ? this.arrangementView : sessionView;
         sessionViewToggle.IsChecked = !arrangementView;
         arrangementViewToggle.IsChecked = arrangementView;
-        freeViewActive = false;
-        freeViewToggle.IsChecked = false;
     }
 
     private void SynchronizeTransportControls()
@@ -721,7 +721,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var transportSnapshot = liveAudioSession.Engine.Transport;
         sessionView.UpdateTransport(transportSnapshot);
         arrangementView.UpdateTransport(transportSnapshot);
-        freeTimelineView?.UpdateTransport(transportSnapshot);
+        // Lit while session clips play over the arrangement; pulses as "queued" until the bar.
+        var arrangementOverridden = transportSnapshot.ArrangementOverridden || transportSnapshot.Tracks.Values.Any(trackState => trackState.QueuedScene is not null) && transportSnapshot.Mode == TransportMode.Timeline;
+        backToArrangementButton.IsVisible = arrangementOverridden;
+        backToArrangementButton.Opacity = transportSnapshot.ReturnToArrangementQueued ? 0.55 : 1;
         detailView.UpdateTransport(transportSnapshot);
         waveformScope.PlayheadFraction = transportSnapshot.PreviewProgress >= 0 ? transportSnapshot.PreviewProgress : null;
         var nowPlaying = PlaybackToggle.IsAudiblyPlaying(transportSnapshot);
@@ -747,13 +750,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             // until its next bar; stop it so the scene starts on this press.
             liveAudioSession.Engine.Stop();
         }
-        if (freeViewActive)
+        if (arrangementViewActive)
         {
-            PlayTimelineFrom(freeTimelineView?.CursorStep ?? 0);
-        }
-        else if (arrangementViewActive)
-        {
-            PlayArrangementFrom(0);
+            PlayTimelineFrom(arrangementView.CursorStep);
         }
         else
         {
@@ -799,16 +798,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         liveAudioSession.Engine.StartNoteAudition(trackIdentifier, midiNote);
 
     public void StopNoteAudition() => liveAudioSession.Engine.StopNoteAudition();
-
-    public void PlayArrangementFrom(int sectionIndex)
-    {
-        var project = document.Project;
-        var startStep = project.Arrangement
-            .Take(Math.Clamp(sectionIndex, 0, project.Arrangement.Count))
-            .Sum(section => (long)project.SceneLengthInSteps(section.Scene) * section.Repeats);
-        liveAudioSession.Engine.PlayArrangement(startStep, loop: true);
-        SetStatus(StatusSeverity.Informational, "♪ playing the arrangement — edits are live");
-    }
 
     // ── Undo ──────────────────────────────────────────────────────────────────
 
@@ -1030,9 +1019,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                         producedFiles.Add((bounceRequest.OutputPath,
                             OfflineArrangementRenderer.RenderScene(projectSnapshot, bounceRequest.SceneIndex, bounceRequest.LoopCount, bounceRequest.SampleRate)));
                         break;
-                    case BounceScope.Timeline:
-                        producedFiles.Add((bounceRequest.OutputPath, OfflineArrangementRenderer.RenderTimeline(projectSnapshot, bounceRequest.SampleRate)));
-                        break;
                     case BounceScope.Stems:
                         var stemDirectory = Path.GetDirectoryName(bounceRequest.OutputPath)!;
                         var stemPrefix = Path.GetFileNameWithoutExtension(bounceRequest.OutputPath);
@@ -1075,7 +1061,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         BounceScope.Scene => $"scene \"{document.Project.Scenes.ElementAtOrDefault(bounceRequest.SceneIndex)}\" ×{bounceRequest.LoopCount}",
         BounceScope.Stems => "stems",
-        BounceScope.Timeline => "the free timeline",
         _ => "the arrangement",
     } + FormattableString.Invariant($" at {bounceRequest.SampleRate / 1000.0:0.#} kHz / {bounceRequest.BitDepth}-bit");
 
@@ -1950,7 +1935,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             }
         }
 
-        public string ControlTransport(string transportAction, int sceneIndex, int sectionIndex)
+        public string ControlTransport(string transportAction, int sceneIndex, int startBar)
         {
             switch (transportAction)
             {
@@ -1961,17 +1946,16 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                     }
                     studioWindow.LaunchScene(sceneIndex);
                     return $"playing scene {sceneIndex} (\"{studioWindow.document.Project.Scenes[sceneIndex]}\") — launches are quantized to the next bar";
-                case "play_arrangement":
-                    studioWindow.PlayArrangementFrom(sectionIndex);
-                    return $"playing the arrangement from section {sectionIndex}";
-                case "play_timeline":
-                    // For play_timeline the tool passes the start bar (0-based) in sectionIndex.
+                case "play_arrangement" or "play_timeline":
                     if (studioWindow.document.Project.Timeline.Count == 0)
                     {
-                        throw new Mcp.McpInvalidParamsException("the free timeline is empty; add clips with apply_patch {\"timeline\": [...]} first");
+                        throw new Mcp.McpInvalidParamsException("the arrangement is empty; place clips with apply_patch {\"timeline\": [...]} first");
                     }
-                    studioWindow.PlayTimelineFrom(Math.Max(0, sectionIndex) * FreeTimeline.StepsPerBar);
-                    return $"playing the free timeline from bar {Math.Max(0, sectionIndex) + 1}";
+                    studioWindow.PlayTimelineFrom(Math.Max(0, startBar) * FreeTimeline.StepsPerBar);
+                    return $"playing the arrangement from bar {Math.Max(0, startBar) + 1}";
+                case "back_to_arrangement":
+                    studioWindow.BackToArrangement();
+                    return "every track returns to the arrangement on the next bar";
                 default:
                     studioWindow.StopPlayback();
                     return "stopped";
@@ -2022,9 +2006,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                                     IsValidTrack(dragPayload.TrackIndex) &&
                                     document.Project.ClipAt(dragPayload.TrackIndex, dragPayload.SceneIndex) is not null &&
                                     (dropTarget.TrackIndex, dropTarget.SceneIndex) != (dragPayload.TrackIndex, dragPayload.SceneIndex),
-            DragPayloadKind.Scene => dropTarget.Kind is DropTargetKind.ArrangementSection or DropTargetKind.ArrangementEnd,
-            DragPayloadKind.ArrangementSection => dropTarget.Kind is DropTargetKind.ArrangementEnd
-                                                  || (dropTarget.Kind == DropTargetKind.ArrangementSection && dropTarget.Index != dragPayload.Index),
+            DragPayloadKind.Scene => dropTarget.Kind == DropTargetKind.ArrangementEnd,
             DragPayloadKind.EffectDevice => IsValidTrack(dragPayload.TrackIndex) &&
                                             (dropTarget.Kind is DropTargetKind.Track or DropTargetKind.ClipSlot && dropTarget.TrackIndex != dragPayload.TrackIndex
                                              || dropTarget.Kind == DropTargetKind.EffectDevice && !(dropTarget.TrackIndex == dragPayload.TrackIndex && dropTarget.Index == dragPayload.Index)
@@ -2158,27 +2140,12 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
             case DragPayloadKind.Scene:
                 {
-                    var insertionIndex = dropTarget.Kind == DropTargetKind.ArrangementSection
-                        ? Math.Clamp(dropTarget.Index, 0, project.Arrangement.Count)
-                        : project.Arrangement.Count;
-                    document.Edit($"added the scene {project.Scenes[dragPayload.SceneIndex]} to the arrangement",
-                        editedProject => editedProject.Arrangement.Insert(insertionIndex, new ArrangementSection { Scene = dragPayload.SceneIndex, Repeats = 2 }),
-                        EditScope.Structure);
-                    SetStatus(StatusSeverity.Success, $"\"{project.Scenes[dragPayload.SceneIndex]}\" added to the arrangement");
-                    break;
-                }
-
-            case DragPayloadKind.ArrangementSection:
-                {
-                    document.Edit("reordered the arrangement", editedProject =>
+                    // Dropped on the Arrangement button: the scene goes after the song, on the next bar line.
+                    var endStep = (FreeTimeline.LengthInSteps(project) + FreeTimeline.StepsPerBar - 1) / FreeTimeline.StepsPerBar * FreeTimeline.StepsPerBar;
+                    if (document.PlaceSceneInArrangement(dragPayload.SceneIndex, endStep) > 0)
                     {
-                        var movedSection = editedProject.Arrangement[dragPayload.Index];
-                        editedProject.Arrangement.RemoveAt(dragPayload.Index);
-                        var destinationIndex = dropTarget.Kind == DropTargetKind.ArrangementSection
-                            ? (dropTarget.Index > dragPayload.Index ? dropTarget.Index - 1 : dropTarget.Index)
-                            : editedProject.Arrangement.Count;
-                        editedProject.Arrangement.Insert(Math.Clamp(destinationIndex, 0, editedProject.Arrangement.Count), movedSection);
-                    }, EditScope.Structure);
+                        SetStatus(StatusSeverity.Success, $"\"{project.Scenes[dragPayload.SceneIndex]}\" added to the end of the arrangement at {FreeTimeline.FormatPosition(endStep)}");
+                    }
                     break;
                 }
 

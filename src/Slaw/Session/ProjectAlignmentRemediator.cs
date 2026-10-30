@@ -377,24 +377,19 @@ internal static class ProjectAlignmentRemediator
         }
     }
 
+    /// <summary>
+    /// The arrangement is the timeline. A legacy scene sequence (older files, models that
+    /// still write one, v1 loop counts) is squared up and flattened onto an empty timeline,
+    /// then dropped. Nothing invents sections any more: an arrangement left empty on
+    /// purpose stays empty.
+    /// </summary>
     private static void RemediateArrangement(SlawProject project, int sceneCount, List<string> remediationLedger)
     {
         project.Arrangement.RemoveAll(section => section is null);
-        if (project.Arrangement.Count == 0)
+        if (project.Arrangement.Count == 0 && project.Loops > 0 && project.Timeline.Count == 0)
         {
-            // v1 projects repeated their only pattern Loops times; everything else
-            // plays each scene once, top to bottom.
-            if (project.Loops > 0 && sceneCount == 1)
-            {
-                project.Arrangement.Add(new ArrangementSection { Scene = 0, Repeats = project.Loops });
-            }
-            else
-            {
-                for (var sceneIndex = 0; sceneIndex < sceneCount; sceneIndex++)
-                {
-                    project.Arrangement.Add(new ArrangementSection { Scene = sceneIndex, Repeats = 2 });
-                }
-            }
+            // v1 projects repeated their only pattern Loops times.
+            project.Arrangement.Add(new ArrangementSection { Scene = 0, Repeats = project.Loops });
         }
         project.Loops = 0;
 
@@ -407,14 +402,11 @@ internal static class ProjectAlignmentRemediator
         {
             project.Arrangement.RemoveRange(MaximumArrangementSections, project.Arrangement.Count - MaximumArrangementSections);
         }
-        if (project.Arrangement.Count == 0)
-        {
-            project.Arrangement.Add(new ArrangementSection { Scene = 0, Repeats = 1 });
-        }
         foreach (var section in project.Arrangement)
         {
             section.Repeats = Math.Clamp(section.Repeats, 1, 32);
         }
+        FreeTimeline.MigrateLegacyArrangement(project);
     }
 
     private static double ClampWithLedger(double candidateValue, double lowerBound, double upperBound, string parameterLabel, List<string> remediationLedger)

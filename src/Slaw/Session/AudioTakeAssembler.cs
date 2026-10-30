@@ -146,7 +146,7 @@ internal static class AudioTakeAssembler
          track.Clips.OfType<SlawClip>().Any(clip => clip.Pattern.Any(step => NotationResolver.ResolveOrRest(step).Kind == StepEventKind.Trigger)));
 
     /// <summary>
-    /// Puts a take on the free timeline at <paramref name="startStep"/>. A take
+    /// Puts a take on the arrangement timeline at <paramref name="startStep"/>. A take
     /// longer than one clip's pattern is sliced every <see cref="TimelineTakeSliceSteps"/>
     /// steps, one slice per consecutive timeline clip, so a whole song can be sung
     /// in one pass. Slices play one-shot: each runs to its end, with no gate

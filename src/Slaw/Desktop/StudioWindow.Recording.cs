@@ -18,8 +18,8 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// the take: it becomes a WAV in recordings/, loaded into the armed track and
 /// triggered on the step it was sung on.
 ///
-/// In the Free view (or while the free timeline plays) the take goes on the
-/// timeline instead, at the step it was sung on, with no scene involved.
+/// In the Arrangement view (or while the arrangement plays) the take goes on the
+/// arrangement timeline instead, at the step it was sung on, with no scene involved.
 ///
 /// No input monitoring: slaw's output runs through a pipe with tens of
 /// milliseconds of buffering, so hearing yourself through it would be a slapback
@@ -43,7 +43,7 @@ internal sealed partial class StudioWindow
     {
         public required string TrackId { get; init; }
 
-        /// <summary>The scene recorded into, or -1 for a take on the free timeline.</summary>
+        /// <summary>The scene recorded into, or -1 for a take on the arrangement timeline.</summary>
         public required int SceneIndex { get; init; }
 
         public bool OnTimeline => SceneIndex < 0;
@@ -92,7 +92,7 @@ internal sealed partial class StudioWindow
         }
         RefreshInputMeterVisibility();
         sessionView.Rebuild();
-        freeTimelineView?.Rebuild();
+        arrangementView.Rebuild();
     }
 
     /// <summary>Adds an empty sampler track to record into, and arms it.</summary>
@@ -169,7 +169,7 @@ internal sealed partial class StudioWindow
         CloseAudioInput();
         RefreshInputMeterVisibility();
         sessionView.Rebuild();
-        freeTimelineView?.Rebuild();
+        arrangementView.Rebuild();
     }
 
     /// <summary>Re-opens the input after Settings changed the tool or device.</summary>
@@ -214,7 +214,7 @@ internal sealed partial class StudioWindow
         {
             return;
         }
-        if (transportPlaying ? transportSnapshot.Mode == TransportMode.Timeline : freeViewActive)
+        if (transportPlaying ? transportSnapshot.Mode == TransportMode.Timeline : arrangementViewActive)
         {
             BeginTimelineAudioTake(armedTrack, transportPlaying);
             return;
@@ -226,17 +226,13 @@ internal sealed partial class StudioWindow
         {
             sceneIndex = armedTrackScene;
         }
-        else if (transportPlaying && transportSnapshot.Mode == TransportMode.Arrangement && transportSnapshot.ArrangementSection is { } playingSection && playingSection < project.Arrangement.Count)
-        {
-            sceneIndex = project.Arrangement[playingSection].Scene;
-        }
         else if (transportPlaying)
         {
             sceneIndex = transportSnapshot.Tracks.Values.Select(trackState => trackState.PlayingScene).FirstOrDefault(scene => scene is not null) ?? document.SelectedSceneIndex;
         }
         else
         {
-            sceneIndex = arrangementViewActive && project.Arrangement.Count > 0 ? project.Arrangement[0].Scene : document.SelectedSceneIndex;
+            sceneIndex = document.SelectedSceneIndex;
         }
         sceneIndex = Math.Clamp(sceneIndex, 0, Math.Max(0, project.Scenes.Count - 1));
 
@@ -259,8 +255,8 @@ internal sealed partial class StudioWindow
         document.CommitEdit($"armed a take on {takeTrack.Name}", EditScope.Structure, notifyCopilot: false);
 
         audioInputSource!.BeginTake();
-        var clipAlreadyLooping = transportPlaying && (transportSnapshot.Mode == TransportMode.Arrangement || clipExisted &&
-            transportSnapshot.Tracks.TryGetValue(takeTrack.Id, out var takeTrackState) && takeTrackState.PlayingScene == sceneIndex);
+        var clipAlreadyLooping = transportPlaying && clipExisted &&
+            transportSnapshot.Tracks.TryGetValue(takeTrack.Id, out var takeTrackState) && takeTrackState.PlayingScene == sceneIndex;
         activeAudioTake = new AudioTakeInProgress
         {
             TrackId = takeTrack.Id,
@@ -274,14 +270,7 @@ internal sealed partial class StudioWindow
 
         if (!transportPlaying)
         {
-            if (arrangementViewActive && project.Arrangement.Count > 0)
-            {
-                PlayArrangementFrom(0);
-            }
-            else
-            {
-                LaunchScene(sceneIndex);
-            }
+            LaunchScene(sceneIndex);
         }
         else if (!clipAlreadyLooping && transportSnapshot.Mode == TransportMode.Session)
         {
@@ -305,7 +294,7 @@ internal sealed partial class StudioWindow
             capturedTake.FirstFrameTimestamp == 0 || capturedTake.Samples.Length < MinimumTakeSeconds * capturedTake.SampleRate)
         {
             SetStatus(StatusSeverity.Warning, finishedTake.OnTimeline
-                ? "take discarded: nothing was captured while the timeline played"
+                ? "take discarded: nothing was captured while the arrangement played"
                 : "take discarded: nothing was captured while the clip played");
             return;
         }
@@ -351,13 +340,13 @@ internal sealed partial class StudioWindow
         }
         var takeSeconds = takeSamples.Length / (double)capturedTake.SampleRate;
         document.CommitEdit(string.Create(CultureInfo.InvariantCulture, $"recorded a {takeSeconds:0.0} s take on {takeTrack.Name}"), EditScope.Structure);
-        var takePosition = finishedTake.OnTimeline ? $"the timeline at {FreeTimeline.FormatPosition(takePlacement.StartStep)}" : $"step {takePlacement.StartStep + 1}";
+        var takePosition = finishedTake.OnTimeline ? $"the arrangement at {FreeTimeline.FormatPosition(takePlacement.StartStep)}" : $"step {takePlacement.StartStep + 1}";
         SetStatus(StatusSeverity.Success, string.Create(CultureInfo.InvariantCulture,
             $"take recorded: {takeSeconds:0.0} s from {takePosition} → {Path.GetFileName(takePath)} — Ctrl+Z removes it"));
     }
 
     /// <summary>
-    /// A take on the free timeline: no clip has to exist first, because the
+    /// A take on the arrangement timeline: no clip has to exist first, because the
     /// timeline position itself says where the take starts.
     /// </summary>
     private void BeginTimelineAudioTake(SlawTrack armedTrack, bool transportPlaying)
@@ -387,9 +376,9 @@ internal sealed partial class StudioWindow
         };
         if (!transportPlaying)
         {
-            PlayTimelineFrom(freeTimelineView?.CursorStep ?? 0);
+            PlayTimelineFrom(arrangementView.CursorStep);
         }
-        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} onto the free timeline — stop the transport or ● Rec to end the take");
+        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into the arrangement — stop the transport or ● Rec to end the take");
     }
 
     /// <summary>

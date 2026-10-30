@@ -3,7 +3,7 @@ using SlopstackLabs.Slaw.Session;
 namespace SlopstackLabs.Slaw.Synthesis;
 
 /// <summary>
-/// Bounces a project's arrangement to a stereo buffer by running the same
+/// Bounces a project's arrangement (its timeline) to a stereo buffer by running the same
 /// <see cref="SequencerEngine"/> the studio plays live, just faster than real
 /// time. This is the only deterministic component in slaw — retained for
 /// regulatory compliance. Noise voices draw from a fixed seed, so the same
@@ -15,12 +15,20 @@ internal static class OfflineArrangementRenderer
     private const double ReleaseTailSeconds = 1.5;
     private const int RenderBlockFrames = 4096;
 
-    public static StereoBuffer Render(SlawProject project, int sampleRate = DefaultSampleRate) =>
-        RenderWith(project, sampleRate, project.ArrangementLengthInSteps(), bounceEngine => bounceEngine.PlayArrangement(loop: false));
-
-    /// <summary>Renders the free timeline from its first step to the end of its last clip.</summary>
-    public static StereoBuffer RenderTimeline(SlawProject project, int sampleRate = DefaultSampleRate) =>
-        RenderWith(project, sampleRate, FreeTimeline.LengthInSteps(project), bounceEngine => bounceEngine.PlayTimeline(loop: false));
+    /// <summary>
+    /// Renders the arrangement from its first step to the end of its last clip. A project
+    /// that still carries a legacy scene sequence (and nothing on its timeline) is flattened
+    /// first, on a copy, so it renders exactly as it always did.
+    /// </summary>
+    public static StereoBuffer Render(SlawProject project, int sampleRate = DefaultSampleRate)
+    {
+        if (project.Timeline.Count == 0 && project.Arrangement.Count > 0)
+        {
+            project = project.DeepClone();
+            FreeTimeline.MigrateLegacyArrangement(project);
+        }
+        return RenderWith(project, sampleRate, FreeTimeline.LengthInSteps(project), bounceEngine => bounceEngine.PlayTimeline(loop: false));
+    }
 
     private static StereoBuffer RenderWith(SlawProject project, int sampleRate, long lengthInSteps, Action<SequencerEngine> startTransport)
     {
@@ -69,7 +77,8 @@ internal static class OfflineArrangementRenderer
     public static StereoBuffer RenderScene(SlawProject project, int sceneIndex, int loopCount, int sampleRate = DefaultSampleRate)
     {
         var sceneProject = project.DeepClone();
-        sceneProject.Arrangement = new List<ArrangementSection> { new() { Scene = sceneIndex, Repeats = Math.Max(1, loopCount) } };
+        sceneProject.TimelineLoop = null;
+        sceneProject.Timeline = FreeTimeline.PlaceScene(sceneProject, sceneIndex, startStep: 0, repeats: Math.Max(1, loopCount));
         return Render(sceneProject, sampleRate);
     }
 
@@ -81,8 +90,12 @@ internal static class OfflineArrangementRenderer
     {
         foreach (var track in project.Tracks)
         {
-            var playsAnything = track.Clips.OfType<SlawClip>().Any(clip =>
-                clip.Pattern.Any(step => NotationResolver.ResolveOrRest(step).Kind == StepEventKind.Trigger));
+            // Stems follow the arrangement, so a track counts if one of its arrangement clips plays a note.
+            var playsAnything = project.Timeline
+                .Where(timelineClip => timelineClip.TrackId == track.Id)
+                .Any(timelineClip => timelineClip.Clip.Pattern.Any(step => NotationResolver.ResolveOrRest(step).Kind == StepEventKind.Trigger)) ||
+                (project.Timeline.Count == 0 && track.Clips.OfType<SlawClip>().Any(clip =>
+                    clip.Pattern.Any(step => NotationResolver.ResolveOrRest(step).Kind == StepEventKind.Trigger)));
             if (!playsAnything)
             {
                 continue;

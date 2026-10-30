@@ -35,5 +35,5 @@ internal interface ISlawMcpHost
     string? RecentConversation => null;
 
     /// <summary>Transport control; only meaningful when <see cref="IsLive"/>. Returns a status line.</summary>
-    string ControlTransport(string transportAction, int sceneIndex, int sectionIndex);
+    string ControlTransport(string transportAction, int sceneIndex, int startBar);
 }

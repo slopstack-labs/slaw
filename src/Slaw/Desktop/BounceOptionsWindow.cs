@@ -13,7 +13,6 @@ internal enum BounceScope
     Arrangement,
     Scene,
     Stems,
-    Timeline,
 }
 
 /// <summary>Everything a "Bounce As…" needs to know.</summary>
@@ -32,7 +31,6 @@ internal sealed class BounceOptionsWindow : Window
     private readonly RadioButton arrangementOption;
     private readonly RadioButton sceneOption;
     private readonly RadioButton stemsOption;
-    private readonly RadioButton timelineOption;
     private readonly ComboBox sceneSelector;
     private readonly NumericUpDown loopCountInput;
     private readonly ComboBox sampleRateSelector;
@@ -50,25 +48,16 @@ internal sealed class BounceOptionsWindow : Window
         Background = StudioTheme.Background;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        var arrangementSeconds = project.ArrangementLengthInSteps() * project.StepDurationSeconds;
+        var arrangementSteps = FreeTimeline.LengthInSteps(project);
+        var arrangementSeconds = arrangementSteps * project.StepDurationSeconds;
         arrangementOption = new RadioButton
         {
             GroupName = "bounceScope",
             Content = FormattableString.Invariant(
-                $"Full arrangement  ({project.ArrangementLengthInSteps() / 16.0:0.#} bars · {(int)arrangementSeconds / 60}:{(int)arrangementSeconds % 60:00})"),
+                $"Full arrangement  ({arrangementSteps / 16.0:0.#} bars · {(int)arrangementSeconds / 60}:{(int)arrangementSeconds % 60:00})"),
         };
         sceneOption = new RadioButton { GroupName = "bounceScope", Content = "One scene, looped" };
         stemsOption = new RadioButton { GroupName = "bounceScope", Content = "Stems: one WAV per track (full arrangement)" };
-        var timelineSeconds = FreeTimeline.LengthInSteps(project) * project.StepDurationSeconds;
-        timelineOption = new RadioButton
-        {
-            GroupName = "bounceScope",
-            IsEnabled = project.Timeline.Count > 0,
-            Content = project.Timeline.Count > 0
-                ? FormattableString.Invariant($"Free timeline  ({FreeTimeline.LengthInSteps(project) / 16.0:0.#} bars · {(int)timelineSeconds / 60}:{(int)timelineSeconds % 60:00})")
-                : "Free timeline  (empty)",
-        };
-
         sceneSelector = new ComboBox
         {
             ItemsSource = project.Scenes.Select((sceneName, sceneIndex) => $"{sceneIndex}: {sceneName}").ToList(),
@@ -97,10 +86,9 @@ internal sealed class BounceOptionsWindow : Window
         {
             BounceScope.Scene => sceneOption,
             BounceScope.Stems => stemsOption,
-            BounceScope.Timeline when project.Timeline.Count > 0 => timelineOption,
             _ => arrangementOption,
         }).IsChecked = true;
-        foreach (var scopeOption in new[] { arrangementOption, sceneOption, stemsOption, timelineOption })
+        foreach (var scopeOption in new[] { arrangementOption, sceneOption, stemsOption })
         {
             scopeOption.IsCheckedChanged += (_, _) => RefreshDependentControls();
         }
@@ -123,7 +111,6 @@ internal sealed class BounceOptionsWindow : Window
                     sceneOption,
                     StudioUi.Row(8, new Border { Width = 24 }, sceneSelector, StudioUi.Caption("×", 13), loopCountInput, StudioUi.Caption("loops", 12)),
                     stemsOption,
-                    timelineOption,
                     StudioUi.SectionHeading("Format"),
                     StudioUi.Row(8, sampleRateSelector, bitDepthSelector, StudioUi.Caption("stereo PCM WAV", 12)),
                     StudioUi.SectionHeading("Where"),
@@ -151,7 +138,6 @@ internal sealed class BounceOptionsWindow : Window
     private BounceScope SelectedScope =>
         sceneOption.IsChecked == true ? BounceScope.Scene
         : stemsOption.IsChecked == true ? BounceScope.Stems
-        : timelineOption.IsChecked == true ? BounceScope.Timeline
         : BounceScope.Arrangement;
 
     private static Control PlaceInColumn(Control placedControl, int columnIndex)

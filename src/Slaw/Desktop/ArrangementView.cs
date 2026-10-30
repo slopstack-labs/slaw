@@ -11,28 +11,37 @@ using SlopstackLabs.Slaw.Synthesis;
 namespace SlopstackLabs.Slaw.Desktop;
 
 /// <summary>
-/// The Free view: a classic timeline where clips sit at any step on any track,
-/// unbound by scenes and sections. Track headers on the left, a custom-drawn
-/// canvas (ruler, lanes, clips) on the right, a horizontal scroll bar below.
-/// Selecting a clip opens it in the detail view, envelopes and all.
+/// The Arrangement view: the song as one timeline where clips sit at any step on
+/// any track. Track headers on the left, a custom-drawn canvas (ruler, lanes,
+/// clips) on the right, a horizontal scroll bar below. Selecting a clip opens it
+/// in the detail view, envelopes and all. Session clips launched while it plays
+/// take their track over (dimmed lane, orange ▶) until Back to Arrangement.
 /// </summary>
-internal sealed class FreeTimelineView : UserControl
+internal sealed class ArrangementView : UserControl
 {
     private readonly StudioDocument document;
     private readonly IStudioHost host;
-    private readonly FreeTimelineCanvas timelineCanvas;
-    private readonly StackPanel trackHeaderColumn = new() { Spacing = FreeTimelineCanvas.LaneSpacing };
+    private readonly ArrangementCanvas timelineCanvas;
+    private readonly StackPanel trackHeaderColumn = new() { Spacing = ArrangementCanvas.LaneSpacing };
     private readonly TextBlock timelineSummary = StudioUi.Caption(string.Empty, 10);
-    private readonly ScrollBar horizontalScrollBar = new() { Orientation = Orientation.Horizontal, Minimum = 0, Margin = new Thickness(FreeTimelineCanvas.TrackHeaderWidth + 12, 2, 12, 4) };
+    private readonly ScrollBar horizontalScrollBar = new() { Orientation = Orientation.Horizontal, Minimum = 0, Margin = new Thickness(ArrangementCanvas.TrackHeaderWidth + 12, 2, 12, 4) };
     private readonly Button loopButton;
+    private readonly Dictionary<string, Control> sessionOverrideIndicators = new();
     private bool synchronizingScrollBar;
 
-    public FreeTimelineView(StudioDocument document, IStudioHost host)
+    /// <summary>
+    /// True when a track header was the last thing clicked here (and no arrangement clip
+    /// is selected since): Delete then removes that track instead of a clip.
+    /// </summary>
+    public bool TrackHeaderSelected { get; private set; }
+
+    public ArrangementView(StudioDocument document, IStudioHost host)
     {
         this.document = document;
         this.host = host;
-        timelineCanvas = new FreeTimelineCanvas(document, host);
+        timelineCanvas = new ArrangementCanvas(document, host);
         timelineCanvas.ViewportChanged += SynchronizeScrollBar;
+        timelineCanvas.AddHandler(PointerPressedEvent, (_, _) => TrackHeaderSelected = false, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         horizontalScrollBar.ValueChanged += (_, _) =>
         {
             if (!synchronizingScrollBar)
@@ -42,26 +51,41 @@ internal sealed class FreeTimelineView : UserControl
         };
 
         loopButton = StudioUi.Button("⟲ Loop", ToggleLoop, "Loop brace on/off: drag across the ruler to set it", compact: true);
+        var placeSceneButton = new Button { Content = "＋ Scene at cursor ▾", Padding = new Thickness(8, 2), FontSize = 12 };
+        ToolTip.SetTip(placeSceneButton, "Place a session scene's clips in the arrangement at the ruler cursor");
+        var placeSceneMenu = new MenuFlyout();
+        placeSceneMenu.Opening += (_, _) =>
+        {
+            placeSceneMenu.Items.Clear();
+            for (var sceneIndex = 0; sceneIndex < document.Project.Scenes.Count; sceneIndex++)
+            {
+                var capturedSceneIndex = sceneIndex;
+                var sceneItem = new MenuItem { Header = document.Project.Scenes[sceneIndex] };
+                sceneItem.Click += (_, _) => host.PlaceSceneInArrangement(capturedSceneIndex);
+                placeSceneMenu.Items.Add(sceneItem);
+            }
+        };
+        placeSceneButton.Flyout = placeSceneMenu;
         var toolbar = StudioUi.Row(6,
-            StudioUi.Caption("Free timeline", 12, StudioTheme.Text, FontWeight.Bold),
+            StudioUi.Caption("Arrangement", 12, StudioTheme.Text, FontWeight.Bold),
             timelineSummary,
             new Border { Width = 12 },
-            StudioUi.Button("▶ From cursor", () => host.PlayTimelineFrom(timelineCanvas.CursorStep), "Play the free timeline from the ruler cursor (Space)", compact: true),
+            StudioUi.Button("▶ From cursor", () => host.PlayTimelineFrom(timelineCanvas.CursorStep), "Play the arrangement from the ruler cursor (Space)", compact: true),
             StudioUi.Button("⇤", () => MoveCursor(0), "Cursor to the start", compact: true),
             loopButton,
             StudioUi.Button("−", () => timelineCanvas.Zoom(1 / 1.5, null), "Zoom out (Ctrl+wheel)", compact: true),
             StudioUi.Button("+", () => timelineCanvas.Zoom(1.5, null), "Zoom in (Ctrl+wheel)", compact: true),
             new Border { Width = 12 },
-            StudioUi.Button("⇣ Import arrangement", ImportArrangement, "Flatten the scene-based arrangement onto the timeline (after anything already there)", compact: true));
+            placeSceneButton);
         toolbar.Margin = new Thickness(12, 8, 12, 4);
 
-        var laneGrid = new Grid { ColumnDefinitions = new ColumnDefinitions($"{FreeTimelineCanvas.TrackHeaderWidth},*"), ColumnSpacing = 0, Margin = new Thickness(12, 0, 12, 0) };
+        var laneGrid = new Grid { ColumnDefinitions = new ColumnDefinitions($"{ArrangementCanvas.TrackHeaderWidth},*"), ColumnSpacing = 0, Margin = new Thickness(12, 0, 12, 0) };
         var headerStack = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
             Children =
             {
-                new Border { Height = FreeTimelineCanvas.RulerHeight + FreeTimelineCanvas.LaneSpacing },
+                new Border { Height = ArrangementCanvas.RulerHeight + ArrangementCanvas.LaneSpacing },
                 trackHeaderColumn,
             },
         };
@@ -72,7 +96,7 @@ internal sealed class FreeTimelineView : UserControl
 
         var hint = new TextBlock
         {
-            Text = "ruler: click sets the cursor · double-click plays · drag sets the loop · lanes: double-click adds a bar · drag moves (snaps to beats; Shift: bars, Alt: steps) · drag the right edge to loop the pattern longer · Ctrl+drag copies · right-click for more · Ctrl+wheel zooms",
+            Text = "ruler: click sets the cursor · double-click plays · drag sets the loop · lanes: double-click adds a bar · drag moves (snaps to beats; Shift: bars, Alt: steps) · drag the right edge to loop the pattern longer · Ctrl+drag copies · right-click for more · Ctrl+wheel zooms · launch session clips while it plays to take a track over",
             FontSize = 10,
             Foreground = StudioTheme.TextMuted,
             TextWrapping = TextWrapping.Wrap,
@@ -102,6 +126,7 @@ internal sealed class FreeTimelineView : UserControl
     public void Rebuild()
     {
         trackHeaderColumn.Children.Clear();
+        sessionOverrideIndicators.Clear();
         for (var trackIndex = 0; trackIndex < document.Project.Tracks.Count; trackIndex++)
         {
             trackHeaderColumn.Children.Add(ComposeTrackHeader(document.Project.Tracks[trackIndex], trackIndex));
@@ -115,21 +140,41 @@ internal sealed class FreeTimelineView : UserControl
         var timelineSteps = FreeTimeline.LengthInSteps(project);
         var timelineSeconds = timelineSteps * project.StepDurationSeconds;
         timelineSummary.Text = project.Timeline.Count == 0
-            ? "empty — double-click a lane, drop a session clip, or import the arrangement"
+            ? "empty — double-click a lane, drop a session clip or scene here, or place a scene at the cursor"
             : FormattableString.Invariant($"{project.Timeline.Count} clips · {timelineSteps / 16.0:0.#} bars · {(int)timelineSeconds / 60}:{(int)timelineSeconds % 60:00}");
         loopButton.Content = project.TimelineLoop is { IsValid: true } loopRegion
             ? $"⟲ Loop {FreeTimeline.FormatPosition(loopRegion.StartStep)}–{FreeTimeline.FormatPosition(loopRegion.EndStep)}"
             : "⟲ Loop off";
-        timelineCanvas.Height = FreeTimelineCanvas.RulerHeight + FreeTimelineCanvas.LaneSpacing +
-                                project.Tracks.Count * (FreeTimelineCanvas.LaneHeight + FreeTimelineCanvas.LaneSpacing);
+        timelineCanvas.Height = ArrangementCanvas.RulerHeight + ArrangementCanvas.LaneSpacing +
+                                project.Tracks.Count * (ArrangementCanvas.LaneHeight + ArrangementCanvas.LaneSpacing);
         timelineCanvas.InvalidateVisual();
         SynchronizeScrollBar();
     }
 
-    public void RefreshSelection() => timelineCanvas.InvalidateVisual();
+    public void RefreshSelection()
+    {
+        if (document.SelectedTimelineClipId is not null)
+        {
+            TrackHeaderSelected = false;
+        }
+        timelineCanvas.InvalidateVisual();
+    }
 
-    public void UpdateTransport(TransportSnapshot transportSnapshot) =>
+    public void UpdateTransport(TransportSnapshot transportSnapshot)
+    {
         timelineCanvas.PlayheadStep = transportSnapshot.Mode == TransportMode.Timeline && transportSnapshot.TimelineStep >= 0 ? transportSnapshot.TimelineStep : null;
+        var overriddenTrackIds = transportSnapshot.Mode == TransportMode.Timeline
+            ? transportSnapshot.Tracks.Where(pair => pair.Value.OverridesArrangement).Select(pair => pair.Key).ToHashSet()
+            : new HashSet<string>();
+        if (!overriddenTrackIds.SetEquals(timelineCanvas.OverriddenTrackIds))
+        {
+            timelineCanvas.OverriddenTrackIds = overriddenTrackIds;
+        }
+        foreach (var (trackId, indicator) in sessionOverrideIndicators)
+        {
+            indicator.IsVisible = overriddenTrackIds.Contains(trackId);
+        }
+    }
 
     private void SynchronizeScrollBar()
     {
@@ -161,27 +206,6 @@ internal sealed class FreeTimelineView : UserControl
         document.Edit("set the timeline loop", editedProject => editedProject.TimelineLoop = loopRegion, EditScope.Structure);
     }
 
-    private void ImportArrangement()
-    {
-        var project = document.Project;
-        var flattenedClips = FreeTimeline.FlattenArrangement(project);
-        if (flattenedClips.Count == 0)
-        {
-            return;
-        }
-        // Appended after whatever is already there, on the next bar line.
-        var insertionStep = (FreeTimeline.LengthInSteps(project) + 15) / 16 * 16;
-        document.Edit("flattened the arrangement onto the free timeline", editedProject =>
-        {
-            foreach (var flattenedClip in flattenedClips)
-            {
-                flattenedClip.StartStep += insertionStep;
-                editedProject.Timeline.Add(flattenedClip);
-            }
-        }, EditScope.Structure);
-        MoveCursor(insertionStep);
-    }
-
     private Control ComposeTrackHeader(SlawTrack track, int trackIndex)
     {
         Control TrackToggle(string caption, string toolTip, Func<bool> readState, Action<bool> writeState, string editVerb)
@@ -203,14 +227,70 @@ internal sealed class FreeTimelineView : UserControl
             TrackToggle("S", "Solo", () => track.Solo, soloed => track.Solo = soloed, "toggled solo on"));
         if (track.Instrument == "sampler")
         {
-            // In the Free view, ● Rec puts the armed track's take straight onto the timeline.
+            // In the Arrangement view, ● Rec puts the armed track's take straight onto the timeline.
             var recordArmToggle = new ToggleButton { Content = "●", IsChecked = host.IsArmedForRecording(track.Id), Padding = new Thickness(6, 1), FontSize = 11, MinHeight = 20 };
             recordArmToggle.Foreground = recordArmToggle.IsChecked == true ? StudioTheme.Failure : StudioTheme.TextMuted;
-            ToolTip.SetTip(recordArmToggle, "Arm for audio recording: ● Rec (F9) then records the microphone onto the timeline from the cursor");
+            ToolTip.SetTip(recordArmToggle, "Arm for audio recording: ● Rec (F9) then records the microphone into the arrangement from the cursor");
             recordArmToggle.Click += (_, _) => host.ToggleRecordArm(track.Id);
             toggleRow.Children.Add(recordArmToggle);
         }
         toggleRow.Children.Add(StudioUi.Caption(DeviceCatalog.InstrumentDisplayName(track.Instrument), 10));
+
+        // Shown while a launched session clip (or a stop) has this track instead of the arrangement.
+        var sessionOverrideIndicator = StudioUi.Caption("▶ session", 10, StudioTheme.Warning, FontWeight.SemiBold);
+        ToolTip.SetTip(sessionOverrideIndicator, "This track is playing a session clip over the arrangement. ⤺ Back to Arrangement returns it on the next bar.");
+        sessionOverrideIndicator.IsVisible = false;
+        sessionOverrideIndicators[track.Id] = sessionOverrideIndicator;
+
+        // The name: trimmed with the full name as a tooltip; double-click (or Rename…) edits it in place.
+        var nameLabel = new TextBlock
+        {
+            Text = track.Name,
+            FontSize = 12,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = StudioTheme.Text,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        ToolTip.SetTip(nameLabel, track.Name);
+        var nameInput = new TextBox { Text = track.Name, FontSize = 12, Padding = new Thickness(2, 0), MinHeight = 20, IsVisible = false };
+        void BeginRename()
+        {
+            nameLabel.IsVisible = false;
+            nameInput.IsVisible = true;
+            nameInput.Text = track.Name;
+            nameInput.Focus();
+            nameInput.SelectAll();
+        }
+        void EndRename(bool commit)
+        {
+            if (!nameInput.IsVisible)
+            {
+                return;
+            }
+            nameInput.IsVisible = false;
+            nameLabel.IsVisible = true;
+            if (commit)
+            {
+                document.RenameTrack(document.Project.Tracks.IndexOf(track), nameInput.Text ?? string.Empty);
+            }
+        }
+        nameInput.KeyDown += (_, keyEvent) =>
+        {
+            if (keyEvent.Key is Key.Enter or Key.Escape)
+            {
+                EndRename(commit: keyEvent.Key == Key.Enter);
+                keyEvent.Handled = true;
+            }
+        };
+        nameInput.LostFocus += (_, _) => EndRename(commit: true);
+        nameLabel.DoubleTapped += (_, _) => BeginRename();
+
+        var deleteButton = StudioUi.Button("✕", () => host.DeleteTrack(document.Project.Tracks.IndexOf(track)), "Delete this track and its arrangement clips (Del after clicking the header; Ctrl+Z restores it)", compact: true);
+        deleteButton.IsVisible = false;
+        deleteButton.VerticalAlignment = VerticalAlignment.Top;
+        var nameRow = new DockPanel { Children = { Docked(deleteButton, Dock.Right), Docked(sessionOverrideIndicator, Dock.Right), nameLabel, nameInput } };
+        sessionOverrideIndicator.Margin = new Thickness(4, 0);
 
         var trackHeader = new Border
         {
@@ -219,32 +299,72 @@ internal sealed class FreeTimelineView : UserControl
             BorderThickness = new Thickness(3, 0, 0, 0),
             CornerRadius = new CornerRadius(2),
             Padding = new Thickness(8, 3),
-            Height = FreeTimelineCanvas.LaneHeight,
+            Height = ArrangementCanvas.LaneHeight,
             Margin = new Thickness(0, 0, 6, 0),
             Child = new StackPanel
             {
                 Spacing = 3,
                 Children =
                 {
-                    StudioUi.Caption(track.Name, 12, StudioTheme.Text, FontWeight.SemiBold),
+                    nameRow,
                     toggleRow,
                 },
             },
         };
-        trackHeader.PointerPressed += (_, _) => document.Select(trackIndex, document.SelectedSceneIndex);
+        // The ✕ only shows while the pointer is over the header, so the column stays calm.
+        trackHeader.PointerEntered += (_, _) => deleteButton.IsVisible = true;
+        trackHeader.PointerExited += (_, _) => deleteButton.IsVisible = false;
+        trackHeader.AddHandler(PointerPressedEvent, (_, _) =>
+        {
+            document.Select(document.Project.Tracks.IndexOf(track), document.SelectedSceneIndex);
+            TrackHeaderSelected = true;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        trackHeader.ContextMenu = ComposeTrackMenu(track, BeginRename);
         StudioDragDrop.MakeDropTarget(trackHeader, host, () => new DropTarget(DropTargetKind.Track, trackIndex));
         return trackHeader;
+    }
+
+    private ContextMenu ComposeTrackMenu(SlawTrack track, Action beginRename)
+    {
+        var trackMenu = new ContextMenu();
+        trackMenu.Opening += (_, _) =>
+        {
+            trackMenu.Items.Clear();
+            var trackIndex = document.Project.Tracks.IndexOf(track);
+            void AddTrackMenuItem(string header, Action onClick, bool enabled = true)
+            {
+                var menuItem = new MenuItem { Header = header, IsEnabled = enabled };
+                menuItem.Click += (_, _) => onClick();
+                trackMenu.Items.Add(menuItem);
+            }
+            AddTrackMenuItem("Rename…", beginRename);
+            AddTrackMenuItem("Duplicate track", () => document.DuplicateTrack(trackIndex),
+                document.Project.Tracks.Count < ProjectAlignmentRemediator.MaximumTrackCount);
+            if (track.Instrument == "sampler")
+            {
+                AddTrackMenuItem(host.IsArmedForRecording(track.Id) ? "Disarm recording" : "Arm for recording", () => host.ToggleRecordArm(track.Id));
+            }
+            trackMenu.Items.Add(new Separator());
+            AddTrackMenuItem("Delete track", () => host.DeleteTrack(trackIndex), document.Project.Tracks.Count > 1);
+        };
+        return trackMenu;
+    }
+
+    private static Control Docked(Control dockedControl, Dock dockPosition)
+    {
+        DockPanel.SetDock(dockedControl, dockPosition);
+        return dockedControl;
     }
 }
 
 /// <summary>
-/// The Free view's drawing surface: a bar ruler with cursor and loop brace, one
+/// The Arrangement view's drawing surface: a bar ruler with cursor and loop brace, one
 /// lane per track, and the timeline clips with miniature previews. Handles every
 /// pointer gesture itself; edits go through the document as single undo steps.
 /// </summary>
-internal sealed class FreeTimelineCanvas : Control
+internal sealed class ArrangementCanvas : Control
 {
-    public const double TrackHeaderWidth = 200;
+    public const double TrackHeaderWidth = 236;
     public const double LaneHeight = 52;
     public const double LaneSpacing = 3;
     public const double RulerHeight = 26;
@@ -284,7 +404,7 @@ internal sealed class FreeTimelineCanvas : Control
     private int gestureGrabOffsetSteps;
     private long loopBraceAnchorStep;
 
-    public FreeTimelineCanvas(StudioDocument document, IStudioHost host)
+    public ArrangementCanvas(StudioDocument document, IStudioHost host)
     {
         this.document = document;
         this.host = host;
@@ -320,6 +440,20 @@ internal sealed class FreeTimelineCanvas : Control
         set
         {
             cursorStep = Math.Clamp(value, 0, FreeTimeline.MaximumStep);
+            InvalidateVisual();
+        }
+    }
+
+    private static readonly IBrush SessionOverrideShade = new SolidColorBrush(StudioTheme.BackgroundColor, 0.6);
+    private IReadOnlySet<string> overriddenTrackIds = new HashSet<string>();
+
+    /// <summary>Tracks playing session material over the arrangement right now; their lanes are dimmed.</summary>
+    public IReadOnlySet<string> OverriddenTrackIds
+    {
+        get => overriddenTrackIds;
+        set
+        {
+            overriddenTrackIds = value;
             InvalidateVisual();
         }
     }
@@ -464,6 +598,17 @@ internal sealed class FreeTimelineCanvas : Control
                     continue;
                 }
                 DrawClip(drawingContext, track, trackIndex, timelineClip);
+            }
+        }
+
+        // Lanes a session launch took over: the arrangement is still drawn, dimmed, under an orange edge.
+        for (var trackIndex = 0; trackIndex < project.Tracks.Count; trackIndex++)
+        {
+            if (overriddenTrackIds.Contains(project.Tracks[trackIndex].Id))
+            {
+                var laneRect = new Rect(0, LaneTop(trackIndex), width, LaneHeight);
+                drawingContext.DrawRectangle(SessionOverrideShade, null, laneRect, 2, 2);
+                drawingContext.DrawRectangle(StudioTheme.Warning, null, new Rect(0, laneRect.Y, 3, laneRect.Height));
             }
         }
 
@@ -861,14 +1006,14 @@ internal sealed class FreeTimelineCanvas : Control
                     LengthSteps = sourceClip.Pattern.Count,
                     Clip = FreeTimeline.CopyClip(sourceClip),
                 };
-                document.Edit($"placed \"{sourceClip.Name}\" on the free timeline", editedProject => editedProject.Timeline.Add(placedClip), EditScope.Structure);
+                document.Edit($"placed \"{sourceClip.Name}\" in the arrangement", editedProject => editedProject.Timeline.Add(placedClip), EditScope.Structure);
                 document.SelectTimelineClip(placedClip.Id);
                 break;
             case DragPayloadKind.Scene:
                 // A whole scene: every clip in that row, side by side, at the drop position.
                 var sceneIndex = dragPayload.SceneIndex;
                 var sceneLength = project.SceneLengthInSteps(sceneIndex);
-                document.Edit($"placed the scene \"{project.Scenes[sceneIndex]}\" on the free timeline", editedProject =>
+                document.Edit($"placed the scene \"{project.Scenes[sceneIndex]}\" in the arrangement", editedProject =>
                 {
                     foreach (var track in editedProject.Tracks)
                     {
@@ -919,7 +1064,7 @@ internal static class FreeTimelineCommands
             return;
         }
         var pastedClip = new TimelineClip { TrackId = targetTrack.Id, StartStep = (int)cursorStep, LengthSteps = copiedClip.Pattern.Count, Clip = FreeTimeline.CopyClip(copiedClip) };
-        document.Edit($"pasted \"{copiedClip.Name}\" onto the free timeline", project => project.Timeline.Add(pastedClip), EditScope.Structure);
+        document.Edit($"pasted \"{copiedClip.Name}\" into the arrangement", project => project.Timeline.Add(pastedClip), EditScope.Structure);
         document.SelectTimelineClip(pastedClip.Id);
     }
 }

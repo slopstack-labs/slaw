@@ -19,10 +19,21 @@ internal interface IStudioHost
     void LaunchScene(int sceneIndex);
     void StopTrack(int trackIndex);
     void StopAll();
-    void PlayArrangementFrom(int sectionIndex);
 
-    /// <summary>Plays the free timeline from <paramref name="startStep"/>.</summary>
+    /// <summary>Plays the arrangement (the timeline) from <paramref name="startStep"/>.</summary>
     void PlayTimelineFrom(long startStep);
+
+    /// <summary>Hands every track a session launch took over back to the arrangement, on the next bar.</summary>
+    void BackToArrangement();
+
+    /// <summary>Places a scene's clips in the arrangement at its cursor.</summary>
+    void PlaceSceneInArrangement(int sceneIndex);
+
+    /// <summary>Places one session clip in the arrangement at its cursor.</summary>
+    void PlaceClipInArrangement(int trackIndex, int sceneIndex);
+
+    /// <summary>Deletes a track as one undo step, disarming recording if it was armed.</summary>
+    void DeleteTrack(int trackIndex);
 
     /// <summary>Sounds a note on a track's instrument until <see cref="StopNoteAudition"/>.</summary>
     void StartNoteAudition(string trackIdentifier, int midiNote);

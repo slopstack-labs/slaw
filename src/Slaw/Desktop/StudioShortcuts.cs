@@ -75,7 +75,7 @@ internal static class StudioShortcutMap
     {
         new(StudioCommand.TogglePlayback, Key.Space, KeyModifiers.None, "Play / stop", ShortcutReach.Global),
         new(StudioCommand.PlayFromSelection, Key.Space, KeyModifiers.Shift, "Play from the selected scene", ShortcutReach.Global),
-        new(StudioCommand.SwitchView, Key.Tab, KeyModifiers.None, "Switch Session / Arrangement / Free view", ShortcutReach.Global),
+        new(StudioCommand.SwitchView, Key.Tab, KeyModifiers.None, "Switch Session / Arrangement view", ShortcutReach.Global),
         new(StudioCommand.LaunchSelection, Key.Enter, KeyModifiers.None, "Launch the selected clip (Arrangement: play from it)"),
         new(StudioCommand.LaunchSelectedScene, Key.Enter, KeyModifiers.Shift, "Launch the selected scene"),
         new(StudioCommand.Dismiss, Key.Escape, KeyModifiers.None, "Stop notes, leave text fields, close overlays", ShortcutReach.Everywhere),
@@ -86,10 +86,10 @@ internal static class StudioShortcutMap
         new(StudioCommand.SelectPreviousTrack, Key.Left, KeyModifiers.None, "Move the selection left", Repeats: true),
         new(StudioCommand.SelectNextTrack, Key.Right, KeyModifiers.None, "Move the selection right", Repeats: true),
         new(StudioCommand.CreateClip, Key.M, CommandShift, "Create an empty clip in the selected slot"),
-        new(StudioCommand.DuplicateClip, Key.D, Command, "Duplicate the selected clip into the next scene (Arrangement: the selected section)"),
+        new(StudioCommand.DuplicateClip, Key.D, Command, "Duplicate the selected clip (Arrangement: right after itself; Session: into the next scene)"),
         new(StudioCommand.DuplicateScene, Key.D, CommandShift, "Duplicate the selected scene"),
-        new(StudioCommand.DeleteClip, Key.Delete, KeyModifiers.None, "Delete the selected clip (Arrangement: the selected section)"),
-        new(StudioCommand.DeleteClip, Key.Back, KeyModifiers.None, "Delete the selected clip (Arrangement: the selected section)"),
+        new(StudioCommand.DeleteClip, Key.Delete, KeyModifiers.None, "Delete the selected clip (Arrangement: the selected clip, or the track whose header you clicked last)"),
+        new(StudioCommand.DeleteClip, Key.Back, KeyModifiers.None, "Delete the selected clip (Arrangement: the selected clip, or the track whose header you clicked last)"),
         new(StudioCommand.CopyClip, Key.C, Command, "Copy the selected clip"),
         new(StudioCommand.CutClip, Key.X, Command, "Cut the selected clip"),
         new(StudioCommand.PasteClip, Key.V, Command, "Paste into the selected slot"),
@@ -158,7 +158,7 @@ internal static class PlaybackToggle
     /// not stop the silence.
     /// </summary>
     public static bool IsAudiblyPlaying(Synthesis.TransportSnapshot transportSnapshot) =>
-        transportSnapshot.Mode is Synthesis.TransportMode.Arrangement or Synthesis.TransportMode.Timeline ||
+        transportSnapshot.Mode == Synthesis.TransportMode.Timeline ||
         (transportSnapshot.Mode == Synthesis.TransportMode.Session &&
          transportSnapshot.Tracks.Values.Any(trackState => trackState.PlayingScene is not null || trackState.QueuedScene >= 0));
 }
