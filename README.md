@@ -93,7 +93,7 @@ The default `MODEL` is `llama3`.
 
 ## Installers
 
-Both installers are built only when someone asks: each has its own manually triggered workflow (Actions → *Run workflow*) that takes a version tag such as `v0.2.0` or `v0.2.0-beta.1`.
+Nothing is released automatically. Every release workflow, including the plain *Release* and *Prerelease* ones with the portable binaries, runs only from Actions → *Run workflow*, takes a version tag such as `v0.2.0` or `v0.2.0-beta.1`, and creates that tag itself; pushing a tag publishes nothing. The installers each have their own workflow:
 
 | Platform | Workflow | You get |
 |----------|----------|---------|
