@@ -38,6 +38,9 @@ internal interface ISlawMcpHost
     /// <summary>The user's sample library.</summary>
     IReadOnlyList<string> SampleLibraryFiles { get; }
 
+    /// <summary>The sample folders the library was scanned from, for folder labels.</summary>
+    IReadOnlyList<string> SampleFolders { get; }
+
     /// <summary>slaw's own configured model, for agents that want a second opinion. Null when AI is off.</summary>
     IInferenceSubstrateProvider? InferenceProvider { get; }
 

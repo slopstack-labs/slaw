@@ -1032,23 +1032,54 @@ internal sealed class SlawMcpToolset
             async (_, _, _) => await host.InvokeAsync(() => host.Document.Redo() is { } redoneLabel ? $"redid: {redoneLabel}" : "nothing to redo"));
 
         Register("list_samples",
-            "List WAV samples in the user's sample folders (for sampler tracks).",
+            "List WAV samples in the user's sample folders (for sampler tracks), grouped by the folder they are in. " +
+            "Each group starts with a line `folder \"<label>\" (<n> samples):` where the label is the folder relative to its sample folder " +
+            "(e.g. \"BPB Cassette 909 / clean\"); the lines under it are full paths to pass as a track's `sample`. " +
+            "Sample packs often repeat file names across folders (clean/bd01.wav, cassette 1/bd01.wav), so pick by path.",
             Schema(new JsonObject
             {
-                ["filter"] = Property("string", "Optional case-insensitive substring of the file name."),
-                ["limit"] = Property("integer", "Maximum results (default 50)."),
+                ["filter"] = Property("string", "Optional case-insensitive substring of the file name or of the folder label; a folder match lists that whole folder."),
+                ["limit"] = Property("integer", "Maximum sample paths listed (default 50)."),
             }),
-            (toolArguments, _, _) =>
+            async (toolArguments, _, _) =>
             {
                 var filterText = ReadString(toolArguments["filter"]) ?? string.Empty;
                 var resultLimit = (int)Math.Clamp(ReadDouble(toolArguments["limit"]) ?? 50, 1, 500);
-                var matchingSamples = host.SampleLibraryFiles
-                    .Where(samplePath => Path.GetFileName(samplePath).Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                var sampleFolders = await host.InvokeAsync(() => host.SampleFolders.ToList());
+                var matchingGroups = SampleLibrary.GroupByFolder(host.SampleLibraryFiles, sampleFolders)
+                    .Select(folderGroup => folderGroup.Label.Contains(filterText, StringComparison.OrdinalIgnoreCase)
+                        ? folderGroup
+                        : folderGroup with
+                        {
+                            SamplePaths = folderGroup.SamplePaths
+                                .Where(samplePath => Path.GetFileName(samplePath).Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                                .ToList(),
+                        })
+                    .Where(folderGroup => folderGroup.SamplePaths.Count > 0)
                     .ToList();
-                return Task.FromResult(matchingSamples.Count == 0
-                    ? "no samples found — the user can add sample folders in slaw's Settings → Samples"
-                    : $"{matchingSamples.Count} sample(s){(matchingSamples.Count > resultLimit ? $", first {resultLimit}" : string.Empty)}:\n" +
-                      string.Join("\n", matchingSamples.Take(resultLimit)));
+                var matchingSampleCount = matchingGroups.Sum(folderGroup => folderGroup.SamplePaths.Count);
+                if (matchingSampleCount == 0)
+                {
+                    return "no samples found — the user can add sample folders in slaw's Settings → Samples";
+                }
+                var sampleListing = new StringBuilder();
+                sampleListing.Append(CultureInfo.InvariantCulture,
+                    $"{matchingSampleCount} sample(s) in {matchingGroups.Count} folder(s){(matchingSampleCount > resultLimit ? $", first {resultLimit} listed" : string.Empty)}:");
+                var remainingListings = resultLimit;
+                foreach (var folderGroup in matchingGroups)
+                {
+                    if (remainingListings == 0)
+                    {
+                        break;
+                    }
+                    sampleListing.Append(CultureInfo.InvariantCulture, $"\nfolder \"{folderGroup.Label}\" ({folderGroup.SamplePaths.Count} samples):");
+                    foreach (var samplePath in folderGroup.SamplePaths.Take(remainingListings))
+                    {
+                        sampleListing.Append("\n  ").Append(samplePath);
+                    }
+                    remainingListings -= Math.Min(remainingListings, folderGroup.SamplePaths.Count);
+                }
+                return sampleListing.ToString();
             });
 
         Register("list_plugins",

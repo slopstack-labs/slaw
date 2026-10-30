@@ -48,6 +48,8 @@ internal sealed class HeadlessMcpHost : ISlawMcpHost
 
     public IReadOnlyList<string> SampleLibraryFiles => sampleLibraryFiles.Value;
 
+    public IReadOnlyList<string> SampleFolders => studioPreferences.SampleFolders;
+
     public IInferenceSubstrateProvider? InferenceProvider => inferenceProvider.Value;
 
     public async Task<T> InvokeAsync<T>(Func<T> projectWork)

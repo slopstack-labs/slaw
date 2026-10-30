@@ -91,7 +91,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private readonly CheckBox unsolicitedAdviceToggle = new() { Content = "Unsolicited advice", FontSize = 12 };
     private readonly List<Control> inferenceDependentControls = new();
     private readonly StackPanel sampleEntriesPanel = new() { Spacing = 1 };
-    private readonly TextBox sampleFilterInput = new() { Watermark = "filter samples…", FontSize = 11, MinHeight = 24, Padding = new Thickness(6, 2) };
+    private readonly TextBox sampleFilterInput = new() { Watermark = "filter samples or folders…", FontSize = 11, MinHeight = 24, Padding = new Thickness(6, 2) };
     private IReadOnlyList<string> sampleLibraryFiles = Array.Empty<string>();
     private readonly Dictionary<string, SampleEditorWindow> openSampleEditorWindows = new();
     private readonly DispatcherTimer inferenceProgressTimer;
@@ -1620,17 +1620,83 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             return;
         }
         var filterText = sampleFilterInput.Text?.Trim() ?? string.Empty;
-        var matchingSamples = sampleLibraryFiles
-            .Where(samplePath => filterText.Length == 0 || Path.GetFileName(samplePath).Contains(filterText, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        foreach (var samplePath in matchingSamples.Take(MaximumListedSamples))
+        var matchingSampleCount = 0;
+        var matchingFolderCount = 0;
+        foreach (var folderGroup in SampleLibrary.GroupByFolder(sampleLibraryFiles, preferences.SampleFolders))
         {
-            sampleEntriesPanel.Children.Add(ComposeSampleEntry(samplePath));
+            // A folder name match keeps the whole folder: "909" finds every sound in the pack.
+            var folderMatchesFilter = filterText.Length == 0 || folderGroup.Label.Contains(filterText, StringComparison.OrdinalIgnoreCase);
+            var matchingFolderSamples = folderMatchesFilter
+                ? folderGroup.SamplePaths
+                : folderGroup.SamplePaths.Where(samplePath => Path.GetFileName(samplePath).Contains(filterText, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (matchingFolderSamples.Count == 0)
+            {
+                continue;
+            }
+            matchingSampleCount += matchingFolderSamples.Count;
+            matchingFolderCount++;
+            AddSampleFolderGroup(folderGroup, matchingFolderSamples, unfoldedByFilter: filterText.Length > 0);
         }
         sampleEntriesPanel.Children.Add(StudioUi.Caption(
-            matchingSamples.Count > MaximumListedSamples
-                ? $"{MaximumListedSamples} of {matchingSamples.Count} shown — use the filter"
-                : $"{matchingSamples.Count} sample(s) · click: preview · double-click: add", 9));
+            $"{matchingSampleCount} sample(s) in {matchingFolderCount} folder(s) · click: preview · double-click: add", 9));
+    }
+
+    private void AddSampleFolderGroup(SampleFolderGroup folderGroup, IReadOnlyList<string> listedSamplePaths, bool unfoldedByFilter)
+    {
+        var folderEntries = new StackPanel
+        {
+            Spacing = 1,
+            Margin = new Thickness(10, 0, 0, 2),
+            IsVisible = unfoldedByFilter || preferences.ExpandedSampleFolders.Contains(folderGroup.FolderPath),
+        };
+        // Pack folders run long ("BPB Cassette 909 / cassette 1"): wrap rather than hide the count.
+        var folderHeadingText = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        var folderHeading = new Button
+        {
+            Content = folderHeadingText,
+            Background = Brushes.Transparent,
+            Foreground = StudioTheme.TextMuted,
+            FontSize = 11,
+            FontWeight = FontWeight.SemiBold,
+            Padding = new Thickness(2, 2),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+        };
+        void RefreshFolder()
+        {
+            folderHeadingText.Text = $"{(folderEntries.IsVisible ? "▾" : "▸")} {folderGroup.Label}  ({listedSamplePaths.Count})";
+            // Entries are built on first unfold, so a folded 2000-sample library costs one button per folder.
+            if (folderEntries.IsVisible && folderEntries.Children.Count == 0)
+            {
+                foreach (var samplePath in listedSamplePaths.Take(MaximumListedSamples))
+                {
+                    folderEntries.Children.Add(ComposeSampleEntry(samplePath));
+                }
+                if (listedSamplePaths.Count > MaximumListedSamples)
+                {
+                    folderEntries.Children.Add(StudioUi.Caption($"{MaximumListedSamples} of {listedSamplePaths.Count} shown — use the filter", 9));
+                }
+            }
+        }
+        ToolTip.SetTip(folderHeading, $"{folderGroup.FolderPath}\nClick to show or hide this folder's samples");
+        folderHeading.Click += (_, _) =>
+        {
+            folderEntries.IsVisible = !folderEntries.IsVisible;
+            RefreshFolder();
+            if (unfoldedByFilter)
+            {
+                return; // folding while filtering is a glance, not a preference
+            }
+            preferences.ExpandedSampleFolders.Remove(folderGroup.FolderPath);
+            if (folderEntries.IsVisible)
+            {
+                preferences.ExpandedSampleFolders.Add(folderGroup.FolderPath);
+            }
+            preferences.Save();
+        };
+        RefreshFolder();
+        sampleEntriesPanel.Children.Add(folderHeading);
+        sampleEntriesPanel.Children.Add(folderEntries);
     }
 
     private Button ComposeSampleEntry(string samplePath)
@@ -1944,6 +2010,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         public StudioDocument Document => studioWindow.document;
 
         public IReadOnlyList<string> SampleLibraryFiles => studioWindow.sampleLibraryFiles;
+
+        public IReadOnlyList<string> SampleFolders => studioWindow.preferences.SampleFolders;
 
         public IInferenceSubstrateProvider? InferenceProvider => studioWindow.inferenceProvider;
 

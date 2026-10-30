@@ -33,6 +33,9 @@ internal sealed class StudioPreferences
     /// <summary>Folders scanned for user samples (WAV files), shown in the browser.</summary>
     public List<string> SampleFolders { get; set; } = new();
 
+    /// <summary>Folders (full paths) whose samples are unfolded in the browser; every other folder starts folded.</summary>
+    public List<string> ExpandedSampleFolders { get; set; } = new();
+
     /// <summary>Extra folders scanned for VST3 plugins, on top of the system folders and VST3_PATH.</summary>
     public List<string> PluginFolders { get; set; } = new();
 
@@ -107,6 +110,7 @@ internal sealed class StudioPreferences
     {
         var clonedPreferences = (StudioPreferences)MemberwiseClone();
         clonedPreferences.SampleFolders = SampleFolders.ToList();
+        clonedPreferences.ExpandedSampleFolders = ExpandedSampleFolders.ToList();
         clonedPreferences.PluginFolders = PluginFolders.ToList();
         return clonedPreferences;
     }
