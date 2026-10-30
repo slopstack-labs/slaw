@@ -793,11 +793,22 @@ internal sealed partial class DetailView : UserControl
 
     private static Control ComposeDevicePanel(string deviceName, Control titleControls, IReadOnlyList<Control> knobs, IBrush accentBrush)
     {
-        var knobGrid = new WrapPanel { Orientation = Orientation.Vertical, MaxHeight = 172 };
-        foreach (var knob in knobs)
+        // A plugin brings its own scrolling knob panel and gets the card's full height;
+        // built-in knobs fill columns from the top, below the header.
+        Control knobArea;
+        if (knobs is [PluginParameterPanel pluginParameterPanel])
         {
-            knob.Margin = new Thickness(2);
-            knobGrid.Children.Add(knob);
+            knobArea = pluginParameterPanel;
+        }
+        else
+        {
+            var knobGrid = new WrapPanel { Orientation = Orientation.Vertical, MaxHeight = 172, VerticalAlignment = VerticalAlignment.Top };
+            foreach (var knob in knobs)
+            {
+                knob.Margin = new Thickness(2);
+                knobGrid.Children.Add(knob);
+            }
+            knobArea = knobGrid;
         }
         var deviceHeader = new StackPanel
         {
@@ -818,7 +829,7 @@ internal sealed partial class DetailView : UserControl
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8),
             MinWidth = 150,
-            Child = new DockPanel { Children = { deviceHeader, knobGrid } },
+            Child = new DockPanel { Children = { deviceHeader, knobArea } },
         };
     }
 }
