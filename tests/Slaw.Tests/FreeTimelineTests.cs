@@ -171,7 +171,7 @@ public class FreeTimelineTests
         var survivingClip = Assert.Single(project.Timeline);
         Assert.Equal((0, 2), (survivingClip.StartStep, survivingClip.LengthSteps));
         Assert.Null(project.TimelineLoop);
-        Assert.Contains(ledger, entry => entry.Contains("timeline"));
+        Assert.Contains(ledger, entry => entry.Contains("whose track no longer exists"));
     }
 
     [Fact]
@@ -219,7 +219,7 @@ public class FreeTimelineTests
             ["patch"] = JsonNode.Parse("""{"timeline":[{"id":"new","track":"Synergy Kick","start":32,"length":16,"pattern":"x . . . x . . ."}]}"""),
         });
         Assert.Equal(32, Assert.Single(servedDocument.Project.Timeline).StartStep);
-        Assert.Contains("track \"Synergy Kick\" bars 3.1–4.1 (start 32, length 16 steps = 1 bars, ends before step 48); pattern 8 steps ×2", await CallToolAsync("get_project", new JsonObject()));
+        Assert.Contains("track \"Synergy Kick\" bars 3.1–4.1 (start 32, length 16 steps = 1 bar, ends before step 48); pattern 8 steps ×2", await CallToolAsync("get_project", new JsonObject()));
 
         var renderPath = Path.Combine(Path.GetTempPath(), $"slaw-timeline-test-{Environment.ProcessId}.wav");
         try

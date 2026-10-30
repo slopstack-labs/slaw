@@ -117,7 +117,7 @@ internal static class ProjectAlignmentRemediator
 
         if (project.Tracks.Count > MaximumTrackCount)
         {
-            remediationLedger.Add($"truncated {project.Tracks.Count} tracks to {MaximumTrackCount}");
+            remediationLedger.Add($"kept the first {MaximumTrackCount} of {project.Tracks.Count} tracks (the limit is {MaximumTrackCount})");
             project.Tracks.RemoveRange(MaximumTrackCount, project.Tracks.Count - MaximumTrackCount);
         }
         project.Tracks.RemoveAll(track => track is null);
@@ -258,12 +258,12 @@ internal static class ProjectAlignmentRemediator
         var resolvedInstrumentName = ResolveInstrument(track.Instrument);
         if (!string.Equals(resolvedInstrumentName, track.Instrument, StringComparison.Ordinal))
         {
-            remediationLedger.Add($"{track.Name}: instrument \"{track.Instrument}\" realigned to \"{resolvedInstrumentName}\"");
+            remediationLedger.Add($"{track.Name}: unknown instrument \"{track.Instrument}\" changed to \"{resolvedInstrumentName}\"");
             track.Instrument = resolvedInstrumentName;
         }
         if (track.Instrument == Plugins.DeviceTypes.Vst3 && !IsUsablePluginReference(track.Plugin))
         {
-            remediationLedger.Add($"{track.Name}: VST3 instrument without a plugin realigned to \"saw\"");
+            remediationLedger.Add($"{track.Name}: VST3 instrument without a plugin changed to \"saw\"");
             track.Instrument = "saw";
         }
         if (track.Instrument != Plugins.DeviceTypes.Vst3)
@@ -280,14 +280,14 @@ internal static class ProjectAlignmentRemediator
             : DeviceCatalog.Remediate(track.InstrumentParameters, DeviceCatalog.InstrumentParametersFor(track.Instrument));
         if (realignedInstrumentParameters > 0)
         {
-            remediationLedger.Add($"{track.Name}: {realignedInstrumentParameters} instrument parameter(s) realigned");
+            remediationLedger.Add($"{track.Name}: {realignedInstrumentParameters} instrument parameter(s) clamped to their ranges");
         }
 
         track.Effects ??= new List<EffectDevice>();
         track.Effects.RemoveAll(effect => effect is null);
         if (track.Effects.Count > MaximumEffectsPerTrack)
         {
-            remediationLedger.Add($"{track.Name}: device chain truncated to {MaximumEffectsPerTrack} effects");
+            remediationLedger.Add($"{track.Name}: kept the first {MaximumEffectsPerTrack} effects (the limit per track)");
             track.Effects.RemoveRange(MaximumEffectsPerTrack, track.Effects.Count - MaximumEffectsPerTrack);
         }
         for (var effectIndex = track.Effects.Count - 1; effectIndex >= 0; effectIndex--)
@@ -296,14 +296,14 @@ internal static class ProjectAlignmentRemediator
             var resolvedEffectType = ResolveEffect(effectDevice.Type);
             if (resolvedEffectType is null)
             {
-                remediationLedger.Add($"{track.Name}: hallucinated effect \"{effectDevice.Type}\" removed");
+                remediationLedger.Add($"{track.Name}: removed unknown effect \"{effectDevice.Type}\"");
                 track.Effects.RemoveAt(effectIndex);
                 ClipAutomation.ForgetEffectSlot(track, effectIndex);
                 continue;
             }
             if (resolvedEffectType != effectDevice.Type)
             {
-                remediationLedger.Add($"{track.Name}: effect \"{effectDevice.Type}\" realigned to \"{resolvedEffectType}\"");
+                remediationLedger.Add($"{track.Name}: effect \"{effectDevice.Type}\" changed to \"{resolvedEffectType}\"");
                 effectDevice.Type = resolvedEffectType;
             }
             effectDevice.Parameters ??= new Dictionary<string, double>();
@@ -378,7 +378,7 @@ internal static class ProjectAlignmentRemediator
         }
         if (hallucinatedStepCount > 0)
         {
-            remediationLedger.Add($"{track.Name}: {hallucinatedStepCount} unparseable step(s) silenced");
+            remediationLedger.Add($"{track.Name}: {hallucinatedStepCount} unreadable step(s) replaced with rests");
         }
     }
 
@@ -418,13 +418,13 @@ internal static class ProjectAlignmentRemediator
     {
         if (double.IsNaN(candidateValue))
         {
-            remediationLedger.Add($"{parameterLabel}: NaN realigned to {lowerBound}");
+            remediationLedger.Add($"{parameterLabel}: NaN replaced with {lowerBound}");
             return lowerBound;
         }
         var clampedValue = Math.Clamp(candidateValue, lowerBound, upperBound);
         if (clampedValue != candidateValue)
         {
-            remediationLedger.Add($"{parameterLabel}: {candidateValue} realigned to {clampedValue}");
+            remediationLedger.Add($"{parameterLabel}: {candidateValue} clamped to {clampedValue}");
         }
         return clampedValue;
     }

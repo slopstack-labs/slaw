@@ -22,6 +22,7 @@ internal static class PromptLibrary
         - "A3+C4+E4"           play a chord (melodic instruments only)
         - "C4:8+E4:2"          notes with their own lengths in steps (here C4 rings 8 steps, E4 only 2)
         - "C4@0.5", "x@0.4"    optional velocity 0..1 after "@" (default 1): ghost notes, accents ("C4:8@0.6+E4" also works)
+        - "A3@0.6+C4@0.6+E4@0.6" a soft chord: "@" and ":" belong to ONE note each ("A3+C4+E4@0.6" softens only E4)
         - "_"                  sustain the previous note through this step
         - "."                  silence
         """;
@@ -214,7 +215,7 @@ internal static class PromptLibrary
           "master": {"drive": 2.0}
         }
         - "scenes" renames scenes in order ("removeScenes": [indices] deletes); "clips" maps a scene index to a pattern string. "arrangement" lays scenes out as the song (it replaces the arrangement timeline); "timeline" places single clips at exact steps instead (16 steps per bar, step 0 = bar 1).
-        - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence; "@0.5" after a note or "x" sets its velocity (0..1, default 1).
+        - A pattern string has 16 space-separated steps: "x" drum hit, "C4" note, "A3+C4+E4" chord, "_" hold previous note, "." silence; "@0.5" after a note or "x" sets its velocity (0..1, default 1), for that one note only: a soft chord is "A3@0.6+C4@0.6+E4@0.6".
         - Effects replace the track's whole effect list when given.
         - Optional clip envelopes: "automation": {"<scene>": {"fx.0.cutoff": [[0, 300], [16, 6000]]} } on a track sweeps effect 0's cutoff over the clip ([step, value] pairs). On a "timeline" clip, "automation": {"fx.0.cutoff": [[0, 300], [128, 6000]]} spans the whole clip (steps from its start). Targets: gain, pan, pitch (semitones), fx.<effectIndex>.<param>, inst.<param>.
         - Never mention tracks marked LOCKED.

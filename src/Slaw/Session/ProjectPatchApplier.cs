@@ -21,12 +21,15 @@ internal static class ProjectPatchApplier
     /// <summary>Every top-level key a patch may carry; anything else is reported as ignored.</summary>
     private static readonly HashSet<string> KnownPatchKeys = new(StringComparer.Ordinal)
     {
-        "summary", "name", "bpm", "steps", "scenes", "removeScenes", "arrangement", "tracks", "timeline", "master", "format", "aiProvenance", "loops",
+        "summary", "reset", "name", "bpm", "steps", "scenes", "removeScenes", "arrangement", "tracks", "timeline", "master", "format", "aiProvenance", "loops",
     };
 
     public static PatchOutcome Apply(SlawProject baseProject, JsonObject projectPatch)
     {
-        var patchedProject = baseProject.DeepClone();
+        // "reset": true starts from an empty project (one empty scene, default master), then applies the rest of the patch.
+        var patchedProject = ReadBoolean(projectPatch["reset"]) == true
+            ? ProjectSerializer.CreateBlankProject(ReadString(projectPatch["name"]) ?? "untitled slop", ReadDouble(projectPatch["bpm"]) ?? 120)
+            : baseProject.DeepClone();
         var lockedTrackEditsIgnored = 0;
         var patchWarnings = new List<string>();
         foreach (var (patchKey, _) in projectPatch)
@@ -133,7 +136,9 @@ internal static class ProjectPatchApplier
                 {
                     if (existingTrack is not null)
                     {
+                        // The track's arrangement clips go with it (reported once, as part of the removal).
                         patchedProject.Tracks.Remove(existingTrack);
+                        patchedProject.Timeline.RemoveAll(timelineClip => timelineClip.TrackId == existingTrack.Id);
                     }
                     else
                     {
@@ -248,14 +253,14 @@ internal static class ProjectPatchApplier
                 {
                     if (int.TryParse(sceneKey, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sceneIndex) && sceneIndex is >= 0 and < 64)
                     {
-                        SetClip(targetTrack, sceneIndex, clipNode, defaultStepCount);
+                        SetClip(targetTrack, sceneIndex, clipNode, defaultStepCount, patchWarnings);
                     }
                 }
                 break;
             case JsonArray clipsInSceneOrder:
                 for (var sceneIndex = 0; sceneIndex < clipsInSceneOrder.Count && sceneIndex < 64; sceneIndex++)
                 {
-                    SetClip(targetTrack, sceneIndex, clipsInSceneOrder[sceneIndex], defaultStepCount);
+                    SetClip(targetTrack, sceneIndex, clipsInSceneOrder[sceneIndex], defaultStepCount, patchWarnings);
                 }
                 break;
         }
@@ -334,7 +339,7 @@ internal static class ProjectPatchApplier
     private static PluginReference? PluginInSlot(List<EffectDevice> previousEffects, int effectIndex) =>
         effectIndex < previousEffects.Count ? previousEffects[effectIndex].Plugin : null;
 
-    private static void SetClip(SlawTrack targetTrack, int sceneIndex, JsonNode? clipNode, int defaultStepCount)
+    private static void SetClip(SlawTrack targetTrack, int sceneIndex, JsonNode? clipNode, int defaultStepCount, List<string> patchWarnings)
     {
         while (targetTrack.Clips.Count <= sceneIndex)
         {
@@ -357,6 +362,7 @@ internal static class ProjectPatchApplier
             targetTrack.Clips[sceneIndex] = null;
             return;
         }
+        patchWarnings.AddRange(PatternLint.ChordSuffixWarnings(patchedPattern, $"\"{targetTrack.Name}\" session clip {sceneIndex}, "));
         var clipName = ReadString((clipNode as JsonObject)?["name"]) ?? targetTrack.Clips[sceneIndex]?.Name ?? targetTrack.Name;
         // A rewritten pattern keeps its envelopes: models rewrite notes far more often than they mean to delete a filter sweep.
         var patchedClip = new SlawClip { Name = clipName, Pattern = patchedPattern, Automation = targetTrack.Clips[sceneIndex]?.Automation };
@@ -385,11 +391,14 @@ internal static class ProjectPatchApplier
             {
                 patchWarnings.Add($"timeline[{entryIndex}]: no arrangement clip with id \"{patchedIdentifier}\"; {(ReadBoolean(clipPatch["remove"]) == true ? "nothing removed" : "treated as a new clip")}");
             }
-            var targetTrack = ResolvePatchTrack(patchedProject, clipPatch["track"])
+            // get_project's JSON names (trackId, startStep, lengthSteps, clip {name, pattern, automation}) work too, so its output round-trips into a patch.
+            var nestedClip = clipPatch["clip"] as JsonObject;
+            var trackNode = clipPatch["track"] ?? clipPatch["trackId"];
+            var targetTrack = ResolvePatchTrack(patchedProject, trackNode)
                 ?? patchedProject.Tracks.FirstOrDefault(track => track.Id == existingClip?.TrackId);
             if (targetTrack is null)
             {
-                patchWarnings.Add($"timeline[{entryIndex}]: no track \"{ReadString(clipPatch["track"])}\"; entry ignored (tracks: {string.Join(", ", patchedProject.Tracks.Select(track => $"\"{track.Name}\""))})");
+                patchWarnings.Add($"timeline[{entryIndex}]: no track \"{ReadString(trackNode)}\"; entry ignored (tracks: {string.Join(", ", patchedProject.Tracks.Select(track => $"\"{track.Name}\""))})");
                 continue;
             }
             if (targetTrack.AiLocked || patchedProject.Tracks.FirstOrDefault(track => track.Id == existingClip?.TrackId) is { AiLocked: true })
@@ -406,12 +415,16 @@ internal static class ProjectPatchApplier
                 continue;
             }
 
-            var patchedPattern = clipPatch["pattern"] switch
+            var patchedPattern = (clipPatch["pattern"] ?? nestedClip?["pattern"]) switch
             {
                 JsonArray stepArray => stepArray.Select(stepNode => ReadString(stepNode) ?? NotationResolver.RestSymbol).ToList(),
                 JsonValue patternValue => CompactPatternJsonConverter.SplitStepString(ReadString(patternValue)),
                 _ => null,
             };
+            if (patchedPattern is { Count: > 0 })
+            {
+                patchWarnings.AddRange(PatternLint.ChordSuffixWarnings(patchedPattern, $"timeline[{entryIndex}] (\"{targetTrack.Name}\"), "));
+            }
             var timelineClip = existingClip;
             if (timelineClip is null)
             {
@@ -428,13 +441,14 @@ internal static class ProjectPatchApplier
             {
                 timelineClip.Clip.Pattern = patchedPattern;
             }
-            timelineClip.Clip.Name = ReadString(clipPatch["name"]) ?? timelineClip.Clip.Name;
-            timelineClip.StartStep = (int)(ReadDouble(clipPatch["start"]) ?? timelineClip.StartStep);
-            timelineClip.LengthSteps = (int)(ReadDouble(clipPatch["length"]) ?? (existingClip is null ? timelineClip.Clip.Pattern.Count : timelineClip.LengthSteps));
-            if (clipPatch.ContainsKey("automation"))
+            timelineClip.Clip.Name = ReadString(clipPatch["name"] ?? nestedClip?["name"]) ?? timelineClip.Clip.Name;
+            timelineClip.StartStep = (int)(ReadDouble(clipPatch["start"] ?? clipPatch["startStep"]) ?? timelineClip.StartStep);
+            timelineClip.LengthSteps = (int)(ReadDouble(clipPatch["length"] ?? clipPatch["lengthSteps"]) ?? (existingClip is null ? timelineClip.Clip.Pattern.Count : timelineClip.LengthSteps));
+            var automationOwner = clipPatch.ContainsKey("automation") ? clipPatch : nestedClip?.ContainsKey("automation") == true ? nestedClip : null;
+            if (automationOwner is not null)
             {
                 // Arrangement clip envelopes span the clip's whole length; the pattern loops underneath them.
-                ApplyClipAutomation(targetTrack, timelineClip.Clip, clipPatch["automation"], timelineClip.LengthSteps, patchWarnings);
+                ApplyClipAutomation(targetTrack, timelineClip.Clip, automationOwner["automation"], timelineClip.LengthSteps, patchWarnings);
             }
         }
         return lockedEditsIgnored;

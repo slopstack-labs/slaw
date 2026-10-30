@@ -208,8 +208,9 @@ internal static class FreeTimeline
     {
         var patternLength = Math.Max(1, timelineClip.Clip.Pattern.Count);
         var loopCount = timelineClip.LengthSteps / (double)patternLength;
+        var lengthBars = timelineClip.LengthSteps / (double)StepsPerBar;
         return string.Create(CultureInfo.InvariantCulture,
-            $"bars {FormatPosition(timelineClip.StartStep)}–{FormatPosition(timelineClip.EndStep)} (start {timelineClip.StartStep}, length {timelineClip.LengthSteps} steps = {timelineClip.LengthSteps / (double)StepsPerBar:0.##} bars, ends before step {timelineClip.EndStep}); " +
+            $"bars {FormatPosition(timelineClip.StartStep)}–{FormatPosition(timelineClip.EndStep)} (start {timelineClip.StartStep}, length {timelineClip.LengthSteps} steps = {lengthBars:0.##} {(Math.Abs(lengthBars - 1) < 1e-9 ? "bar" : "bars")}, ends before step {timelineClip.EndStep}); " +
             $"pattern {patternLength} steps ×{loopCount:0.##}");
     }
 
@@ -221,7 +222,7 @@ internal static class FreeTimeline
         var orphanedCount = project.Timeline.RemoveAll(timelineClip => timelineClip is null || !knownTrackIds.Contains(timelineClip.TrackId));
         if (orphanedCount > 0)
         {
-            remediationLedger.Add($"timeline: {orphanedCount} clip(s) on tracks that no longer exist removed");
+            remediationLedger.Add($"arrangement: removed {orphanedCount} clip(s) whose track no longer exists");
         }
         var seenIds = new HashSet<string>();
         foreach (var timelineClip in project.Timeline)

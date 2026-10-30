@@ -104,7 +104,11 @@ internal static class ProjectChangeSummarizer
         var revisedIdentifiers = revisedProject.Tracks.Select(track => track.Id).ToHashSet();
         foreach (var removedTrack in previousProject.Tracks.Where(track => !revisedIdentifiers.Contains(track.Id)))
         {
-            changeSummary.Add($"removed track \"{removedTrack.Name}\"");
+            // A removed track takes its arrangement clips along; say so here, once.
+            var removedClipCount = previousProject.Timeline.Count(timelineClip => timelineClip.TrackId == removedTrack.Id);
+            changeSummary.Add(removedClipCount == 0
+                ? $"removed track \"{removedTrack.Name}\""
+                : $"removed track \"{removedTrack.Name}\" and its {removedClipCount} arrangement clip{(removedClipCount == 1 ? string.Empty : "s")}");
         }
 
         var previousMaster = previousProject.Master;
@@ -155,7 +159,7 @@ internal static class ProjectChangeSummarizer
             var revisedClip = revisedTrack.ClipAt(sceneIndex);
             if (previousClip is null && revisedClip is not null)
             {
-                slotChanges.Add($"scene {sceneIndex} written");
+                slotChanges.Add($"scene {sceneIndex} written{DescribeEnvelopes(revisedClip)}");
             }
             else if (previousClip is not null && revisedClip is null && sceneIndex < revisedTrack.Clips.Count)
             {
@@ -164,7 +168,7 @@ internal static class ProjectChangeSummarizer
             else if (previousClip is not null && revisedClip is not null &&
                      (!previousClip.Pattern.SequenceEqual(revisedClip.Pattern) || EnvelopeFingerprint(previousClip) != EnvelopeFingerprint(revisedClip)))
             {
-                slotChanges.Add($"scene {sceneIndex} changed");
+                slotChanges.Add($"scene {sceneIndex} changed{DescribeEnvelopes(revisedClip)}");
             }
         }
         return slotChanges.Count == 0 ? null : $"session clips: {string.Join(", ", slotChanges)}";
@@ -182,18 +186,20 @@ internal static class ProjectChangeSummarizer
         var changedClips = revisedProject.Timeline.Where(timelineClip =>
             previousClips.TryGetValue(timelineClip.Id, out var previousClip) && previousClip != Serialize(timelineClip)).ToList();
         var revisedIdentifiers = revisedProject.Timeline.Select(timelineClip => timelineClip.Id).ToHashSet();
-        var removedCount = previousProject.Timeline.Count(timelineClip => !revisedIdentifiers.Contains(timelineClip.Id));
+        // Clips of removed tracks are already counted on the track's own "removed track" line.
+        var survivingTrackIds = revisedProject.Tracks.Select(track => track.Id).ToHashSet();
+        var removedCount = previousProject.Timeline.Count(timelineClip => !revisedIdentifiers.Contains(timelineClip.Id) && survivingTrackIds.Contains(timelineClip.TrackId));
 
         var arrangementChanges = new List<string>();
         string Locate(TimelineClip timelineClip) =>
             $"id \"{timelineClip.Id}\" on \"{revisedProject.Tracks.FirstOrDefault(track => track.Id == timelineClip.TrackId)?.Name ?? "?"}\" {FreeTimeline.DescribeSpan(timelineClip)}";
         foreach (var placedClip in placedClips.Take(MaximumListedArrangementClips))
         {
-            arrangementChanges.Add($"arrangement: placed clip {Locate(placedClip)}");
+            arrangementChanges.Add($"arrangement: placed clip {Locate(placedClip)}{DescribeEnvelopes(placedClip.Clip)}");
         }
         foreach (var changedClip in changedClips.Take(MaximumListedArrangementClips))
         {
-            arrangementChanges.Add($"arrangement: changed clip {Locate(changedClip)}");
+            arrangementChanges.Add($"arrangement: changed clip {Locate(changedClip)}{DescribeEnvelopes(changedClip.Clip)}");
         }
         var unlistedCount = Math.Max(0, placedClips.Count - MaximumListedArrangementClips) + Math.Max(0, changedClips.Count - MaximumListedArrangementClips);
         if (unlistedCount > 0)
@@ -202,8 +208,14 @@ internal static class ProjectChangeSummarizer
         }
         if (removedCount > 0)
         {
-            arrangementChanges.Add($"arrangement: removed {removedCount} clip(s)");
+            arrangementChanges.Add($"arrangement: removed {removedCount} clip{(removedCount == 1 ? string.Empty : "s")}");
         }
         return arrangementChanges;
     }
+
+    /// <summary>"; envelopes: fx.0.cutoff 0:700 → 128:6000", so a result confirms what was automated without a get_project.</summary>
+    internal static string DescribeEnvelopes(SlawClip clip) =>
+        clip.Automation is { Count: > 0 } envelopes
+            ? "; envelopes: " + string.Join("; ", envelopes.Select(envelope => ClipAutomation.Describe(envelope.Key, envelope.Value)))
+            : string.Empty;
 }

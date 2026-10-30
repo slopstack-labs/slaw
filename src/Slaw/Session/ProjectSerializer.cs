@@ -63,6 +63,19 @@ internal static class ProjectSerializer
     }
 
     /// <summary>
+    /// A project with nothing in it: no tracks, an empty arrangement, one empty
+    /// scene and the default master bus. What `new_project` and patches with
+    /// <c>"reset": true</c> start from.
+    /// </summary>
+    public static SlawProject CreateBlankProject(string projectName, double bpm) => new()
+    {
+        Name = string.IsNullOrWhiteSpace(projectName) ? "untitled slop" : projectName,
+        Bpm = Math.Clamp(bpm, 40, 300),
+        Steps = 16,
+        Scenes = { "Scene 1" },
+    };
+
+    /// <summary>
     /// The starter arrangement scaffolded by <c>slaw new</c> and by the studio
     /// when it opens a file that does not exist yet. Hand-written, and therefore
     /// in violation of the Contributor Excellence Framework. We are working on it.
