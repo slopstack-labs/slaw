@@ -301,7 +301,8 @@ internal sealed class SequencerEngine
             auditionedTrack.InstrumentParameters,
             samplerSource,
             auditionedTrack.SampleEditing,
-            soundFontPreset: auditionedSoundFont);
+            soundFontPreset: auditionedSoundFont,
+            noteVelocity: Math.Max(0.05, velocity));
         if (renderedVoice.Length == 0)
         {
             return;
@@ -821,8 +822,8 @@ internal sealed class SequencerEngine
 
         // Notes struck together may be held for different lengths and struck at
         // different velocities: render one voice per distinct (length, velocity),
-        // each with its share of the chord. Velocity is only a gain, so it never splits the
-        // voice cache.
+        // each with its share of the chord. Velocity is a gain, and splits the voice cache
+        // only for instruments whose timbre follows it (InstrumentVoiceSynthesizer.ShapesTimbreByVelocity).
         var noteGroups = percussiveInstrument
             ? new[] { (Length: 1, Velocity: stepEvent.PeakVelocity, Notes: stepEvent.MidiNotes.ToArray()) }
             : ClipNoteEditor.NotesStartingAt(clip.Pattern, clipStep)
@@ -845,7 +846,7 @@ internal sealed class SequencerEngine
                 var strikePitchBend = strikeStartSteps > 0 && pitchBendFromStep is not null
                     ? pitchBendFromStep(envelopeStep + strikeStartSteps)
                     : pitchBend;
-                var renderedVoice = RenderOrRecallVoice(project, track, instrumentParameters, strikePitchBend, StepEvent.Trigger(chordNotes), heldSteps);
+                var renderedVoice = RenderOrRecallVoice(project, track, instrumentParameters, strikePitchBend, StepEvent.Trigger(chordNotes), heldSteps, noteVelocity);
                 if (renderedVoice.Length == 0)
                 {
                     continue;
@@ -867,10 +868,12 @@ internal sealed class SequencerEngine
     private sealed record RenderedPitchBend(Func<double, double> SemitonesAt, string Signature);
 
     /// <param name="heldSteps">How long the note is held, in steps; fractional for a ratchet's strikes.</param>
-    private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, IReadOnlyDictionary<string, double> instrumentParameters, RenderedPitchBend? pitchBend, StepEvent stepEvent, double heldSteps)
+    /// <param name="noteVelocity">How hard the notes are struck. Only instruments whose timbre follows velocity hear it (and split the cache by it); the rest stay a gain.</param>
+    private float[] RenderOrRecallVoice(SlawProject project, SlawTrack track, IReadOnlyDictionary<string, double> instrumentParameters, RenderedPitchBend? pitchBend, StepEvent stepEvent, double heldSteps, double noteVelocity = 1)
     {
+        var timbreVelocity = InstrumentVoiceSynthesizer.ShapesTimbreByVelocity(track.Instrument) ? NotationResolver.ClampVelocity(noteVelocity) : 1.0;
         var parameterFingerprint = string.Join(',', instrumentParameters.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value:R}"));
-        var voiceCacheKey = FormattableString.Invariant($"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{track.SoundFont?.Fingerprint}|{string.Join('+', stepEvent.MidiNotes)}|{heldSteps:R}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}");
+        var voiceCacheKey = FormattableString.Invariant($"{track.Instrument}|{track.Sample}|{SampleEditingFingerprint(track.SampleEditing)}|{track.SoundFont?.Fingerprint}|{string.Join('+', stepEvent.MidiNotes)}|{heldSteps:R}|{project.Bpm:R}|{parameterFingerprint}|{pitchBend?.Signature}|{timbreVelocity:R}");
         if (renderedVoiceCache.TryGetValue(voiceCacheKey, out var cachedVoice))
         {
             return cachedVoice;
@@ -910,7 +913,8 @@ internal sealed class SequencerEngine
             samplerSource,
             track.SampleEditing,
             pitchBend?.SemitonesAt,
-            soundFontPreset);
+            soundFontPreset,
+            timbreVelocity);
         renderedVoiceCache[voiceCacheKey] = renderedVoice;
         return renderedVoice;
     }

@@ -70,6 +70,18 @@ internal sealed class SlawMcpToolset
         "describe_soundfont lists a file's presets; add_track {\"instrument\": \"soundfont\", \"soundfont\": {\"path\", \"bank\", \"program\"}} or apply_patch tracks[].soundfont loads one. " +
         "import_midi voices every channel with the .sf2 next to the .mid (or the one you pass) and imports pitch bends as pitch envelopes.";
 
+    /// <summary>What the organic instruments' knobs mean, for get_catalog (the device catalog lists only keys and ranges).</summary>
+    private const string OrganicInstrumentPrimer =
+        "Organic instruments (how hard a note is struck changes their timbre as well as their level): " +
+        "epiano (FM electric piano; tine = bell attack, bark = growl of hard strikes, decay = ring of a held C4 in ms, tremolo depth and rate Hz), " +
+        "organ (drawbar organ; drawbars sub 16'+5⅓', body 8', upper 4'+2⅔'+2', sparkle 1⅗'+1⅓'+1'; percussion, click, chorus and its rate Hz; " +
+        "house stabs: percussion 0.7+, sparkle 0.5, attack 1; pad: percussion 0, attack 300+), " +
+        "mallet (material 0 marimba, 0.33 kalimba, 0.67 vibraphone, 1 glass; hardness), " +
+        "flute (breath, overblow, vibrato and its rate Hz; pan flute: breath 0.7+, vibrato 0.1), " +
+        "guitar (nylon string; length = ring time in ms; chord notes strum low to high, strum ms apart; the string is damped when the note ends), " +
+        "conga (hand drum pitched by its note: \"x\" plays C4; G3 tumba, C4 conga, F4 quinto, C5 and up bongo; tone 0 muted, 0.5 open, 1 slap; bend = semitones the skin starts sharp), " +
+        "shaker (a drum: \"x\" only; accent with velocity, e.g. \"x@0.5 x@0.8 x@0.5 x\"). mallet and conga ring out whatever the note length.";
+
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
 
     private readonly ISlawMcpHost host;
@@ -162,6 +174,7 @@ internal sealed class SlawMcpToolset
             "List every instrument and audio effect with its parameter keys and ranges, plus the pattern step vocabulary.",
             Schema(new JsonObject()),
             (_, _, _) => Task.FromResult(PromptLibrary.DescribeDeviceCatalog() +
+                "\n" + OrganicInstrumentPrimer +
                 "\nPattern steps: \"x\" drum hit, \"C4\" note, \"A3+C4+E4\" chord, \".\" silence, \"_\" holds the previous step's note one more step, " +
                 "\"C4:8\" holds C4 for 8 steps by itself (the next steps may be \".\" or other notes, which sound on top; \"_\" only extends notes written without :length). " +
                 "Append \"@<velocity>\" (0..1, default 1) to a note or hit for dynamics: \"x@0.4\" ghost hit, \"C4:8@0.6+E4\" soft root under a full third. " +
@@ -178,7 +191,7 @@ internal sealed class SlawMcpToolset
                 "Outside the envelope's clip (and in clips without that envelope) the knob's own value applies. " +
                 "Arrangement clips: steps 0..clip length, counted from the clip's start, played once across the clip. Session clips: steps 0..pattern length, looping with the pattern. " +
                 "Targets: gain (the track's volume, absolute 0..1.5: it REPLACES the track's gain while the clip plays, it does not multiply it), pan (absolute -1..1, replaces the track's pan), " +
-                "pitch (semitones -24..24; oscillators bend in place, samples/plucks/drums bend tape-style), " +
+                "pitch (semitones -24..24; oscillators (sine, square, saw, triangle, noise) bend in place, every other instrument bends tape-style), " +
                 "fx.<effectIndex>.<param> (an effect parameter, continuous), inst.<param> (an instrument parameter, sampled as each note starts). Values use the catalog's units; plugin instruments follow inst.<param> continuously." +
                 "\nVST3 plugins: instrument \"vst3\" and effect type \"vst3\" host the user's installed plugins (see list_plugins). " +
                 "Pass plugin {path, classId} (or the plugin's name) to add_track / add_effect / apply_patch. Their parameters are keys \"p<id>\" " +
@@ -657,7 +670,7 @@ internal sealed class SlawMcpToolset
             "\"vst3\" with a plugin from list_plugins, or \"soundfont\" with a soundfont {path, bank, program} from describe_soundfont). Returns the new track id.",
             Schema(new JsonObject
             {
-                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, sampler, vst3."),
+                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, epiano, conga, sampler, vst3 (see get_catalog)."),
                 ["name"] = Property("string", "Optional track name."),
                 ["sample"] = Property("string", "WAV path for sampler tracks."),
                 ["plugin"] = AnyProperty("VST3 instrument for vst3 tracks: {\"path\": bundle path, \"classId\": 32 hex chars} from list_plugins, or the plugin's name."),
@@ -1466,7 +1479,7 @@ internal sealed class SlawMcpToolset
         {
             ["id"] = Property("string", "Existing track id, or \"new\" to add a track."),
             ["name"] = Property("string", "Track name; arrangement clips in the same patch may refer to it."),
-            ["instrument"] = Property("string", "kick, snare, hat, clap, sine, square, saw, triangle, pluck, noise, sampler or vst3 (see get_catalog)."),
+            ["instrument"] = Property("string", "kick, snare, hat, clap, shaker, sine, square, saw, triangle, pluck, noise, epiano, organ, mallet, flute, guitar, conga, sampler, soundfont or vst3 (see get_catalog)."),
             ["plugin"] = AnyProperty("VST3 instrument: its name or {path, classId} from list_plugins."),
             ["sample"] = Property("string", "WAV path for sampler tracks."),
             ["gain"] = Property("number", "0..1.5."),

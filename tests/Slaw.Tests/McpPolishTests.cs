@@ -190,6 +190,12 @@ public class McpPolishTests
         var (catalog, _) = await CallToolAsync(dispatcher, "get_catalog", new JsonObject());
         Assert.Contains("Built-in instrument levels at gain 1", catalog);
         Assert.Contains("kick ", catalog);
+        foreach (var organicInstrument in new[] { "epiano", "organ", "mallet", "flute", "guitar", "conga", "shaker" })
+        {
+            Assert.Contains($"- instrument \"{organicInstrument}\": ", catalog);
+            Assert.Matches($@"{organicInstrument} -\d+ dBFS \(start near gain [\d.]+\)", catalog);
+        }
+        Assert.Contains("conga (hand drum pitched by its note", catalog);
         Assert.Contains("bind to the single note they follow", catalog);
         Assert.Contains("the knob's own value applies", catalog);
     }
