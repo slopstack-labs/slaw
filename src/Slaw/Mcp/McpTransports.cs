@@ -156,7 +156,7 @@ internal sealed class McpHttpTransport : IDisposable
         }
     }
 
-    private static bool IsLocalOrigin(string? originHeader)
+    internal static bool IsLocalOrigin(string? originHeader)
     {
         if (string.IsNullOrEmpty(originHeader))
         {

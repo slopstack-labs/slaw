@@ -319,7 +319,7 @@ The `soundfont` instrument ("SoundFont Player") plays one preset of a SoundFont 
 
 **● Rec** records what you play into the selected clip:
 
-- **While playing:** notes land on the step you hear, latency-compensated and quantized to sixteenths. Takes overdub, and a held key writes sustains.
+- **While playing:** notes land on the step you hear, latency-compensated and quantized to sixteenths. Takes overdub, and a held key writes sustains. If the session is playing and the selected track is not, engaging ● Rec starts the selected clip on the next bar, creating it if the slot is empty.
 - **While stopped:** step input. Each note fills the next step, and notes struck together become a chord.
 - **Velocity:** each note keeps how hard you struck it.
 - **Undo:** a whole take is one undo step.
@@ -392,6 +392,14 @@ claude mcp add slaw -- slaw mcp /path/to/song.slaw
 Positions are sixteenth-note steps from 0 (16 per bar) wherever an argument says `start` or `length`, and 1-based bars wherever it says `bar`; listings print both. Velocity (`@0.7`) and length (`:8`) belong to the one note they follow, so a soft chord is `A3@0.7+C4@0.7+E4@0.7`; a chord with a suffix on its last note only gets a warning. A ratchet (`*N`, 2 to 8) is the one suffix that belongs to the whole step and goes at its very end: `x*4` strikes the step four times inside its sixteenth. Writing it on an inner chord note, on several notes, or above 8 gets a warning too. Outside an envelope's clip the knob's own value applies. `get_catalog` lists what each built-in instrument puts out at gain 1, with a suggested starting gain. The server's instructions teach agents all this before they touch anything, along with a worked example, because the alternative was watching them guess.
 
 Tracks protected with 🔒 are refused to every MCP client, too. The HTTP endpoint binds to 127.0.0.1 only and rejects requests whose `Origin` is not local, so a web page cannot quietly remix your song.
+
+### Deck control: Stream Deck and friends
+
+Your song now has a physical escalation path. **Settings → Controllers** shows what is connected, installs the plugins and explains every layout.
+
+- **Stream Deck:** turn on *Let deck plugins control the studio*. The plugins in [`integrations/`](integrations/README.md) then run the studio: *slaw Keys* brings transport keys, track switches and two ready-made XL profiles (a Launchpad-style clip grid, and note pads), and *slaw Dials* puts volume, pan, tempo and track selection on a Stream Deck +. Keys light up with the song, one dial gesture is one undo step, and a closed studio just reads `offline`. It listens on `ws://127.0.0.1:47116/surface`, is off by default, and refuses web pages from anywhere else. Other hardware can speak the same [protocol](integrations/README.md#protocol).
+- **Launchpad MK2 (Windows):** plug it in before opening the studio and close anything else using it, such as Ableton Live. **Session mode** launches clips and scenes, with arrows to page; **Notes mode** (User 1) turns the grid into note pads, with octave, track, Scale, Undo and scene controls. User 2 is Record and Mixer is Play. Other Launchpad models speak a different dialect, and Linux and macOS have no MIDI output yet.
+- **Recording melodies:** press Record and play the pads. They take the same path as a MIDI keyboard, so notes land on the playhead, quantized to sixteenths. Chromatic pads play sliced samples and drum kits in order, since slice 1 sits on C4. If the session is running, Record also starts the selected clip on the next bar, creating it if the slot is empty.
 
 ### Drag and drop
 
@@ -623,6 +631,8 @@ The toolbar has a master **AI** switch (also in Settings). With it off, slaw is 
 | AI | Provider, model, API key (with optional "remember"), base URL, Ollama endpoint, timeout, co-pilot on/off and interjection interval, Autopilot remediation cycles, and a **Test connection** button |
 | Samples | Sample folders: add, remove, rescan |
 | Audio | Output device with **Test output** (plays two notes through the selection, saved or not), live audio substrate, latency; recording tool, input device with **Test input** (a level meter that keeps nothing), input latency. Windows and Linux offer the device lists; on macOS slaw follows System Settings → Sound. If a chosen output is unplugged, slaw plays through the system default and says so; if a chosen input on Windows is unplugged, the take is refused. On Windows, latency sets waveOut's real queue and starts at 48 ms, the lowest value that held up when measured |
+| Controllers | What is connected right now, **Deck control** (on/off and port, 47116 by default; the plugins expect 47116), install buttons for the Stream Deck plugins, **Launchpad MK2** on/off, every layout explained |
+| Integrations | MIDI input on/off, the MCP server (on/off and port) |
 | About | Provenance |
 
 Settings persist in the per-user config folder (`~/.config/slaw/settings.json` on Linux). CLI flags override them for one session.

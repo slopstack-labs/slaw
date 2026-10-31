@@ -1,0 +1,21 @@
+{
+  "name": "slaw-integrations",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Deck plugins for the slaw studio. Not part of the .NET build.",
+  "scripts": {
+    "test": "node --test \"shared/test/*.test.js\"",
+    "build": "node scripts/build.mjs",
+    "validate": "node scripts/build.mjs --validate",
+    "pack": "node scripts/build.mjs --pack"
+  },
+  "dependencies": {
+    "@elgato/streamdeck": "3.0.4",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@elgato/cli": "1.10.4",
+    "esbuild": "^0.25.0"
+  }
+}
