@@ -278,6 +278,7 @@ internal sealed class SoundImportWindow : Window
         };
         var detail = row.Failure is not null
             ? "can't read"
+            : row.Rack is { Zones.Count: 0 } ? "synth"
             : row.Rack is { } rack ? rack.MissingFiles.Count > 0 ? $"{rack.Zones.Count} sounds, {rack.MissingFiles.Count} missing" : $"{rack.Zones.Count} sounds"
             : row.Seconds is { } seconds ? string.Create(CultureInfo.InvariantCulture, $"{seconds:0.00} s") : "…";
         var detailForeground = row.Failure is not null ? StudioTheme.Failure : row.Rack is { MissingFiles.Count: > 0 } ? StudioTheme.Warning : StudioTheme.TextMuted;
@@ -285,7 +286,7 @@ internal sealed class SoundImportWindow : Window
         var keyCaption = new TextBlock { Text = row.KitKey ?? string.Empty, FontFamily = StudioTheme.MonospaceFont, FontSize = 11, Foreground = StudioTheme.Accent, VerticalAlignment = VerticalAlignment.Center, Width = 34, TextAlignment = TextAlignment.Right };
 
         Control rightSlot = keyCaption;
-        if (row.Rack is { } mappedRack)
+        if (row.Rack is { Zones.Count: > 0 } mappedRack)
         {
             rightSlot = new SampleZoneMapControl { Width = 110, Height = 24, Zones = mappedRack.Zones, VerticalAlignment = VerticalAlignment.Center };
             ToolTip.SetTip(rightSlot, "Keys left to right, velocity bottom to top. Brighter blocks are layers.");
@@ -544,7 +545,8 @@ internal sealed class SoundImportWindow : Window
     private string DescribeIncludedPresets()
     {
         var racks = ModeRows().Where(row => row.Included && row.Rack is not null).Select(row => row.Rack!).ToList();
-        var description = $"{racks.Count} new track{(racks.Count == 1 ? string.Empty : "s")} with {racks.Sum(rack => rack.Zones.Count)} recordings.";
+        var recordingCount = racks.Sum(rack => rack.Zones.Count);
+        var description = $"{racks.Count} new track{(racks.Count == 1 ? string.Empty : "s")}{(recordingCount > 0 ? $" with {recordingCount} recordings" : string.Empty)}.";
         var missing = racks.Sum(rack => rack.MissingFiles.Count);
         if (missing > 0)
         {
@@ -594,9 +596,11 @@ internal sealed class SoundImportWindow : Window
 
         public ImportedRack? Rack { get; set; }
 
-        /// <summary>What ▶ plays: the file, or the recording a preset plays around middle C, its first if nothing is there.</summary>
+        /// <summary>What ▶ plays: the file, the recording a preset plays around middle C (its first if nothing is there), or a synth preset's own note.</summary>
         public string PreviewPath =>
-            Rack is null ? Path : (Rack.Zones.FirstOrDefault(zone => zone.KeyLow <= 60 && zone.KeyHigh >= 60) ?? Rack.Zones[0]).Sample;
+            Rack is null ? Path
+            : Rack.Zones.Count == 0 ? AbletonRackImporter.WriteSynthPreview(Rack)
+            : (Rack.Zones.FirstOrDefault(zone => zone.KeyLow <= 60 && zone.KeyHigh >= 60) ?? Rack.Zones[0]).Sample;
 
         public double? Seconds { get; set; }
 

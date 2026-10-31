@@ -440,9 +440,9 @@ public class MultisamplerTests
         var folder = Directory.CreateTempSubdirectory("slaw-adg-").FullName;
         try
         {
-            var branch = """<InstrumentBranchPreset><DevicePresets><AbletonDevicePreset><Device><Operator Id="0" /></Device></AbletonDevicePreset></DevicePresets></InstrumentBranchPreset>""";
+            var branch = """<InstrumentBranchPreset><DevicePresets><AbletonDevicePreset><Device><InstrumentVector Id="0" /></Device></AbletonDevicePreset></DevicePresets></InstrumentBranchPreset>""";
             var synthOnly = Assert.Throws<InvalidDataException>(() => AbletonRackImporter.Read(WritePreset(folder, "Synth.adg", Rack("InstrumentGroupDevice", branch))));
-            Assert.Contains("Operator", synthOnly.Message);
+            Assert.Contains("Wavetable", synthOnly.Message);
 
             var notAPreset = Path.Combine(folder, "Fake.adg");
             File.WriteAllText(notAPreset, "this is not xml");

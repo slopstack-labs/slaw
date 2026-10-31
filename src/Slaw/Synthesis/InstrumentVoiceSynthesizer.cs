@@ -16,7 +16,7 @@ internal static partial class InstrumentVoiceSynthesizer
     public static readonly IReadOnlyList<string> SupportedInstruments = new[]
     {
         "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise",
-        "epiano", "organ", "mallet", "flute", "guitar", "conga", "shaker",
+        "epiano", "organ", "mallet", "flute", "guitar", "conga", "shaker", OperatorPatch.InstrumentName,
         "sampler", "multisampler", "soundfont",
     };
 
@@ -98,6 +98,10 @@ internal static partial class InstrumentVoiceSynthesizer
                 "shaker" => RenderShaker(sampleRate, noiseEntropySource, pitchScale, decayScale, noteVelocity),
                 _ => RenderClap(sampleRate, noiseEntropySource, decayScale),
             };
+        }
+        else if (instrumentName == OperatorPatch.InstrumentName)
+        {
+            renderedVoice = RenderOperatorChord(midiNotes, gateDurationSeconds, sampleRate, noiseEntropySource, Parameter);
         }
         else if (OrganicMelodicInstruments.Contains(instrumentName))
         {
