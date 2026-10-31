@@ -11,7 +11,7 @@ import { KEY_KINDS } from "../shared/keypad-logic.js";
 import { composeLaunchpadLayout, composePadsLayout, renderProfile } from "./launchpad-profile.mjs";
 
 const integrationsRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const pluginVersion = "0.2.0.0";
+const pluginVersion = "0.2.1.0";
 
 const KEY_ACTION_DETAILS = {
     "play-stop": ["Play / Stop", "Starts or stops whichever view is showing. Lights up while playing."],
@@ -60,7 +60,7 @@ const baseManifest = {
         { Platform: "mac", MinimumVersion: "12" },
     ],
     SDKVersion: 2,
-    Software: { MinimumVersion: "6.4" },
+    Software: { MinimumVersion: "6.5" },
     Version: pluginVersion,
 };
 

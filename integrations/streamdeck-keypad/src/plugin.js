@@ -1,4 +1,4 @@
-import streamDeck, { SingletonAction } from "@elgato/streamdeck";
+import streamDeck, { DeviceType, SingletonAction } from "@elgato/streamdeck";
 import WebSocket from "ws";
 import { renderKeyFace } from "../../shared/key-face.js";
 import { createNotePadState, KEY_KINDS, OFFLINE_FACE } from "../../shared/keypad-logic.js";
@@ -124,4 +124,20 @@ setInterval(() => {
 surface.start();
 // No action stores settings, and the newer behaviour would refuse to start on Stream Deck before 7.1.
 streamDeck.settings.useLegacySettingsBehavior = true;
+
+// streamdeck://plugins/message/<uuid>/open-pads puts the deck on a profile from outside the deck, and makes
+// the app offer to install a profile an upgrade did not bring. Only the XL has these profiles so far.
+const DEEP_LINK_PROFILES = { "open-pads": "profiles/slaw Pads XL", "open-launchpad": "profiles/slaw Launchpad XL" };
+streamDeck.system.onDidReceiveDeepLink((event) => {
+    const profile = DEEP_LINK_PROFILES[event.url.path.replace(/^\/+|\/+$/g, "")];
+    if (!profile) {
+        streamDeck.logger.warn(`unknown deep link: ${event.url.path}`);
+        return;
+    }
+    streamDeck.devices.forEach((device) => {
+        if (device.type === DeviceType.StreamDeckXL) {
+            streamDeck.profiles.switchToProfile(device.id, profile);
+        }
+    });
+});
 streamDeck.connect();

@@ -143,6 +143,19 @@ internal sealed partial class StudioWindow
         SetStatus(StatusSeverity.Success, $"handed {deckPlugin.DisplayName} to the Stream Deck app");
     }
 
+    /// <summary>Asks the slaw Keys plugin, through the Stream Deck app, to put an XL on one of its profiles.</summary>
+    private void OpenDeckProfile(string deepLinkMessage)
+    {
+        var keysPlugin = ControllerDirectory.DeckPlugins[0];
+        if (!ControllerDirectory.IsPluginInstalled(keysPlugin, ControllerDirectory.StreamDeckPluginsFolder()))
+        {
+            SetStatus(StatusSeverity.Warning, $"{keysPlugin.DisplayName} is not installed. Settings → Controllers has the button");
+            return;
+        }
+        Process.Start(new ProcessStartInfo($"streamdeck://plugins/message/{keysPlugin.Identifier}/{deepLinkMessage}") { UseShellExecute = true });
+        SetStatus(StatusSeverity.Success, "asked the Stream Deck to change profile");
+    }
+
     private ControllerSnapshot DescribeControllers() => new(
         controlSurfaceServer is not null,
         controlSurfaceServer?.Port ?? preferences.ControlSurfacePort,
