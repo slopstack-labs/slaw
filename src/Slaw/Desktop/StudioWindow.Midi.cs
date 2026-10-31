@@ -68,9 +68,8 @@ internal sealed partial class StudioWindow
             else
             {
                 stepInputTarget = (-1, -1);
-                SetStatus(StatusSeverity.Informational, midiInputSource is null
-                    ? "record armed — but no MIDI input is running (Settings → Integrations)"
-                    : "record armed: play to record into the selected clip (step input while stopped)");
+                JoinTheSongForRecording();
+                SetStatus(StatusSeverity.Informational, "record armed: play to record into the selected clip (step input while stopped)");
             }
         };
         midiActivityTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) =>
@@ -142,10 +141,37 @@ internal sealed partial class StudioWindow
             $"\nPlays the selected track. Mod wheel → filter, CC7 → volume, CC10 → pan.{portHint}");
     }
 
+    /// <summary>
+    /// Arming record while the session plays starts the selected clip on the next bar, creating it
+    /// if the slot is empty, so a melody over a running beat lands on the beat, not in step input.
+    /// An armed audio track is left to its own take.
+    /// </summary>
+    private void JoinTheSongForRecording()
+    {
+        var transportSnapshot = liveAudioSession.Engine.Transport;
+        if (transportSnapshot.Mode != TransportMode.Session || recordArmedTrackId is not null || document.SelectedTrack is not { } targetTrack ||
+            document.Project.Scenes.Count == 0 ||
+            transportSnapshot.Tracks.TryGetValue(targetTrack.Id, out var trackState) && trackState.PlayingScene is not null)
+        {
+            return;
+        }
+        if (targetTrack.ClipAt(document.SelectedSceneIndex) is null)
+        {
+            document.CreateClip(document.SelectedTrackIndex, document.SelectedSceneIndex);
+        }
+        LaunchClip(document.SelectedTrackIndex, document.SelectedSceneIndex);
+    }
+
     // ── Message handling ──────────────────────────────────────────────────────
 
     private void HandleMidiMessage(MidiMessage midiMessage)
     {
+        // A Launchpad's notes are button presses, not music, until it says otherwise.
+        if (launchpadSurface is not null && Surfaces.LaunchpadSurface.IsLaunchpadPort(midiMessage.SourceName))
+        {
+            launchpadSurface.HandleMessage(midiMessage);
+            return;
+        }
         midiStatusText.Foreground = StudioTheme.Playhead;
         midiActivityTimer?.Stop();
         midiActivityTimer?.Start();
@@ -229,6 +255,7 @@ internal sealed partial class StudioWindow
             ? trackState.PlayingScene
             : null;
         var sceneIndex = playingScene ?? document.SelectedSceneIndex;
+        var waitingForTheBar = transportSnapshot.Tracks.TryGetValue(targetTrack.Id, out var queuedTrackState) && queuedTrackState.QueuedScene == sceneIndex;
         var percussive = InstrumentVoiceSynthesizer.IsPercussive(targetTrack.Instrument);
 
         OpenRecordingTake($"record into {targetTrack.Name}");
@@ -241,7 +268,14 @@ internal sealed partial class StudioWindow
         int targetStep;
         double startPosition;
         bool appendsToChord;
-        if (AudiblePlayheadPosition(targetTrack, targetClip) is { } audiblePosition)
+        if (playingScene is null && waitingForTheBar)
+        {
+            // The clip starts on the next bar, so a note played just ahead of it is its downbeat.
+            targetStep = 0;
+            startPosition = 0;
+            appendsToChord = true;
+        }
+        else if (AudiblePlayheadPosition(targetTrack, targetClip) is { } audiblePosition)
         {
             targetStep = (int)Math.Round(audiblePosition) % targetClip.Pattern.Count;
             startPosition = audiblePosition;
