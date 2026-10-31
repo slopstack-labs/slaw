@@ -106,15 +106,15 @@ public class ControlSurfaceTests
     }
 
     [Fact]
-    public void A_surface_leaving_is_reported_so_its_notes_can_be_released()
+    public async Task A_surface_leaving_is_reported_so_its_notes_can_be_released()
     {
         var departures = new TaskCompletionSource();
         using var surfaceServer = new ControlSurfaceServer(0, "{}", _ => Task.FromResult<string?>(null), () => departures.TrySetResult());
         surfaceServer.Start();
-        var clientSocket = ConnectAsync(surfaceServer).GetAwaiter().GetResult();
+        var clientSocket = await ConnectAsync(surfaceServer);
         clientSocket.Abort();
         clientSocket.Dispose();
-        Assert.True(departures.Task.Wait(TimeSpan.FromSeconds(10)));
+        await departures.Task.WaitAsync(TimeSpan.FromSeconds(10));
     }
 
     [Fact]
