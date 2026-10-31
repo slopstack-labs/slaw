@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using System.Diagnostics;
+
 namespace SlopstackLabs.Slaw.Surfaces;
 
 /// <summary>One line of the Settings → Controllers status list.</summary>
@@ -17,13 +20,32 @@ internal static class ControllerDirectory
 {
     public static readonly IReadOnlyList<DeckPluginEntry> DeckPlugins = new[]
     {
-        new DeckPluginEntry("slaw Keys", "com.slopstacklabs.slaw-keypad", "Launchpad and Pads profiles for the XL, plus keys for any Stream Deck"),
+        new DeckPluginEntry("slaw Keys", "com.slopstacklabs.slaw-keypad", "Grid, Pads, Mixer and Desk setups for the XL, plus keys for any Stream Deck"),
         new DeckPluginEntry("slaw Dials", "com.slopstacklabs.slaw-plus", "Volume, pan, tempo and track selection on Stream Deck + dials"),
     };
 
     private const int MaximumParentFoldersSearched = 6;
 
-    /// <summary>Looks beside the app, then up the folders a source checkout would have: integrations/dist is where npm run pack writes.</summary>
+    /// <summary>
+    /// Hands a file or link to whichever app owns it. On a machine without that app, such as one
+    /// with no Stream Deck software, this says so and returns false; it must never throw.
+    /// </summary>
+    public static bool TryOpenInOwningApp(string fileOrLink, out string? failureReason)
+    {
+        try
+        {
+            using var startedProcess = Process.Start(new ProcessStartInfo(fileOrLink) { UseShellExecute = true });
+            failureReason = null;
+            return true;
+        }
+        catch (Exception openRemediationOpportunity) when (openRemediationOpportunity is Win32Exception or FileNotFoundException or InvalidOperationException or PlatformNotSupportedException)
+        {
+            failureReason = openRemediationOpportunity.Message;
+            return false;
+        }
+    }
+
+    /// <summary>Looks beside the app, where the Windows installer puts them, then up the folders a source checkout would have: integrations/dist is where npm run pack writes.</summary>
     public static string? FindPluginPackage(DeckPluginEntry plugin, string? startFolder = null)
     {
         var searchFolder = new DirectoryInfo(startFolder ?? AppContext.BaseDirectory);

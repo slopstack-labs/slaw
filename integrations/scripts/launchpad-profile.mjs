@@ -1,4 +1,4 @@
-// Generates the bundled Launchpad and Pads profiles, so nobody has to drag 32 keys into place.
+// Generates the bundled setups (Launchpad, Pads, Mixer, Desk), so nobody has to drag 32 keys into place.
 import { createHash } from "node:crypto";
 import { deflateRawSync } from "node:zlib";
 
@@ -20,7 +20,7 @@ export function composeLaunchpadLayout({ columns, rows }) {
         }
         layout[`${columns - 1},${row}`] = "scene-launch";
     }
-    placeRow(layout, rows - 1, ["play-stop", "record", "open-pads", "back-to-arrangement", "page-left", "page-right", "page-up", "page-down"], columns);
+    placeRow(layout, rows - 1, ["play-stop", "record", "open-pads", "back-to-arrangement", "page-left", "page-right", "page-scenes", "open-desk"], columns);
     return layout;
 }
 
@@ -37,6 +37,24 @@ export function composePadsLayout({ columns, rows }) {
         }
     }
     placeRow(layout, rows - 1, ["play-stop", "record", "undo", "track-previous", "track-next", "scene-previous", "scene-next", "open-launchpad"], columns);
+    return layout;
+}
+
+/** A row each of Mute, Solo and Stop, one column per track, with transport and the other setups below. */
+export function composeMixerLayout({ columns, rows }) {
+    const layout = {};
+    ["track-mute", "track-solo", "track-stop"].forEach((kind, row) => placeRow(layout, row, Array(columns).fill(kind), columns));
+    placeRow(layout, rows - 1, ["play-stop", "record", "undo", "page-left", "page-right", "open-launchpad", "open-pads", "open-desk"], columns);
+    return layout;
+}
+
+/** The studio's everyday commands, for working at the computer with the deck beside the keyboard. */
+export function composeDeskLayout({ columns, rows }) {
+    const layout = {};
+    placeRow(layout, 0, ["play-stop", "record", "back-to-arrangement", "switch-view", "undo", "redo", "save", "bounce"], columns);
+    placeRow(layout, 1, ["add-track", "add-scene", "create-clip", "duplicate-clip", "copy-clip", "paste-clip", "delete-clip", "command-palette"], columns);
+    placeRow(layout, 2, ["track-previous", "track-next", "scene-previous", "scene-next", "launch-selected-clip", "launch-selected-scene"], columns);
+    placeRow(layout, rows - 1, ["open-launchpad", "open-pads", "open-mixer"], columns);
     return layout;
 }
 

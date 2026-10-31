@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -33,6 +32,7 @@ internal sealed partial class SettingsWindow
         RefreshControllerStatus();
 
         var tabPanel = new StackPanel { Spacing = 10 };
+        tabPanel.Children.Add(ControllerCaption("All optional. The studio works the same with none of this connected."));
         tabPanel.Children.Add(StudioUi.SectionHeading("Status"));
         tabPanel.Children.Add(controllerStatusPanel);
         tabPanel.Children.Add(StudioUi.Button("⟳ Refresh", RefreshControllerStatus));
@@ -45,8 +45,11 @@ internal sealed partial class SettingsWindow
         {
             tabPanel.Children.Add(ComposeDeckPluginRow(deckPlugin));
         }
-        tabPanel.Children.Add(ControllerCaption("Launchpad XL profile: clips on the top three rows, scene launches down the right edge, and Play, Record, Pads, Back to Arrangement and paging along the bottom."));
-        tabPanel.Children.Add(ControllerCaption("Pads XL profile: 21 pads rising from the bottom left, Octave and Scale down the right edge, and Play, Record, Undo, track and scene selection along the bottom."));
+        tabPanel.Children.Add(ControllerCaption("Ready-made XL setups come with slaw Keys. Change setup with their keys, the Stream Deck app's profile list, or the command palette."));
+        tabPanel.Children.Add(ControllerCaption("Launchpad: clips on the top three rows, scene launches down the right edge, and Play, Record, Pads, Back to Arrangement, paging and Desk along the bottom."));
+        tabPanel.Children.Add(ControllerCaption("Pads: 21 pads rising from the bottom left, Octave and Scale down the right edge, and Play, Record, Undo, track and scene selection and Grid along the bottom."));
+        tabPanel.Children.Add(ControllerCaption("Mixer: a row each of Mute, Solo and Stop, one column per track, with Play, Record, Undo, paging and the other setups along the bottom."));
+        tabPanel.Children.Add(ControllerCaption("Desk: transport and Save, then track, scene and clip editing, then selection and launching, with the other setups along the bottom."));
 
         tabPanel.Children.Add(StudioUi.SectionHeading("Launchpad MK2"));
         tabPanel.Children.Add(ControllerCaption(MidiOutputFactory.IsSupported
@@ -68,18 +71,18 @@ internal sealed partial class SettingsWindow
     private Control ComposeDeckPluginRow(DeckPluginEntry deckPlugin)
     {
         var packagePath = ControllerDirectory.FindPluginPackage(deckPlugin);
+        var summaryCaption = (TextBlock)ControllerCaption(packagePath is null
+            ? $"{deckPlugin.Summary}. Not on this computer: tick Stream Deck plugins in the installer, or run npm install and npm run pack in integrations/."
+            : deckPlugin.Summary);
         var installButton = StudioUi.Button($"Install {deckPlugin.DisplayName}", () =>
         {
-            if (packagePath is not null)
+            // The Stream Deck app owns this file type and does the installing.
+            if (packagePath is not null && !ControllerDirectory.TryOpenInOwningApp(packagePath, out var openFailure))
             {
-                // The Stream Deck app owns this file type and does the installing.
-                Process.Start(new ProcessStartInfo(packagePath) { UseShellExecute = true });
+                summaryCaption.Text = $"Could not open the plugin. Is the Stream Deck app installed? {openFailure}";
             }
         });
         installButton.IsEnabled = packagePath is not null;
-        var summaryCaption = ControllerCaption(packagePath is null
-            ? $"{deckPlugin.Summary}. Not packaged yet: run npm install and npm run pack in integrations/."
-            : deckPlugin.Summary);
         return new StackPanel { Spacing = 4, Children = { installButton, summaryCaption } };
     }
 

@@ -7,9 +7,11 @@ Each deck family gets its own plugin, because a dial is not a key and neither is
 | `streamdeck-keypad` (*slaw Keys*) | Stream Deck Mini, Neo, MK.2, XL, Pedal, and the keys on a + | Play/Stop, Record, Undo, Redo, Save, Session/Arrangement, Back to Arrangement, Clip Slot, Scene Launch, Track Mute, Track Solo, grid paging, Note Pad, Octave, Scale, track and scene selection |
 | `streamdeck-plus` (*slaw Dials*) | Stream Deck + dials and touch strip | Track Volume (push: mute), Track Pan (push: centre), Tempo (push: play/stop), Master Volume (push: undo), Select Track (push: launch the selected clip) |
 
-The Launchpad MK2 needs no plugin: it is built into the studio (`src/Slaw/Surfaces/LaunchpadSurface.cs`), because MIDI needs no helper app. Settings → Controllers shows what is connected and installs these plugins. Ajazz/Mirabox, Loupedeck and Push support are not written yet.
+The Launchpad MK2 needs no plugin: it is built into the studio (`src/Slaw/Surfaces/LaunchpadSurface.cs`), because MIDI needs no helper app. Settings → Controllers shows what is connected and installs these plugins. Ajazz/Mirabox, Loupedeck and Push support are not written yet. All of this is optional: the studio works the same with no controller, no Stream Deck app and deck control off, which is the default.
 
 ## Install
+
+The Windows installer can carry both plugins (its *Stream Deck plugins* option), so **Settings → Controllers** can install them directly. From a source checkout, or on another OS, package them first:
 
 ```sh
 cd integrations
@@ -19,11 +21,18 @@ npm run pack      # writes dist/*.streamDeckPlugin; open one to install it
 
 Then turn on **Settings → Controllers → Let deck plugins control the studio** (or *Controllers: Turn On Deck Control* in the command palette), and drag actions from the *slaw Keys* category onto your deck. Keys say `offline` until the studio is open with deck control on.
 
-**Launchpad layout (XL).** Installing *slaw Keys* adds a ready-made **slaw Launchpad XL** profile, so nothing needs dragging: 21 clip keys (7 tracks by 3 scenes), scene launches down the right edge, and a bottom row of Play, Record, Pads, Back to Arrangement and four paging keys.
+**Ready-made setups (XL).** Installing *slaw Keys* adds four profiles, so nothing needs dragging. Change setup with their keys, the Stream Deck app's profile list, or the command palette.
+
+| Setup | Top rows | Bottom row |
+|---|---|---|
+| **slaw Launchpad XL** | 21 clip keys (7 tracks by 3 scenes), scene launches down the right edge | Play, Record, Pads, Back to Arrangement, ◀ ▶ tracks, Scenes, Desk |
+| **slaw Pads XL** | 21 note pads, Octave and Scale down the right edge | Play, Record, Undo, track ◀ ▶, scene ▲ ▼, Grid |
+| **slaw Mixer XL** | Mute, Solo and Stop rows, one column per track | Play, Record, Undo, ◀ ▶ tracks, Grid, Pads, Desk |
+| **slaw Desk XL** | Transport and Save; track, scene and clip editing; selection and launching | Grid, Pads, Mixer |
 
 **Pads layout (XL).** The Pads key opens **slaw Pads XL**: 21 pads rising from the bottom left and starting on C4, Octave and Scale down the right edge, and Play, Record, Undo, track and scene selection and Grid along the bottom. Chromatic plays sliced samples and drum kits in order, since slice 1 sits on C4, while major and minor keep a melody in key.
 
-**Opening a profile from outside the deck.** `streamdeck://plugins/message/com.slopstacklabs.slaw-keypad/open-pads` (or `open-launchpad`) switches an XL to that profile, and the app offers to install the profile if it is missing. This is also the way in after upgrading from a build whose Launchpad profile has no Pads key. The command palette's *Controllers: Open Sample Pads on Stream Deck* sends it.
+**Opening a profile from outside the deck.** `streamdeck://plugins/message/com.slopstacklabs.slaw-keypad/open-pads` (or `open-launchpad`, `open-mixer`, `open-desk`) switches an XL to that profile, and the app offers to install the profile if it is missing. This is also the way in after upgrading from a build whose Launchpad profile has no Pads key. The command palette's *Controllers: Open … on Stream Deck* entries send it.
 
 **Recording.** Press Record and play. Pads take the same path as a MIDI keyboard: notes land on the playhead, quantized to sixteenths, and a take undoes in one step. If the session is running, the selected clip starts on the next bar and is created if the slot is empty. While stopped, each note fills the next step. Stream Deck keys have no velocity, so notes play at velocity 100.
 

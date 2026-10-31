@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { DIAL_KINDS } from "../dial-logic.js";
 import { renderKeyFace, PALETTE } from "../key-face.js";
 import { createNotePadState, describeNote, KEY_KINDS, noteForPad } from "../keypad-logic.js";
-import { composeLaunchpadLayout, composePadsLayout } from "../../scripts/launchpad-profile.mjs";
+import { composeDeskLayout, composeLaunchpadLayout, composeMixerLayout, composePadsLayout } from "../../scripts/launchpad-profile.mjs";
 
 const state = {
     playing: true,
@@ -89,7 +89,8 @@ test("the XL Launchpad fills every key: a clip grid, a scene column and a contro
     }
     assert.equal(layout["0,3"], "play-stop");
     assert.equal(layout["2,3"], "open-pads");
-    assert.equal(layout["7,3"], "page-down");
+    assert.equal(layout["6,3"], "page-scenes");
+    assert.equal(layout["7,3"], "open-desk");
     for (const kind of Object.values(layout)) {
         assert.ok(KEY_KINDS[kind], kind);
     }
@@ -160,6 +161,57 @@ test("the XL Pads profile has every key, and the two profiles lead to each other
     }
     assert.equal(KEY_KINDS[layout["7,3"]].opensProfile, "profiles/slaw Launchpad XL");
     assert.equal(KEY_KINDS[composeLaunchpadLayout(xl)["2,3"]].opensProfile, "profiles/slaw Pads XL");
+});
+
+test("the Mixer setup gives each track a Mute, Solo and Stop key", () => {
+    const layout = composeMixerLayout(xl);
+    assert.equal(Object.keys(layout).length, 32);
+    assert.equal(layout["0,0"], "track-mute");
+    assert.equal(layout["7,1"], "track-solo");
+    assert.equal(layout["3,2"], "track-stop");
+    assert.deepEqual(KEY_KINDS["track-stop"].press({ state, coordinates: { column: 1, row: 2 }, page: noPage() }), { type: "stop_track", track: 1 });
+    assert.equal(KEY_KINDS["track-stop"].press({ state, coordinates: { column: 7, row: 2 }, page: noPage() }), null);
+    assert.equal(KEY_KINDS["track-stop"].view({ state, coordinates: { column: 0, row: 2 }, page: noPage() }).fill, PALETTE.playing);
+});
+
+test("every setup uses real key kinds, every command key names a real studio command, and any setup reaches any other", () => {
+    const setups = {
+        "slaw Launchpad XL": composeLaunchpadLayout(xl),
+        "slaw Pads XL": composePadsLayout(xl),
+        "slaw Mixer XL": composeMixerLayout(xl),
+        "slaw Desk XL": composeDeskLayout(xl),
+    };
+    const reachableFrom = {};
+    for (const [name, layout] of Object.entries(setups)) {
+        for (const kind of Object.values(layout)) {
+            assert.ok(KEY_KINDS[kind], `${name}: ${kind}`);
+        }
+        reachableFrom[name] = Object.values(layout).map((kind) => KEY_KINDS[kind].opensProfile?.replace("profiles/", "")).filter(Boolean);
+        for (const target of reachableFrom[name]) {
+            assert.ok(setups[target], `${name} opens ${target}`);
+        }
+    }
+    for (const start of Object.keys(setups)) {
+        const seen = new Set([start]);
+        const queue = [start];
+        while (queue.length > 0) {
+            for (const next of reachableFrom[queue.pop()]) {
+                if (!seen.has(next)) {
+                    seen.add(next);
+                    queue.push(next);
+                }
+            }
+        }
+        assert.equal(seen.size, 4, start);
+    }
+});
+
+test("the scenes key wraps round to the first scene", () => {
+    const page = noPage();
+    KEY_KINDS["page-scenes"].press({ state, page });
+    assert.equal(page.row, 1);
+    KEY_KINDS["page-scenes"].press({ state, page });
+    assert.equal(page.row, 0);
 });
 
 test("switches ask for the opposite of what the track is doing", () => {

@@ -222,6 +222,47 @@ export const KEY_KINDS = Object.freeze({
         view: ({ state }) => ({ glyph: "▼", label: "Scene", sublabel: state.scenes[state.selectedScene] ?? "" }),
         press: () => ({ type: "command", command: "SelectNextScene" }),
     },
+    "add-track": commandKey("AddTrack", "＋", "Track"),
+    "add-scene": commandKey("AddScene", "＋", "Scene"),
+    "create-clip": commandKey("CreateClip", "＋", "Clip"),
+    "duplicate-clip": commandKey("DuplicateClip", "⧉", "Duplicate"),
+    "copy-clip": commandKey("CopyClip", "⎘", "Copy"),
+    "paste-clip": commandKey("PasteClip", "⎗", "Paste"),
+    "delete-clip": commandKey("DeleteClip", "✕", "Delete"),
+    "launch-selected-clip": commandKey("LaunchSelection", "▶", "Clip"),
+    "launch-selected-scene": commandKey("LaunchSelectedScene", "▶", "Scene"),
+    "command-palette": commandKey("ShowCommandPalette", "⌘", "Palette"),
+    bounce: commandKey("Bounce", "⤓", "Bounce"),
+    "track-stop": {
+        view: (context) => {
+            const { track } = trackAt(context);
+            return track
+                ? { glyph: "■", label: track.name, fill: track.slots.includes("playing") ? PALETTE.playing : PALETTE.idle }
+                : { foreground: PALETTE.dim };
+        },
+        press: (context) => {
+            const { trackIndex, track } = trackAt(context);
+            return track ? { type: "stop_track", track: trackIndex } : null;
+        },
+    },
+    "page-scenes": {
+        view: ({ state, page }) => ({ glyph: "▼", label: "Scenes", sublabel: state.scenes[page.row] ?? "", foreground: PALETTE.dim }),
+        // One key for both directions: it wraps round to the first scene.
+        press: ({ state, page }) => {
+            page.row = state.scenes.length > 0 ? (page.row + 1) % state.scenes.length : 0;
+            return null;
+        },
+    },
+    "open-mixer": {
+        view: () => ({ glyph: "⣿", label: "Mixer", fill: PALETTE.solo }),
+        press: () => null,
+        opensProfile: "profiles/slaw Mixer XL",
+    },
+    "open-desk": {
+        view: () => ({ glyph: "⣿", label: "Desk", fill: PALETTE.solo }),
+        press: () => null,
+        opensProfile: "profiles/slaw Desk XL",
+    },
     "open-pads": {
         view: () => ({ glyph: "⣿", label: "Pads", fill: PALETTE.solo }),
         press: () => null,

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Avalonia.Threading;
 using SlopstackLabs.Slaw.Playback;
 using SlopstackLabs.Slaw.Surfaces;
@@ -139,8 +138,10 @@ internal sealed partial class StudioWindow
             return;
         }
         // The Stream Deck app owns this file type and does the installing.
-        Process.Start(new ProcessStartInfo(packagePath) { UseShellExecute = true });
-        SetStatus(StatusSeverity.Success, $"handed {deckPlugin.DisplayName} to the Stream Deck app");
+        SetStatus(ControllerDirectory.TryOpenInOwningApp(packagePath, out var openFailure)
+                ? StatusSeverity.Success
+                : StatusSeverity.Warning,
+            openFailure is null ? $"handed {deckPlugin.DisplayName} to the Stream Deck app" : $"could not open {deckPlugin.DisplayName}; is the Stream Deck app installed? {openFailure}");
     }
 
     /// <summary>Asks the slaw Keys plugin, through the Stream Deck app, to put an XL on one of its profiles.</summary>
@@ -152,8 +153,10 @@ internal sealed partial class StudioWindow
             SetStatus(StatusSeverity.Warning, $"{keysPlugin.DisplayName} is not installed. Settings → Controllers has the button");
             return;
         }
-        Process.Start(new ProcessStartInfo($"streamdeck://plugins/message/{keysPlugin.Identifier}/{deepLinkMessage}") { UseShellExecute = true });
-        SetStatus(StatusSeverity.Success, "asked the Stream Deck to change profile");
+        SetStatus(ControllerDirectory.TryOpenInOwningApp($"streamdeck://plugins/message/{keysPlugin.Identifier}/{deepLinkMessage}", out var openFailure)
+                ? StatusSeverity.Success
+                : StatusSeverity.Warning,
+            openFailure is null ? "asked the Stream Deck to change setup" : $"could not reach the Stream Deck app: {openFailure}");
     }
 
     private ControllerSnapshot DescribeControllers() => new(

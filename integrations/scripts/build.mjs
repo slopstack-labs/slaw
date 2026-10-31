@@ -8,10 +8,10 @@ import { deflateSync } from "node:zlib";
 import { build } from "esbuild";
 import { DIAL_KINDS } from "../shared/dial-logic.js";
 import { KEY_KINDS } from "../shared/keypad-logic.js";
-import { composeLaunchpadLayout, composePadsLayout, renderProfile } from "./launchpad-profile.mjs";
+import { composeDeskLayout, composeLaunchpadLayout, composeMixerLayout, composePadsLayout, renderProfile } from "./launchpad-profile.mjs";
 
 const integrationsRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const pluginVersion = "0.2.1.0";
+const pluginVersion = "0.3.0.0";
 
 const KEY_ACTION_DETAILS = {
     "play-stop": ["Play / Stop", "Starts or stops whichever view is showing. Lights up while playing."],
@@ -33,6 +33,21 @@ const KEY_ACTION_DETAILS = {
     "track-next": ["Next Track", "Selects the next track."],
     "scene-previous": ["Previous Scene", "Selects the previous scene."],
     "scene-next": ["Next Scene", "Selects the next scene."],
+    "add-track": ["Add Track", "Adds a track."],
+    "add-scene": ["Add Scene", "Adds a scene."],
+    "create-clip": ["Create Clip", "Creates a clip in the selected slot."],
+    "duplicate-clip": ["Duplicate Clip", "Duplicates the selected clip."],
+    "copy-clip": ["Copy Clip", "Copies the selected clip."],
+    "paste-clip": ["Paste Clip", "Pastes into the selected slot."],
+    "delete-clip": ["Delete Clip", "Deletes the selected clip."],
+    "launch-selected-clip": ["Launch Selected Clip", "Launches the selected clip on the next bar."],
+    "launch-selected-scene": ["Launch Selected Scene", "Launches the selected scene on the next bar."],
+    "command-palette": ["Command Palette", "Opens the studio's command palette."],
+    bounce: ["Bounce", "Opens the bounce dialog."],
+    "track-stop": ["Track Stop", "Stops a track's session clip. The key's column picks the track."],
+    "page-scenes": ["Grid: Next Scenes", "Scrolls the clip grid one scene down, wrapping round to the first."],
+    "open-mixer": ["Open Mixer Profile", "Switches the deck to the slaw Mixer XL profile."],
+    "open-desk": ["Open Desk Profile", "Switches the deck to the slaw Desk XL profile."],
     "open-pads": ["Open Pads Profile", "Switches the deck to the slaw Pads XL profile."],
     "open-launchpad": ["Open Launchpad Profile", "Switches the deck to the slaw Launchpad XL profile."],
     "page-left": ["Grid: Previous Tracks", "Scrolls the clip grid one track left."],
@@ -72,6 +87,8 @@ const plugins = [
         profiles: [
             { name: "slaw Launchpad XL", deviceType: 2, model: "20GAT9901", layout: composeLaunchpadLayout({ columns: 8, rows: 4 }) },
             { name: "slaw Pads XL", deviceType: 2, model: "20GAT9901", layout: composePadsLayout({ columns: 8, rows: 4 }) },
+            { name: "slaw Mixer XL", deviceType: 2, model: "20GAT9901", layout: composeMixerLayout({ columns: 8, rows: 4 }) },
+            { name: "slaw Desk XL", deviceType: 2, model: "20GAT9901", layout: composeDeskLayout({ columns: 8, rows: 4 }) },
         ],
         manifest: {
             Name: "slaw Keys",

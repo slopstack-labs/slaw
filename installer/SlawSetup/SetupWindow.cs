@@ -49,6 +49,7 @@ internal sealed class SetupWindow : Window
     private readonly OptionToggle desktopShortcut = new("Desktop shortcut", "Put slaw studio where stakeholders can see it.", true);
     private readonly OptionToggle addToPath = new("Add slaw to PATH", "Run compose, render and play from any terminal.", true);
     private readonly OptionToggle fileAssociation = new("Open .slaw projects with slaw", "Double-click a project to open it in the studio.", true);
+    private readonly OptionToggle streamDeckPlugins = new("Stream Deck plugins", "For Settings → Controllers to install. Optional hardware, optional plugins.", true);
     private readonly OptionToggle launchAfterInstall = new("Launch slaw studio", "Your speakers have been notified.", true);
     private readonly TextBlock folderText;
 
@@ -66,7 +67,7 @@ internal sealed class SetupWindow : Window
 
         Title = "slaw setup";
         Width = 600;
-        Height = 610;
+        Height = 666;
         ResizeMode = ResizeMode.NoResize;
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -175,6 +176,7 @@ internal sealed class SetupWindow : Window
         ["DesktopShortcutFeature"] = desktopShortcut.IsChecked,
         ["PathFeature"] = addToPath.IsChecked,
         ["FileAssociationFeature"] = fileAssociation.IsChecked,
+        ["StreamDeckPluginsFeature"] = streamDeckPlugins.IsChecked,
     };
 
     public void ShowWelcome()
@@ -184,6 +186,7 @@ internal sealed class SetupWindow : Window
         body.Children.Add(desktopShortcut);
         body.Children.Add(addToPath);
         body.Children.Add(fileAssociation);
+        body.Children.Add(streamDeckPlugins);
         body.Children.Add(Spacer(6));
         body.Children.Add(FolderRow());
 

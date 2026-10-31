@@ -274,6 +274,34 @@ public class LaunchpadSurfaceTests
         Assert.Null(NotePadLayout.NoteAt(63, 120, "chromatic"));
 
     [Fact]
+    public void Opening_something_with_no_owning_app_reports_it_instead_of_throwing()
+    {
+        var missingPath = Path.Combine(Path.GetTempPath(), $"slaw-no-such-file-{Guid.NewGuid():N}.streamDeckPlugin");
+        var opened = ControllerDirectory.TryOpenInOwningApp(missingPath, out var failureReason);
+        // Elsewhere the desktop's opener takes the path and complains in its own time.
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.False(opened);
+            Assert.False(string.IsNullOrEmpty(failureReason));
+        }
+    }
+
+    [Fact]
+    public void With_no_controllers_every_line_says_so_without_failing()
+    {
+        var statusLines = ControllerDirectory.DescribeStatus(new ControllerSnapshot(false, 47116, 0, null, null, Array.Empty<string>()), pluginsFolder: null);
+        Assert.All(statusLines, line => Assert.False(line.Ready));
+        Assert.Contains(statusLines, line => line.Name == "Launchpad MK2" && line.Detail == "not connected");
+    }
+
+    [Fact]
+    public void Controllers_stay_out_of_the_way_by_default()
+    {
+        var defaults = new StudioPreferences();
+        Assert.False(defaults.ControlSurfaceEnabled);
+    }
+
+    [Fact]
     public void Plugin_packages_are_found_up_the_folders_of_a_checkout()
     {
         var checkout = Directory.CreateTempSubdirectory("slaw-controllers").FullName;

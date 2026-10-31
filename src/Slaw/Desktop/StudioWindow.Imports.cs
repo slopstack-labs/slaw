@@ -202,6 +202,8 @@ internal sealed partial class StudioWindow
         entries.Add(new CommandPaletteEntry(preferences.LaunchpadEnabled ? "Controllers: Turn Off Launchpad" : "Controllers: Turn On Launchpad", null, ToggleLaunchpadFromPalette));
         entries.Add(new CommandPaletteEntry("Controllers: Open Sample Pads on Stream Deck", null, () => OpenDeckProfile("open-pads")));
         entries.Add(new CommandPaletteEntry("Controllers: Open Clip Grid on Stream Deck", null, () => OpenDeckProfile("open-launchpad")));
+        entries.Add(new CommandPaletteEntry("Controllers: Open Mixer on Stream Deck", null, () => OpenDeckProfile("open-mixer")));
+        entries.Add(new CommandPaletteEntry("Controllers: Open Desk on Stream Deck", null, () => OpenDeckProfile("open-desk")));
         entries.Add(new CommandPaletteEntry("Controllers: Settings, Status and Plugins…", null, () => _ = OpenSettingsAsync(openControllersTab: true)));
         foreach (var deckPlugin in Surfaces.ControllerDirectory.DeckPlugins)
         {
