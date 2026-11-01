@@ -151,6 +151,9 @@ internal static class Vst3PluginCatalog
         }
     }
 
+    /// <summary>Raised after a scan has replaced the list, on the thread that scanned.</summary>
+    public static event Action? PluginsScanned;
+
     /// <summary>The scanned plugins (cached until <see cref="Rescan"/> or a folder change).</summary>
     public static IReadOnlyList<Vst3PluginDescriptor> Plugins()
     {
@@ -167,8 +170,9 @@ internal static class Vst3PluginCatalog
         {
             cachedPlugins = scannedPlugins;
             lastScanProblems = scanProblems;
-            return scannedPlugins;
         }
+        PluginsScanned?.Invoke();
+        return scannedPlugins;
     }
 
     public static IReadOnlyList<Vst3PluginDescriptor> Rescan()

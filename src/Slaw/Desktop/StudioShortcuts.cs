@@ -10,6 +10,7 @@ internal enum StudioCommand
     PlayFromSelection,
     SwitchView,
     ToggleBrowser,
+    FocusBrowserSearch,
     ToggleDetailPanel,
     ToggleAiPanel,
     ToggleSessionMixer,
@@ -88,6 +89,7 @@ internal static class StudioShortcutMap
         new(StudioCommand.SwitchView, Key.Tab, KeyModifiers.None, "Switch Session / Arrangement view (with two windows: swap them)", ShortcutReach.Global),
         // Global, not Everywhere: Ctrl+Alt is AltGr on many keyboards, and a text field may want that µ.
         new(StudioCommand.ToggleBrowser, Key.B, CommandAlt, "Show / hide the browser", ShortcutReach.Global),
+        new(StudioCommand.FocusBrowserSearch, Key.F, Command, "Search the browser: instruments, effects, plugins, samples", ShortcutReach.Everywhere),
         new(StudioCommand.ToggleDetailPanel, Key.L, CommandAlt, "Show / hide the clip and devices panel", ShortcutReach.Global),
         new(StudioCommand.ToggleSessionMixer, Key.M, CommandAlt, "Show / hide the Session view's mixer strips", ShortcutReach.Global),
         new(StudioCommand.ToggleAiPanel, Key.I, CommandAlt, "Show / hide the AI co-pilot panel", ShortcutReach.Global),
@@ -181,6 +183,7 @@ internal static class StudioCommandTitles
         (StudioCommand.LaunchSelectedScene, "Launch: Selected Scene"),
         (StudioCommand.SwitchView, "View: Toggle Session / Arrangement"),
         (StudioCommand.ToggleBrowser, "View: Show / Hide Browser"),
+        (StudioCommand.FocusBrowserSearch, "View: Search Browser"),
         (StudioCommand.ToggleDetailPanel, "View: Show / Hide Clip & Devices Panel"),
         (StudioCommand.ToggleAiPanel, "View: Show / Hide AI Panel"),
         (StudioCommand.ToggleSessionMixer, "View: Show / Hide Session Mixer"),

@@ -10,6 +10,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using SlopstackLabs.Slaw.Inference;
 using SlopstackLabs.Slaw.Playback;
+using SlopstackLabs.Slaw.Plugins;
 using SlopstackLabs.Slaw.Session;
 using SlopstackLabs.Slaw.Synthesis;
 using SlopstackLabs.Slaw.Workflows;
@@ -99,7 +100,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private readonly CheckBox unsolicitedAdviceToggle = new() { Content = "Unsolicited advice", FontSize = 12 };
     private readonly List<Control> inferenceDependentControls = new();
     private readonly StackPanel sampleEntriesPanel = new() { Spacing = 1 };
-    private readonly TextBox sampleFilterInput = new() { Watermark = "filter samples or folders…", FontSize = 11, MinHeight = 24, Padding = new Thickness(6, 2) };
     private IReadOnlyList<string> sampleLibraryFiles = Array.Empty<string>();
     private readonly Dictionary<string, SampleEditorWindow> openSampleEditorWindows = new();
     private readonly DispatcherTimer inferenceProgressTimer;
@@ -171,7 +171,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         transportTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => AdvanceTransportDisplay());
         WireStudioInput(this);
-        sampleFilterInput.TextChanged += (_, _) => PopulateSampleEntries();
+        browserSearchInput.TextChanged += (_, _) => ApplyBrowserSearch();
+        // An agent's or the Settings window's rescan changes this list too, and it arrives from the scanning thread.
+        void RefreshPluginsAfterScan() => Dispatcher.UIThread.Post(() => PopulatePluginEntries());
+        Vst3PluginCatalog.PluginsScanned += RefreshPluginsAfterScan;
+        Closed += (_, _) => Vst3PluginCatalog.PluginsScanned -= RefreshPluginsAfterScan;
         Closing += HandleWindowClosing;
         Opened += (_, _) =>
         {
@@ -325,7 +329,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private Control ComposeBrowser()
     {
-        var browserContent = new StackPanel { Spacing = 3, Margin = new Thickness(10) };
+        var browserContent = new StackPanel { Spacing = 3, Margin = new Thickness(10, 4, 10, 10) };
+        browserSections.Clear();
+        browserSearchEntries.Clear();
+        browserToolRows.Clear();
 
         var instrumentsSection = AddCollapsibleBrowserSection(browserContent, "Instruments");
         // "soundfont" gets its own entry below, which asks for the .sf2 straight away; a multisampler comes from the importer.
@@ -334,12 +341,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             var instrumentEntry = BrowserEntry(DeviceCatalog.InstrumentDisplayName(instrumentName), () => document.AddTrack(instrumentName),
                 "Click to add a track with this instrument, or drag it onto a track to swap its instrument");
             StudioDragDrop.MakeDragSource(instrumentEntry, () => new DragPayload(DragPayloadKind.Instrument, instrumentName));
-            instrumentsSection.Children.Add(instrumentEntry);
+            instrumentsSection.Children.Add(Searchable(instrumentEntry, $"{DeviceCatalog.InstrumentDisplayName(instrumentName)} {instrumentName} instrument"));
         }
-        instrumentsSection.Children.Add(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"));
-        instrumentsSection.Children.Add(BrowserEntry("Ableton Preset… (.adg)", () => OpenSoundImportWindow(), "Import a Simpler or Sampler preset, or a Drum Rack, as a multisampler track"));
-        instrumentsSection.Children.Add(BrowserEntry("SoundFont… (.sf2)", () => _ = AddSoundFontTrackFromPickerAsync(),
-            "Click to add a track playing a SoundFont preset (General MIDI banks, drum kits); you can also drop a .sf2 onto a track"));
+        instrumentsSection.Children.Add(Searchable(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"),
+            "audio track mic microphone record vocals"));
+        instrumentsSection.Children.Add(Searchable(BrowserEntry("Ableton Preset… (.adg)", () => OpenSoundImportWindow(), "Import a Simpler or Sampler preset, or a Drum Rack, as a multisampler track"),
+            "ableton preset adg rack drum simpler sampler operator import"));
+        instrumentsSection.Children.Add(Searchable(BrowserEntry("SoundFont… (.sf2)", () => _ = AddSoundFontTrackFromPickerAsync(),
+            "Click to add a track playing a SoundFont preset (General MIDI banks, drum kits); you can also drop a .sf2 onto a track"),
+            "soundfont sf2 general midi drum kit"));
 
         var effectsSection = AddCollapsibleBrowserSection(browserContent, "Audio Effects");
         foreach (var effectType in DeviceCatalog.EffectTypes)
@@ -352,49 +362,53 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                 }
             }, "Click to add to the selected track, or drag it onto any track or into the device chain");
             StudioDragDrop.MakeDragSource(effectEntry, () => new DragPayload(DragPayloadKind.Effect, effectType));
-            effectsSection.Children.Add(effectEntry);
+            effectsSection.Children.Add(Searchable(effectEntry, $"{DeviceCatalog.EffectDisplayName(effectType)} {effectType} effect"));
         }
 
-        var pluginsSection = AddCollapsibleBrowserSection(browserContent, "Plugins (VST3)");
-        pluginsSection.Children.Add(StudioUi.Row(4,
+        var pluginsSection = AddCollapsibleBrowserSection(browserContent, "Plugins (VST3)", () => pluginMatchCount);
+        pluginsSection.Children.Add(BrowserToolRow(StudioUi.Row(4,
             StudioUi.Button("Folders…", () => _ = OpenSettingsAsync(), "Add or remove VST3 plugin folders (Settings → Plugins)", compact: true),
-            StudioUi.Button("⟳", () => PopulatePluginEntries(rescan: true), "Rescan plugin folders", compact: true)));
+            StudioUi.Button("⟳", () => PopulatePluginEntries(rescan: true), "Rescan plugin folders", compact: true))));
         pluginsSection.Children.Add(Detached(pluginEntriesPanel));
         PopulatePluginEntries();
 
-        var samplesSection = AddCollapsibleBrowserSection(browserContent, "Samples");
-        samplesSection.Children.Add(StudioUi.Row(4,
+        var samplesSection = AddCollapsibleBrowserSection(browserContent, "Samples", () => sampleMatchCount);
+        samplesSection.Children.Add(BrowserToolRow(StudioUi.Row(4,
             StudioUi.Button("⤓ Import…", () => OpenSoundImportWindow(), "Import a folder or files as a drum kit, tracks or library (Ctrl+Shift+I)", compact: true),
             StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV, AIFF or FLAC files to the browser", compact: true),
-            StudioUi.Button("⟳", () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true)));
-        samplesSection.Children.Add(Detached(sampleFilterInput));
+            StudioUi.Button("⟳", () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true))));
         samplesSection.Children.Add(Detached(sampleEntriesPanel));
         PopulateSampleEntries();
 
         if (AiFeaturesEnabled)
         {
             var aiSection = AddCollapsibleBrowserSection(browserContent, "AI");
-            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Autopilot", () => LaunchAutopilot(aiInstructionInput.Text), "Let the AI edit the whole project", compact: false)));
-            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Generate clip", () => GenerateClipWithAi(document.SelectedTrackIndex, document.SelectedSceneIndex), "Write the selected clip", compact: false)));
-            aiSection.Children.Add(RegisterInference(StudioUi.AiButton("✨ Vibe check", LaunchVibeCheck, "A world-renowned producer and LinkedIn thought leader reviews your song", compact: false)));
+            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("✨ Autopilot", () => LaunchAutopilot(aiInstructionInput.Text), "Let the AI edit the whole project", compact: false)), "ai autopilot"));
+            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("✨ Generate clip", () => GenerateClipWithAi(document.SelectedTrackIndex, document.SelectedSceneIndex), "Write the selected clip", compact: false)), "ai generate clip"));
+            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("✨ Vibe check", LaunchVibeCheck, "A world-renowned producer and LinkedIn thought leader reviews your song", compact: false)), "ai vibe check"));
             foreach (var aiBrowserButton in aiSection.Children.OfType<Button>())
             {
                 aiBrowserButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             }
         }
-        return new ScrollViewer { Content = browserContent };
+        browserContent.Children.Add(Detached(browserNoMatchesCaption));
+        ApplyBrowserSearch();
+
+        var searchBar = new Border { Padding = new Thickness(10, 10, 10, 4), Child = Detached(browserSearchInput) };
+        ToolTip.SetTip(searchBar, "Search everything in the browser (Ctrl+F). Esc clears it.");
+        DockPanel.SetDock(searchBar, Dock.Top);
+        return new DockPanel { Children = { searchBar, new ScrollViewer { Content = browserContent } } };
     }
 
     /// <summary>
     /// A browser section whose heading folds it away; which sections are folded
     /// is remembered across sessions. Returns the panel the section's entries go in.
     /// </summary>
-    private StackPanel AddCollapsibleBrowserSection(StackPanel browserContent, string sectionTitle)
+    private StackPanel AddCollapsibleBrowserSection(StackPanel browserContent, string sectionTitle, Func<int>? listedMatches = null)
     {
         var sectionEntries = new StackPanel { Spacing = 3, IsVisible = !preferences.CollapsedBrowserSections.Contains(sectionTitle) };
         var sectionHeading = new Button
         {
-            Content = $"{(sectionEntries.IsVisible ? "▾" : "▸")}  {sectionTitle.ToUpperInvariant()}",
             Background = Brushes.Transparent,
             Foreground = StudioTheme.TextMuted,
             FontSize = 10,
@@ -404,11 +418,18 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             HorizontalContentAlignment = HorizontalAlignment.Left,
             Margin = new Thickness(0, browserContent.Children.Count == 0 ? 0 : 8, 0, 0),
         };
+        var section = new BrowserSection(sectionTitle, sectionHeading, sectionEntries, listedMatches);
+        browserSections.Add(section);
+        ShowBrowserSectionFold(section);
         ToolTip.SetTip(sectionHeading, $"Show or hide {sectionTitle}");
         sectionHeading.Click += (_, _) =>
         {
             sectionEntries.IsVisible = !sectionEntries.IsVisible;
-            sectionHeading.Content = $"{(sectionEntries.IsVisible ? "▾" : "▸")}  {sectionTitle.ToUpperInvariant()}";
+            ShowBrowserSectionFold(section);
+            if (BrowserQuery.Length > 0)
+            {
+                return; // folding while searching is a glance, not a preference
+            }
             preferences.CollapsedBrowserSections.Remove(sectionTitle);
             if (!sectionEntries.IsVisible)
             {
@@ -582,6 +603,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             sessionView.RefreshSelection();
             arrangementView.RefreshSelection();
             detailView.Rebuild();
+        };
+        document.TrackArrived += trackIndex =>
+        {
+            sessionView.RevealTrack(trackIndex);
+            arrangementView.RevealTrack(trackIndex);
         };
         document.Edited += RegisterEditForCopilot;
     }
@@ -1622,6 +1648,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private void PopulateSampleEntries()
     {
         sampleEntriesPanel.Children.Clear();
+        sampleMatchCount = 0;
         if (preferences.SampleFolders.Count == 0)
         {
             sampleEntriesPanel.Children.Add(new TextBlock
@@ -1634,16 +1661,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             });
             return;
         }
-        var filterText = sampleFilterInput.Text?.Trim() ?? string.Empty;
+        var filterText = BrowserQuery;
         var matchingSampleCount = 0;
         var matchingFolderCount = 0;
         foreach (var folderGroup in SampleLibrary.GroupByFolder(sampleLibraryFiles, preferences.SampleFolders))
         {
-            // A folder name match keeps the whole folder: "909" finds every sound in the pack.
-            var folderMatchesFilter = filterText.Length == 0 || folderGroup.Label.Contains(filterText, StringComparison.OrdinalIgnoreCase);
-            var matchingFolderSamples = folderMatchesFilter
+            // The folder's name counts as part of each sound's: "909" finds the whole pack, "909 kick" its kicks.
+            var matchingFolderSamples = filterText.Length == 0
                 ? folderGroup.SamplePaths
-                : folderGroup.SamplePaths.Where(samplePath => Path.GetFileName(samplePath).Contains(filterText, StringComparison.OrdinalIgnoreCase)).ToList();
+                : folderGroup.SamplePaths.Where(samplePath => BrowserSearch.Matches(filterText, $"{folderGroup.Label} {Path.GetFileName(samplePath)}")).ToList();
             if (matchingFolderSamples.Count == 0)
             {
                 continue;
@@ -1654,6 +1680,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         }
         sampleEntriesPanel.Children.Add(StudioUi.Caption(
             $"{matchingSampleCount} sample(s) in {matchingFolderCount} folder(s) · click: preview · double-click: add", 9));
+        sampleMatchCount = matchingSampleCount;
+        RefreshBrowserSections();
     }
 
     private void AddSampleFolderGroup(SampleFolderGroup folderGroup, IReadOnlyList<string> listedSamplePaths, bool unfoldedByFilter)

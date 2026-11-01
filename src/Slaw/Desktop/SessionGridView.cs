@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using SlopstackLabs.Slaw.Session;
 using SlopstackLabs.Slaw.Synthesis;
 
@@ -22,6 +23,7 @@ internal sealed class SessionGridView : UserControl
     private readonly IStudioHost host;
     private readonly Dictionary<(int TrackIndex, int SceneIndex), ClipSlotControl> clipSlots = new();
     private readonly List<Button> sceneLaunchButtons = new();
+    private readonly List<Control> trackHeaders = new();
 
     public SessionGridView(StudioDocument document, IStudioHost host)
     {
@@ -37,6 +39,7 @@ internal sealed class SessionGridView : UserControl
     {
         clipSlots.Clear();
         sceneLaunchButtons.Clear();
+        trackHeaders.Clear();
         var project = document.Project;
         var trackCount = project.Tracks.Count;
         var sceneCount = project.Scenes.Count;
@@ -62,7 +65,9 @@ internal sealed class SessionGridView : UserControl
         for (var trackIndex = 0; trackIndex < trackCount; trackIndex++)
         {
             var track = project.Tracks[trackIndex];
-            Place(sessionGrid, ComposeTrackHeader(track, trackIndex), 0, trackIndex);
+            var trackHeader = ComposeTrackHeader(track, trackIndex);
+            trackHeaders.Add(trackHeader);
+            Place(sessionGrid, trackHeader, 0, trackIndex);
             for (var sceneIndex = 0; sceneIndex < sceneCount; sceneIndex++)
             {
                 Place(sessionGrid, ComposeClipSlot(track, trackIndex, sceneIndex), sceneIndex + 1, trackIndex);
@@ -477,6 +482,16 @@ internal sealed class SessionGridView : UserControl
     }
 
     // ── Live state ────────────────────────────────────────────────────────────
+
+    /// <summary>Scrolls a track's column into sight, once the rebuilt grid has been laid out.</summary>
+    public void RevealTrack(int trackIndex) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (trackIndex < trackHeaders.Count)
+            {
+                trackHeaders[trackIndex].BringIntoView();
+            }
+        }, DispatcherPriority.Background);
 
     public void RefreshSelection()
     {

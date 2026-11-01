@@ -24,11 +24,13 @@ internal sealed class StudioDocument
 
     private readonly List<(string Label, string SerializedProject)> undoHistory = new();
     private readonly List<(string Label, string SerializedProject)> redoHistory = new();
+    private HashSet<string> knownTrackIds;
 
     public StudioDocument(SlawProject project, string? filePath)
     {
         Project = project;
         FilePath = filePath;
+        knownTrackIds = project.Tracks.Select(track => track.Id).ToHashSet();
     }
 
     public SlawProject Project { get; private set; }
@@ -64,6 +66,9 @@ internal sealed class StudioDocument
 
     public event Action? SelectionChanged;
 
+    /// <summary>Raised when an edit, from anyone, added tracks; the last of them is selected and its index given, so views can bring it into sight.</summary>
+    public event Action<int>? TrackArrived;
+
     /// <summary>Raised whenever the engine needs a fresh snapshot of the project.</summary>
     public event Action<SlawProject>? PublishRequested;
 
@@ -91,11 +96,40 @@ internal sealed class StudioDocument
     {
         UnsavedChanges = true;
         ClampSelection();
+        var arrivedTrack = SelectArrivedTrack();
         PublishRequested?.Invoke(Project.DeepClone());
         Changed?.Invoke(scope);
         if (notifyCopilot)
         {
             Edited?.Invoke(description);
+        }
+        AnnounceArrivedTrack(arrivedTrack);
+    }
+
+    /// <summary>
+    /// Selects the last track this edit added, and returns its index. A project sharing no track
+    /// with the one before is another song (opened, imported, reset), where nothing has arrived.
+    /// </summary>
+    private int? SelectArrivedTrack()
+    {
+        var previousTrackIds = knownTrackIds;
+        knownTrackIds = Project.Tracks.Select(track => track.Id).ToHashSet();
+        var arrivedTrackIndex = Project.Tracks.FindLastIndex(track => !previousTrackIds.Contains(track.Id));
+        if (arrivedTrackIndex < 0 || !Project.Tracks.Any(track => previousTrackIds.Contains(track.Id)))
+        {
+            return null;
+        }
+        SelectedTimelineClipId = null;
+        SelectedTrackIndex = arrivedTrackIndex;
+        return arrivedTrackIndex;
+    }
+
+    private void AnnounceArrivedTrack(int? arrivedTrackIndex)
+    {
+        if (arrivedTrackIndex is { } trackIndex)
+        {
+            SelectionChanged?.Invoke();
+            TrackArrived?.Invoke(trackIndex);
         }
     }
 
@@ -122,9 +156,11 @@ internal sealed class StudioDocument
         Project = replacementProject;
         UnsavedChanges = undoable;
         ClampSelection();
+        var arrivedTrack = SelectArrivedTrack();
         PublishRequested?.Invoke(Project.DeepClone());
         Changed?.Invoke(EditScope.Structure);
         SelectionChanged?.Invoke();
+        AnnounceArrivedTrack(arrivedTrack);
     }
 
     public string? Undo() => StepHistory(undoHistory, redoHistory);
@@ -143,9 +179,11 @@ internal sealed class StudioDocument
         Project = ProjectSerializer.Deserialize(serializedProject);
         UnsavedChanges = true;
         ClampSelection();
+        var arrivedTrack = SelectArrivedTrack();
         PublishRequested?.Invoke(Project.DeepClone());
         Changed?.Invoke(EditScope.Structure);
         SelectionChanged?.Invoke();
+        AnnounceArrivedTrack(arrivedTrack);
         return historyLabel;
     }
 

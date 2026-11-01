@@ -233,6 +233,9 @@ internal sealed partial class StudioWindow
             case StudioCommand.ToggleBrowser:
                 TogglePanel(() => preferences.BrowserHidden = !preferences.BrowserHidden);
                 break;
+            case StudioCommand.FocusBrowserSearch:
+                FocusBrowserSearch();
+                break;
             case StudioCommand.ToggleDetailPanel:
                 TogglePanel(() => preferences.DetailPanelHidden = !preferences.DetailPanelHidden);
                 break;
@@ -368,6 +371,10 @@ internal sealed partial class StudioWindow
                 commandPalette.Close();
                 liveAudioSession.Engine.StopNoteAudition();
                 ReleaseComputerKeyboardNotes();
+                if (browserSearchInput.IsFocused)
+                {
+                    browserSearchInput.Text = string.Empty;
+                }
                 FocusedStudioWindow.FocusManager?.ClearFocus();
                 break;
         }

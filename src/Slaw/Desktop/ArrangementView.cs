@@ -134,6 +134,16 @@ internal sealed class ArrangementView : UserControl
         RefreshContent();
     }
 
+    /// <summary>Scrolls a track's lane into sight, once the rebuilt headers have been laid out.</summary>
+    public void RevealTrack(int trackIndex) =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (trackIndex < trackHeaderColumn.Children.Count)
+            {
+                trackHeaderColumn.Children[trackIndex].BringIntoView();
+            }
+        }, Avalonia.Threading.DispatcherPriority.Background);
+
     public void RefreshContent()
     {
         var project = document.Project;

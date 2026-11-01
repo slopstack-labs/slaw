@@ -21,6 +21,7 @@ public class KeyboardShortcutTests
     [InlineData(Key.M, KeyModifiers.Control | KeyModifiers.Shift, nameof(StudioCommand.CreateClip))]
     [InlineData(Key.Enter, KeyModifiers.Shift, nameof(StudioCommand.LaunchSelectedScene))]
     [InlineData(Key.B, KeyModifiers.Control | KeyModifiers.Alt, nameof(StudioCommand.ToggleBrowser))]
+    [InlineData(Key.F, KeyModifiers.Control, nameof(StudioCommand.FocusBrowserSearch))]
     [InlineData(Key.L, KeyModifiers.Control | KeyModifiers.Alt, nameof(StudioCommand.ToggleDetailPanel))]
     [InlineData(Key.L, KeyModifiers.Meta | KeyModifiers.Alt, nameof(StudioCommand.ToggleDetailPanel))]
     [InlineData(Key.M, KeyModifiers.Control | KeyModifiers.Alt, nameof(StudioCommand.ToggleSessionMixer))]

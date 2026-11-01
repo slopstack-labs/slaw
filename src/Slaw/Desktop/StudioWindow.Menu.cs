@@ -136,6 +136,7 @@ internal sealed partial class StudioWindow
                 CommandItem("Computer MIDI _Keyboard", StudioCommand.ToggleComputerKeyboard),
                 new Separator(),
                 CheckedCommandItem("_Browser", StudioCommand.ToggleBrowser, () => !preferences.BrowserHidden),
+                CommandItem("_Search Browser", StudioCommand.FocusBrowserSearch),
                 CheckedCommandItem("Clip && _Devices Panel", StudioCommand.ToggleDetailPanel, () => !preferences.DetailPanelHidden),
                 CheckedCommandItem("Session _Mixer", StudioCommand.ToggleSessionMixer, () => !preferences.SessionMixerHidden),
                 CheckedCommandItem("AI _Co-Pilot Panel", StudioCommand.ToggleAiPanel, () => !preferences.AiPanelHidden),

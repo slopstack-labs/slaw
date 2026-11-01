@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Threading;
+using SlopstackLabs.Slaw.Plugins;
 using SlopstackLabs.Slaw.Session;
 using SlopstackLabs.Slaw.Synthesis;
 
@@ -217,11 +218,22 @@ internal sealed partial class StudioWindow
         {
             entries.Add(new CommandPaletteEntry($"Add Track: {DeviceCatalog.InstrumentDisplayName(instrumentName)}", null, () => document.AddTrack(instrumentName)));
         }
+        var scannedPlugins = Vst3PluginCatalog.CachedPlugins ?? Array.Empty<Vst3PluginDescriptor>();
+        foreach (var instrumentPlugin in scannedPlugins.Where(plugin => plugin.IsInstrument))
+        {
+            entries.Add(new CommandPaletteEntry(BrowserSearch.PluginTrackTitle(instrumentPlugin), null, () => AddPluginInstrumentTrack(instrumentPlugin)));
+        }
+        entries.Add(new CommandPaletteEntry("Plugins: Rescan VST3 Folders", null, () => PopulatePluginEntries(rescan: true)));
+        entries.Add(new CommandPaletteEntry("Plugins: Manage VST3 Folders…", null, () => _ = OpenSettingsAsync()));
         if (document.SelectedTrack is { } selectedTrack)
         {
             foreach (var effectType in DeviceCatalog.EffectTypes)
             {
                 entries.Add(new CommandPaletteEntry($"Add Effect to {selectedTrack.Name}: {DeviceCatalog.EffectDisplayName(effectType)}", null, () => detailView.AddEffect(selectedTrack, effectType)));
+            }
+            foreach (var effectPlugin in scannedPlugins.Where(plugin => !plugin.IsInstrument))
+            {
+                entries.Add(new CommandPaletteEntry(BrowserSearch.PluginEffectTitle(selectedTrack.Name, effectPlugin), null, () => detailView.AddPluginEffect(selectedTrack, PluginDeviceOperations.ToReference(effectPlugin))));
             }
         }
         return entries;

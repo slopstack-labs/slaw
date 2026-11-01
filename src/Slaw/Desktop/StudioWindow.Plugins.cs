@@ -18,6 +18,7 @@ internal sealed partial class StudioWindow
     private void PopulatePluginEntries(bool rescan = false)
     {
         pluginEntriesPanel.Children.Clear();
+        pluginMatchCount = 0;
         if (!rescan && Vst3PluginCatalog.CachedPlugins is { } cachedPlugins)
         {
             FillPluginEntries(cachedPlugins);
@@ -28,6 +29,7 @@ internal sealed partial class StudioWindow
             .ContinueWith(scanTask => Dispatcher.UIThread.Post(() =>
             {
                 pluginEntriesPanel.Children.Clear();
+                pluginMatchCount = 0;
                 if (scanTask.IsCompletedSuccessfully)
                 {
                     FillPluginEntries(scanTask.Result);
@@ -44,15 +46,21 @@ internal sealed partial class StudioWindow
         if (scannedPlugins.Count == 0)
         {
             pluginEntriesPanel.Children.Add(StudioUi.Caption("No VST3 plugins found. Add a folder in ⚙ Settings → Plugins.", 10));
+            RefreshBrowserSections();
             return;
         }
+        var query = BrowserQuery;
         foreach (var (kindHeading, instruments) in new[] { ("instruments", true), ("effects", false) })
         {
-            var pluginsOfKind = scannedPlugins.Where(plugin => plugin.IsInstrument == instruments).OrderBy(plugin => plugin.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            var pluginsOfKind = scannedPlugins
+                .Where(plugin => plugin.IsInstrument == instruments && BrowserSearch.Matches(query, BrowserSearch.PluginKeywords(plugin)))
+                .OrderBy(plugin => plugin.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
             if (pluginsOfKind.Count == 0)
             {
                 continue;
             }
+            pluginMatchCount += pluginsOfKind.Count;
             pluginEntriesPanel.Children.Add(StudioUi.Caption(kindHeading, 10));
             foreach (var plugin in pluginsOfKind)
             {
@@ -70,6 +78,7 @@ internal sealed partial class StudioWindow
                 pluginEntriesPanel.Children.Add(pluginEntry);
             }
         }
+        RefreshBrowserSections();
     }
 
     private void AddPluginInstrumentTrack(Vst3PluginDescriptor plugin)
