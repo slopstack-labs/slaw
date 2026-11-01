@@ -52,6 +52,13 @@
             "size": 0.5,
             "mix": 0.18
           }
+        },
+        {
+          "type": "transient",
+          "enabled": true,
+          "parameters": {
+            "attack": 0.3
+          }
         }
       ],
       "gain": 0.5,
@@ -397,7 +404,17 @@
     "delaySteps": 3,
     "delayFeedback": 0.25,
     "delayMix": 0.04,
-    "rationale": null
+    "rationale": null,
+    "effects": [
+      {
+        "type": "limiter",
+        "enabled": true,
+        "parameters": {
+          "gain": 0.5,
+          "ceiling": -3.5
+        }
+      }
+    ]
   },
   "timeline": [
     {

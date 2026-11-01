@@ -94,7 +94,16 @@
         "tremolo": 0.45,
         "rate": 4
       },
-      "effects": [],
+      "effects": [
+        {
+          "type": "chamber",
+          "enabled": true,
+          "parameters": {
+            "space": 2,
+            "mix": 0.18
+          }
+        }
+      ],
       "gain": 0.4,
       "pan": 0.3,
       "timing": 12,
@@ -134,7 +143,17 @@
     "delaySteps": 3,
     "delayFeedback": 0.3,
     "delayMix": 0.15,
-    "rationale": null
+    "rationale": null,
+    "effects": [
+      {
+        "type": "limiter",
+        "enabled": true,
+        "parameters": {
+          "gain": 1,
+          "ceiling": -1.5
+        }
+      }
+    ]
   },
   "timeline": [
     {

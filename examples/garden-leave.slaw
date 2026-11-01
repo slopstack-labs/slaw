@@ -168,13 +168,12 @@
     },
     {
       "id": "42adcf0c",
-      "name": "Pension Sub",
-      "instrument": "sine",
+      "name": "Pension Bass (fingers, half upright)",
+      "instrument": "bassguitar",
       "instrumentParameters": {
-        "attack": 8,
-        "decay": 600,
-        "sustain": 0.85,
-        "release": 200
+        "style": 0,
+        "upright": 0.5,
+        "tone": 0.35
       },
       "effects": [
         {
@@ -197,7 +196,7 @@
           "sidechainSource": "7488594c"
         }
       ],
-      "gain": 0.3,
+      "gain": 1,
       "pan": 0,
       "muted": false,
       "solo": false,
@@ -509,6 +508,14 @@
         "parameters": {
           "amount": 1.3,
           "mix": 0.15
+        }
+      },
+      {
+        "type": "limiter",
+        "enabled": true,
+        "parameters": {
+          "gain": 1,
+          "ceiling": -1.5
         }
       }
     ]

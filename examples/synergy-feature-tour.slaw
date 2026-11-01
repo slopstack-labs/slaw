@@ -54,10 +54,19 @@
     },
     {
       "id": "870df558",
-      "name": "Snare \u00B7 ghost notes (@), ratchet roll (*N), timing 8 ms",
+      "name": "Snare \u00B7 ghost notes (@), ratchet roll (*N), timing 8 ms, transient shaper",
       "instrument": "snare",
       "instrumentParameters": {},
-      "effects": [],
+      "effects": [
+        {
+          "type": "transient",
+          "enabled": true,
+          "parameters": {
+            "attack": 0.5,
+            "sustain": -0.2
+          }
+        }
+      ],
       "gain": 0.42,
       "pan": -0.05,
       "timing": 8,
@@ -184,7 +193,7 @@
     },
     {
       "id": "5c3329c7",
-      "name": "Pad \u00B7 chords (\u002B), saw spread 18 ct, gated by Ghost Kick, filter sweep",
+      "name": "Pad \u00B7 chords (\u002B), saw spread 18 ct, gated by Ghost Kick, filter sweep, phaser",
       "instrument": "saw",
       "instrumentParameters": {
         "attack": 30,
@@ -220,6 +229,15 @@
           "parameters": {
             "width": 1.5,
             "haas": 12
+          }
+        },
+        {
+          "type": "phaser",
+          "enabled": true,
+          "parameters": {
+            "rate": 0.15,
+            "mix": 0.3,
+            "feedback": 0.3
           }
         }
       ],
@@ -328,7 +346,7 @@
     },
     {
       "id": "04cfcfe8",
-      "name": "Flute counter-melody \u00B7 held notes (_), Haas-widened",
+      "name": "Flute counter-melody \u00B7 held notes (_), Haas-widened, plate reverb (chamber)",
       "instrument": "flute",
       "instrumentParameters": {
         "breath": 0.35,
@@ -346,13 +364,12 @@
           }
         },
         {
-          "type": "reverb",
+          "type": "chamber",
           "enabled": true,
           "parameters": {
-            "size": 0.6,
-            "damping": 0.5,
+            "space": 1,
             "mix": 0.2,
-            "width": 1
+            "decay": 0.9
           }
         }
       ],
@@ -403,6 +420,90 @@
         null,
         null
       ]
+    },
+    {
+      "id": "2d417e54",
+      "name": "Ride (cymbal) \u00B7 bell, accents by velocity",
+      "instrument": "cymbal",
+      "instrumentParameters": {
+        "kind": 0,
+        "bell": 0.4
+      },
+      "effects": [],
+      "gain": 0.55,
+      "pan": -0.2,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "7df3990b",
+      "name": "Crash (cymbal, kind 1)",
+      "instrument": "cymbal",
+      "instrumentParameters": {
+        "kind": 1
+      },
+      "effects": [],
+      "gain": 0.7,
+      "pan": 0.15,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "8c783f6c",
+      "name": "Toms (tom) \u00B7 a fill is a falling melody",
+      "instrument": "tom",
+      "instrumentParameters": {},
+      "effects": [],
+      "gain": 0.9,
+      "pan": -0.1,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "45ad5731",
+      "name": "Funk Guitar (electric) \u00B7 palm mute by velocity, autowah",
+      "instrument": "electric",
+      "instrumentParameters": {
+        "mutevel": 0.6,
+        "pickup": 0.5,
+        "humbucker": 0,
+        "strum": 6
+      },
+      "effects": [
+        {
+          "type": "autowah",
+          "enabled": true,
+          "parameters": {
+            "sensitivity": 0.65,
+            "mix": 0.85
+          }
+        }
+      ],
+      "gain": 1.2,
+      "pan": 0.35,
+      "timing": 5,
+      "muted": false,
+      "solo": false,
+      "aiLocked": false,
+      "clips": [
+        null,
+        null
+      ]
     }
   ],
   "master": {
@@ -436,6 +537,14 @@
         "parameters": {
           "width": 1.15,
           "haas": 0
+        }
+      },
+      {
+        "type": "limiter",
+        "enabled": true,
+        "parameters": {
+          "gain": 3,
+          "ceiling": -0.5
         }
       }
     ]
@@ -973,6 +1082,61 @@
         "pattern": ["D2:16", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
       },
       "endStep": 368
+    },
+    {
+      "id": "ae472f45",
+      "trackId": "2d417e54",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Ride (cymbal) \u00B7 bell, accents by velocity",
+        "pattern": ["x@0.8", ".", "x@0.45", ".", "x@0.9", ".", "x@0.45", ".", "x@0.8", ".", "x@0.45", ".", "x@0.9", ".", "x@0.45", "x@0.4"]
+      },
+      "endStep": 352
+    },
+    {
+      "id": "87dd7bbc",
+      "trackId": "7df3990b",
+      "startStep": 64,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash (cymbal, kind 1)",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 80
+    },
+    {
+      "id": "59abd94d",
+      "trackId": "7df3990b",
+      "startStep": 224,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Crash (cymbal, kind 1)",
+        "pattern": ["x", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+      },
+      "endStep": 240
+    },
+    {
+      "id": "41a66802",
+      "trackId": "8c783f6c",
+      "startStep": 176,
+      "lengthSteps": 16,
+      "clip": {
+        "name": "Toms (tom) \u00B7 a fill is a falling melody",
+        "pattern": [".", ".", ".", ".", ".", ".", ".", ".", "A3", "A3@0.7", "E3", "E3@0.7", "C3", "C3@0.7", "A2", "A2@0.8"]
+      },
+      "endStep": 192
+    },
+    {
+      "id": "9fbfdcc9",
+      "trackId": "45ad5731",
+      "startStep": 224,
+      "lengthSteps": 128,
+      "clip": {
+        "name": "Funk Guitar (electric) \u00B7 palm mute by velocity, autowah",
+        "pattern": [".", ".", "D4\u002BF4\u002BA4", ".", ".", "D4@0.5\u002BF4@0.5\u002BA4@0.5", ".", "D4\u002BF4\u002BA4", ".", ".", "D4@0.5\u002BF4@0.5\u002BA4@0.5", "D4@0.5\u002BF4@0.5\u002BA4@0.5", ".", "D4\u002BF4\u002BA4", ".", ".", ".", ".", "D4\u002BF4\u002BA#4", ".", ".", "D4@0.5\u002BF4@0.5\u002BA#4@0.5", ".", "D4\u002BF4\u002BA#4", ".", ".", "D4@0.5\u002BF4@0.5\u002BA#4@0.5", "D4@0.5\u002BF4@0.5\u002BA#4@0.5", ".", "D4\u002BF4\u002BA#4", ".", ".", ".", ".", "C4\u002BF4\u002BA4", ".", ".", "C4@0.5\u002BF4@0.5\u002BA4@0.5", ".", "C4\u002BF4\u002BA4", ".", ".", "C4@0.5\u002BF4@0.5\u002BA4@0.5", "C4@0.5\u002BF4@0.5\u002BA4@0.5", ".", "C4\u002BF4\u002BA4", ".", ".", ".", ".", "C4\u002BE4\u002BG4", ".", ".", "C4@0.5\u002BE4@0.5\u002BG4@0.5", ".", "C4\u002BE4\u002BG4", ".", ".", "C4@0.5\u002BE4@0.5\u002BG4@0.5", "C4@0.5\u002BE4@0.5\u002BG4@0.5", ".", "C4\u002BE4\u002BG4", ".", "."]
+      },
+      "endStep": 352
     }
   ],
   "aiProvenance": "slopstack labs onboarding desk: hand-written, every device built in",

@@ -310,13 +310,12 @@
     },
     {
       "id": "3f3d9a43",
-      "name": "Melodic Tom (ex-Casio)",
-      "instrument": "sine",
+      "name": "Melodic Tom",
+      "instrument": "tom",
       "instrumentParameters": {
         "attack": 1,
-        "decay": 160,
-        "sustain": 0,
-        "release": 60
+        "decay": 4,
+        "tone": 0.7
       },
       "effects": [
         {
@@ -430,20 +429,18 @@
     {
       "id": "fffefb8c",
       "name": "Crash",
-      "instrument": "noise",
+      "instrument": "cymbal",
       "instrumentParameters": {
-        "attack": 1,
-        "decay": 1000,
-        "sustain": 0,
-        "release": 800,
-        "cutoff": 13000
+        "decay": 4,
+        "cutoff": 13000,
+        "kind": 1
       },
       "effects": [
         {
           "type": "highpass",
           "enabled": true,
           "parameters": {
-            "cutoff": 3800
+            "cutoff": 300
           }
         },
         {
@@ -452,12 +449,12 @@
           "parameters": {
             "size": 0.6,
             "damping": 0.5,
-            "mix": 0.15,
+            "mix": 0.12,
             "width": 1
           }
         }
       ],
-      "gain": 1.4,
+      "gain": 0.5,
       "pan": 0.05,
       "muted": false,
       "solo": false,
@@ -476,7 +473,17 @@
     "delaySteps": 3,
     "delayFeedback": 0.3,
     "delayMix": 0,
-    "rationale": null
+    "rationale": null,
+    "effects": [
+      {
+        "type": "limiter",
+        "enabled": true,
+        "parameters": {
+          "gain": 0.5,
+          "ceiling": -2.5
+        }
+      }
+    ]
   },
   "timeline": [
     {

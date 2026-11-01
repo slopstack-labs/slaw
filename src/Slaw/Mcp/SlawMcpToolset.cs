@@ -84,7 +84,7 @@ internal sealed class SlawMcpToolset
         "Band instruments: electric (electric guitar for an amp: pickup 0 bridge 1 neck, humbucker toggle, mute = palm mute, mutevel = palm-mute notes softer than this velocity so \"E2@0.5\" chugs while \"E2\" rings, strum ms, vibrato cents after the note rings, rate Hz, bend = scoop in from that many cents flat; put Escalation Stack or drive after it), " +
         "bassguitar (style 0 fingers 1 pick, tone, upright 0 electric 1 double bass for walking lines, mute; damped when the note ends, so hold notes with _ or :length), " +
         "tom (kit tom pitched by its note: A3 high, E3 mid, A2 floor; tone 0 muffled 1 open, bend = semitones the head starts sharp, attack = stick click; rings out), " +
-        "cymbal (a drum: \"x\" only; kind 0 ride 1 crash, bell = ride-bell ring, accent with velocity; rings out). " +
+        "cymbal (a drum: \"x\" only; kind 0 ride, 1 crash, values between morph; bell = ride-bell ring, accent with velocity; rings out; a ride and a crash that overlap need a track each, since overlapping clips on one track play only the later one). " +
         "operator is a four-oscillator FM synth: algorithm 0 is D into C into B into A, 9 is B into A beside C and D, 10 plays all four side by side; aOn, aCoarse, aLevel, aWave, aDecay and so on set oscillator A, and b, c, d the others (B, C and D start off, so set bOn to 1 to use B).";
 
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
@@ -207,6 +207,11 @@ internal sealed class SlawMcpToolset
                 "VST3 plugins process left and right, and pan is a constant-power balance." +
                 "\nEQ and compressor units: eq has a low cut (lowcut, Hz; 20 means off) and a high cut (highcut, Hz; 20000 means off), both 12 dB per octave; a low shelf (lowfreq Hz, default 120; lowgain dB); two bells (mid1freq default 400 and mid2freq default 2500 Hz; mid1gain and mid2gain dB; mid1q and mid2q default 1, higher is narrower); a high shelf (highfreq Hz, default 8000; highgain dB). Every gain defaults to 0 dB, which changes nothing. " +
                 "compressor: threshold dB (default -18), ratio (default 4, meaning 4 dB over comes out as 1 dB over), attack and release ms (defaults 10 and 120), knee dB (default 6), makeup dB (default 0: there is no automatic makeup, so expect the track to get quieter until you set it), mix 0..1 (default 1)." +
+                "\nStudio effects: limiter: gain dB pushed in (default 0), ceiling dBFS (default -1; sample peak, so true peak can land up to about 1 dB higher: use -2 for a safe -1 dBTP), release ms (default 60); it looks 5 ms ahead and delays its track by 5 ms, so put it last on the master chain; the master's own gain and drive come after it and move the final peak. " +
+                "transient: attack and sustain -1..1 (positive boosts, negative cuts, at most 15 dB; 0 changes nothing), output dB. " +
+                "phaser: rate Hz, depth 0..1, center Hz, feedback 0..0.9, stages 2..12, spread 0..1 (right channel's sweep offset; above 0 a mono track becomes stereo), mix 0..1 (0.5 classic). " +
+                "autowah: sensitivity 0..1, low and high Hz (the band's range), resonance 0..0.95, attack and release ms, mix 0..1. " +
+                "chamber (reverb with named spaces): space 0 room, 1 plate, 2 spring, 3 hall; decay × the space's own time (0.25..3, default 1); predelay ms; damping 0..1; lowcut Hz on the wet signal; width 0..1; mix 0..1 (default 0.25)." +
                 "\n" + BuiltInInstrumentLevels.Value +
                 "\nVST3 instruments vary widely in output level (often 10–20 dB apart); after placing clips, render with levels:true and adjust gains." +
                 "\n" + SoundFontPrimer));
@@ -895,7 +900,7 @@ internal sealed class SlawMcpToolset
             "Bounce the ARRANGEMENT (the song) to a 16-bit stereo WAV and report its musical length, the release tail, and the peak level. " +
             "A hearing-protection limiter caps peaks at -1 dBFS; the result says whether it engaged and by how much (a -1.0 dBFS peak is the ceiling, not headroom). " +
             "Every render also reports integrated and loudest-3-second loudness (LUFS), true peak (dBTP), stereo correlation overall and below 120 Hz, the level change when summed to mono, and dB RMS in nine frequency bands, with warnings for true peaks above -1 dBTP, a mono loss over 3 dB and a wide low end. " +
-            "With levels:true it also renders every track soloed and reports each one's RMS and peak, the bands of the mix per bar range, and likely masking: pairs of tracks equally loud in one band at the same moments (slower; finds tracks that are too quiet, too loud or hiding each other).",
+            "With levels:true it also renders every track soloed and reports each one's RMS and peak, the bands of the mix per bar range, and likely masking: pairs of tracks equally loud in one band at the same moments (slower; finds tracks that are too quiet, too loud or hiding each other). Soloed tracks still pass through the master chain, so a master limiter flattens their peaks and hides gain changes near its ceiling: compare tracks by RMS, or balance before adding the limiter.",
             Schema(new JsonObject
             {
                 ["path"] = Property("string", "Output .wav path. Relative paths resolve next to the project file (or the server's working folder if it has none). Default: the project's name with .wav, next to it."),

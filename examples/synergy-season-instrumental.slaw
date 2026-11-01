@@ -88,11 +88,12 @@
       },
       "effects": [
         {
-          "type": "reverb",
+          "type": "chamber",
           "enabled": true,
           "parameters": {
-            "size": 0.55,
-            "mix": 0.22
+            "space": 1,
+            "mix": 0.2,
+            "decay": 0.8
           }
         }
       ],
@@ -161,12 +162,10 @@
     {
       "id": "2ca3f629",
       "name": "Bottom Line Bass",
-      "instrument": "saw",
+      "instrument": "bassguitar",
       "instrumentParameters": {
-        "attack": 3,
-        "decay": 200,
-        "sustain": 0.7,
-        "release": 60
+        "style": 0.3,
+        "tone": 0.5
       },
       "effects": [
         {
@@ -197,7 +196,7 @@
           "sidechainSource": "e6b761a5"
         }
       ],
-      "gain": 0.5,
+      "gain": 0.3,
       "pan": 0,
       "muted": false,
       "solo": false,
@@ -437,7 +436,17 @@
     "delaySteps": 3,
     "delayFeedback": 0.3,
     "delayMix": 0,
-    "rationale": null
+    "rationale": null,
+    "effects": [
+      {
+        "type": "limiter",
+        "enabled": true,
+        "parameters": {
+          "gain": 1.5,
+          "ceiling": -1.5
+        }
+      }
+    ]
   },
   "timeline": [
     {

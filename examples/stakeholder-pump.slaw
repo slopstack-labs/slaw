@@ -50,6 +50,13 @@
             "mix": 0.08,
             "width": 0.8
           }
+        },
+        {
+          "type": "transient",
+          "enabled": true,
+          "parameters": {
+            "attack": 0.4
+          }
         }
       ],
       "gain": 1.1,
@@ -506,20 +513,18 @@
     {
       "id": "dde57443",
       "name": "Crash Memo",
-      "instrument": "noise",
+      "instrument": "cymbal",
       "instrumentParameters": {
-        "attack": 1,
-        "decay": 1100,
-        "sustain": 0,
-        "release": 900,
-        "cutoff": 13000
+        "decay": 4,
+        "cutoff": 13000,
+        "kind": 1
       },
       "effects": [
         {
           "type": "highpass",
           "enabled": true,
           "parameters": {
-            "cutoff": 3800
+            "cutoff": 300
           }
         },
         {
@@ -528,12 +533,12 @@
           "parameters": {
             "size": 0.6,
             "damping": 0.5,
-            "mix": 0.18,
+            "mix": 0.14,
             "width": 1
           }
         }
       ],
-      "gain": 1.1,
+      "gain": 0.31,
       "pan": 0.05,
       "muted": false,
       "solo": false,
@@ -559,6 +564,14 @@
         "parameters": {
           "amount": 1.4,
           "mix": 0.15
+        }
+      },
+      {
+        "type": "limiter",
+        "enabled": true,
+        "parameters": {
+          "gain": 2.5,
+          "ceiling": -1.5
         }
       }
     ]
