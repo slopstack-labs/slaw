@@ -479,9 +479,15 @@ internal sealed partial class DetailView : UserControl
 
     // ── Device chain ──────────────────────────────────────────────────────────
 
+    /// <summary>The Groove and instrument devices come first in the row.</summary>
+    private const int DevicesBeforeEffects = 2;
+
+    private StackPanel? deviceChainRow;
+
     private Control ComposeDeviceChain()
     {
         var deviceRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        deviceChainRow = deviceRow;
         if (document.SelectedTrack is { } track)
         {
             var trackIndex = document.SelectedTrackIndex;
@@ -766,6 +772,7 @@ internal sealed partial class DetailView : UserControl
         Control titleControls = ComposeSidechainSelector(effectDevice, track.Id, Plugins.PluginInstancePool.EffectSlot(track.Id, effectIndex)) is { } sidechainSelector
             ? new StackPanel { Spacing = 4, Children = { titleRow, sidechainSelector } }
             : titleRow;
+        titleControls = WithEqDisplay(titleControls, effectDevice, track.Id, effectIndex);
         var devicePanel = ComposeDevicePanel(PluginDeviceOperations.DeviceName(effectDevice), titleControls, knobs, StudioTheme.Violet);
         var effectDescription = DeviceCatalog.EffectDescription(effectDevice.Type);
         if (!string.IsNullOrEmpty(effectDescription))
@@ -776,6 +783,16 @@ internal sealed partial class DetailView : UserControl
         StudioDragDrop.MakeDropTarget(devicePanel, host, () => new DropTarget(DropTargetKind.EffectDevice, trackIndex, Index: effectIndex));
         return devicePanel;
     }
+
+    /// <summary>An EQ shows what it is doing, below its title and above its knobs; every other device is unchanged.</summary>
+    private static Control WithEqDisplay(Control titleControls, EffectDevice effectDevice, string owner, int effectIndex) =>
+        effectDevice.Type != "eq"
+            ? titleControls
+            : new StackPanel
+            {
+                Spacing = 4,
+                Children = { titleControls, new EqDisplayControl(() => effectDevice.Parameters, owner, effectIndex) },
+            };
 
     private void MoveEffect(SlawTrack track, int effectIndex, int offset)
     {
@@ -823,6 +840,14 @@ internal sealed partial class DetailView : UserControl
         }
         document.Edit($"added {DeviceCatalog.EffectDisplayName(effectType)} to {track.Name}",
             _ => track.Effects.Add(new EffectDevice { Type = effectType }), EditScope.Structure);
+        // The chain scrolls sideways, and a new device arrives at its far end.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (document.SelectedTrack == track && deviceChainRow is { } row && DevicesBeforeEffects + track.Effects.Count - 1 < row.Children.Count)
+            {
+                row.Children[DevicesBeforeEffects + track.Effects.Count - 1].BringIntoView();
+            }
+        }, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     private Control ComposeMasterDevice()

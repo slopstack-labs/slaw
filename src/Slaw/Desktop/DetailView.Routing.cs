@@ -98,6 +98,7 @@ internal sealed partial class DetailView
         Control titleControls = ComposeSidechainSelector(effectDevice, owningTrackId: null, slotKey) is { } sidechainSelector
             ? new StackPanel { Spacing = 4, Children = { titleRow, sidechainSelector } }
             : titleRow;
+        titleControls = WithEqDisplay(titleControls, effectDevice, SequencerEngine.MasterEffectSlotOwner, effectIndex);
 
         var knobs = DeviceCatalog.EffectParametersFor(effectDevice.Type).Select(parameterSpecification => ComposeParameterKnob(
             parameterSpecification,

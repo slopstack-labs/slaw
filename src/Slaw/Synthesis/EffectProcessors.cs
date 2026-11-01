@@ -215,6 +215,40 @@ internal sealed class FrequencyRealignmentEqProcessor : EffectProcessor
         return false;
     }
 
+    /// <summary>
+    /// What these settings do to one frequency, in dB, from the same coefficients the audio runs through. In the
+    /// trapezoidal design a band is the analog prototype with s = j·tan(πf/rate)/g, so this is exact, not a sketch.
+    /// </summary>
+    public static double ResponseDecibels(IReadOnlyDictionary<string, double> parameterValues, double frequencyHz, int sampleRate)
+    {
+        var specifications = DeviceCatalog.EffectParametersFor("eq");
+        double Value(string key) => DeviceCatalog.Resolve(parameterValues, specifications, key);
+        var lowCut = Value("lowcut");
+        var highCut = Value("highcut");
+        var evaluated = new[]
+        {
+            lowCut <= OffLowCutHz ? default : BandCoefficients.LowCut(lowCut, CutQ, sampleRate),
+            BandCoefficients.LowShelf(Value("lowfreq"), Value("lowgain"), ShelfQ, sampleRate),
+            BandCoefficients.Bell(Value("mid1freq"), Value("mid1gain"), Value("mid1q"), sampleRate),
+            BandCoefficients.Bell(Value("mid2freq"), Value("mid2gain"), Value("mid2q"), sampleRate),
+            BandCoefficients.HighShelf(Value("highfreq"), Value("highgain"), ShelfQ, sampleRate),
+            highCut >= OffHighCutHz ? default : BandCoefficients.HighCut(highCut, CutQ, sampleRate),
+        };
+        var warpedFrequency = Math.Tan(Math.PI * Math.Min(frequencyHz, sampleRate * 0.49) / sampleRate);
+        var totalDecibels = 0.0;
+        foreach (var band in evaluated)
+        {
+            if (band.IsActive)
+            {
+                var s = new System.Numerics.Complex(0, warpedFrequency / band.Warped);
+                var denominator = s * s + band.Damping * s + 1;
+                var response = band.InputMix + band.BandMix * s / denominator + band.LowMix / denominator;
+                totalDecibels += 20 * Math.Log10(Math.Max(response.Magnitude, 1e-9));
+            }
+        }
+        return totalDecibels;
+    }
+
     private void FilterChannel(Span<float> channelBlock, int channel)
     {
         var channelFirstStates = firstStates[channel];
@@ -246,7 +280,7 @@ internal sealed class FrequencyRealignmentEqProcessor : EffectProcessor
         }
     }
 
-    private readonly record struct BandCoefficients(double A1, double A2, double A3, double InputMix, double BandMix, double LowMix, bool IsActive)
+    private readonly record struct BandCoefficients(double A1, double A2, double A3, double InputMix, double BandMix, double LowMix, bool IsActive, double Warped, double Damping)
     {
         private static double Warp(double frequencyHz, int sampleRate) => Math.Tan(Math.PI * Math.Min(frequencyHz, sampleRate * 0.49) / sampleRate);
 
@@ -254,7 +288,7 @@ internal sealed class FrequencyRealignmentEqProcessor : EffectProcessor
         {
             var a1 = 1 / (1 + warped * (warped + damping));
             var a2 = warped * a1;
-            return new BandCoefficients(a1, a2, warped * a2, inputMix, bandMix, lowMix, true);
+            return new BandCoefficients(a1, a2, warped * a2, inputMix, bandMix, lowMix, true, warped, damping);
         }
 
         public static BandCoefficients LowCut(double frequencyHz, double q, int sampleRate) =>

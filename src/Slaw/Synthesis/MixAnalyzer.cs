@@ -333,7 +333,7 @@ internal static class MixAnalyzer
         return new BandProfile(bandPowers, (double)hopFrames / buffer.SampleRate);
     }
 
-    private static void TransformInPlace(Complex[] values)
+    public static void TransformInPlace(Complex[] values)
     {
         var length = values.Length;
         for (int index = 1, reversed = 0; index < length; index++)

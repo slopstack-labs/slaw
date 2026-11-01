@@ -57,6 +57,9 @@ internal sealed class SequencerEngine
     private const int MaximumVoicesPerTrack = 48;
     private const int MaximumCachedVoices = 768;
     private const int MaximumBlockFrames = 8192;
+
+    /// <summary>A bounce runs faster than real time, and what it plays is not what is on screen.</summary>
+    private readonly bool feedsEqDisplays;
     private const int AutomationChunkFrames = 64;
 
     /// <summary>Step notes reach plugins at a polite mezzo-forte (MIDI ~100), humanized downwards from there.</summary>
@@ -117,6 +120,7 @@ internal sealed class SequencerEngine
         grooveTimingEntropySource = new Random(noiseSeed ^ 0x7E1A);
         masterBusProcessor = new MasterBusProcessor(sampleRate);
         pluginPool = new PluginInstancePool(sampleRate, offlinePluginHosting);
+        feedsEqDisplays = !offlinePluginHosting;
     }
 
     public int SampleRate => sampleRate;
@@ -1116,6 +1120,7 @@ internal sealed class SequencerEngine
                         : runtimeState.AutomatedEffectParameters(effectIndex, effectDevice.Parameters, envelopes, clipPosition);
                     trackIsMono = runtimeState.EffectChain[effectIndex].Process(trackLeftBlock, trackRightBlock, effectParameters,
                         WithSidechain(processingContext with { MonoInput = trackIsMono }, effectDevice));
+                    FeedEqDisplay(effectDevice, track.Id, effectIndex, trackLeftBlock, trackRightBlock, trackIsMono);
                 }
             }
 
@@ -1153,6 +1158,7 @@ internal sealed class SequencerEngine
             {
                 masterRuntimeState.EffectChain[effectIndex].Process(leftChannel, rightChannel, effectDevice.Parameters,
                     WithSidechain(processingContext, effectDevice));
+                FeedEqDisplay(effectDevice, MasterEffectSlotOwner, effectIndex, leftChannel, rightChannel, isMono: false);
             }
         }
 
@@ -1165,6 +1171,21 @@ internal sealed class SequencerEngine
                 trackRuntimeStates.Remove(orphanedIdentifier);
                 pluginPool.ReleaseTrack(orphanedIdentifier);
                 pluginAuditionNotes.Remove(orphanedIdentifier);
+            }
+        }
+    }
+
+    /// <summary>Hands an EQ's output to its display, if one is on screen. Live engines only, and no allocation.</summary>
+    private void FeedEqDisplay(EffectDevice effectDevice, string owner, int effectIndex, ReadOnlySpan<float> left, ReadOnlySpan<float> right, bool isMono)
+    {
+        if (feedsEqDisplays && effectDevice.Type == "eq")
+        {
+            foreach (var tap in EqSpectrumTaps.Current)
+            {
+                if (tap.EffectIndex == effectIndex && tap.Owner == owner)
+                {
+                    tap.Write(left, right, isMono);
+                }
             }
         }
     }

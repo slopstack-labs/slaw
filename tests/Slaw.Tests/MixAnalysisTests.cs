@@ -416,6 +416,118 @@ public class MixAnalysisTests
         Assert.InRange(GainAt(200, "eq", highCut), -0.2, 0.2);
     }
 
+    [Theory]
+    [InlineData(30)]
+    [InlineData(120)]
+    [InlineData(400)]
+    [InlineData(1000)]
+    [InlineData(2500)]
+    [InlineData(8000)]
+    [InlineData(16000)]
+    public void The_displayed_curve_is_what_the_audio_measures(double frequency)
+    {
+        var parameters = new Dictionary<string, double>
+        {
+            ["lowcut"] = 40,
+            ["lowfreq"] = 150,
+            ["lowgain"] = 4,
+            ["mid1freq"] = 400,
+            ["mid1gain"] = -8,
+            ["mid1q"] = 2,
+            ["mid2freq"] = 2500,
+            ["mid2gain"] = 5,
+            ["mid2q"] = 1,
+            ["highfreq"] = 9000,
+            ["highgain"] = -3,
+            ["highcut"] = 18000,
+        };
+        Assert.InRange(FrequencyRealignmentEqProcessor.ResponseDecibels(parameters, frequency, Rate) - GainAt(frequency, "eq", parameters), -0.15, 0.15);
+    }
+
+    [Fact]
+    public void A_flat_EQ_draws_a_flat_line() =>
+        Assert.Equal(0, FrequencyRealignmentEqProcessor.ResponseDecibels(new Dictionary<string, double>(), 1000, Rate));
+
+    private static SlawProject EqSong()
+    {
+        var project = ProjectSerializer.CreateBlankProject("display", 120);
+        var track = new SlawTrack { Id = "keys0001", Name = "Keys", Instrument = "sine", Effects = { new EffectDevice { Type = "eq" } } };
+        project.Tracks.Add(track);
+        var clip = new TimelineClip { TrackId = track.Id, StartStep = 0, LengthSteps = 16 };
+        clip.Clip.Pattern = "A4 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _".Split(' ').ToList();
+        project.Timeline.Add(clip);
+        return project;
+    }
+
+    [Fact]
+    public void A_display_on_screen_hears_its_own_EQ_and_only_that_one()
+    {
+        var ownTap = EqSpectrumTaps.Watch("keys0001", 0);
+        var otherSlot = EqSpectrumTaps.Watch("keys0001", 1);
+        var otherTrack = EqSpectrumTaps.Watch("elsewhere", 0);
+        try
+        {
+            var engine = new SequencerEngine(Rate);
+            engine.PublishProject(EqSong());
+            engine.PlayTimeline(loop: false);
+            var left = new float[2048];
+            var right = new float[2048];
+            for (var block = 0; block < 8; block++)
+            {
+                engine.RenderBlock(left, right);
+            }
+            engine.ReleasePlugins();
+            Assert.True(ownTap.FramesWritten > 0);
+            Assert.Equal(0, otherSlot.FramesWritten);
+            Assert.Equal(0, otherTrack.FramesWritten);
+            var latest = new float[1024];
+            ownTap.CopyLatest(latest);
+            Assert.Contains(latest, sample => Math.Abs(sample) > 0.01f);
+        }
+        finally
+        {
+            EqSpectrumTaps.Forget(ownTap);
+            EqSpectrumTaps.Forget(otherSlot);
+            EqSpectrumTaps.Forget(otherTrack);
+        }
+    }
+
+    [Fact]
+    public void A_bounce_neither_feeds_a_display_nor_changes_because_of_one()
+    {
+        var unwatched = OfflineArrangementRenderer.Render(EqSong());
+        var tap = EqSpectrumTaps.Watch("keys0001", 0);
+        try
+        {
+            var watched = OfflineArrangementRenderer.Render(EqSong());
+            Assert.Equal(0, tap.FramesWritten);
+            Assert.Equal(unwatched.Left, watched.Left);
+        }
+        finally
+        {
+            EqSpectrumTaps.Forget(tap);
+        }
+    }
+
+    [Fact]
+    public void The_tap_wraps_around_and_hands_back_the_newest_samples_in_order()
+    {
+        var tap = new EqSpectrumTap("t", 0);
+        var block = new float[EqSpectrumTap.Capacity / 2 + 7];
+        var next = 0f;
+        for (var round = 0; round < 5; round++)
+        {
+            for (var index = 0; index < block.Length; index++)
+            {
+                block[index] = next++;
+            }
+            tap.Write(block, block, isMono: true);
+        }
+        var latest = new float[16];
+        tap.CopyLatest(latest);
+        Assert.Equal(Enumerable.Range((int)next - 16, 16).Select(value => (float)value), latest);
+    }
+
     [Fact]
     public void A_flat_EQ_is_a_true_bypass()
     {
