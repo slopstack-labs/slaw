@@ -52,6 +52,8 @@ internal abstract class EffectProcessor
     {
         "lowpass" => new StateVariableFilterProcessor(effectType, highpassMode: false),
         "highpass" => new StateVariableFilterProcessor(effectType, highpassMode: true),
+        "eq" => new FrequencyRealignmentEqProcessor(),
+        "compressor" => new ExpectationCompressorProcessor(),
         "delay" => new TempoSyncedDelayProcessor(sampleRate),
         "reverb" => new CloudReverbProcessor(sampleRate),
         "drive" => new WarmthSaturationProcessor(),
@@ -158,6 +160,198 @@ internal sealed class StateVariableFilterProcessor : EffectProcessor
         // Denormal insurance only: this design does not run away.
         firstIntegratorStates[channelIndex] = Math.Abs(firstIntegratorState) < 1e-20 ? 0 : firstIntegratorState;
         secondIntegratorStates[channelIndex] = Math.Abs(secondIntegratorState) < 1e-20 ? 0 : secondIntegratorState;
+    }
+}
+
+/// <summary>
+/// Six bands in series, each a zero-delay (trapezoidal) state-variable filter, so every
+/// band is stable up to Nyquist at any setting (Andrew Simper's shelf and bell mixes).
+/// A band with nothing to do is skipped and forgets its state, so a flat EQ is a true bypass.
+/// </summary>
+internal sealed class FrequencyRealignmentEqProcessor : EffectProcessor
+{
+    private const int BandCount = 6;
+    private const double ShelfQ = 0.7071;
+    private const double CutQ = 0.7071;
+    private const double OffLowCutHz = 20;
+    private const double OffHighCutHz = 20000;
+
+    private readonly double[][] firstStates = { new double[BandCount], new double[BandCount] };
+    private readonly double[][] secondStates = { new double[BandCount], new double[BandCount] };
+    private readonly BandCoefficients[] bands = new BandCoefficients[BandCount];
+    private bool rightStateStale;
+
+    public FrequencyRealignmentEqProcessor()
+        : base("eq")
+    {
+    }
+
+    public override bool Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double> parameterValues, EffectProcessingContext processingContext)
+    {
+        var sampleRate = processingContext.SampleRate;
+        var lowCut = Parameter(parameterValues, "lowcut");
+        var highCut = Parameter(parameterValues, "highcut");
+        bands[0] = lowCut <= OffLowCutHz ? default : BandCoefficients.LowCut(lowCut, CutQ, sampleRate);
+        bands[1] = BandCoefficients.LowShelf(Parameter(parameterValues, "lowfreq"), Parameter(parameterValues, "lowgain"), ShelfQ, sampleRate);
+        bands[2] = BandCoefficients.Bell(Parameter(parameterValues, "mid1freq"), Parameter(parameterValues, "mid1gain"), Parameter(parameterValues, "mid1q"), sampleRate);
+        bands[3] = BandCoefficients.Bell(Parameter(parameterValues, "mid2freq"), Parameter(parameterValues, "mid2gain"), Parameter(parameterValues, "mid2q"), sampleRate);
+        bands[4] = BandCoefficients.HighShelf(Parameter(parameterValues, "highfreq"), Parameter(parameterValues, "highgain"), ShelfQ, sampleRate);
+        bands[5] = highCut >= OffHighCutHz ? default : BandCoefficients.HighCut(highCut, CutQ, sampleRate);
+
+        FilterChannel(leftBlock, 0);
+        if (processingContext.MonoInput)
+        {
+            rightStateStale = true;
+            return true;
+        }
+        if (rightStateStale)
+        {
+            // Mono until now: the right filters pick up where the left ones are.
+            firstStates[0].CopyTo(firstStates[1], 0);
+            secondStates[0].CopyTo(secondStates[1], 0);
+            rightStateStale = false;
+        }
+        FilterChannel(rightBlock, 1);
+        return false;
+    }
+
+    private void FilterChannel(Span<float> channelBlock, int channel)
+    {
+        var channelFirstStates = firstStates[channel];
+        var channelSecondStates = secondStates[channel];
+        for (var band = 0; band < BandCount; band++)
+        {
+            var coefficients = bands[band];
+            if (!coefficients.IsActive)
+            {
+                channelFirstStates[band] = 0;
+                channelSecondStates[band] = 0;
+                continue;
+            }
+            var firstState = channelFirstStates[band];
+            var secondState = channelSecondStates[band];
+            for (var sampleIndex = 0; sampleIndex < channelBlock.Length; sampleIndex++)
+            {
+                double inputSample = channelBlock[sampleIndex];
+                var difference = inputSample - secondState;
+                var bandOutput = coefficients.A1 * firstState + coefficients.A2 * difference;
+                var lowOutput = secondState + coefficients.A2 * firstState + coefficients.A3 * difference;
+                firstState = 2 * bandOutput - firstState;
+                secondState = 2 * lowOutput - secondState;
+                channelBlock[sampleIndex] = (float)(coefficients.InputMix * inputSample + coefficients.BandMix * bandOutput + coefficients.LowMix * lowOutput);
+            }
+            // Denormal insurance only: this design does not run away.
+            channelFirstStates[band] = Math.Abs(firstState) < 1e-20 ? 0 : firstState;
+            channelSecondStates[band] = Math.Abs(secondState) < 1e-20 ? 0 : secondState;
+        }
+    }
+
+    private readonly record struct BandCoefficients(double A1, double A2, double A3, double InputMix, double BandMix, double LowMix, bool IsActive)
+    {
+        private static double Warp(double frequencyHz, int sampleRate) => Math.Tan(Math.PI * Math.Min(frequencyHz, sampleRate * 0.49) / sampleRate);
+
+        private static BandCoefficients Compose(double warped, double damping, double inputMix, double bandMix, double lowMix)
+        {
+            var a1 = 1 / (1 + warped * (warped + damping));
+            var a2 = warped * a1;
+            return new BandCoefficients(a1, a2, warped * a2, inputMix, bandMix, lowMix, true);
+        }
+
+        public static BandCoefficients LowCut(double frequencyHz, double q, int sampleRate) =>
+            Compose(Warp(frequencyHz, sampleRate), 1 / q, 1, -1 / q, -1);
+
+        public static BandCoefficients HighCut(double frequencyHz, double q, int sampleRate) =>
+            Compose(Warp(frequencyHz, sampleRate), 1 / q, 0, 0, 1);
+
+        public static BandCoefficients Bell(double frequencyHz, double gainDecibels, double q, int sampleRate)
+        {
+            if (gainDecibels == 0)
+            {
+                return default;
+            }
+            var amplitude = Math.Pow(10, gainDecibels / 40);
+            var damping = 1 / (q * amplitude);
+            return Compose(Warp(frequencyHz, sampleRate), damping, 1, damping * (amplitude * amplitude - 1), 0);
+        }
+
+        public static BandCoefficients LowShelf(double frequencyHz, double gainDecibels, double q, int sampleRate)
+        {
+            if (gainDecibels == 0)
+            {
+                return default;
+            }
+            var amplitude = Math.Pow(10, gainDecibels / 40);
+            var damping = 1 / q;
+            return Compose(Warp(frequencyHz, sampleRate) / Math.Sqrt(amplitude), damping, 1, damping * (amplitude - 1), amplitude * amplitude - 1);
+        }
+
+        public static BandCoefficients HighShelf(double frequencyHz, double gainDecibels, double q, int sampleRate)
+        {
+            if (gainDecibels == 0)
+            {
+                return default;
+            }
+            var amplitude = Math.Pow(10, gainDecibels / 40);
+            var damping = 1 / q;
+            return Compose(Warp(frequencyHz, sampleRate) * Math.Sqrt(amplitude), damping, amplitude * amplitude, damping * (1 - amplitude) * amplitude, 1 - amplitude * amplitude);
+        }
+    }
+}
+
+/// <summary>
+/// A feed-forward compressor in decibels: the louder channel's level drives one gain for
+/// both, so the stereo image does not lean when one side gets loud. A soft knee eases into
+/// the ratio; attack and release smooth the reduction, not the signal.
+/// </summary>
+internal sealed class ExpectationCompressorProcessor : EffectProcessor
+{
+    private double gainReductionDecibels;
+
+    public ExpectationCompressorProcessor()
+        : base("compressor")
+    {
+    }
+
+    public override bool Process(Span<float> leftBlock, Span<float> rightBlock, IReadOnlyDictionary<string, double> parameterValues, EffectProcessingContext processingContext)
+    {
+        var threshold = Parameter(parameterValues, "threshold");
+        var slope = 1 / Parameter(parameterValues, "ratio") - 1;
+        var knee = Parameter(parameterValues, "knee");
+        var makeup = Parameter(parameterValues, "makeup");
+        var wetMix = Parameter(parameterValues, "mix");
+        var attackCoefficient = Math.Exp(-1000 / (Parameter(parameterValues, "attack") * processingContext.SampleRate));
+        var releaseCoefficient = Math.Exp(-1000 / (Parameter(parameterValues, "release") * processingContext.SampleRate));
+        var isMono = processingContext.MonoInput;
+        for (var sampleIndex = 0; sampleIndex < leftBlock.Length; sampleIndex++)
+        {
+            var level = isMono ? Math.Abs(leftBlock[sampleIndex]) : Math.Max(Math.Abs(leftBlock[sampleIndex]), Math.Abs(rightBlock[sampleIndex]));
+            var over = 20 * Math.Log10(level + 1e-9) - threshold;
+            var targetReduction = ReductionFor(over, slope, knee);
+            var smoothing = targetReduction < gainReductionDecibels ? attackCoefficient : releaseCoefficient;
+            gainReductionDecibels = targetReduction + smoothing * (gainReductionDecibels - targetReduction);
+            var gain = (float)Math.Pow(10, (gainReductionDecibels + makeup) / 20);
+            leftBlock[sampleIndex] = Blend(leftBlock[sampleIndex], leftBlock[sampleIndex] * gain, wetMix);
+            if (!isMono)
+            {
+                rightBlock[sampleIndex] = Blend(rightBlock[sampleIndex], rightBlock[sampleIndex] * gain, wetMix);
+            }
+        }
+        return isMono;
+    }
+
+    /// <summary>The gain computer: nothing below the knee, the full ratio above it, a parabola between.</summary>
+    private static double ReductionFor(double over, double slope, double knee)
+    {
+        if (2 * over <= -knee)
+        {
+            return 0;
+        }
+        if (knee > 0 && 2 * over < knee)
+        {
+            var intoKnee = over + knee / 2;
+            return slope * intoKnee * intoKnee / (2 * knee);
+        }
+        return slope * over;
     }
 }
 

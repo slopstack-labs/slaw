@@ -179,6 +179,17 @@ internal sealed partial class StudioWindow
         commandPalette.Open(ComposePaletteEntries());
     }
 
+    /// <summary>The headline goes in the status bar, and the whole account in its tooltip.</summary>
+    private void CheckSongNotes()
+    {
+        var report = NoteKeyAnalysis.Analyze(document.Project);
+        var outOfKey = report.OutOfKeyNotes.Count;
+        SetStatus(outOfKey > 0 ? StatusSeverity.Warning : StatusSeverity.Success, report.Key is { } key
+            ? $"the notes fit {key.Name}. {(outOfKey == 0 ? "every note is in the scale, which compliance appreciates" : $"{outOfKey} note(s) are outside it (hover to see where)")}"
+            : "no pitched notes to check. the drums have declined to state a key.");
+        ToolTip.SetTip(statusText, NoteKeyAnalysis.Describe(report));
+    }
+
     private IReadOnlyList<CommandPaletteEntry> ComposePaletteEntries()
     {
         string? GestureFor(StudioCommand studioCommand) =>
@@ -223,6 +234,7 @@ internal sealed partial class StudioWindow
         {
             entries.Add(new CommandPaletteEntry(BrowserSearch.PluginTrackTitle(instrumentPlugin), null, () => AddPluginInstrumentTrack(instrumentPlugin)));
         }
+        entries.Add(new CommandPaletteEntry("Analyze: Check Song Key and Out-of-Key Notes", null, CheckSongNotes));
         entries.Add(new CommandPaletteEntry("Plugins: Rescan VST3 Folders", null, () => PopulatePluginEntries(rescan: true)));
         entries.Add(new CommandPaletteEntry("Plugins: Manage VST3 Folders…", null, () => _ = OpenSettingsAsync()));
         if (document.SelectedTrack is { } selectedTrack)

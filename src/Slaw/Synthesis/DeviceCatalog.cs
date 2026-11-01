@@ -306,7 +306,7 @@ internal static class DeviceCatalog
 
     public static readonly IReadOnlyList<string> EffectTypes = new[]
     {
-        "lowpass", "highpass", "delay", "reverb", "drive", "bitcrush", "vibe", "widen", Session.SidechainRouting.DuckEffectType,
+        "lowpass", "highpass", "eq", "compressor", "delay", "reverb", "drive", "bitcrush", "vibe", "widen", Session.SidechainRouting.DuckEffectType,
     };
 
     private static readonly Dictionary<string, IReadOnlyList<ParameterSpecification>> EffectParameterTable = new()
@@ -320,6 +320,31 @@ internal static class DeviceCatalog
         {
             new ParameterSpecification("cutoff", "Cutoff", 20, 10000, 200, "Hz", Logarithmic: true),
             new ParameterSpecification("resonance", "Resonance", 0, 0.95, 0.1, "%"),
+        },
+        ["eq"] = new[]
+        {
+            new ParameterSpecification("lowcut", "Low Cut", 20, 2000, 20, "Hz", Logarithmic: true),
+            new ParameterSpecification("lowfreq", "Low Freq", 20, 1000, 120, "Hz", Logarithmic: true),
+            new ParameterSpecification("lowgain", "Low Gain", -18, 18, 0, "dB"),
+            new ParameterSpecification("mid1freq", "Mid 1 Freq", 40, 16000, 400, "Hz", Logarithmic: true),
+            new ParameterSpecification("mid1gain", "Mid 1 Gain", -18, 18, 0, "dB"),
+            new ParameterSpecification("mid1q", "Mid 1 Q", 0.2, 10, 1, "", Logarithmic: true),
+            new ParameterSpecification("mid2freq", "Mid 2 Freq", 40, 16000, 2500, "Hz", Logarithmic: true),
+            new ParameterSpecification("mid2gain", "Mid 2 Gain", -18, 18, 0, "dB"),
+            new ParameterSpecification("mid2q", "Mid 2 Q", 0.2, 10, 1, "", Logarithmic: true),
+            new ParameterSpecification("highfreq", "High Freq", 1000, 20000, 8000, "Hz", Logarithmic: true),
+            new ParameterSpecification("highgain", "High Gain", -18, 18, 0, "dB"),
+            new ParameterSpecification("highcut", "High Cut", 1000, 20000, 20000, "Hz", Logarithmic: true),
+        },
+        ["compressor"] = new[]
+        {
+            new ParameterSpecification("threshold", "Threshold", -60, 0, -18, "dB"),
+            new ParameterSpecification("ratio", "Ratio", 1, 30, 4, ":1", Logarithmic: true),
+            new ParameterSpecification("attack", "Attack", 0.1, 200, 10, "ms", Logarithmic: true),
+            new ParameterSpecification("release", "Release", 5, 2000, 120, "ms", Logarithmic: true),
+            new ParameterSpecification("knee", "Knee", 0, 24, 6, "dB"),
+            new ParameterSpecification("makeup", "Makeup", -12, 24, 0, "dB"),
+            new ParameterSpecification("mix", "Dry/Wet", 0, 1, 1, "%"),
         },
         ["delay"] = new[]
         {
@@ -373,6 +398,8 @@ internal static class DeviceCatalog
     {
         "lowpass" => "Auto Filter (Low)",
         "highpass" => "Auto Filter (High)",
+        "eq" => "Frequency Realignment EQ",
+        "compressor" => "Expectation Compressor",
         "delay" => "Synergy Delay",
         "reverb" => "Cloud Reverb",
         "drive" => "Warmth Saturator",
@@ -386,6 +413,8 @@ internal static class DeviceCatalog
 
     public static string EffectDescription(string effectType) => effectType switch
     {
+        "eq" => "Parametric EQ: a low cut and a high cut (12 dB per octave; at 20 Hz and 20 kHz they are off), a low and a high shelf, and two bells. Gains are dB; a band at 0 dB changes nothing. Dip a track where another needs the room.",
+        "compressor" => "Turns down what rises above the threshold: ratio 4 lets 4 dB over come out as 1 dB over. Attack and release are how fast it reacts, knee how gently it starts, makeup gives the level back. Left and right are reduced together, so the image stays put. Expectations are lowered accordingly.",
         "vibe" => "Synergy adds saturation. Disruption adds noise. Alignment is a placebo, validated in user studies.",
         "bitcrush" => "Reduces bit depth until the mix complies with lo-fi playlist guidelines.",
         "reverb" => "Places the track in a large, empty, cloud-hosted space. Width spreads the tail across both channels.",

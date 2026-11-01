@@ -116,7 +116,7 @@ internal static class AbletonRackImporter
         {
             reading.NoteMacros(preset);
             var operatorEffects = reading.TakeEffects();
-            NormalizeOperatorLoudness(operatorParameters);
+            RebaseCompressors(operatorEffects, NormalizeOperatorLoudness(operatorParameters, reading.OperatorVolume));
             return new ImportedRack(
                 Path.GetFileNameWithoutExtension(fullPresetPath),
                 KnownDeviceNames["Operator"],
@@ -139,7 +139,7 @@ internal static class AbletonRackImporter
 
         reading.NoteMacros(preset);
         var effects = reading.TakeEffects();
-        NormalizeLoudness(reading.Zones);
+        RebaseCompressors(effects, NormalizeLoudness(reading.Zones));
         return new ImportedRack(
             Path.GetFileNameWithoutExtension(fullPresetPath),
             reading.IsDrumRack ? "Drum Rack" : "Instrument",
@@ -164,13 +164,26 @@ internal static class AbletonRackImporter
         return previewPath;
     }
 
-    /// <summary>Brings a synth preset's note up to a usable level, as with recordings: Live's own gain stages stayed behind.</summary>
-    private static void NormalizeOperatorLoudness(Dictionary<string, double> operatorParameters)
+    /// <summary>
+    /// A compressor's threshold means something only against the level reaching it, and normalizing moved that
+    /// level. Moving the threshold by the same amount makes it work as hard as it did in Live.
+    /// </summary>
+    private static void RebaseCompressors(IEnumerable<EffectDevice> effects, double levelChangeDecibels)
+    {
+        foreach (var compressor in effects.Where(effect => effect.Type == "compressor"))
+        {
+            compressor.Parameters["threshold"] = Math.Clamp(compressor.Parameters["threshold"] + levelChangeDecibels, -60, 0);
+        }
+    }
+
+    /// <summary>Brings a synth preset's note up to a usable level, as with recordings: Live's own gain stages stayed behind. Returns how far that moved it from Live's level, in dB.</summary>
+    private static double NormalizeOperatorLoudness(Dictionary<string, double> operatorParameters, double liveVolume)
     {
         operatorParameters["volume"] = 1;
         var probe = InstrumentVoiceSynthesizer.RenderVoice(OperatorPatch.InstrumentName, new[] { LoudnessProbeNote }, LoudnessProbeSeconds, LoudnessProbeSampleRate, new Random(LoudnessProbeNote), operatorParameters);
         var loudest = probe.Length == 0 ? 0 : probe.Max(sample => Math.Abs(sample));
         operatorParameters["volume"] = loudest > 0 ? Math.Round(Math.Clamp(NormalizedPeak / loudest, 0, 32), 5) : 1;
+        return 20 * Math.Log10(operatorParameters["volume"] / Math.Max(liveVolume, 1e-6));
     }
 
     private static XDocument LoadDocument(string presetPath)
@@ -222,8 +235,8 @@ internal static class AbletonRackImporter
         }
     }
 
-    /// <summary>Keeps the balance between recordings and brings the loudest up to a sensible level: Live's own gain stages stayed behind.</summary>
-    private static void NormalizeLoudness(List<SampleZone> zones)
+    /// <summary>Keeps the balance between recordings and brings the loudest up to a sensible level: Live's own gain stages stayed behind. Returns how far that moved them, in dB.</summary>
+    private static double NormalizeLoudness(List<SampleZone> zones)
     {
         var loudest = 0.0;
         foreach (var zone in zones)
@@ -238,13 +251,14 @@ internal static class AbletonRackImporter
         }
         if (loudest <= 0)
         {
-            return;
+            return 0;
         }
         var scale = NormalizedPeak / loudest;
         foreach (var zone in zones)
         {
             zone.Gain = Math.Round(zone.Gain * scale, 5);
         }
+        return 20 * Math.Log10(scale);
     }
 
     private static string? Value(XElement? element) => element?.Attribute("Value")?.Value;
@@ -323,6 +337,9 @@ internal static class AbletonRackImporter
         public Dictionary<string, double>? InstrumentParameters { get; private set; }
 
         public Dictionary<string, double>? OperatorParameters { get; private set; }
+
+        /// <summary>Operator's own output level in Live, a plain multiplier.</summary>
+        public double OperatorVolume { get; private set; } = 1;
 
         public bool IsDrumRack { get; private set; }
 
@@ -518,6 +535,10 @@ internal static class AbletonRackImporter
                             ["resonance"] = Math.Clamp(NumberAt(device, "Resonance", 0.5) / 1.25, 0, 0.95),
                         },
                     }, true);
+                case "Compressor2":
+                    return TranslateCompressor(device);
+                case "Eq8":
+                    return TranslateEqEight(device);
                 case "Chorus2":
                 case "Chorus":
                     return (null, NumberAt(device, "DryWet/Manual", 1) > 0);
@@ -526,6 +547,132 @@ internal static class AbletonRackImporter
                 default:
                     return (null, true);
             }
+        }
+
+        /// <summary>
+        /// Live stores the threshold as a linear level. Its automatic makeup is not documented, so it is
+        /// approximated as half the reduction at 0 dB, the usual rule, and reported as an approximation.
+        /// </summary>
+        private (EffectDevice? Effect, bool IsAudible) TranslateCompressor(XElement device)
+        {
+            var compressorMix = NumberAt(device, "DryWet", 1);
+            if (compressorMix <= 0)
+            {
+                return (null, false);
+            }
+            var thresholdDecibels = Math.Clamp(20 * Math.Log10(Math.Max(NumberAt(device, "Threshold", 1), 1e-6)), -60, 0);
+            var ratio = Math.Clamp(NumberAt(device, "Ratio", 4), 1, 30);
+            var makeupDecibels = NumberAt(device, "Gain", 0);
+            if (IsOn(device, "GainCompensation"))
+            {
+                makeupDecibels += -thresholdDecibels * (1 - 1 / ratio) / 2;
+                AddNote("the exact amount of Compressor's automatic makeup (approximated)");
+            }
+            return (new EffectDevice
+            {
+                Type = "compressor",
+                Parameters = new Dictionary<string, double>
+                {
+                    ["threshold"] = thresholdDecibels,
+                    ["ratio"] = ratio,
+                    ["attack"] = Math.Clamp(NumberAt(device, "Attack", 10), 0.1, 200),
+                    ["release"] = Math.Clamp(NumberAt(device, "Release", 120), 5, 2000),
+                    ["knee"] = Math.Clamp(NumberAt(device, "Knee", 6), 0, 24),
+                    ["makeup"] = Math.Clamp(makeupDecibels, -12, 24),
+                    ["mix"] = Math.Clamp(compressorMix, 0, 1),
+                },
+            }, true);
+        }
+
+        /// <summary>
+        /// EQ Eight's modes, read from what presets do with them: 0 and 1 low cuts (48 and 12 dB), 2 low shelf,
+        /// 3 bell, 4 notch, 5 high shelf, 6 and 7 high cuts (12 and 48 dB). slaw's EQ has one of each cut and
+        /// shelf and two bells: the strongest moves are kept, and anything further is named.
+        /// </summary>
+        private (EffectDevice? Effect, bool IsAudible) TranslateEqEight(XElement device)
+        {
+            const double NotchDecibels = -18;
+            var parameters = new Dictionary<string, double>();
+            var bells = new List<(double Frequency, double Gain, double Q)>();
+            var droppedBands = 0;
+            void TakeShelf(string frequencyKey, string gainKey, double frequency, double gain)
+            {
+                if (parameters.TryGetValue(gainKey, out var heldGain))
+                {
+                    if (Math.Abs(heldGain) >= Math.Abs(gain))
+                    {
+                        droppedBands++;
+                        return;
+                    }
+                    droppedBands++;
+                }
+                parameters[frequencyKey] = frequency;
+                parameters[gainKey] = gain;
+            }
+
+            for (var bandIndex = 0; bandIndex < 8; bandIndex++)
+            {
+                if (device.Element($"Bands.{bandIndex}")?.Element("ParameterA") is not { } band || !IsOn(band, "IsOn"))
+                {
+                    continue;
+                }
+                var mode = (int)NumberAt(band, "Mode", 3);
+                var frequency = NumberAt(band, "Freq", 1000);
+                var gain = Math.Clamp(NumberAt(band, "Gain", 0), -18, 18);
+                var q = Math.Clamp(NumberAt(band, "Q", 0.71), 0.2, 10);
+                switch (mode)
+                {
+                    case 0 or 1:
+                        parameters["lowcut"] = parameters.TryGetValue("lowcut", out var heldLowCut) ? Math.Max(heldLowCut, frequency) : frequency;
+                        break;
+                    case 6 or 7:
+                        parameters["highcut"] = parameters.TryGetValue("highcut", out var heldHighCut) ? Math.Min(heldHighCut, frequency) : frequency;
+                        break;
+                    case 2 when Math.Abs(gain) >= 0.1:
+                        TakeShelf("lowfreq", "lowgain", frequency, gain);
+                        break;
+                    case 5 when Math.Abs(gain) >= 0.1:
+                        TakeShelf("highfreq", "highgain", frequency, gain);
+                        break;
+                    case 3 when Math.Abs(gain) >= 0.1:
+                        bells.Add((frequency, gain, q));
+                        break;
+                    case 4:
+                        bells.Add((frequency, NotchDecibels, q));
+                        break;
+                }
+            }
+            var keptBells = bells.OrderByDescending(bell => Math.Abs(bell.Gain)).Take(2).OrderBy(bell => bell.Frequency).ToList();
+            droppedBands += bells.Count - keptBells.Count;
+            for (var bellIndex = 0; bellIndex < keptBells.Count; bellIndex++)
+            {
+                parameters[$"mid{bellIndex + 1}freq"] = Math.Clamp(keptBells[bellIndex].Frequency, 40, 16000);
+                parameters[$"mid{bellIndex + 1}gain"] = keptBells[bellIndex].Gain;
+                parameters[$"mid{bellIndex + 1}q"] = keptBells[bellIndex].Q;
+            }
+            if (droppedBands > 0)
+            {
+                AddNote($"{droppedBands} of EQ Eight's quieter band(s)");
+            }
+            if (NumberAt(device, "GlobalGain", 0) != 0)
+            {
+                AddNote("EQ Eight's output gain");
+            }
+            if (parameters.Count == 0)
+            {
+                return (null, false);
+            }
+            parameters["lowcut"] = Math.Clamp(parameters.GetValueOrDefault("lowcut", 20), 20, 2000);
+            parameters["highcut"] = Math.Clamp(parameters.GetValueOrDefault("highcut", 20000), 1000, 20000);
+            if (parameters.TryGetValue("lowfreq", out var lowShelfFrequency))
+            {
+                parameters["lowfreq"] = Math.Clamp(lowShelfFrequency, 20, 1000);
+            }
+            if (parameters.TryGetValue("highfreq", out var highShelfFrequency))
+            {
+                parameters["highfreq"] = Math.Clamp(highShelfFrequency, 1000, 20000);
+            }
+            return (new EffectDevice { Type = "eq", Parameters = parameters }, true);
         }
 
         /// <summary>The Ping Pong and Simple Delays' beat menu, in sixteenth notes.</summary>
@@ -576,6 +723,8 @@ internal static class AbletonRackImporter
             // Tone is a gentle top-end trim, flat from about its default up.
             var tone = NumberAt(device, "Globals/Tone", 0.7);
             parameters["cutoff"] = tone >= 0.7 ? 20000 : 1000 * Math.Pow(20, tone / 0.7);
+
+            OperatorVolume = NumberAt(device, "Globals/Volume", 1);
 
             var longestRelease = 5.0;
             for (var oscillator = 0; oscillator < OperatorPatch.OscillatorCount; oscillator++)

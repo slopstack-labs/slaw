@@ -425,11 +425,57 @@ public class OperatorRackTests
     }
 
     [Fact]
+    public void A_Compressor_arrives_in_decibels_with_its_makeup_approximated_and_said_to_be()
+    {
+        var compressor = """<Compressor2><On><Manual Value="true" /></On><Threshold><Manual Value="0.1" /></Threshold><Ratio><Manual Value="4" /></Ratio><Attack><Manual Value="5" /></Attack><Release><Manual Value="50" /></Release><Knee><Manual Value="6" /></Knee><Gain><Manual Value="1" /></Gain><DryWet><Manual Value="1" /></DryWet><GainCompensation><Manual Value="true" /></GainCompensation></Compressor2>""";
+        var rack = WithTemporaryFolder(folder => AbletonRackImporter.Read(WritePreset(folder, "Comp", OperatorDevice(PlainOscillator), compressor)));
+        var effect = Assert.Single(rack.Effects);
+        Assert.Equal("compressor", effect.Type);
+        // Normalizing moved the level reaching it, so the threshold moves with it and it works as hard as in Live.
+        Assert.Equal(Math.Clamp(-20 + 20 * Math.Log10(rack.InstrumentParameters["volume"]), -60, 0), effect.Parameters["threshold"], 2);
+        Assert.Equal(4, effect.Parameters["ratio"]);
+        Assert.Equal(1 + 20 * 0.75 / 2, effect.Parameters["makeup"], 3);
+        Assert.DoesNotContain("Compressor", rack.LeftOut);
+        Assert.Contains(rack.LeftOut, note => note.Contains("automatic makeup", StringComparison.Ordinal));
+    }
+
+    private static string EqBand(int index, int mode, double frequency, double gain, double q = 0.71) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"""<Bands.{index}><ParameterA><IsOn><Manual Value="true" /></IsOn><Mode><Manual Value="{mode}" /></Mode><Freq><Manual Value="{frequency}" /></Freq><Gain><Manual Value="{gain}" /></Gain><Q><Manual Value="{q}" /></Q></ParameterA></Bands.{index}>""");
+
+    [Fact]
+    public void An_EQ_Eight_keeps_its_cuts_shelves_and_strongest_bells_and_names_the_rest()
+    {
+        var eq = "<Eq8><On><Manual Value=\"true\" /></On>" +
+                 EqBand(0, 1, 37, 0) + EqBand(1, 2, 80, 2) + EqBand(2, 3, 300, -8, 2) + EqBand(3, 3, 900, -1) + EqBand(4, 3, 2500, 3) + EqBand(5, 5, 9000, 1.5) + EqBand(6, 7, 12000, 0) +
+                 "</Eq8>";
+        var rack = WithTemporaryFolder(folder => AbletonRackImporter.Read(WritePreset(folder, "Eq", OperatorDevice(PlainOscillator), eq)));
+        var effect = Assert.Single(rack.Effects);
+        Assert.Equal("eq", effect.Type);
+        Assert.Equal(37, effect.Parameters["lowcut"]);
+        Assert.Equal(12000, effect.Parameters["highcut"]);
+        Assert.Equal(2, effect.Parameters["lowgain"]);
+        Assert.Equal(1.5, effect.Parameters["highgain"]);
+        Assert.Equal((300, -8, 2), (effect.Parameters["mid1freq"], effect.Parameters["mid1gain"], effect.Parameters["mid1q"]));
+        Assert.Equal((2500, 3), (effect.Parameters["mid2freq"], effect.Parameters["mid2gain"]));
+        Assert.Contains(rack.LeftOut, note => note.StartsWith("1 of EQ Eight", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_EQ_Eight_that_does_nothing_is_not_part_of_the_sound()
+    {
+        var eq = "<Eq8><On><Manual Value=\"true\" /></On>" + EqBand(0, 3, 500, 0) + "</Eq8>";
+        var rack = WithTemporaryFolder(folder => AbletonRackImporter.Read(WritePreset(folder, "Flat", OperatorDevice(PlainOscillator), eq)));
+        Assert.Empty(rack.Effects);
+        Assert.Empty(rack.LeftOut);
+    }
+
+    [Fact]
     public void What_has_no_relative_is_named_and_a_silent_analyzer_is_not()
     {
-        var eq = """<Eq8><On><Manual Value="true" /></On></Eq8>""";
-        var rack = WithTemporaryFolder(folder => AbletonRackImporter.Read(WritePreset(folder, "Eq", OperatorDevice(PlainOscillator), eq)));
-        Assert.Contains("EQ Eight", rack.LeftOut);
+        var phaser = """<Phaser><On><Manual Value="true" /></On></Phaser>""";
+        var rack = WithTemporaryFolder(folder => AbletonRackImporter.Read(WritePreset(folder, "Phaser", OperatorDevice(PlainOscillator), phaser)));
+        Assert.Contains("Phaser", rack.LeftOut);
 
         var analyzer = """<SpectrumAnalyzer><On><Manual Value="true" /></On></SpectrumAnalyzer>""";
         var quiet = WithTemporaryFolder(folder => AbletonRackImporter.Read(WritePreset(folder, "Analyzer", OperatorDevice(PlainOscillator), analyzer)));

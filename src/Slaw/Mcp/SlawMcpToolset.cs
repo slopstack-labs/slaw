@@ -48,10 +48,10 @@ internal sealed class SlawMcpToolset
         "turns the pad down on every kick (VST3 effects with a sidechain input get the audio there; the source is taken after its effects and before its fader, " +
         "so a muted track still keys; no track may key itself or close a loop). The MASTER chain (apply_patch master.effects, or add_effect with track \"master\") " +
         "processes the sum of all tracks before the master's drive/lowpass/delay/gain; master effects may use a sidechain too.\n" +
-        "START FROM SCRATCH: new_project (or apply_patch with \"reset\": true) clears every track, clip and scene in one undoable step. " +
+        "START FROM SCRATCH: a server started on a new file opens slaw's demo song, not an empty project, so check get_project first. new_project (or apply_patch with \"reset\": true) clears every track, clip and scene in one undoable step. " +
         "open_project loads an existing .slaw file instead (save_project first to keep the current one).\n" +
         "WORKFLOW: get_catalog → add_track / apply_patch tracks (instruments, effects) → place arrangement clips → set_automation → " +
-        "render with levels:true (writes a WAV and reports each track's level, per bar range, and tracks far quieter than the rest) → get_project to check positions. " +
+        "render with levels:true (writes a WAV and reports LUFS loudness, true peak, stereo and mono behaviour and tonal balance, plus each track's level per bar range, tracks far quieter than the rest, and likely masking between tracks) → check_notes (the key the notes fit and any notes outside it) → get_project to check positions. You cannot hear the song, so these numbers are how to judge it; fix masking with an eq dip or a duck. " +
         "Removing a track (apply_patch remove: true) also removes its session and arrangement clips.\n" +
         "EXAMPLE apply_patch, an 8-bar verse then an 8-bar chorus with a filter opening across the chorus:\n" +
         "{\"bpm\": 100, \"tracks\": [{\"id\": \"new\", \"name\": \"Kick\", \"instrument\": \"kick\"},\n" +
@@ -201,6 +201,8 @@ internal sealed class SlawMcpToolset
                 "Place clips with arrangement_place_clip or apply_patch \"timeline\"; render bounces it; transport play_arrangement plays it from a 1-based bar in the live studio." +
                 "\nStereo: tracks are stereo end to end. Built-in voices start mono; widen (width, haas ms), reverb width and delay pingpong spread them, " +
                 "VST3 plugins process left and right, and pan is a constant-power balance." +
+                "\nEQ and compressor units: eq has a low cut (lowcut, Hz; 20 means off) and a high cut (highcut, Hz; 20000 means off), both 12 dB per octave; a low shelf (lowfreq Hz, default 120; lowgain dB); two bells (mid1freq default 400 and mid2freq default 2500 Hz; mid1gain and mid2gain dB; mid1q and mid2q default 1, higher is narrower); a high shelf (highfreq Hz, default 8000; highgain dB). Every gain defaults to 0 dB, which changes nothing. " +
+                "compressor: threshold dB (default -18), ratio (default 4, meaning 4 dB over comes out as 1 dB over), attack and release ms (defaults 10 and 120), knee dB (default 6), makeup dB (default 0: there is no automatic makeup, so expect the track to get quieter until you set it), mix 0..1 (default 1)." +
                 "\n" + BuiltInInstrumentLevels.Value +
                 "\nVST3 instruments vary widely in output level (often 10–20 dB apart); after placing clips, render with levels:true and adjust gains." +
                 "\n" + SoundFontPrimer));
@@ -839,7 +841,10 @@ internal sealed class SlawMcpToolset
                 document.Project.AiProvenance = $"{clientName} via MCP";
                 document.CommitEdit($"{clientName} added {DeviceCatalog.EffectDisplayName(effectType)} to {chainOwner}", EditScope.Structure);
                 host.OnAgentEdit(clientName, $"added {DeviceCatalog.EffectDisplayName(effectType)} to {chainOwner}");
-                return $"{chainOwner} chain: {string.Join(" → ", chain.Select(DescribeChainDevice))}";
+                var effectValues = string.Join(", ", DeviceCatalog.EffectParametersFor(addedEffect.Type)
+                    .Select(specification => $"{specification.Key} {specification.Format(DeviceCatalog.Resolve(addedEffect.Parameters, specification))}"));
+                var valuesSentence = effectValues.Length > 0 ? $"; values: {effectValues}" : string.Empty;
+                return $"{chainOwner} chain: {string.Join(" → ", chain.Select(DescribeChainDevice))}. The new effect is index {chain.Count - 1} (envelope target fx.{chain.Count - 1}.<param>){valuesSentence}";
             }));
 
         Register("set_tempo",
@@ -885,11 +890,12 @@ internal sealed class SlawMcpToolset
         Register("render",
             "Bounce the ARRANGEMENT (the song) to a 16-bit stereo WAV and report its musical length, the release tail, and the peak level. " +
             "A hearing-protection limiter caps peaks at -1 dBFS; the result says whether it engaged and by how much (a -1.0 dBFS peak is the ceiling, not headroom). " +
-            "With levels:true it also renders every track soloed and reports each one's RMS and peak (slower; finds tracks that are too quiet or too loud).",
+            "Every render also reports integrated and loudest-3-second loudness (LUFS), true peak (dBTP), stereo correlation overall and below 120 Hz, the level change when summed to mono, and dB RMS in nine frequency bands, with warnings for true peaks above -1 dBTP, a mono loss over 3 dB and a wide low end. " +
+            "With levels:true it also renders every track soloed and reports each one's RMS and peak, the bands of the mix per bar range, and likely masking: pairs of tracks equally loud in one band at the same moments (slower; finds tracks that are too quiet, too loud or hiding each other).",
             Schema(new JsonObject
             {
                 ["path"] = Property("string", "Output .wav path. Relative paths resolve next to the project file (or the server's working folder if it has none). Default: the project's name with .wav, next to it."),
-                ["levels"] = Property("boolean", "Also report each track's level overall and per bar range, the mix per bar range, and tracks far quieter or louder than the rest (renders each track soloed; slower)."),
+                ["levels"] = Property("boolean", "Also report each track's level overall and per bar range, the mix's level and frequency bands per bar range, tracks far quieter or louder than the rest, and likely masking between tracks (renders each track soloed; slower)."),
                 ["source"] = EnumProperty("Optional; the arrangement is always what is rendered (timeline is an alias).", "arrangement", "timeline"),
             }),
             async (toolArguments, _, cancellationToken) =>
@@ -909,11 +915,11 @@ internal sealed class SlawMcpToolset
                 {
                     throw new McpInvalidParamsException("the arrangement is empty, so there is nothing to render; place clips with arrangement_place_clip or apply_patch \"timeline\" first");
                 }
-                var (renderedArrangement, hearingProtection) = await Task.Run(() =>
+                var (renderedArrangement, hearingProtection, mixMeasurement, mixBands) = await Task.Run(() =>
                 {
                     var arrangementBuffer = OfflineArrangementRenderer.Render(projectSnapshot, OfflineArrangementRenderer.DefaultSampleRate, out var protectionReport);
                     WaveFileMaterializer.Write(outputPath, arrangementBuffer);
-                    return (arrangementBuffer, protectionReport);
+                    return (arrangementBuffer, protectionReport, MixAnalyzer.Measure(arrangementBuffer), MixAnalyzer.ProfileBands(arrangementBuffer));
                 }, cancellationToken);
                 var arrangementSteps = FreeTimeline.LengthInSteps(projectSnapshot);
                 var musicalSeconds = arrangementSteps * projectSnapshot.StepDurationSeconds;
@@ -940,6 +946,7 @@ internal sealed class SlawMcpToolset
                 {
                     renderReport.Append("Hearing protection did not engage (no peak reached the -1 dBFS ceiling).");
                 }
+                renderReport.Append('\n').Append(MixAnalyzer.DescribeMeasurement(mixMeasurement, mixBands));
                 if (toolArguments["levels"] is JsonValue levelsValue && levelsValue.TryGetValue<bool>(out var levelsRequested) && levelsRequested)
                 {
                     var barRanges = LevelBarRanges(arrangementSteps);
@@ -948,12 +955,20 @@ internal sealed class SlawMcpToolset
                         string.Create(CultureInfo.InvariantCulture,
                             $"bars {barRange.FirstBar}–{barRange.LastBar} {AmplitudeToDecibels(RootMeanSquare(renderedBuffer, (int)((barRange.FirstBar - 1) * 16 * stepFrames), (int)(barRange.LastBar * 16 * stepFrames))):0.0}")));
                     renderReport.Append("\nmix RMS by bars (dBFS): ").Append(DescribeRanges(renderedArrangement));
+                    var barSeconds = FreeTimeline.StepsPerBar * projectSnapshot.StepDurationSeconds;
+                    var rangeTimes = barRanges.Select(barRange => ((barRange.FirstBar - 1) * barSeconds, barRange.LastBar * barSeconds)).ToList();
+                    var rangeLabels = barRanges.Select(barRange => $"bars {barRange.FirstBar}–{barRange.LastBar}").ToList();
+                    renderReport.Append("\nmix bands by bars (dB RMS):");
+                    for (var rangeIndex = 0; rangeIndex < rangeTimes.Count; rangeIndex++)
+                    {
+                        renderReport.Append("\n- ").Append(rangeLabels[rangeIndex]).Append(": ").Append(MixAnalyzer.DescribeBands(mixBands, rangeTimes[rangeIndex].Item1, rangeTimes[rangeIndex].Item2));
+                    }
 
                     var trackLevels = await Task.Run(() => OfflineArrangementRenderer.RenderStems(projectSnapshot, stemProject => OfflineArrangementRenderer.Render(stemProject))
-                        .Select(stem => (stem.Track.Name, Rms: AmplitudeToDecibels(RootMeanSquare(stem.Stem)), Peak: AmplitudeToDecibels(stem.Stem.PeakAmplitude()), Ranges: DescribeRanges(stem.Stem)))
+                        .Select(stem => (stem.Track.Name, Rms: AmplitudeToDecibels(RootMeanSquare(stem.Stem)), Peak: AmplitudeToDecibels(stem.Stem.PeakAmplitude()), Ranges: DescribeRanges(stem.Stem), Bands: MixAnalyzer.ProfileBands(stem.Stem)))
                         .ToList(), cancellationToken);
                     renderReport.Append("\ntrack levels (each track soloed through the master bus; RMS over the whole render, then RMS by bars; loudest first):");
-                    foreach (var (trackName, trackRms, trackPeak, trackRanges) in trackLevels.OrderByDescending(level => level.Rms))
+                    foreach (var (trackName, trackRms, trackPeak, trackRanges, _) in trackLevels.OrderByDescending(level => level.Rms))
                     {
                         renderReport.Append(CultureInfo.InvariantCulture, $"\n- \"{trackName}\": RMS {trackRms:0.0} dBFS, peak {trackPeak:0.0} dBFS; {trackRanges}");
                     }
@@ -962,7 +977,7 @@ internal sealed class SlawMcpToolset
                     {
                         var sortedRms = trackLevels.Select(level => level.Rms).Order().ToList();
                         var medianRms = sortedRms[sortedRms.Count / 2];
-                        foreach (var (trackName, trackRms, _, _) in trackLevels.OrderBy(level => level.Rms))
+                        foreach (var (trackName, trackRms, _, _, _) in trackLevels.OrderBy(level => level.Rms))
                         {
                             if (trackRms <= medianRms - 12)
                             {
@@ -979,8 +994,30 @@ internal sealed class SlawMcpToolset
                     {
                         renderReport.Append($"\n- not playing in the arrangement: {string.Join(", ", silentTracks.Select(trackName => $"\"{trackName}\""))}");
                     }
+                    renderReport.Append(MixAnalyzer.DescribeClashes(
+                        MixAnalyzer.FindClashes(trackLevels.Select(level => (level.Name, level.Bands)).ToList(), rangeTimes),
+                        rangeLabels));
                 }
                 return renderReport.ToString();
+            });
+
+        Register("check_notes",
+            "Read the written notes of the ARRANGEMENT (or of the session clips while the arrangement is empty) and report the key they best fit, how well, the next-best key, and every note outside that key's scale, by track with bar.step positions. " +
+            "Exact, because it reads the notes and not the audio. Drums, kits and recordings are named as not checked. Changes nothing. A minor and C major share their notes, so check the next-best key too; pass key to check against the song's intended key.",
+            Schema(new JsonObject
+            {
+                ["key"] = Property("string", "Optional: the key to check against, e.g. \"A minor\", \"Am\", \"F# major\". Default: the best fit."),
+            }),
+            async (toolArguments, _, _) =>
+            {
+                MusicalKey? requestedKey = null;
+                if (ReadString(toolArguments["key"]) is { } keyNotation)
+                {
+                    requestedKey = MusicalKey.Parse(keyNotation)
+                        ?? throw new McpInvalidParamsException($"\"{keyNotation}\" is not a key; write it like \"A minor\", \"Am\" or \"F# major\"");
+                }
+                var projectSnapshot = await host.InvokeAsync(() => host.Document.Project.DeepClone());
+                return NoteKeyAnalysis.Describe(NoteKeyAnalysis.Analyze(projectSnapshot, requestedKey));
             });
 
         Register("save_project",
