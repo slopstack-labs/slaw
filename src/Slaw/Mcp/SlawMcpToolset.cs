@@ -80,7 +80,8 @@ internal sealed class SlawMcpToolset
         "flute (breath, overblow, vibrato and its rate Hz; pan flute: breath 0.7+, vibrato 0.1), " +
         "guitar (nylon string; length = ring time in ms; chord notes strum low to high, strum ms apart; the string is damped when the note ends), " +
         "conga (hand drum pitched by its note: \"x\" plays C4; G3 tumba, C4 conga, F4 quinto, C5 and up bongo; tone 0 muted, 0.5 open, 1 slap; bend = semitones the skin starts sharp), " +
-        "shaker (a drum: \"x\" only; accent with velocity, e.g. \"x@0.5 x@0.8 x@0.5 x\"). mallet and conga ring out whatever the note length.";
+        "shaker (a drum: \"x\" only; accent with velocity, e.g. \"x@0.5 x@0.8 x@0.5 x\"). mallet and conga ring out whatever the note length. " +
+        "operator is a four-oscillator FM synth: algorithm 0 is D into C into B into A, 9 is B into A beside C and D, 10 plays all four side by side; aOn, aCoarse, aLevel, aWave, aDecay and so on set oscillator A, and b, c, d the others (B, C and D start off, so set bOn to 1 to use B).";
 
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
 
@@ -670,7 +671,7 @@ internal sealed class SlawMcpToolset
             "\"vst3\" with a plugin from list_plugins, or \"soundfont\" with a soundfont {path, bank, program} from describe_soundfont). Returns the new track id.",
             Schema(new JsonObject
             {
-                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, epiano, conga, sampler, vst3 (see get_catalog)."),
+                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, epiano, conga, operator, sampler, vst3 (see get_catalog)."),
                 ["name"] = Property("string", "Optional track name."),
                 ["sample"] = Property("string", "WAV path for sampler tracks."),
                 ["plugin"] = AnyProperty("VST3 instrument for vst3 tracks: {\"path\": bundle path, \"classId\": 32 hex chars} from list_plugins, or the plugin's name."),
@@ -1479,7 +1480,7 @@ internal sealed class SlawMcpToolset
         {
             ["id"] = Property("string", "Existing track id, or \"new\" to add a track."),
             ["name"] = Property("string", "Track name; arrangement clips in the same patch may refer to it."),
-            ["instrument"] = Property("string", "kick, snare, hat, clap, shaker, sine, square, saw, triangle, pluck, noise, epiano, organ, mallet, flute, guitar, conga, sampler, soundfont or vst3 (see get_catalog)."),
+            ["instrument"] = Property("string", "kick, snare, hat, clap, shaker, sine, square, saw, triangle, pluck, noise, epiano, organ, mallet, flute, guitar, conga, operator, sampler, soundfont or vst3 (see get_catalog)."),
             ["plugin"] = AnyProperty("VST3 instrument: its name or {path, classId} from list_plugins."),
             ["sample"] = Property("string", "WAV path for sampler tracks."),
             ["gain"] = Property("number", "0..1.5."),
