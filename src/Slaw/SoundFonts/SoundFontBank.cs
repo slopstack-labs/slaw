@@ -87,7 +87,7 @@ internal sealed record SoundFontPreset(string Name, int Bank, int Program, IRead
 /// A parsed SoundFont 2 bank: 16-bit sample data as floats plus its presets,
 /// each already resolved to playable regions. Generators slaw does not model
 /// (modulation envelope and LFOs, chorus and reverb sends, modulators) are read
-/// and ignored; see README "SoundFonts".
+/// and ignored; see wiki/Sounds.md "SoundFonts".
 /// </summary>
 internal sealed class SoundFontBank
 {

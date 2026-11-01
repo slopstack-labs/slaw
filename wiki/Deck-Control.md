@@ -1,0 +1,9 @@
+# Deck control: Stream Deck and friends
+
+[← All documentation](README.md)
+
+Your song now has a physical escalation path, though none of it is required: with no controller attached, and no Stream Deck app installed, the studio works exactly as before. **Settings → Controllers** shows what is connected, installs the plugins and explains every layout.
+
+- **Stream Deck:** turn on *Let deck plugins control the studio*. The plugins in [`integrations/`](../integrations/README.md) then run the studio: *slaw Keys* brings transport keys, track switches and four ready-made XL setups (a Launchpad-style clip grid, note pads, a mixer, and a desk of everyday commands), and *slaw Dials* puts volume, pan, tempo and track selection on a Stream Deck +. Keys light up with the song, one dial gesture is one undo step, and a closed studio just reads `offline`. It listens on `ws://127.0.0.1:47116/surface`, is off by default, and refuses web pages from anywhere else. Other hardware can speak the same [protocol](../integrations/README.md#protocol).
+- **Launchpad MK2 (Windows):** plug it in before opening the studio and close anything else using it, such as Ableton Live. **Session mode** launches clips and scenes, with arrows to page; **Notes mode** (User 1) turns the grid into note pads, with octave, track, Scale, Undo and scene controls. User 2 is Record and Mixer is Play. Other Launchpad models speak a different dialect, and Linux and macOS have no MIDI output yet.
+- **Recording melodies:** press Record and play the pads. They take the same path as a MIDI keyboard, so notes land on the playhead, quantized to sixteenths. Chromatic pads play sliced samples and drum kits in order, since slice 1 sits on C4. If the session is running, Record also starts the selected clip on the next bar, creating it if the slot is empty.
