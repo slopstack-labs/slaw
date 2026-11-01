@@ -27,9 +27,6 @@ internal sealed partial class SettingsWindow : Window
     private CheckBox? mcpServerCheckBox;
     private CheckBox? midiInputCheckBox;
     private NumericUpDown? mcpPortNumericUpDown;
-    private CheckBox? launchpadCheckBox;
-    private CheckBox? controlSurfaceCheckBox;
-    private NumericUpDown? controlSurfacePortNumericUpDown;
     private readonly TextBox baseUrlTextBox;
     private readonly TextBox ollamaEndpointTextBox;
     private readonly NumericUpDown requestTimeoutNumericUpDown;
@@ -56,10 +53,8 @@ internal sealed partial class SettingsWindow : Window
     /// <summary>The accepted preferences, or null if the user cancelled (or closed the window like a normal person).</summary>
     public StudioPreferences? Result { get; private set; }
 
-    /// <param name="describeControllers">Asks the studio what is connected right now; null shows the list as disconnected.</param>
-    public SettingsWindow(StudioPreferences currentPreferences, bool openAudioTab = false, bool openControllersTab = false, Func<Surfaces.ControllerSnapshot>? describeControllers = null)
+    public SettingsWindow(StudioPreferences currentPreferences, bool openAudioTab = false)
     {
-        this.describeControllers = describeControllers;
         workingPreferences = currentPreferences.Clone();
         workingSampleFolders = new ObservableCollection<string>(workingPreferences.SampleFolders ?? new List<string>());
         sampleFoldersListBox = new ListBox
@@ -72,7 +67,7 @@ internal sealed partial class SettingsWindow : Window
         sampleFoldersListBox.SelectionChanged += (_, _) => RefreshRemoveSampleFolderEnablement();
 
         Title = "slaw — Settings";
-        Width = 740;
+        Width = 660;
         Height = 640;
         CanResize = false;
         Background = StudioTheme.Background;
@@ -176,11 +171,10 @@ internal sealed partial class SettingsWindow : Window
                 new TabItem { Header = "Audio", Content = WrapInScrollViewer(BuildAudioTab()) },
                 new TabItem { Header = "Samples", Content = WrapInScrollViewer(BuildSamplesTab()) },
                 new TabItem { Header = "Plugins", Content = WrapInScrollViewer(BuildPluginsTab()) },
-                new TabItem { Header = "Controllers", Content = WrapInScrollViewer(BuildControllersTab()) },
                 new TabItem { Header = "Integrations", Content = WrapInScrollViewer(BuildIntegrationsTab()) },
                 new TabItem { Header = "About", Content = WrapInScrollViewer(BuildAboutTab()) },
             },
-            SelectedIndex = openControllersTab ? ControllersTabIndex : openAudioTab ? 1 : 0,
+            SelectedIndex = openAudioTab ? 1 : 0,
         };
 
         var buttonRow = StudioUi.Row(8,
@@ -566,11 +560,6 @@ internal sealed partial class SettingsWindow : Window
         workingPreferences.SampleFolders = new List<string>(workingSampleFolders);
         ApplyPluginFoldersToWorkingPreferences();
         workingPreferences.McpServerEnabled = mcpServerCheckBox?.IsChecked == true;
-        workingPreferences.LaunchpadEnabled = launchpadCheckBox?.IsChecked != false;
-        workingPreferences.ControlSurfaceEnabled = controlSurfaceCheckBox?.IsChecked == true;
-        workingPreferences.ControlSurfacePort = controlSurfacePortNumericUpDown is null
-            ? workingPreferences.ControlSurfacePort
-            : ReadWholeNumber(controlSurfacePortNumericUpDown, workingPreferences.ControlSurfacePort);
         workingPreferences.MidiInputEnabled = midiInputCheckBox?.IsChecked != false;
         workingPreferences.McpServerPort = mcpPortNumericUpDown is null
             ? workingPreferences.McpServerPort

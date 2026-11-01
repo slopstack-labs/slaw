@@ -178,9 +178,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             FitToWorkingArea();
             StartLiveAudio();
             ApplyMcpServerPreference();
-            ApplyControlSurfacePreference();
             ApplyMidiInputPreference();
-            ApplyLaunchpadPreference();
             if (preferences.SecondWindowOpen)
             {
                 OpenSecondWindow();
@@ -193,8 +191,6 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             sessionLifetimeCancellation.Cancel();
             transportTimer.Stop();
             mcpHttpTransport?.Dispose();
-            StopControlSurfaceServer();
-            StopLaunchpad();
             midiInputSource?.Dispose();
             CloseAudioInput();
             foreach (var sampleEditorWindow in openSampleEditorWindows.Values.ToList())
@@ -1097,9 +1093,9 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     // ── Settings ──────────────────────────────────────────────────────────────
 
-    private async Task OpenSettingsAsync(bool openAudioTab = false, bool openControllersTab = false)
+    private async Task OpenSettingsAsync(bool openAudioTab = false)
     {
-        var settingsWindow = new SettingsWindow(preferences, openAudioTab, openControllersTab, DescribeControllers);
+        var settingsWindow = new SettingsWindow(preferences, openAudioTab);
         await settingsWindow.ShowDialog(this);
         if (settingsWindow.Result is not { } revisedPreferences)
         {
@@ -1115,9 +1111,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         unsolicitedAdviceToggle.IsChecked = preferences.CopilotInterjectionsEnabled;
         synchronizingControls = false;
         ApplyMcpServerPreference();
-        ApplyControlSurfacePreference();
         ApplyMidiInputPreference();
-        ApplyLaunchpadPreference();
         ApplyRecordingPreference();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();

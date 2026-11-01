@@ -7,8 +7,3 @@ out/
 .vs/
 *.user
 TestResults/
-
-# Deck plugins (integrations/)
-node_modules/
-integrations/dist/
-*.sdPlugin/

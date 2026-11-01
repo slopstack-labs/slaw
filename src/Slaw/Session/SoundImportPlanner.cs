@@ -148,9 +148,9 @@ internal static class SoundImportPlanner
     {
         var rackTrack = AudioTakeAssembler.CreateTakeTrack(project, template: null);
         rackTrack.Name = rack.Name;
-        rackTrack.Instrument = rack.Instrument;
+        rackTrack.Instrument = "multisampler";
         rackTrack.Gain = 0.8;
-        rackTrack.SampleZones = rack.Zones.Count > 0 ? rack.Zones : null;
+        rackTrack.SampleZones = rack.Zones;
         rackTrack.InstrumentParameters = new Dictionary<string, double>(rack.InstrumentParameters);
         rackTrack.Effects = rack.Effects;
         rackTrack.Clips[sceneIndex] = SlawClip.Empty(project.Scenes[sceneIndex], project.SceneLengthInSteps(sceneIndex));
