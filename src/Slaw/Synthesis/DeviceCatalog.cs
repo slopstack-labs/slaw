@@ -239,6 +239,7 @@ internal static class DeviceCatalog
         "flute" => FluteParameters,
         "guitar" => GuitarParameters,
         "conga" => CongaParameters,
+        OperatorPatch.InstrumentName => OperatorPatch.Specifications,
         _ => OscillatorParameters,
     };
 
@@ -257,6 +258,7 @@ internal static class DeviceCatalog
         "guitar" => "Nylon-String Guitar",
         "conga" => "Hand Percussion Congas",
         "shaker" => "Bead Shaker",
+        OperatorPatch.InstrumentName => "Four-Operator Alignment Synth",
         "sampler" => "Sampler",
         "multisampler" => "Multisampler",
         "soundfont" => "SoundFont Player",
@@ -292,6 +294,9 @@ internal static class DeviceCatalog
         "conga" =>
             "Tuned hand drum: the note is the drum's pitch (\"x\" plays C4; G3 tumba, C4 conga, F4 quinto, C5 and up bongo). Tone morphs muted (0) → open (0.5) → slap (1). " +
             "Bend is how far the skin starts sharp before it settles; harder hits bend further and crack louder. Rings out whatever the note length.",
+        OperatorPatch.InstrumentName =>
+            "Four oscillators (A to D) that modulate each other as the Algorithm says, then one filter, one LFO and one pitch envelope. " +
+            "This is where Ableton Operator presets land when imported. Algorithm 0 is D into C into B into A; 10 plays all four side by side.",
         "shaker" =>
             "Bead shaker: random bead collisions in a resonant shell, each hit a shake. Accent with velocity (\"x@0.5 x@0.8\"): harder shakes are longer and brighter. Pitch tunes the shell.",
         _ => string.Empty,

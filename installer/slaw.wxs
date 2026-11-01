@@ -7,6 +7,7 @@
     PublishDir      folder containing the single-file slaw.exe
     AssetsDir       output of installer/New-InstallerAssets.ps1
     RepoRoot        repository root (for LICENSE)
+    PluginsDir      integrations/dist, after npm run pack (the Stream Deck plugins)
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
@@ -48,7 +49,12 @@
 
     <!-- Layout -->
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="slaw" />
+      <Directory Id="INSTALLFOLDER" Name="slaw">
+        <!-- Where Settings → Controllers looks for the install buttons' packages (ControllerDirectory) -->
+        <Directory Id="IntegrationsFolder" Name="integrations">
+          <Directory Id="PluginPackagesFolder" Name="dist" />
+        </Directory>
+      </Directory>
     </StandardDirectory>
 
     <ComponentGroup Id="CoreComponents" Directory="INSTALLFOLDER">
@@ -60,6 +66,15 @@
       </Component>
       <Component Id="LicenseFile">
         <File Id="LicenseTxt" Source="$(var.RepoRoot)\LICENSE" Name="LICENSE.txt" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="StreamDeckPlugins" Directory="PluginPackagesFolder">
+      <Component Id="StreamDeckKeysPlugin">
+        <File Id="StreamDeckKeysPackage" Source="$(var.PluginsDir)\com.slopstacklabs.slaw-keypad.streamDeckPlugin" KeyPath="yes" />
+      </Component>
+      <Component Id="StreamDeckDialsPlugin">
+        <File Id="StreamDeckDialsPackage" Source="$(var.PluginsDir)\com.slopstacklabs.slaw-plus.streamDeckPlugin" KeyPath="yes" />
       </Component>
     </ComponentGroup>
 
@@ -135,6 +150,13 @@
                Description="Open .slaw projects in the studio with a double-click."
                AllowAdvertise="no">
         <ComponentRef Id="ProjectFileAssociation" />
+      </Feature>
+
+      <Feature Id="StreamDeckPluginsFeature"
+               Title="Stream Deck plugins"
+               Description="Keep the slaw Keys and slaw Dials plugins on hand, for the Controllers tab in Settings to install. slaw works the same without them."
+               AllowAdvertise="no">
+        <ComponentGroupRef Id="StreamDeckPlugins" />
       </Feature>
     </Feature>
 

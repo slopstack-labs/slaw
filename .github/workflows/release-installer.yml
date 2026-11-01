@@ -110,6 +110,16 @@ jobs:
           wix extension add --global WixToolset.UI.wixext/$env:WIX_VERSION
           wix extension add --global WixToolset.Util.wixext/$env:WIX_VERSION
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Package Stream Deck plugins
+        working-directory: integrations
+        run: |
+          npm ci
+          npm run pack
+
       - name: Build setup window
         run: dotnet build installer/SlawSetup/SlawSetup.csproj -c Release -o out/setup-ui
 
@@ -125,6 +135,7 @@ jobs:
             -d PublishDir="$PWD/publish" `
             -d AssetsDir="$PWD/out/installer-assets" `
             -d RepoRoot="$PWD" `
+            -d PluginsDir="$PWD/integrations/dist" `
             -o "slaw-$env:TAG-win-x64.msi"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           wix msi validate "slaw-$env:TAG-win-x64.msi"

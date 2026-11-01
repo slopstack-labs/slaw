@@ -49,6 +49,16 @@ internal sealed class StudioPreferences
     public bool McpServerEnabled { get; set; }
     public int McpServerPort { get; set; } = 47115;
 
+    /// <summary>
+    /// Lets deck plugins (Stream Deck and friends) run the studio over a WebSocket on
+    /// 127.0.0.1. Off by default, for the same reason as MCP.
+    /// </summary>
+    public bool ControlSurfaceEnabled { get; set; }
+    public int ControlSurfacePort { get; set; } = 47116;
+
+    /// <summary>Takes over a connected Launchpad MK2 as a clip launcher and note pads, instead of treating it as a keyboard.</summary>
+    public bool LaunchpadEnabled { get; set; } = true;
+
     /// <summary>Listen to every connected MIDI keyboard/controller and play the selected track with it.</summary>
     public bool MidiInputEnabled { get; set; } = true;
 

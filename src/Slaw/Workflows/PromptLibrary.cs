@@ -395,7 +395,7 @@ internal static class PromptLibrary
         var catalogDescription = new StringBuilder("Device catalog:\n");
         foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments)
         {
-            catalogDescription.Append(CultureInfo.InvariantCulture, $"- instrument \"{instrumentName}\": {DescribeParameters(DeviceCatalog.InstrumentParametersFor(instrumentName))}\n");
+            catalogDescription.Append(CultureInfo.InvariantCulture, $"- instrument \"{instrumentName}\": {(instrumentName == OperatorPatch.InstrumentName ? OperatorPatch.CatalogSummary : DescribeParameters(DeviceCatalog.InstrumentParametersFor(instrumentName)))}\n");
         }
         catalogDescription.Append("Oscillators sine/square/saw/triangle: spread (cents) above 0 plays two oscillators detuned by ±spread/2 at equal power; saw with spread 15-30 is a Reese bass.\n");
         foreach (var effectType in DeviceCatalog.EffectTypes)
