@@ -14,7 +14,7 @@ internal static partial class InstrumentVoiceSynthesizer
     /// <summary>The organic instruments that take note names (the shaker is a drum and lives with the drums).</summary>
     private static readonly HashSet<string> OrganicMelodicInstruments = new(StringComparer.Ordinal)
     {
-        "epiano", "organ", "mallet", "flute", "guitar", "conga",
+        "epiano", "organ", "mallet", "flute", "guitar", "conga", "electric", "bassguitar", "tom",
     };
 
     /// <summary>
@@ -23,7 +23,7 @@ internal static partial class InstrumentVoiceSynthesizer
     /// The engine renders (and caches) one voice per velocity for these, and none of the others.
     /// </summary>
     public static bool ShapesTimbreByVelocity(string instrumentName) =>
-        OrganicMelodicInstruments.Contains(instrumentName) || instrumentName == "shaker";
+        OrganicMelodicInstruments.Contains(instrumentName) || instrumentName is "shaker" or "cymbal";
 
     private const double SecondsToSixtyDecibelsPerTimeConstant = 6.907755278982137; // ln(1000)
     private const double MiddleCFrequencyHz = 261.6255653005986;
@@ -89,11 +89,14 @@ internal static partial class InstrumentVoiceSynthesizer
                     "mallet" => RenderModalMallet(frequencyHz, sampleRate, noiseEntropySource, parameter, strikeVelocity),
                     "flute" => RenderBreathFlute(frequencyHz, gateDurationSeconds, sampleRate, noiseEntropySource, parameter, strikeVelocity),
                     "guitar" => RenderNylonStringGuitar(frequencyHz, gateDurationSeconds, sampleRate, noiseEntropySource, parameter, strikeVelocity),
+                    "electric" => RenderElectricGuitar(frequencyHz, gateDurationSeconds, sampleRate, noiseEntropySource, parameter, strikeVelocity),
+                    "bassguitar" => RenderBassGuitar(frequencyHz, gateDurationSeconds, sampleRate, noiseEntropySource, parameter, strikeVelocity),
+                    "tom" => RenderKitTom(frequencyHz, sampleRate, noiseEntropySource, parameter, strikeVelocity),
                     _ => RenderTunedConga(frequencyHz, sampleRate, noiseEntropySource, parameter, strikeVelocity),
                 };
             })
             .ToList();
-        if (instrumentName == "guitar" && chordVoices.Count > 1)
+        if (instrumentName is "guitar" or "electric" && chordVoices.Count > 1)
         {
             var strumOffsetFrames = (int)(parameter("strum") / 1000.0 * sampleRate);
             return SumStrummedChordVoices(chordVoices, strumOffsetFrames);

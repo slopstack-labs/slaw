@@ -81,6 +81,10 @@ internal sealed class SlawMcpToolset
         "guitar (nylon string; length = ring time in ms; chord notes strum low to high, strum ms apart; the string is damped when the note ends), " +
         "conga (hand drum pitched by its note: \"x\" plays C4; G3 tumba, C4 conga, F4 quinto, C5 and up bongo; tone 0 muted, 0.5 open, 1 slap; bend = semitones the skin starts sharp), " +
         "shaker (a drum: \"x\" only; accent with velocity, e.g. \"x@0.5 x@0.8 x@0.5 x\"). mallet and conga ring out whatever the note length. " +
+        "Band instruments: electric (electric guitar for an amp: pickup 0 bridge 1 neck, humbucker toggle, mute = palm mute, mutevel = palm-mute notes softer than this velocity so \"E2@0.5\" chugs while \"E2\" rings, strum ms, vibrato cents after the note rings, rate Hz, bend = scoop in from that many cents flat; put Escalation Stack or drive after it), " +
+        "bassguitar (style 0 fingers 1 pick, tone, upright 0 electric 1 double bass for walking lines, mute; damped when the note ends, so hold notes with _ or :length), " +
+        "tom (kit tom pitched by its note: A3 high, E3 mid, A2 floor; tone 0 muffled 1 open, bend = semitones the head starts sharp, attack = stick click; rings out), " +
+        "cymbal (a drum: \"x\" only; kind 0 ride 1 crash, bell = ride-bell ring, accent with velocity; rings out). " +
         "operator is a four-oscillator FM synth: algorithm 0 is D into C into B into A, 9 is B into A beside C and D, 10 plays all four side by side; aOn, aCoarse, aLevel, aWave, aDecay and so on set oscillator A, and b, c, d the others (B, C and D start off, so set bOn to 1 to use B).";
 
     private sealed record ToolDefinition(string Name, string Description, JsonObject InputSchema, Func<JsonObject, string, CancellationToken, Task<string>> Handler);
@@ -673,7 +677,7 @@ internal sealed class SlawMcpToolset
             "\"vst3\" with a plugin from list_plugins, or \"soundfont\" with a soundfont {path, bank, program} from describe_soundfont). Returns the new track id.",
             Schema(new JsonObject
             {
-                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, epiano, conga, operator, sampler, vst3 (see get_catalog)."),
+                ["instrument"] = Property("string", "Instrument name, e.g. kick, saw, pluck, epiano, electric, bassguitar, conga, operator, sampler, vst3 (see get_catalog)."),
                 ["name"] = Property("string", "Optional track name."),
                 ["sample"] = Property("string", "WAV path for sampler tracks."),
                 ["plugin"] = AnyProperty("VST3 instrument for vst3 tracks: {\"path\": bundle path, \"classId\": 32 hex chars} from list_plugins, or the plugin's name."),
@@ -1517,7 +1521,7 @@ internal sealed class SlawMcpToolset
         {
             ["id"] = Property("string", "Existing track id, or \"new\" to add a track."),
             ["name"] = Property("string", "Track name; arrangement clips in the same patch may refer to it."),
-            ["instrument"] = Property("string", "kick, snare, hat, clap, shaker, sine, square, saw, triangle, pluck, noise, epiano, organ, mallet, flute, guitar, conga, operator, sampler, soundfont or vst3 (see get_catalog)."),
+            ["instrument"] = Property("string", "kick, snare, hat, clap, shaker, tom, cymbal, sine, square, saw, triangle, pluck, noise, epiano, organ, mallet, flute, guitar, electric, bassguitar, conga, operator, sampler, soundfont or vst3 (see get_catalog)."),
             ["plugin"] = AnyProperty("VST3 instrument: its name or {path, classId} from list_plugins."),
             ["sample"] = Property("string", "WAV path for sampler tracks."),
             ["gain"] = Property("number", "0..1.5."),

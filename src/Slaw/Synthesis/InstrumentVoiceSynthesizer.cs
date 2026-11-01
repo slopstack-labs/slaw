@@ -17,12 +17,12 @@ internal static partial class InstrumentVoiceSynthesizer
     {
         "kick", "snare", "hat", "clap", "sine", "square", "saw", "triangle", "pluck", "noise",
         "epiano", "organ", "mallet", "flute", "guitar", "conga", "shaker", OperatorPatch.InstrumentName,
-        "sampler", "multisampler", "soundfont",
+        "sampler", "multisampler", "soundfont", "electric", "bassguitar", "tom", "cymbal",
     };
 
     private static readonly HashSet<string> PercussiveInstruments = new(StringComparer.OrdinalIgnoreCase)
     {
-        "kick", "snare", "hat", "clap", "shaker",
+        "kick", "snare", "hat", "clap", "shaker", "cymbal",
     };
 
     public static bool IsPercussive(string instrumentName) => PercussiveInstruments.Contains(instrumentName);
@@ -96,6 +96,7 @@ internal static partial class InstrumentVoiceSynthesizer
                 "snare" => RenderSnare(sampleRate, noiseEntropySource, pitchScale, decayScale),
                 "hat" => RenderHat(sampleRate, noiseEntropySource, decayScale),
                 "shaker" => RenderShaker(sampleRate, noiseEntropySource, pitchScale, decayScale, noteVelocity),
+                "cymbal" => RenderCymbal(sampleRate, noiseEntropySource, pitchScale, decayScale, Parameter, noteVelocity),
                 _ => RenderClap(sampleRate, noiseEntropySource, decayScale),
             };
         }

@@ -12,7 +12,7 @@ public class OrganicInstrumentTests
 {
     private const int SampleRate = 44100;
 
-    public static readonly TheoryData<string> OrganicInstruments = new() { "epiano", "organ", "mallet", "flute", "guitar", "conga", "shaker" };
+    public static readonly TheoryData<string> OrganicInstruments = new() { "epiano", "organ", "mallet", "flute", "guitar", "conga", "shaker", "electric", "bassguitar", "tom", "cymbal" };
 
     /// <summary>Windowed DFT magnitude at one frequency.</summary>
     private static double Magnitude(float[] samples, int start, int length, double frequencyHz)
@@ -93,6 +93,15 @@ public class OrganicInstrumentTests
     [InlineData("conga", 55)]
     [InlineData("conga", 60)]
     [InlineData("conga", 72)]
+    [InlineData("electric", 40)]
+    [InlineData("electric", 64)]
+    [InlineData("electric", 84)]
+    [InlineData("bassguitar", 28)]
+    [InlineData("bassguitar", 40)]
+    [InlineData("bassguitar", 55)]
+    [InlineData("tom", 45)]
+    [InlineData("tom", 52)]
+    [InlineData("tom", 57)]
     public void PlaysInTuneWithinAFewCents(string instrument, int midiNote)
     {
         var voice = Render(instrument, new[] { midiNote });
@@ -315,7 +324,16 @@ public class OrganicInstrumentTests
     [InlineData("pan flute", "flute")]
     [InlineData("breathy flute", "flute")]
     [InlineData("nylon guitar", "guitar")]
-    [InlineData("bass guitar", "saw")]
+    [InlineData("bass guitar", "bassguitar")]
+    [InlineData("upright bass", "bassguitar")]
+    [InlineData("walking bass", "bassguitar")]
+    [InlineData("bass", "saw")]
+    [InlineData("warm analog bass", "saw")]
+    [InlineData("distorted electric guitar", "electric")]
+    [InlineData("lead guitar", "electric")]
+    [InlineData("floor tom", "tom")]
+    [InlineData("ride", "cymbal")]
+    [InlineData("crash cymbal", "cymbal")]
     [InlineData("bongos", "conga")]
     [InlineData("tumba", "conga")]
     [InlineData("hand drums", "conga")]

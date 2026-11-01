@@ -224,6 +224,59 @@ internal static class DeviceCatalog
         Humanize,
     };
 
+    private static readonly IReadOnlyList<ParameterSpecification> ElectricGuitarParameters = new[]
+    {
+        new ParameterSpecification("length", "Sustain", 300, 12000, 4000, "ms", Logarithmic: true),
+        new ParameterSpecification("brightness", "Brightness", 0, 1, 0.6, "%"),
+        new ParameterSpecification("pickup", "Pickup", 0, 1, 0, "%"),
+        new ParameterSpecification("humbucker", "Humbucker", 0, 1, 1, "toggle", Integer: true),
+        new ParameterSpecification("mute", "Palm Mute", 0, 1, 0, "%"),
+        new ParameterSpecification("mutevel", "Mute Velocity", 0, 1, 0, "%"),
+        new ParameterSpecification("strum", "Strum", 0, 80, 10, "ms"),
+        new ParameterSpecification("vibrato", "Vibrato", 0, 60, 0, "ct"),
+        new ParameterSpecification("rate", "Vib Rate", 3, 9, 5.5, "Hz"),
+        new ParameterSpecification("bend", "Bend In", 0, 200, 0, "ct"),
+        InstrumentFilter,
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
+    private static readonly IReadOnlyList<ParameterSpecification> BassGuitarParameters = new[]
+    {
+        new ParameterSpecification("length", "Sustain", 200, 10000, 3000, "ms", Logarithmic: true),
+        new ParameterSpecification("tone", "Tone", 0, 1, 0.5, "%"),
+        new ParameterSpecification("style", "Fingers → Pick", 0, 1, 0, "%"),
+        new ParameterSpecification("upright", "Upright", 0, 1, 0, "%"),
+        new ParameterSpecification("mute", "Palm Mute", 0, 1, 0, "%"),
+        InstrumentFilter,
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
+    private static readonly IReadOnlyList<ParameterSpecification> TomParameters = new[]
+    {
+        new ParameterSpecification("tone", "Tone", 0, 1, 0.5, "%"),
+        new ParameterSpecification("decay", "Decay", 0.25, 4, 1, "×", Logarithmic: true),
+        new ParameterSpecification("bend", "Bend", 0, 12, 2.5, "st"),
+        new ParameterSpecification("attack", "Stick", 0, 1, 0.5, "%"),
+        new ParameterSpecification("cutoff", "Tone Filter", 200, 20000, 20000, "Hz", Logarithmic: true),
+        InstrumentOctave,
+        InstrumentDetune,
+        Humanize,
+    };
+
+    private static readonly IReadOnlyList<ParameterSpecification> CymbalParameters = new[]
+    {
+        new ParameterSpecification("kind", "Ride → Crash", 0, 1, 0, "%"),
+        new ParameterSpecification("bell", "Bell", 0, 1, 0.2, "%"),
+        new ParameterSpecification("pitch", "Pitch", -12, 12, 0, "st"),
+        new ParameterSpecification("decay", "Decay", 0.25, 4, 1, "×", Logarithmic: true),
+        new ParameterSpecification("cutoff", "Tone", 200, 20000, 20000, "Hz", Logarithmic: true),
+        Humanize,
+    };
+
     public static IReadOnlyList<ParameterSpecification> InstrumentParametersFor(string instrumentName) => instrumentName switch
     {
         Plugins.DeviceTypes.Vst3 => Array.Empty<ParameterSpecification>(),
@@ -239,6 +292,10 @@ internal static class DeviceCatalog
         "flute" => FluteParameters,
         "guitar" => GuitarParameters,
         "conga" => CongaParameters,
+        "electric" => ElectricGuitarParameters,
+        "bassguitar" => BassGuitarParameters,
+        "tom" => TomParameters,
+        "cymbal" => CymbalParameters,
         OperatorPatch.InstrumentName => OperatorPatch.Specifications,
         _ => OscillatorParameters,
     };
@@ -257,6 +314,10 @@ internal static class DeviceCatalog
         "flute" => "Breath-as-a-Service Flute",
         "guitar" => "Nylon-String Guitar",
         "conga" => "Hand Percussion Congas",
+        "electric" => "Solid-Body Escalation Guitar",
+        "bassguitar" => "Bottom-Line Bass Guitar",
+        "tom" => "Rack-and-Floor Tom",
+        "cymbal" => "Ride-or-Crash Cymbal",
         "shaker" => "Bead Shaker",
         OperatorPatch.InstrumentName => "Four-Operator Alignment Synth",
         "sampler" => "Sampler",
@@ -294,6 +355,19 @@ internal static class DeviceCatalog
         "conga" =>
             "Tuned hand drum: the note is the drum's pitch (\"x\" plays C4; G3 tumba, C4 conga, F4 quinto, C5 and up bongo). Tone morphs muted (0) → open (0.5) → slap (1). " +
             "Bend is how far the skin starts sharp before it settles; harder hits bend further and crack louder. Rings out whatever the note length.",
+        "electric" =>
+            "Solid-body electric guitar: a plucked string read through a magnetic pickup, built to go into an amp (Escalation Stack, or drive). Pickup 0 is the bridge (thin, cutting), 1 the neck (round); Humbucker averages two coils for a thicker, darker tone. " +
+            "Palm Mute damps every note; Mute Velocity palm-mutes only notes played softer than it, so \"E2@0.5\" chugs and \"E2\" rings in the same pattern. Vibrato (cents) arrives after the note has rung a moment, at Vib Rate; Bend In scoops each note up from that many cents flat. " +
+            "Chords strum low to high, Strum milliseconds apart; a note is damped when it ends.",
+        "bassguitar" =>
+            "Bass guitar on the same plucked string. Fingers → Pick morphs a round pluck over the neck into a bright pick attack with a click; Tone darkens or brightens the string; Palm Mute is the palm on the strings. " +
+            "Upright turns it into a double bass: body modes, a woody thump, a shorter, darker ring, for walking lines. A note is damped when it ends, so legato lines use \"_\" or :length.",
+        "tom" =>
+            "Drum-kit tom: a stick-struck membrane that drops into pitch as the head settles (Bend, deeper on harder hits), a stick click (Stick) and the shell's thump. The note is the tom's pitch (\"x\" plays C4, a small tom): A3 a high rack tom, E3 a mid tom, A2 a floor tom, so a fill is a falling melody. " +
+            "Tone runs from muffled (0) to wide open (1). Rings out whatever the note length.",
+        "cymbal" =>
+            "Ride or crash (a drum: \"x\" only). Ride → Crash morphs a stick-pinged ride with a long, even wash (0) into a crash that blooms and washes bright (1). Bell brings in the cup's ring, for ride-bell patterns. " +
+            "Harder hits are brighter and longer; accent the ride pattern with velocity (\"x@0.6 . x x@0.5\").",
         OperatorPatch.InstrumentName =>
             "Four oscillators (A to D) that modulate each other as the Algorithm says, then one filter, one LFO and one pitch envelope. " +
             "This is where Ableton Operator presets land when imported. Algorithm 0 is D into C into B into A; 10 plays all four side by side.",
@@ -306,7 +380,7 @@ internal static class DeviceCatalog
 
     public static readonly IReadOnlyList<string> EffectTypes = new[]
     {
-        "lowpass", "highpass", "eq", "compressor", "delay", "reverb", "drive", "bitcrush", "vibe", "widen", Session.SidechainRouting.DuckEffectType,
+        "lowpass", "highpass", "eq", "compressor", "limiter", "transient", "delay", "reverb", "chamber", "drive", "bitcrush", "phaser", "autowah", "vibe", "widen", Session.SidechainRouting.DuckEffectType,
     };
 
     private static readonly Dictionary<string, IReadOnlyList<ParameterSpecification>> EffectParameterTable = new()
@@ -345,6 +419,48 @@ internal static class DeviceCatalog
             new ParameterSpecification("knee", "Knee", 0, 24, 6, "dB"),
             new ParameterSpecification("makeup", "Makeup", -12, 24, 0, "dB"),
             new ParameterSpecification("mix", "Dry/Wet", 0, 1, 1, "%"),
+        },
+        ["limiter"] = new[]
+        {
+            new ParameterSpecification("gain", "Drive In", 0, 24, 0, "dB"),
+            new ParameterSpecification("ceiling", "Ceiling", -24, 0, -1, "dB"),
+            new ParameterSpecification("release", "Release", 5, 1000, 60, "ms", Logarithmic: true),
+        },
+        ["transient"] = new[]
+        {
+            new ParameterSpecification("attack", "Attack", -1, 1, 0, "%"),
+            new ParameterSpecification("sustain", "Sustain", -1, 1, 0, "%"),
+            new ParameterSpecification("output", "Output", -12, 12, 0, "dB"),
+        },
+        ["phaser"] = new[]
+        {
+            new ParameterSpecification("rate", "Rate", 0.05, 8, 0.4, "Hz", Logarithmic: true),
+            new ParameterSpecification("depth", "Depth", 0, 1, 0.8, "%"),
+            new ParameterSpecification("center", "Center", 150, 4000, 700, "Hz", Logarithmic: true),
+            new ParameterSpecification("feedback", "Feedback", 0, 0.9, 0.4, "%"),
+            new ParameterSpecification("stages", "Stages", 2, 12, 6, "", Integer: true),
+            new ParameterSpecification("spread", "Spread", 0, 1, 0.3, "%"),
+            new ParameterSpecification("mix", "Dry/Wet", 0, 1, 0.5, "%"),
+        },
+        ["autowah"] = new[]
+        {
+            new ParameterSpecification("sensitivity", "Sensitivity", 0, 1, 0.6, "%"),
+            new ParameterSpecification("low", "Low", 100, 2000, 350, "Hz", Logarithmic: true),
+            new ParameterSpecification("high", "High", 500, 8000, 2500, "Hz", Logarithmic: true),
+            new ParameterSpecification("resonance", "Resonance", 0, 0.95, 0.7, "%"),
+            new ParameterSpecification("attack", "Attack", 1, 100, 6, "ms", Logarithmic: true),
+            new ParameterSpecification("release", "Release", 10, 1000, 150, "ms", Logarithmic: true),
+            new ParameterSpecification("mix", "Dry/Wet", 0, 1, 1, "%"),
+        },
+        ["chamber"] = new[]
+        {
+            new ParameterSpecification("space", "Space", 0, 3, 0, "", Integer: true),
+            new ParameterSpecification("decay", "Decay", 0.25, 3, 1, "×", Logarithmic: true),
+            new ParameterSpecification("predelay", "Pre-Delay", 0, 150, 15, "ms"),
+            new ParameterSpecification("damping", "Damping", 0, 1, 0.45, "%"),
+            new ParameterSpecification("lowcut", "Low Cut", 20, 800, 120, "Hz", Logarithmic: true),
+            new ParameterSpecification("width", "Width", 0, 1, 1, "%"),
+            new ParameterSpecification("mix", "Dry/Wet", 0, 1, 0.25, "%"),
         },
         ["delay"] = new[]
         {
@@ -400,6 +516,11 @@ internal static class DeviceCatalog
         "highpass" => "Auto Filter (High)",
         "eq" => "Frequency Realignment EQ",
         "compressor" => "Expectation Compressor",
+        "limiter" => "Ceiling Policy Limiter",
+        "transient" => "Impact Assessment",
+        "phaser" => "Pivot Phaser",
+        "autowah" => "Envelope Alignment Wah",
+        "chamber" => "Open Plan Office",
         "delay" => "Synergy Delay",
         "reverb" => "Cloud Reverb",
         "drive" => "Warmth Saturator",
@@ -415,6 +536,11 @@ internal static class DeviceCatalog
     {
         "eq" => "Parametric EQ: a low cut and a high cut (12 dB per octave; at 20 Hz and 20 kHz they are off), a low and a high shelf, and two bells. Gains are dB; a band at 0 dB changes nothing. Dip a track where another needs the room.",
         "compressor" => "Turns down what rises above the threshold: ratio 4 lets 4 dB over come out as 1 dB over. Attack and release are how fast it reacts, knee how gently it starts, makeup gives the level back. Left and right are reduced together, so the image stays put. Expectations are lowered accordingly.",
+        "limiter" => "Lookahead peak limiter: nothing leaves above Ceiling (dBFS). Drive In pushes the level into it, Release is how fast the gain comes back. Looks 5 ms ahead, so it delays its track by 5 ms: put it last on the master chain, where everything is delayed alike. The ceiling is not up for negotiation.",
+        "transient" => "Transient shaper: Attack turns the start of every hit up (positive) or down (negative), Sustain turns what rings on after it up or down. Works the same at any level. Punchier drums at 0.5 attack; a tighter room at -0.5 sustain. At 0, 0 and 0 dB it changes nothing.",
+        "phaser" => "Phaser: Stages allpass filters sweep two octaves either side of Center (times Depth) at Rate Hz; Feedback deepens the notches, Dry/Wet 0.5 is the classic sound. Spread offsets the right channel's sweep, so a mono track leaves in stereo. Pivots continuously, like the strategy.",
+        "autowah" => "Auto-wah: a resonant band that opens from Low towards High as the track plays harder. Sensitivity is how little it takes to open fully; Attack and Release how quickly it follows; Resonance how vocal it sounds. Funk guitar and clav at its defaults.",
+        "chamber" => "Reverb with four spaces: Space 0 room (short, early reflections), 1 plate (dense, bright), 2 spring (the drip and boing of an amp's tank, narrow band), 3 hall (long). Decay scales the space's own time, Pre-Delay holds the tail back, Low Cut keeps mud out of the wet signal, Width spreads it. A real room, for once, though everyone still wears headphones.",
         "vibe" => "Synergy adds saturation. Disruption adds noise. Alignment is a placebo, validated in user studies.",
         "bitcrush" => "Reduces bit depth until the mix complies with lo-fi playlist guidelines.",
         "reverb" => "Places the track in a large, empty, cloud-hosted space. Width spreads the tail across both channels.",
