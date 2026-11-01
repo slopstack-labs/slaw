@@ -74,6 +74,18 @@ public class Vst3HostingTests : IDisposable
     }
 
     [Fact]
+    public void AUserPluginFolderNamedLikeABundleIsSearchedNotLoaded()
+    {
+        // ~/.vst3 is the standard per-user folder on Linux; its name ends in .vst3 but it holds bundles.
+        FakeBundle(".vst3", "FakeSynth", SynthModuleInfo);
+        FakeBundle(".vst3", "FakeDelay", EffectModuleInfo);
+        var scanProblems = new List<string>();
+        var plugins = Vst3PluginCatalog.Scan(new[] { Path.Combine(scratchFolder, ".vst3") }, scanProblems);
+        Assert.Empty(scanProblems);
+        Assert.Equal(new[] { "Fake Synth", "Fake Delay" }, plugins.Select(plugin => plugin.Name));
+    }
+
+    [Fact]
     public void WindowsPluginsAreReportedNotLoadedOnLinux()
     {
         if (OperatingSystem.IsWindows())

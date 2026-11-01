@@ -243,7 +243,10 @@ internal static class Vst3PluginCatalog
     /// <summary>Every *.vst3 bundle (directory or file) under <paramref name="folder"/>, without descending into bundles.</summary>
     public static IEnumerable<string> FindBundles(string folder)
     {
-        if (folder.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase) && (Directory.Exists(folder) || File.Exists(folder)))
+        // A dropped bundle is its own folder, but ~/.vst3 is a plugin folder that merely shares the extension:
+        // a directory only counts as a bundle when it has the bundle's Contents inside.
+        if (folder.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase) &&
+            (File.Exists(folder) || Directory.Exists(Path.Combine(folder, "Contents"))))
         {
             return new[] { folder };
         }
