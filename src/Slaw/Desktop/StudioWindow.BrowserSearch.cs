@@ -24,14 +24,16 @@ internal static class BrowserSearch
 /// <summary>The one search box above the browser: it filters instruments, effects, plugins, samples and AI actions together.</summary>
 internal sealed partial class StudioWindow
 {
-    private sealed record BrowserSection(string Title, Button Heading, StackPanel Entries, Func<int>? ListedMatches);
+    private sealed record BrowserSection(string Title, Button Heading, StackPanel Entries, Func<int>? ListedMatches, StudioIconGlyph Chevron, TextBlock CountText);
 
     private readonly TextBox browserSearchInput = new()
     {
-        Watermark = "search sounds and plugins…",
-        FontSize = 11,
-        MinHeight = 24,
-        Padding = new Thickness(6, 2),
+        Watermark = "Search",
+        FontSize = 12,
+        MinHeight = 30,
+        Padding = new Thickness(4, 5, 8, 5),
+        VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+        InnerLeftContent = new StudioIconGlyph { Icon = StudioIcon.Search, Width = 13, Height = 13, Brush = StudioTheme.TextMuted, Margin = new Thickness(9, 0, 2, 0) },
     };
 
     private readonly TextBlock browserNoMatchesCaption = new()
@@ -102,8 +104,13 @@ internal sealed partial class StudioWindow
         browserNoMatchesCaption.Text = $"Nothing here matches \"{query}\". New sounds come in through Import Sounds (Ctrl+Shift+I).";
     }
 
-    private static void ShowBrowserSectionFold(BrowserSection section) =>
-        section.Heading.Content = $"{(section.Entries.IsVisible ? "▾" : "▸")}  {section.Title.ToUpperInvariant()}";
+    private void ShowBrowserSectionFold(BrowserSection section)
+    {
+        section.Chevron.Icon = section.Entries.IsVisible ? StudioIcon.ChevronDown : StudioIcon.ChevronRight;
+        var listed = section.ListedMatches?.Invoke()
+            ?? section.Entries.Children.Count(child => browserSearchEntries.ContainsKey(child) && (BrowserQuery.Length == 0 || child.IsVisible));
+        section.CountText.Text = listed > 0 ? listed.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+    }
 
     private void FocusBrowserSearch()
     {

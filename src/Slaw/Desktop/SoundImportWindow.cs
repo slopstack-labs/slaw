@@ -265,7 +265,7 @@ internal sealed class SoundImportWindow : Window
             RefreshKitKeys();
             RefreshSummary();
         };
-        var playButton = StudioUi.Button("▶", () => previewSound(row.PreviewPath), "Listen", compact: true);
+        var playButton = StudioUi.Button(StudioIcon.Play, null, () => previewSound(row.PreviewPath), "Listen", compact: true);
         playButton.IsEnabled = row.Failure is null;
 
         var kindChip = new Border

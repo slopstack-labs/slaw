@@ -2,7 +2,7 @@
 
 [← All documentation](README.md)
 
-⚙ / Ctrl+, opens the Settings dialog:
+The Settings button (top right of the toolbar) or Ctrl+, opens the Settings dialog:
 
 | Tab | Contents |
 |-----|----------|

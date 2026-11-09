@@ -47,7 +47,7 @@ internal sealed partial class StudioWindow
     {
         recordToggle = new ToggleButton
         {
-            Content = "● Rec",
+            Content = StudioIcons.Content(StudioIcon.Record, "Rec", 12),
             Padding = new Thickness(10, 4),
             FontWeight = FontWeight.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
@@ -55,7 +55,7 @@ internal sealed partial class StudioWindow
         ToolTip.SetTip(recordToggle,
             "Record MIDI into the selected clip. While playing: notes land on the playhead (quantized to sixteenths). " +
             "While stopped: step input — each note (or chord) fills the next step.\n" +
-            "With a track armed for audio (● on its mixer strip): records a take from the microphone until the transport stops.");
+            "With a track armed for audio (the record button on its mixer strip): records a take from the microphone until the transport stops.");
         recordToggle.IsCheckedChanged += (_, _) =>
         {
             var armed = recordToggle.IsChecked == true;
@@ -77,7 +77,7 @@ internal sealed partial class StudioWindow
             midiStatusText.Foreground = StudioTheme.TextMuted;
             midiActivityTimer!.Stop();
         });
-        return StudioUi.Row(6, recordToggle, ComposeInputMeter(), midiStatusText);
+        return StudioUi.Row(6, recordToggle, ComposeInputMeter(), StudioUi.Row(5, new StudioIconGlyph { Icon = StudioIcon.Piano, Width = 13, Height = 13, Brush = StudioTheme.TextMuted }, midiStatusText));
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ internal sealed partial class StudioWindow
         var createdSource = MidiInputFactory.TryCreate(out var unavailabilityReason);
         if (createdSource is null)
         {
-            midiStatusText.Text = "🎹 MIDI n/a";
+            midiStatusText.Text = "MIDI n/a";
             ToolTip.SetTip(midiStatusText, unavailabilityReason);
             return;
         }
@@ -113,7 +113,7 @@ internal sealed partial class StudioWindow
         catch (InvalidOperationException midiRemediationOpportunity)
         {
             createdSource.Dispose();
-            midiStatusText.Text = "🎹 MIDI off";
+            midiStatusText.Text = "MIDI off";
             ToolTip.SetTip(midiStatusText, midiRemediationOpportunity.Message);
             return;
         }
@@ -129,9 +129,9 @@ internal sealed partial class StudioWindow
         var sourceNames = midiInputSource.ConnectedSourceNames;
         midiStatusText.Text = sourceNames.Count switch
         {
-            0 => "🎹 no MIDI devices",
-            1 => $"🎹 {sourceNames[0]}",
-            _ => $"🎹 {sourceNames.Count} MIDI sources",
+            0 => "no MIDI devices",
+            1 => $"{sourceNames[0]}",
+            _ => $"{sourceNames.Count} MIDI sources",
         };
         var portHint = OperatingSystem.IsLinux() && midiInputSource is AlsaSequencerMidiInput alsaInput
             ? $"\nOther programs can send to slaw at ALSA sequencer port {alsaInput.InputAddress} (e.g. aconnect, aplaymidi -p {alsaInput.InputAddress})."

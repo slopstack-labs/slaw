@@ -109,7 +109,7 @@ internal sealed partial class DetailView : UserControl
 
     // ── Clip editor ───────────────────────────────────────────────────────────
 
-    /// <summary>Switches the left panel to the sample editor (used by the sampler device's ✎ button).</summary>
+    /// <summary>Switches the left panel to the sample editor (used by the sampler device's Edit button).</summary>
     public void ShowSampleTab()
     {
         sampleTabActive = true;
@@ -213,7 +213,7 @@ internal sealed partial class DetailView : UserControl
                 StudioUi.AccentButton("Create clip", () => document.CreateClip(trackIndex, sceneIndex)));
             if (host.AiFeaturesEnabled)
             {
-                emptyActions.Children.Add(StudioUi.AiButton("✨ Generate clip", () => host.GenerateClipWithAi(trackIndex, sceneIndex), "Let the AI write this clip", compact: false));
+                emptyActions.Children.Add(StudioUi.AiButton("Generate clip", () => host.GenerateClipWithAi(trackIndex, sceneIndex), "Let the AI write this clip", compact: false));
             }
             return new DockPanel
             {
@@ -278,15 +278,15 @@ internal sealed partial class DetailView : UserControl
                 }
             }, EditScope.Structure), "Silence every step", compact: true),
             selectedTimelineClip is null
-                ? StudioUi.Button("▶ Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true)
-                : StudioUi.Button("▶ Here", () => host.PlayTimelineFrom(selectedTimelineClip.StartStep), "Play the arrangement from this clip", compact: true),
+                ? StudioUi.Button(StudioIcon.Play, "Clip", () => host.LaunchClip(trackIndex, sceneIndex), "Launch this clip", compact: true)
+                : StudioUi.Button(StudioIcon.Play, "Here", () => host.PlayTimelineFrom(selectedTimelineClip.StartStep), "Play the arrangement from this clip", compact: true),
         })
         {
             clipActions.Children.Add(clipActionControl);
         }
         var envelopeToggle = new Avalonia.Controls.Primitives.ToggleButton
         {
-            Content = clip.Automation is { Count: > 0 } ? $"∿ Envelopes ({clip.Automation.Count})" : "∿ Envelopes",
+            Content = StudioIcons.Content(StudioIcon.Envelope, clip.Automation is { Count: > 0 } ? $"Envelopes ({clip.Automation.Count})" : "Envelopes", 13),
             IsChecked = automationLaneVisible,
             Padding = new Thickness(8, 2),
             FontSize = 12,
@@ -305,7 +305,7 @@ internal sealed partial class DetailView : UserControl
         // The AI rewrites scene slots; a timeline clip is not one.
         if (host.AiFeaturesEnabled && selectedTimelineClip is null)
         {
-            clipActions.Children.Add(StudioUi.AiButton("✨ Rewrite", () => host.GenerateClipWithAi(trackIndex, sceneIndex), "Let the AI rewrite this clip"));
+            clipActions.Children.Add(StudioUi.AiButton("Rewrite", () => host.GenerateClipWithAi(trackIndex, sceneIndex), "Let the AI rewrite this clip"));
         }
         headerRow.Children.Remove(titleRow);
         var clipHeader = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 0, 8), Children = { titleRow, clipActions } };
@@ -351,8 +351,8 @@ internal sealed partial class DetailView : UserControl
                 VerticalAlignment = VerticalAlignment.Center,
                 Children =
                 {
-                    StudioUi.Button("▲", () => ShiftPianoRoll(12), "Octave up", compact: true),
-                    StudioUi.Button("▼", () => ShiftPianoRoll(-12), "Octave down", compact: true),
+                    StudioUi.Button(StudioIcon.ChevronUp, null, () => ShiftPianoRoll(12), "Octave up", compact: true),
+                    StudioUi.Button(StudioIcon.ChevronDown, null, () => ShiftPianoRoll(-12), "Octave down", compact: true),
                 },
             };
             DockPanel.SetDock(octaveButtons, Dock.Right);
@@ -537,8 +537,9 @@ internal sealed partial class DetailView : UserControl
             Value = track.Swing is { } ownSwing ? (decimal)ownSwing : null,
             Watermark = FormattableString.Invariant($"song {document.Project.Swing:0.#}"),
             FontSize = 12,
-            Width = 136,
+            Width = 84,
         };
+        StudioUi.CompactNumber(swingOverrideInput);
         ToolTip.SetTip(swingOverrideInput, "This track's swing (50 straight … 66 triplet … 75). Leave empty to follow the song's swing in the transport bar.");
         swingOverrideInput.ValueChanged += (_, _) =>
         {
@@ -551,7 +552,7 @@ internal sealed partial class DetailView : UserControl
                     _ => track.Swing = requestedSwing);
             }
         };
-        var followSongButton = StudioUi.Button("↺", () =>
+        var followSongButton = StudioUi.Button(StudioIcon.Refresh, null, () =>
         {
             if (track.Swing is not null)
             {
@@ -635,7 +636,7 @@ internal sealed partial class DetailView : UserControl
         }
         if (host.AiFeaturesEnabled)
         {
-            titleRow.Children.Add(StudioUi.AiButton("✨", () => host.TuneDeviceWithAi(trackIndex, -1), "Let the AI design this sound"));
+            titleRow.Children.Add(StudioUi.AiButton(null, () => host.TuneDeviceWithAi(trackIndex, -1), "Let the AI design this sound"));
         }
         Control titleControls = titleRow;
         if (track.Instrument == "sampler")
@@ -681,16 +682,16 @@ internal sealed partial class DetailView : UserControl
             StudioUi.Button("Load…", () => host.ChooseSampleFileForTrack(trackIndex), "Load a WAV file into this sampler", compact: true));
         if (track.Sample is not null)
         {
-            sampleActions.Children.Add(StudioUi.Button("✎ Edit", ShowSampleTab, "Open the sample editor: trim, fades, loop, slices…", compact: true));
-            sampleActions.Children.Add(StudioUi.Button("⤢", () => host.OpenSampleEditorWindow(track.Id), "Open the sample editor in its own window", compact: true));
+            sampleActions.Children.Add(StudioUi.Button(StudioIcon.Edit, "Edit", ShowSampleTab, "Open the sample editor: trim, fades, loop, slices…", compact: true));
+            sampleActions.Children.Add(StudioUi.Button(StudioIcon.Expand, null, () => host.OpenSampleEditorWindow(track.Id), "Open the sample editor in its own window", compact: true));
         }
         if (track.Sample is { } samplePath)
         {
-            sampleActions.Children.Add(StudioUi.Button("▶", () => host.PreviewSampleFile(samplePath), "Preview the raw sample", compact: true));
+            sampleActions.Children.Add(StudioUi.Button(StudioIcon.Play, null, () => host.PreviewSampleFile(samplePath), "Preview the raw sample", compact: true));
         }
         if (host.AiFeaturesEnabled)
         {
-            sampleActions.Children.Add(StudioUi.AiButton("✨ Pick", () => host.PickSampleWithAi(trackIndex), "Let the AI choose a sample from your sample folders"));
+            sampleActions.Children.Add(StudioUi.AiButton("Pick", () => host.PickSampleWithAi(trackIndex), "Let the AI choose a sample from your sample folders"));
         }
 
         var sampleOverview = new WaveformScopeControl { Width = 230, Height = 46 };
@@ -725,7 +726,7 @@ internal sealed partial class DetailView : UserControl
                 Spacing = 4,
                 Children =
                 {
-                    StudioUi.Caption($"⚠ {Path.GetFileName(track.Sample)}: {sampleRemediationOpportunity.Message}", 10, StudioTheme.Failure),
+                    StudioUi.IconCaption(StudioIcon.Warning, $"{Path.GetFileName(track.Sample)}: {sampleRemediationOpportunity.Message}", 10, StudioTheme.Failure),
                     sampleActions,
                 },
             };
@@ -753,9 +754,9 @@ internal sealed partial class DetailView : UserControl
         var titleRow = StudioUi.Row(2,
             effectGrip,
             enabledToggle,
-            StudioUi.Button("◀", () => MoveEffect(track, effectIndex, -1), "Move left", compact: true),
-            StudioUi.Button("▶", () => MoveEffect(track, effectIndex, 1), "Move right", compact: true),
-            StudioUi.Button("✕", () => document.Edit($"removed {DeviceCatalog.EffectDisplayName(effectDevice.Type)}",
+            StudioUi.Button(StudioIcon.ChevronLeft, null, () => MoveEffect(track, effectIndex, -1), "Move left", compact: true),
+            StudioUi.Button(StudioIcon.ChevronRight, null, () => MoveEffect(track, effectIndex, 1), "Move right", compact: true),
+            StudioUi.Button(StudioIcon.Close, null, () => document.Edit($"removed {DeviceCatalog.EffectDisplayName(effectDevice.Type)}",
                 _ =>
                 {
                     track.Effects.RemoveAt(effectIndex);
@@ -767,7 +768,7 @@ internal sealed partial class DetailView : UserControl
         }
         if (host.AiFeaturesEnabled)
         {
-            titleRow.Children.Add(StudioUi.AiButton("✨", () => host.TuneDeviceWithAi(trackIndex, effectIndex), "Let the AI dial this in"));
+            titleRow.Children.Add(StudioUi.AiButton(null, () => host.TuneDeviceWithAi(trackIndex, effectIndex), "Let the AI dial this in"));
         }
 
         var knobs = DeviceCatalog.EffectParametersFor(effectDevice.Type).Select(parameterSpecification => ComposeParameterKnob(
@@ -876,7 +877,7 @@ internal sealed partial class DetailView : UserControl
         var titleRow = StudioUi.Row(6);
         if (host.AiFeaturesEnabled)
         {
-            titleRow.Children.Add(StudioUi.AiButton("✨ AI master", () => host.TuneDeviceWithAi(-1, -2), "Let a confident mastering engineer who has never heard the track set the master bus"));
+            titleRow.Children.Add(StudioUi.AiButton("AI master", () => host.TuneDeviceWithAi(-1, -2), "Let a confident mastering engineer who has never heard the track set the master bus"));
         }
         return ComposeDevicePanel("Master Bus", titleRow, masterKnobs, StudioTheme.Accent);
     }

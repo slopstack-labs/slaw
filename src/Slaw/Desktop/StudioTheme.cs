@@ -16,7 +16,12 @@ internal static class StudioTheme
     public static readonly IBrush Background = new SolidColorBrush(BackgroundColor);
     public static readonly IBrush Surface = new SolidColorBrush(SurfaceColor);
     public static readonly IBrush SurfaceRaised = new SolidColorBrush(SurfaceRaisedColor);
+    public static readonly IBrush SurfaceHover = new SolidColorBrush(Color.Parse("#262634"));
+    public static readonly IBrush SurfacePressed = new SolidColorBrush(Color.Parse("#181822"));
     public static readonly IBrush Border = new SolidColorBrush(Color.Parse("#2a2a3a"));
+    public static readonly IBrush BorderStrong = new SolidColorBrush(Color.Parse("#3a3a4e"));
+    /// <summary>Text and icons drawn on the accent colour or the AI gradient.</summary>
+    public static readonly IBrush OnAccent = Brushes.White;
     public static readonly IBrush Text = new SolidColorBrush(Color.Parse("#ededf2"));
     public static readonly IBrush TextMuted = new SolidColorBrush(Color.Parse("#8a8aa3"));
     public static readonly IBrush TextDim = new SolidColorBrush(Color.Parse("#4a4a5e"));
@@ -39,6 +44,17 @@ internal static class StudioTheme
         {
             new GradientStop(Color.Parse("#a21caf"), 0),
             new GradientStop(Color.Parse("#6d28d9"), 1),
+        },
+    };
+
+    public static readonly IBrush AiGradientHover = new LinearGradientBrush
+    {
+        StartPoint = new Avalonia.RelativePoint(0, 0, Avalonia.RelativeUnit.Relative),
+        EndPoint = new Avalonia.RelativePoint(1, 1, Avalonia.RelativeUnit.Relative),
+        GradientStops =
+        {
+            new GradientStop(Color.Parse("#c026d3"), 0),
+            new GradientStop(Color.Parse("#7c3aed"), 1),
         },
     };
 

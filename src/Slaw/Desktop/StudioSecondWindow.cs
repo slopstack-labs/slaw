@@ -31,7 +31,7 @@ internal sealed class StudioSecondWindow : Window
 
         var controls = StudioUi.Row(6,
             detailHereToggle,
-            StudioUi.Button("⇄ Swap with main window", swapViews, "Swap the views of the two windows (Tab)", compact: true));
+            StudioUi.Button(StudioIcon.Swap, "Swap with main window", swapViews, "Swap the views of the two windows (Tab)", compact: true));
         DockPanel.SetDock(controls, Dock.Right);
         var headerBar = new Border
         {

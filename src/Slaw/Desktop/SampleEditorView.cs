@@ -135,10 +135,10 @@ internal sealed class SampleEditorView : UserControl
         headerRow.Children.Add(fileNameText);
         headerRow.Children.Add(fileDetailText);
         headerRow.Children.Add(StudioUi.Button("Load…", () => { if (FindTrack() is var (_, trackIndex)) { host.ChooseSampleFileForTrack(trackIndex); } }, "Replace the sample", compact: true));
-        headerRow.Children.Add(StudioUi.Button("▶ Selection", PreviewSelection, "Audition the selection (or the start–end region)", compact: true));
-        headerRow.Children.Add(StudioUi.Button("▶ All", PreviewAll, "Audition the whole edited sample", compact: true));
-        headerRow.Children.Add(StudioUi.Button("■", StopPreview, "Stop the audition", compact: true));
-        openLargeButton = StudioUi.Button("⤢ Open large", () => host.OpenSampleEditorWindow(trackIdentifier), "Open in its own window", compact: true);
+        headerRow.Children.Add(StudioUi.Button(StudioIcon.Play, "Selection", PreviewSelection, "Audition the selection (or the start–end region)", compact: true));
+        headerRow.Children.Add(StudioUi.Button(StudioIcon.Play, "All", PreviewAll, "Audition the whole edited sample", compact: true));
+        headerRow.Children.Add(StudioUi.Button(StudioIcon.Stop, null, StopPreview, "Stop the audition", compact: true));
+        openLargeButton = StudioUi.Button(StudioIcon.Expand, "Open large", () => host.OpenSampleEditorWindow(trackIdentifier), "Open in its own window", compact: true);
         openLargeButton.IsVisible = !hostedInWindow;
         headerRow.Children.Add(openLargeButton);
         headerRow.Children.Add(StudioUi.Button("Save as WAV…", () => _ = ExportAsync(bake: false), "Export the edited sample", compact: true));
@@ -196,8 +196,8 @@ internal sealed class SampleEditorView : UserControl
         DockPanel.SetDock(footerRow, Dock.Bottom);
 
         selectionToolbar.Child = StudioUi.Row(4,
-            StudioUi.Button("▶ Listen", PreviewSelection, "Hear the selection", compact: true),
-            StudioUi.AccentButton("🎹 Play on keys", PlaySelectionOnKeys, "Put the selection on a new track and play it on the keyboard, pitched. The original stays as it is.", compact: true),
+            StudioUi.Button(StudioIcon.Play, "Listen", PreviewSelection, "Hear the selection", compact: true),
+            StudioUi.AccentButton(StudioIcon.Piano, "Play on keys", PlaySelectionOnKeys, "Put the selection on a new track and play it on the keyboard, pitched. The original stays as it is.", compact: true),
             StudioUi.Button("Trim", () => ApplyOperation("trim", 0, "trim sample"), "Keep only the selection on this track", compact: true));
 
         waveform.MinHeight = 120;
@@ -245,8 +245,8 @@ internal sealed class SampleEditorView : UserControl
             return menuEntry;
         }
         var sliceMenu = new MenuFlyout();
-        sliceMenu.Items.Add(MenuEntry("🎹 Play this slice on keys", () => host.PlaySliceOnKeys(trackIdentifier, slice.Start, slice.End)));
-        sliceMenu.Items.Add(MenuEntry("▶ Listen to this slice", () => PreviewRegion(slice.Start, slice.End)));
+        sliceMenu.Items.Add(MenuEntry("Play this slice on keys", () => host.PlaySliceOnKeys(trackIdentifier, slice.Start, slice.End)));
+        sliceMenu.Items.Add(MenuEntry("Listen to this slice", () => PreviewRegion(slice.Start, slice.End)));
         if (sliceLineIndex is { } lineIndex)
         {
             sliceMenu.Items.Add(new Separator());
@@ -285,7 +285,7 @@ internal sealed class SampleEditorView : UserControl
         row.Children.Add(StudioUi.Button("Clear slices", ClearSlices, "Remove every slice point", compact: true));
         if (host.AiFeaturesEnabled)
         {
-            row.Children.Add(StudioUi.AiButton("✨ Auto-chop", () => { if (FindTrack() is var (_, trackIndex)) { host.AutoChopWithAi(trackIndex); } }, "Let the model choose slice points"));
+            row.Children.Add(StudioUi.AiButton("Auto-chop", () => { if (FindTrack() is var (_, trackIndex)) { host.AutoChopWithAi(trackIndex); } }, "Let the model choose slice points"));
         }
         row.Children.Add(sliceHintText);
         return row;

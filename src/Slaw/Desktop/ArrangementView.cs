@@ -50,8 +50,8 @@ internal sealed class ArrangementView : UserControl
             }
         };
 
-        loopButton = StudioUi.Button("⟲ Loop", ToggleLoop, "Loop brace on/off: drag across the ruler to set it", compact: true);
-        var placeSceneButton = new Button { Content = "＋ Scene at cursor ▾", Padding = new Thickness(8, 2), FontSize = 12 };
+        loopButton = StudioUi.Button(StudioIcon.Loop, "Loop", ToggleLoop, "Loop brace on/off: drag across the ruler to set it", compact: true);
+        var placeSceneButton = new Button { Content = StudioUi.Row(6, StudioIcons.Content(StudioIcon.Plus, "Scene at cursor", 13), new StudioIconGlyph { Icon = StudioIcon.ChevronDown, Width = 11, Height = 11 }), Padding = new Thickness(8, 3), FontSize = 12 };
         ToolTip.SetTip(placeSceneButton, "Place a session scene's clips in the arrangement at the ruler cursor");
         var placeSceneMenu = new MenuFlyout();
         placeSceneMenu.Opening += (_, _) =>
@@ -70,8 +70,8 @@ internal sealed class ArrangementView : UserControl
             StudioUi.Caption("Arrangement", 12, StudioTheme.Text, FontWeight.Bold),
             timelineSummary,
             new Border { Width = 12 },
-            StudioUi.Button("▶ From cursor", () => host.PlayTimelineFrom(timelineCanvas.CursorStep), "Play the arrangement from the ruler cursor (Space)", compact: true),
-            StudioUi.Button("⇤", () => MoveCursor(0), "Cursor to the start", compact: true),
+            StudioUi.Button(StudioIcon.Play, "From cursor", () => host.PlayTimelineFrom(timelineCanvas.CursorStep), "Play the arrangement from the ruler cursor (Space)", compact: true),
+            StudioUi.Button(StudioIcon.ToStart, null, () => MoveCursor(0), "Cursor to the start", compact: true),
             loopButton,
             StudioUi.Button("−", () => timelineCanvas.Zoom(1 / 1.5, null), "Zoom out (Ctrl+wheel)", compact: true),
             StudioUi.Button("+", () => timelineCanvas.Zoom(1.5, null), "Zoom in (Ctrl+wheel)", compact: true),
@@ -152,9 +152,9 @@ internal sealed class ArrangementView : UserControl
         timelineSummary.Text = project.Timeline.Count == 0
             ? "empty — double-click a lane, drop a session clip or scene here, or place a scene at the cursor"
             : FormattableString.Invariant($"{project.Timeline.Count} clips · {timelineSteps / 16.0:0.#} bars · {(int)timelineSeconds / 60}:{(int)timelineSeconds % 60:00}");
-        loopButton.Content = project.TimelineLoop is { IsValid: true } loopRegion
-            ? $"⟲ Loop {FreeTimeline.FormatPosition(loopRegion.StartStep)}–{FreeTimeline.FormatPosition(loopRegion.EndStep)}"
-            : "⟲ Loop off";
+        StudioUi.SetIconContent(loopButton, StudioIcon.Loop, project.TimelineLoop is { IsValid: true } loopRegion
+            ? $"Loop {FreeTimeline.FormatPosition(loopRegion.StartStep)}–{FreeTimeline.FormatPosition(loopRegion.EndStep)}"
+            : "Loop off", 13);
         timelineCanvas.Height = ArrangementCanvas.RulerHeight + ArrangementCanvas.LaneSpacing +
                                 project.Tracks.Count * (ArrangementCanvas.LaneHeight + ArrangementCanvas.LaneSpacing);
         timelineCanvas.InvalidateVisual();
@@ -238,17 +238,20 @@ internal sealed class ArrangementView : UserControl
         if (track.Instrument == "sampler")
         {
             // In the Arrangement view, ● Rec puts the armed track's take straight onto the timeline.
-            var recordArmToggle = new ToggleButton { Content = "●", IsChecked = host.IsArmedForRecording(track.Id), Padding = new Thickness(6, 1), FontSize = 11, MinHeight = 20 };
+            var recordArmToggle = StudioUi.IconToggle(StudioIcon.Record, string.Empty, 10);
+            recordArmToggle.IsChecked = host.IsArmedForRecording(track.Id);
+            recordArmToggle.Padding = new Thickness(4);
+            recordArmToggle.MinHeight = 20;
             recordArmToggle.Foreground = recordArmToggle.IsChecked == true ? StudioTheme.Failure : StudioTheme.TextMuted;
-            ToolTip.SetTip(recordArmToggle, "Arm for audio recording: ● Rec (F9) then records the microphone into the arrangement from the cursor");
+            ToolTip.SetTip(recordArmToggle, "Arm for audio recording: Rec (F9) then records the microphone into the arrangement from the cursor");
             recordArmToggle.Click += (_, _) => host.ToggleRecordArm(track.Id);
             toggleRow.Children.Add(recordArmToggle);
         }
         toggleRow.Children.Add(StudioUi.Caption(DeviceCatalog.InstrumentDisplayName(track.Instrument), 10));
 
         // Shown while a launched session clip (or a stop) has this track instead of the arrangement.
-        var sessionOverrideIndicator = StudioUi.Caption("▶ session", 10, StudioTheme.Warning, FontWeight.SemiBold);
-        ToolTip.SetTip(sessionOverrideIndicator, "This track is playing a session clip over the arrangement. ⤺ Back to Arrangement returns it on the next bar.");
+        var sessionOverrideIndicator = StudioUi.Caption("session", 10, StudioTheme.Warning, FontWeight.SemiBold);
+        ToolTip.SetTip(sessionOverrideIndicator, "This track is playing a session clip over the arrangement. Back to Arrangement returns it on the next bar.");
         sessionOverrideIndicator.IsVisible = false;
         sessionOverrideIndicators[track.Id] = sessionOverrideIndicator;
 
@@ -296,7 +299,7 @@ internal sealed class ArrangementView : UserControl
         nameInput.LostFocus += (_, _) => EndRename(commit: true);
         nameLabel.DoubleTapped += (_, _) => BeginRename();
 
-        var deleteButton = StudioUi.Button("✕", () => host.DeleteTrack(document.Project.Tracks.IndexOf(track)), "Delete this track and its arrangement clips (Del after clicking the header; Ctrl+Z restores it)", compact: true);
+        var deleteButton = StudioUi.Button(StudioIcon.Close, null, () => host.DeleteTrack(document.Project.Tracks.IndexOf(track)), "Delete this track and its arrangement clips (Del after clicking the header; Ctrl+Z restores it)", compact: true);
         deleteButton.IsVisible = false;
         deleteButton.VerticalAlignment = VerticalAlignment.Top;
         var nameRow = new DockPanel { Children = { Docked(deleteButton, Dock.Right), Docked(sessionOverrideIndicator, Dock.Right), nameLabel, nameInput } };
@@ -321,7 +324,7 @@ internal sealed class ArrangementView : UserControl
                 },
             },
         };
-        // The ✕ only shows while the pointer is over the header, so the column stays calm.
+        // The delete button only shows while the pointer is over the header, so the column stays calm.
         trackHeader.PointerEntered += (_, _) => deleteButton.IsVisible = true;
         trackHeader.PointerExited += (_, _) => deleteButton.IsVisible = false;
         trackHeader.AddHandler(PointerPressedEvent, (_, _) =>

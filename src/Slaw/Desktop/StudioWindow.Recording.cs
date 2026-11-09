@@ -87,7 +87,7 @@ internal sealed partial class StudioWindow
             else
             {
                 var armedTrackName = document.Project.Tracks.FirstOrDefault(track => track.Id == trackIdentifier)?.Name ?? "track";
-                SetStatus(StatusSeverity.Informational, $"🎙 {armedTrackName} armed via {audioInputSource?.SubstrateName} — press ● Rec (F9) to record a take");
+                SetStatus(StatusSeverity.Informational, $"{armedTrackName} armed via {audioInputSource?.SubstrateName} — press Rec (F9) to record a take");
             }
         }
         RefreshInputMeterVisibility();
@@ -277,7 +277,7 @@ internal sealed partial class StudioWindow
             // Session clips launch on the bar; the take is pre-roll until then.
             liveAudioSession.Engine.LaunchClip(takeTrack.Id, sceneIndex);
         }
-        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into \"{project.Scenes[sceneIndex]}\" — stop the transport or ● Rec to end the take");
+        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into \"{project.Scenes[sceneIndex]}\" — stop the transport or press Rec to end the take");
     }
 
     private void FinishAudioTake()
@@ -379,7 +379,7 @@ internal sealed partial class StudioWindow
         {
             PlayTimelineFrom(arrangementView.CursorStep);
         }
-        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into the arrangement — stop the transport or ● Rec to end the take");
+        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into the arrangement — stop the transport or press Rec to end the take");
     }
 
     /// <summary>
@@ -457,8 +457,8 @@ internal sealed partial class StudioWindow
             var elapsed = Stopwatch.GetElapsedTime(takeInProgress.StartedTimestamp);
             var takeTrackName = document.Project.Tracks.FirstOrDefault(track => track.Id == takeInProgress.TrackId)?.Name ?? "track";
             SetStatus(StatusSeverity.Failure, takeInProgress.AnchorPosition is null
-                ? $"● {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · {takeTrackName} · waiting for the {(takeInProgress.OnTimeline ? "timeline" : "clip")} to start…"
-                : $"● {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · recording {takeTrackName}");
+                ? $"recording {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · {takeTrackName} · waiting for the {(takeInProgress.OnTimeline ? "timeline" : "clip")} to start…"
+                : $"recording {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · {takeTrackName}");
         }
     }
 
@@ -467,7 +467,7 @@ internal sealed partial class StudioWindow
     private Control ComposeInputMeter()
     {
         inputMeter = StudioUi.Row(4,
-            StudioUi.Caption("🎙", 11),
+            new StudioIconGlyph { Icon = StudioIcon.Microphone, Width = 12, Height = 12, Brush = StudioTheme.TextMuted },
             new Border
             {
                 Width = InputMeterWidth,

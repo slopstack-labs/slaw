@@ -63,7 +63,7 @@ internal sealed partial class StudioWindow
     {
         computerKeyboardToggle = new ToggleButton
         {
-            Content = "⌨ Keys",
+            Content = StudioIcons.Content(StudioIcon.Keyboard, "Keys"),
             Padding = new Thickness(10, 4),
             FontWeight = FontWeight.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,

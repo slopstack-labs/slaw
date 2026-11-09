@@ -11,7 +11,7 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// <summary>
 /// The AI panel's chats. Each project keeps its own sessions; the active one
 /// is what the panel shows and what autopilot, compose, vibe check and the
-/// co-pilot are reminded of. "＋ New chat" (Ctrl+Shift+N) wipes the model's
+/// co-pilot are reminded of. "New chat" (Ctrl+Shift+N) wipes the model's
 /// memory, an experience otherwise reserved for reorganizations.
 /// </summary>
 internal sealed partial class StudioWindow
@@ -53,7 +53,7 @@ internal sealed partial class StudioWindow
 
     private Control ComposeChatSessionBar()
     {
-        var newChatButton = StudioUi.Button("＋ New chat", StartNewChat, "Start a fresh conversation: the AI forgets this chat (Ctrl+Shift+N)", compact: true);
+        var newChatButton = StudioUi.Button(StudioIcon.Plus, "New chat", StartNewChat, "Start a fresh conversation: the AI forgets this chat (Ctrl+Shift+N)", compact: true);
         ToolTip.SetTip(chatSessionSelector, "Earlier chats about this project. Pick one to continue it where you left off.");
         var sessionBar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,6,Auto") };
         sessionBar.Children.Add(Detached(chatSessionSelector));

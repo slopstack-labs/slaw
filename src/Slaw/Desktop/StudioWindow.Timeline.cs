@@ -22,7 +22,7 @@ internal sealed partial class StudioWindow
             return;
         }
         liveAudioSession.Engine.PlayTimeline(startStep, loop: true);
-        SetStatus(StatusSeverity.Informational, $"♪ playing the arrangement from {FreeTimeline.FormatPosition((int)startStep)} — launch session clips over it any time");
+        SetStatus(StatusSeverity.Informational, $"playing the arrangement from {FreeTimeline.FormatPosition((int)startStep)} — launch session clips over it any time");
     }
 
     /// <summary>Hands every track a session launch took over back to the arrangement, on the next bar.</summary>

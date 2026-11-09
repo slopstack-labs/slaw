@@ -400,7 +400,7 @@ internal sealed partial class SettingsWindow : Window
             Children =
             {
                 StudioUi.SectionHeading("MIDI input"),
-                WrappedCaption("Every connected MIDI device plays the selected track (velocity-sensitive, polyphonic). ● Rec records into the selected clip. " +
+                WrappedCaption("Every connected MIDI device plays the selected track (velocity-sensitive, polyphonic). Rec records into the selected clip. " +
                                "Mod wheel → filter, CC7 → volume, CC10 → pan. Linux: ALSA sequencer (hot-plug); Windows: winmm; macOS: not yet."),
                 midiInputCheckBox,
                 StudioUi.SectionHeading("MCP server (live studio)"),
@@ -414,7 +414,7 @@ internal sealed partial class SettingsWindow : Window
                 WrappedCaption("No window needed: slaw can also serve a project file over stdio, autosaving every edit."),
                 CommandLine("claude mcp add slaw -- slaw mcp /path/to/song.slaw"),
                 WrappedCaption("Tools: get_project, get_catalog, apply_patch, set_clip, add_track, update_track, add_effect, set_tempo, transport, " +
-                               "render, save_project, undo, redo, list_samples, list_plugins, describe_plugin, ask_copilot. Tracks locked with 🔒 stay off-limits."),
+                               "render, save_project, undo, redo, list_samples, list_plugins, describe_plugin, ask_copilot. Tracks with their AI lock on stay off-limits."),
             },
         };
     }

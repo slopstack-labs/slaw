@@ -92,7 +92,7 @@ internal sealed class StudioPreferences
     public bool SessionMixerHidden { get; set; }
 
     /// <summary>Where the splitters were left. Clamped when applied, so a hand-edited file cannot hide a panel.</summary>
-    public double BrowserPanelWidth { get; set; } = 196;
+    public double BrowserPanelWidth { get; set; } = 236;
     public double AiPanelWidth { get; set; } = 300;
     public double DetailPanelHeight { get; set; } = 330;
 

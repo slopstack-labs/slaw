@@ -58,7 +58,7 @@ internal sealed partial class DetailView
         }
         else if (SoundFontLibrary.LoadProblem(soundFontReference.Path) is { } loadProblem)
         {
-            presetControl = StudioUi.Caption($"⚠ {loadProblem}", 10, StudioTheme.Failure);
+            presetControl = StudioUi.IconCaption(StudioIcon.Warning, loadProblem, 10, StudioTheme.Failure);
         }
         else
         {
