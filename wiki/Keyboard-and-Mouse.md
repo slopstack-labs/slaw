@@ -57,6 +57,7 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 | Ctrl+T / Ctrl+I | Add a track / a scene |
 | M | Computer MIDI keyboard on / off |
 | F9 | Arm / disarm MIDI record |
+| Ctrl+Shift+K | Metronome on / off (right-click **Click** in the toolbar for volume, count-in and "only while recording") |
 | Esc | Stop held notes and hand the keyboard back from a text field |
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save as |

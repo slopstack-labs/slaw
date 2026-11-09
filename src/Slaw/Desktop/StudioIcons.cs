@@ -43,6 +43,7 @@ internal enum StudioIcon
     Waveform,
     Effect,
     Check,
+    Metronome,
 }
 
 /// <summary>
@@ -95,6 +96,7 @@ internal static class StudioIcons
         [StudioIcon.Waveform] = new("M3 12h1M7 8v8M11 4v16M15 7v10M19 10v4", null),
         [StudioIcon.Effect] = new("M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6", null),
         [StudioIcon.Check] = new("M5 12.5l4.5 4.5L19 7", null),
+        [StudioIcon.Metronome] = new("M9.6 3h4.8L19 21H5zM12 16l5.5-10M7.2 16h9.6", null),
     };
 
     private static readonly Dictionary<StudioIcon, (Geometry? Stroke, Geometry? Fill)> ParsedShapes = new();

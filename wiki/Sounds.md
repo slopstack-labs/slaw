@@ -57,6 +57,7 @@ The `soundfont` instrument ("SoundFont Player") plays one preset of a SoundFont 
 
 - **While playing:** notes land on the step you hear, latency-compensated and quantized to sixteenths. Takes overdub, and a held key writes sustains. If the session is playing and the selected track is not, engaging Rec starts the selected clip on the next bar, creating it if the slot is empty.
 - **While stopped:** step input. Each note fills the next step, and notes struck together become a chord.
+- **Count-in:** with a [metronome count-in](#the-metronome) set, pressing Play with Rec engaged clicks one or two bars before the transport starts; notes played during it are heard, not recorded.
 - **Velocity:** each note keeps how hard you struck it.
 - **Undo:** a whole take is one undo step.
 
@@ -77,7 +78,7 @@ After years of generating vocals, slaw now also accepts them from humans. A pilo
 
 1. **Arm a track.** Click **Audio Track (mic)** in the browser, which adds an empty track and arms it, or press the record button on any sampler track's mixer strip. One track can be armed at a time, because there is one microphone. While a track is armed, the microphone meter next to **Rec** shows the input level, and it turns red when you clip.
 2. **Press Rec (F9).**
-   - If the transport is stopped, slaw launches the selected scene and the take starts with it. In the Arrangement view it plays the arrangement from the cursor instead, and the take lands on the arrangement where you sang it (long takes are sliced into consecutive 4-bar clips).
+   - If the transport is stopped, slaw launches the selected scene and the take starts with it (after the [metronome's count-in](#the-metronome), if one is set). In the Arrangement view it plays the arrangement from the cursor instead, and the take lands on the arrangement where you sang it (long takes are sliced into consecutive 4-bar clips).
    - If the transport is already playing, the take punches in on the next step. A clip that wasn't playing yet joins on the next bar.
 3. **Stop the transport, or press Rec again,** to end the take. A bar above the clip panel offers **Cut & play it**, which opens the take in the sample editor (see **Play a piece on the keys**). Ignore it and it leaves after 30 seconds.
 
@@ -90,3 +91,12 @@ The take is saved as a 24-bit WAV in `recordings/` next to the project (or next 
 - **No input monitoring.** slaw's output runs through a pipe with tens of milliseconds of buffering, so hearing yourself through it would be a slapback delay with a feedback roadmap. Use your interface's direct monitoring, or PipeWire's.
 - **Autotune a take** in the sample editor (**Autotune** row) or from the command palette (**Autotune *track* to *key*…**). The take's WAV stays as sung; the correction is an edit in the project, so Ctrl+Z or **Revert to original** undoes it.
 - **Agents can't record.** They can't sing either. They see takes like any other sample in `get_project`.
+
+### The metronome
+
+A click on every beat, so takes land where the grid expects them. It has been told it is the most important person in the room and believes it.
+
+- **Click** next to **Rec** in the toolbar (or Ctrl+Shift+K, **Edit → Metronome**, or the palette's **Transport: Metronome On / Off**) turns it on. Each beat gets a short 1 kHz blip; each bar's downbeat a higher (1.5 kHz) and louder one. It follows the straight grid: swing moves your notes, never the click.
+- **Live output only.** The click is added after the master chain, so master effects never compress or echo it, and it never reaches a bounce, a stem, an MCP `render` or anything else rendered offline. Those stay byte-for-byte what they were.
+- **Right-click Click** for its settings: **volume**, **count-in** and **only while recording** (clicks only while Rec is engaged, so plain playback stays quiet). The same settings live in **Settings → Audio** and in the **Edit** menu; the palette has **Metronome: Count-In 1 Bar / 2 Bars Before Recording** and **Metronome: No Count-In**. They are studio preferences, not part of the project, so they follow you from song to song.
+- **Count-in.** With a count-in of 1 or 2 bars, starting a recording from a stopped transport (Rec on an armed audio track, or Rec engaged and then Play, Space or a clip or scene launch) clicks those bars first, at the song's tempo, and only then starts the transport. The count-in clicks even with the metronome off, and nothing is recorded during it: an audio take is trimmed to the first step, and MIDI notes you play are heard but not written (not even as step input). Pressing Stop (or Space) during the count-in cancels it. If something is already playing, there is no count-in; the take punches in as usual.

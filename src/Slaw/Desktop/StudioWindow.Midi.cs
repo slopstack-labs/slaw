@@ -60,6 +60,8 @@ internal sealed partial class StudioWindow
         {
             var armed = recordToggle.IsChecked == true;
             recordToggle.Foreground = armed ? StudioTheme.Failure : StudioTheme.Text;
+            // "Only while recording" follows Rec.
+            ApplyMetronomeToEngine();
             HandleAudioRecordToggle(armed);
             if (!armed)
             {
@@ -77,7 +79,7 @@ internal sealed partial class StudioWindow
             midiStatusText.Foreground = StudioTheme.TextMuted;
             midiActivityTimer!.Stop();
         });
-        return StudioUi.Row(6, recordToggle, ComposeInputMeter(), StudioUi.Row(5, new StudioIconGlyph { Icon = StudioIcon.Piano, Width = 13, Height = 13, Brush = StudioTheme.TextMuted }, midiStatusText));
+        return StudioUi.Row(6, recordToggle, ComposeMetronomeControls(), ComposeInputMeter(), StudioUi.Row(5, new StudioIconGlyph { Icon = StudioIcon.Piano, Width = 13, Height = 13, Brush = StudioTheme.TextMuted }, midiStatusText));
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -184,7 +186,8 @@ internal sealed partial class StudioWindow
         {
             case MidiMessageKind.NoteOn:
                 liveAudioSession.Engine.StartNoteAudition(targetTrack.Id, midiMessage.Data1, midiMessage.Data2 / 127.0);
-                if (recordToggle?.IsChecked == true)
+                // Notes played during a count-in are heard, not recorded (and not step input either).
+                if (recordToggle?.IsChecked == true && !liveAudioSession.Engine.Transport.CountingIn)
                 {
                     RecordNoteOn(targetTrack, midiMessage.Data1, midiMessage.Data2 / 127.0);
                 }
