@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using SlopstackLabs.Slaw.Session;
 using SlopstackLabs.Slaw.Synthesis;
 
@@ -61,6 +62,7 @@ internal sealed class SampleEditorView : UserControl
     private SampleData? editedSample;
     private string? loadedSamplePath;
     private string? loadedFingerprint;
+    private string? tuningFingerprint;
     private string? loadFailureMessage;
     private (double Start, double End)? selection;
     private double? cursorSeconds;
@@ -356,6 +358,11 @@ internal sealed class SampleEditorView : UserControl
         }
         if (editedSample is null)
         {
+            if (tuningFingerprint is not null)
+            {
+                ShowMessage("Autotuning the sample. The waveform appears when every note has been realigned.", showLoadButton: false, failure: false);
+                return;
+            }
             ShowMessage(loadFailureMessage ?? "The sample could not be loaded.", showLoadButton: true, failure: true);
             return;
         }
@@ -363,6 +370,10 @@ internal sealed class SampleEditorView : UserControl
         messagePanel.IsVisible = false;
         editorPanel.IsVisible = true;
         SynchronizeFromModel(track);
+        if (tuningFingerprint is not null)
+        {
+            fileDetailText.Text += " · autotuning…";
+        }
     }
 
     private void ReloadSample(SlawTrack track, string currentFingerprint)
@@ -374,7 +385,20 @@ internal sealed class SampleEditorView : UserControl
         previewRegion = null;
         try
         {
-            editedSample = SampleEditProcessor.LoadProcessedNative(track.Sample!, track.SampleEditing);
+            var processedSample = SampleEditProcessor.TryGetProcessedNative(track.Sample!, track.SampleEditing, out var whenReady);
+            if (processedSample is null)
+            {
+                // Autotune runs in the background; keep showing the previous waveform until it lands.
+                loadedFingerprint = null;
+                if (tuningFingerprint != currentFingerprint && whenReady is not null)
+                {
+                    tuningFingerprint = currentFingerprint;
+                    whenReady.ContinueWith(_ => Dispatcher.UIThread.Post(Refresh), TaskScheduler.Default);
+                }
+                return;
+            }
+            tuningFingerprint = null;
+            editedSample = processedSample;
             loadFailureMessage = null;
             waveform.SetWaveform(editedSample.Samples, editedSample.SampleRate);
             if (samplePathChanged || Math.Abs(previousDuration - editedSample.DurationSeconds) > 1e-6)
@@ -473,7 +497,8 @@ internal sealed class SampleEditorView : UserControl
         var hasSelection = selection is { } activeSelection && activeSelection.End - activeSelection.Start > MinimumRegionSeconds;
         foreach (var (editButton, needsSelection) in editButtons)
         {
-            editButton.IsEnabled = !needsSelection || hasSelection;
+            // While autotune runs in the background the waveform is the previous one; edits would aim at stale positions.
+            editButton.IsEnabled = tuningFingerprint is null && (!needsSelection || hasSelection);
         }
         revertButton.IsEnabled = FindTrack() is var (track, _) && track.SampleEditing is { Operations.Count: > 0 };
         PositionSelectionToolbar();

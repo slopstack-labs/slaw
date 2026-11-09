@@ -85,6 +85,36 @@ public class AutotuneTests
     }
 
     [Fact]
+    public async Task TheEditorGetsTheTunedSampleWithoutWaitingForIt()
+    {
+        var samplePath = Path.Combine(Path.GetTempPath(), $"slaw-autotune-{Guid.NewGuid():N}.wav");
+        var take = new StereoBuffer(SampleRate * 2, SampleRate);
+        Sine(452, 2).CopyTo(take.Left, 0);
+        Sine(452, 2).CopyTo(take.Right, 0);
+        WaveFileMaterializer.Write(samplePath, take);
+        try
+        {
+            var edits = new SampleEditSettings { Operations = { Autotune("chromatic", 0, 0, 2) } };
+
+            var firstAnswer = SampleEditProcessor.TryGetProcessedNative(samplePath, edits, out var whenReady);
+            Assert.Null(firstAnswer);
+            Assert.NotNull(whenReady);
+            await whenReady!;
+            var tuned = SampleEditProcessor.TryGetProcessedNative(samplePath, edits, out var noLongerPending);
+
+            Assert.NotNull(tuned);
+            Assert.Null(noLongerPending);
+            Assert.InRange(MeasuredHertz(tuned!.Samples, 0.5, 1.5), 437, 443);
+            // Fast edits keep answering straight away.
+            Assert.NotNull(SampleEditProcessor.TryGetProcessedNative(samplePath, new SampleEditSettings { Operations = { new() { Type = "reverse", EndSeconds = 1 } } }, out _));
+        }
+        finally
+        {
+            File.Delete(samplePath);
+        }
+    }
+
+    [Fact]
     public void TheKeyIsPartOfTheCacheFingerprint()
     {
         string FingerprintOf(string key) => SampleEditProcessor.Fingerprint(new SampleEditSettings { Operations = { Autotune(key, 0) } });

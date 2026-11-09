@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using SlopstackLabs.Slaw.Session;
 using SlopstackLabs.Slaw.Synthesis;
 
@@ -700,9 +701,20 @@ internal sealed partial class DetailView : UserControl
         try
         {
             // Show what the device plays, so a slice's overview is the slice and not the whole take.
+            Task? whenTuned = null;
             var sampleData = track.SampleEditing is { Operations.Count: > 0 }
-                ? SampleEditProcessor.LoadProcessedNative(track.Sample, track.SampleEditing)
+                ? SampleEditProcessor.TryGetProcessedNative(track.Sample, track.SampleEditing, out whenTuned)
                 : SampleLibrary.Load(track.Sample);
+            if (sampleData is null)
+            {
+                // Autotune is still running in the background: show that, and rebuild once it lands.
+                whenTuned?.ContinueWith(_ => Dispatcher.UIThread.Post(Rebuild), TaskScheduler.Default);
+                return new StackPanel
+                {
+                    Spacing = 4,
+                    Children = { StudioUi.Caption($"{Path.GetFileName(track.Sample)} · autotuning…", 10, StudioTheme.TextMuted), sampleActions },
+                };
+            }
             sampleOverview.Present(SampleLibrary.ToStereoBuffer(sampleData),
                 FormattableString.Invariant($"{Path.GetFileName(track.Sample)} · {sampleData.DurationSeconds:0.00} s"), hallucinatedDeliverable: false);
         }
