@@ -252,6 +252,10 @@ internal static class PromptLibrary
             if (track.Sample is not null)
             {
                 projectListing.Append(CultureInfo.InvariantCulture, $" sample \"{Path.GetFileName(track.Sample)}\"");
+                foreach (var autotune in SampleAutotuneOperations.AutotuneEditsOf(track))
+                {
+                    projectListing.Append(CultureInfo.InvariantCulture, $" [{SampleAutotuneOperations.Describe(autotune)}]");
+                }
             }
             if (track.Plugin is { } instrumentPlugin)
             {

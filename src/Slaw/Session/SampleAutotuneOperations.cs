@@ -30,6 +30,14 @@ internal static class SampleAutotuneOperations
     public static string DefaultKey(SlawProject project) =>
         NoteKeyAnalysis.Analyze(project).Key is { } songKey ? songKey.Name : PitchCorrector.ChromaticKey;
 
+    /// <summary>"autotune A minor, retune 60 ms, 0.00–12.50 s": one edit, for listings and tool results.</summary>
+    public static string Describe(SampleEditOperation autotune) => string.Create(System.Globalization.CultureInfo.InvariantCulture,
+        $"autotune {autotune.Key ?? PitchCorrector.ChromaticKey}, retune {autotune.Amount:0.#} ms, {Math.Min(autotune.StartSeconds, autotune.EndSeconds):0.00}–{Math.Max(autotune.StartSeconds, autotune.EndSeconds):0.00} s");
+
+    /// <summary>The autotune edits on a track, in order (empty when it has none).</summary>
+    public static IEnumerable<SampleEditOperation> AutotuneEditsOf(SlawTrack track) =>
+        track.SampleEditing?.Operations.Where(operation => operation.Type == "autotune") ?? Enumerable.Empty<SampleEditOperation>();
+
     /// <summary>
     /// Appends an autotune edit over [<paramref name="startSeconds"/>, <paramref name="endSeconds"/>)
     /// of the edited sample. Positions do not move: autotune keeps the length.

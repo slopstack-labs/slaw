@@ -64,6 +64,31 @@ internal static class PitchCorrector
         return output;
     }
 
+    /// <summary>How far the voiced part of a region sits from the key: voiced seconds, mean and largest distance in cents.</summary>
+    internal readonly record struct TuningReport(double VoicedSeconds, double MeanCentsOff, double LargestCentsOff);
+
+    /// <summary>
+    /// Measures how far each voiced frame of [<paramref name="regionStart"/>, <paramref name="regionEnd"/>)
+    /// is from the nearest allowed note of <paramref name="keyNotation"/>, with the same detector the correction uses.
+    /// </summary>
+    public static TuningReport Measure(float[] samples, int sampleRate, int regionStart, int regionEnd, string? keyNotation)
+    {
+        regionStart = Math.Clamp(regionStart, 0, samples.Length);
+        regionEnd = Math.Clamp(regionEnd, regionStart, samples.Length);
+        var key = MusicalKey.Parse(keyNotation);
+        var distances = DetectPitch(samples[regionStart..regionEnd], sampleRate)
+            .Where(frame => frame.PeriodFrames > 0)
+            .Select(frame =>
+            {
+                var midi = 69 + 12 * Math.Log2(sampleRate / frame.PeriodFrames / 440);
+                return Math.Abs(midi - NearestAllowed(midi, key)) * 100;
+            })
+            .ToList();
+        return distances.Count == 0
+            ? new TuningReport(0, 0, 0)
+            : new TuningReport(distances.Count * HopSeconds, distances.Average(), distances.Max());
+    }
+
     /// <summary>One analysis hop: its centre in source frames and the period found there (0 when unvoiced).</summary>
     internal readonly record struct PitchFrame(int CentreFrame, double PeriodFrames);
 
