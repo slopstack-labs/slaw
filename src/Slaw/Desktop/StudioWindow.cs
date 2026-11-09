@@ -223,6 +223,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             }
         }
         SynchronizeTransportControls();
+        ApplyMetronomePreference();
         RefreshChrome();
         liveAudioSession.Engine.PublishProject(document.Project.DeepClone());
 
@@ -789,6 +790,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         liveAudioSession.Dispose();
         liveAudioSession = CreateLiveAudioSession();
         liveAudioSession.Engine.PublishProject(document.Project.DeepClone());
+        ApplyMetronomeToEngine();
         StartLiveAudio();
     }
 
@@ -803,7 +805,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         backToArrangementButton.Opacity = transportSnapshot.ReturnToArrangementQueued ? 0.55 : 1;
         detailView.UpdateTransport(transportSnapshot);
         waveformScope.PlayheadFraction = transportSnapshot.PreviewProgress >= 0 ? transportSnapshot.PreviewProgress : null;
-        var nowPlaying = PlaybackToggle.IsAudiblyPlaying(transportSnapshot);
+        var nowPlaying = PlaybackToggle.IsAudiblyPlaying(transportSnapshot) || transportSnapshot.CountingIn;
         var playCaption = nowPlaying ? "■  Stop" : "▶  Play";
         if (playButton.Content as string != playCaption)
         {
@@ -815,7 +817,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private void TogglePlayback()
     {
         var transportSnapshot = liveAudioSession.Engine.Transport;
-        if (PlaybackToggle.IsAudiblyPlaying(transportSnapshot) || transportSnapshot.PreviewProgress >= 0)
+        if (PlaybackToggle.IsAudiblyPlaying(transportSnapshot) || transportSnapshot.PreviewProgress >= 0 || transportSnapshot.CountingIn)
         {
             StopPlayback();
             return;
@@ -847,12 +849,26 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         if (trackIndex >= 0 && trackIndex < document.Project.Tracks.Count)
         {
+            var countInBars = RecordingCountInBars();
+            if (countInBars > 0)
+            {
+                liveAudioSession.Engine.LaunchClipAfterCountIn(document.Project.Tracks[trackIndex].Id, sceneIndex, countInBars);
+                AnnounceCountIn(countInBars, $"into {document.Project.Tracks[trackIndex].Name}");
+                return;
+            }
             liveAudioSession.Engine.LaunchClip(document.Project.Tracks[trackIndex].Id, sceneIndex);
         }
     }
 
     public void LaunchScene(int sceneIndex)
     {
+        var countInBars = RecordingCountInBars();
+        if (countInBars > 0)
+        {
+            liveAudioSession.Engine.LaunchSceneAfterCountIn(sceneIndex, countInBars);
+            AnnounceCountIn(countInBars, sceneIndex >= 0 && sceneIndex < document.Project.Scenes.Count ? $"scene \"{document.Project.Scenes[sceneIndex]}\"" : "the scene");
+            return;
+        }
         liveAudioSession.Engine.LaunchScene(sceneIndex);
         if (sceneIndex >= 0 && sceneIndex < document.Project.Scenes.Count)
         {
@@ -1145,6 +1161,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         ApplyMidiInputPreference();
         ApplyLaunchpadPreference();
         ApplyRecordingPreference();
+        ApplyMetronomePreference();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();
         if (audioSettingsChanged)

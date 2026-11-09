@@ -274,6 +274,9 @@ internal sealed partial class StudioWindow
                     recordToggle.IsChecked = recordToggle.IsChecked != true;
                 }
                 break;
+            case StudioCommand.ToggleMetronome:
+                ToggleMetronome();
+                break;
             case StudioCommand.ToggleComputerKeyboard:
                 if (computerKeyboardToggle is not null)
                 {

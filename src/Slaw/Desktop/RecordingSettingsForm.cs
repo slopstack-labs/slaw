@@ -20,6 +20,10 @@ internal sealed class RecordingSettingsForm
     private readonly ComboBox substrateComboBox;
     private readonly ComboBox deviceComboBox;
     private readonly NumericUpDown inputLatencyNumericUpDown;
+    private readonly CheckBox metronomeEnabledCheckBox;
+    private readonly CheckBox metronomeOnlyWhileRecordingCheckBox;
+    private readonly NumericUpDown metronomeVolumeNumericUpDown;
+    private readonly ComboBox metronomeCountInComboBox;
     private readonly Button testInputButton;
     private readonly ProgressBar inputTestMeter = new() { Minimum = 0, Maximum = 1, Width = 140, Height = 8, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock inputTestResultTextBlock = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
@@ -65,6 +69,25 @@ internal sealed class RecordingSettingsForm
             MinWidth = 120,
             HorizontalAlignment = HorizontalAlignment.Left,
         };
+
+        metronomeEnabledCheckBox = new CheckBox { Content = "Click on every beat", IsChecked = preferences.MetronomeEnabled };
+        metronomeOnlyWhileRecordingCheckBox = new CheckBox { Content = "Only while recording (Rec engaged)", IsChecked = preferences.MetronomeOnlyWhileRecording };
+        metronomeVolumeNumericUpDown = new NumericUpDown
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Increment = 5,
+            FormatString = "0",
+            Value = (decimal)Math.Round(Math.Clamp(preferences.MetronomeVolume, 0, 1) * 100),
+            MinWidth = 120,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        metronomeCountInComboBox = new ComboBox
+        {
+            ItemsSource = MetronomeCountInChoices.All.Select(choice => choice.Label).ToArray(),
+            SelectedIndex = Math.Max(0, MetronomeCountInChoices.All.ToList().FindIndex(choice => choice.Bars == preferences.MetronomeCountInBars)),
+            MinWidth = 160,
+        };
     }
 
     public Control Compose()
@@ -81,11 +104,25 @@ internal sealed class RecordingSettingsForm
         AddRow(formGrid, 2, string.Empty, inputTestHost, "Listens for a few seconds and keeps nothing. Say something; it is the most feedback this take will get.");
         AddRow(formGrid, 3, "Input latency (ms)", inputLatencyNumericUpDown,
             "Trimmed from the head of each take. If takes land late, raise it; early, lower it. Output latency is already compensated.");
+
+        var metronomeGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("150,*"), RowSpacing = 10, ColumnSpacing = 8 };
+        AddRow(metronomeGrid, 0, "Metronome", metronomeEnabledCheckBox,
+            "Accented on each bar's downbeat. Live output only: bounces and renders never contain it. Also the Click button beside Rec (Ctrl+Shift+K).");
+        AddRow(metronomeGrid, 1, string.Empty, metronomeOnlyWhileRecordingCheckBox, "Plain playback stays click-free.");
+        AddRow(metronomeGrid, 2, "Click volume (%)", metronomeVolumeNumericUpDown, "Added after the master chain, so master effects never touch it.");
+        AddRow(metronomeGrid, 3, "Count-in", metronomeCountInComboBox,
+            "Bars of clicks before a recording starts from a stopped transport (Rec engaged, then Play, or Rec on an armed track). Clicks even with the metronome off. Nothing is recorded during it.");
         return new StackPanel
         {
             Spacing = 8,
             Margin = new Thickness(0, 12, 0, 0),
-            Children = { StudioUi.Caption("Recording", 13, StudioTheme.Text, FontWeight.SemiBold), formGrid },
+            Children =
+            {
+                StudioUi.Caption("Recording", 13, StudioTheme.Text, FontWeight.SemiBold),
+                formGrid,
+                StudioUi.Caption("Metronome", 13, StudioTheme.Text, FontWeight.SemiBold),
+                metronomeGrid,
+            },
         };
     }
 
@@ -96,6 +133,15 @@ internal sealed class RecordingSettingsForm
         preferences.RecordingInputLatencyMilliseconds = inputLatencyNumericUpDown.Value is { } latencyValue
             ? (int)Math.Clamp(Math.Round(latencyValue), 0, 500)
             : preferences.RecordingInputLatencyMilliseconds;
+        preferences.MetronomeEnabled = metronomeEnabledCheckBox.IsChecked == true;
+        preferences.MetronomeOnlyWhileRecording = metronomeOnlyWhileRecordingCheckBox.IsChecked == true;
+        preferences.MetronomeVolume = metronomeVolumeNumericUpDown.Value is { } volumePercent
+            ? Math.Clamp((double)volumePercent, 0, 100) / 100.0
+            : preferences.MetronomeVolume;
+        if (metronomeCountInComboBox.SelectedIndex >= 0)
+        {
+            preferences.MetronomeCountInBars = MetronomeCountInChoices.All[metronomeCountInComboBox.SelectedIndex].Bars;
+        }
     }
 
     /// <summary>Stops listening. Also called when the window closes, so a test never outlives its dialog.</summary>

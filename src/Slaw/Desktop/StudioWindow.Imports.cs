@@ -228,6 +228,13 @@ internal sealed partial class StudioWindow
         entries.Add(new CommandPaletteEntry("View: Arrangement", null, () => SelectMainView(arrangementView: true)));
         entries.Add(new CommandPaletteEntry("File: Import MIDI…", null, () => _ = ImportMidiFromPickerAsync()));
         entries.Add(new CommandPaletteEntry("Create: Audio Track (mic)", null, AddAudioTrack));
+        foreach (var (countInBars, countInLabel) in MetronomeCountInChoices.All)
+        {
+            entries.Add(new CommandPaletteEntry(countInBars == 0 ? "Metronome: No Count-In" : $"Metronome: Count-In {countInLabel} Before Recording", null, () => SetMetronomeCountIn(countInBars)));
+        }
+        entries.Add(new CommandPaletteEntry(preferences.MetronomeOnlyWhileRecording ? "Metronome: Click Always (Not Only While Recording)" : "Metronome: Click Only While Recording", null,
+            () => SetMetronomeOnlyWhileRecording(!preferences.MetronomeOnlyWhileRecording)));
+        entries.Add(new CommandPaletteEntry("Metronome: Set Volume and Count-In…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Audio: Choose Output Device…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Audio: Choose Input Device…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Audio: Test Output or Input…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
