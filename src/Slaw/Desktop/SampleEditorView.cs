@@ -41,6 +41,8 @@ internal sealed class SampleEditorView : UserControl
     private readonly WrapPanel sliceRow;
     private readonly Slider sensitivitySlider = new() { Minimum = 0, Maximum = 1, Value = 0.5, Width = 120, VerticalAlignment = VerticalAlignment.Center };
     private readonly List<(Button Button, bool NeedsSelection)> editButtons = new();
+    private readonly ComboBox autotuneKeySelector = new() { Width = 130, VerticalAlignment = VerticalAlignment.Center };
+    private readonly ComboBox autotuneStyleSelector = new() { Width = 150, VerticalAlignment = VerticalAlignment.Center };
     private readonly Border selectionToolbar = new()
     {
         IsVisible = false,
@@ -154,6 +156,20 @@ internal sealed class SampleEditorView : UserControl
         revertButton = StudioUi.Button("Revert to original", RevertToOriginal, "Throw away every edit", compact: true);
         editRow.Children.Add(revertButton);
 
+        var autotuneRow = NewWrapRow();
+        autotuneKeySelector.ItemsSource = SampleAutotuneOperations.KeyChoices;
+        autotuneKeySelector.SelectedItem = SampleAutotuneOperations.DefaultKey(document.Project);
+        ToolTip.SetTip(autotuneKeySelector, "The key whose notes the pitch snaps to (starts on the key the song's notes fit); chromatic snaps to every semitone");
+        autotuneStyleSelector.ItemsSource = SampleAutotuneOperations.Styles
+            .Select(style => string.Create(CultureInfo.InvariantCulture, $"{style.Name} ({style.RetuneMilliseconds:0} ms)"))
+            .ToList();
+        autotuneStyleSelector.SelectedIndex = 0;
+        ToolTip.SetTip(autotuneStyleSelector, string.Join("\n", SampleAutotuneOperations.Styles.Select(style => $"{style.Name}: {style.Description}")));
+        autotuneRow.Children.Add(StudioUi.Caption("Autotune", 12, StudioTheme.Text, FontWeight.Bold));
+        autotuneRow.Children.Add(autotuneKeySelector);
+        autotuneRow.Children.Add(autotuneStyleSelector);
+        AddEditButton(autotuneRow, "Tune", false, ApplyAutotune, "Move the pitch of the selection (or everything) onto the key. For one voice or one lead line at a time; breaths and silence stay as they are.");
+
         var modeRow = NewWrapRow();
         modeRow.Children.Add(StudioUi.Row(0, pitchedButton, sliceButton));
         modeRow.Children.Add(StudioUi.VerticalSeparator());
@@ -164,6 +180,7 @@ internal sealed class SampleEditorView : UserControl
         topPanel.Children.Add(headerRow);
         topPanel.Children.Add(statusText);
         topPanel.Children.Add(editRow);
+        topPanel.Children.Add(autotuneRow);
         topPanel.Children.Add(modeRow);
         topPanel.Children.Add(sliceRow);
         DockPanel.SetDock(topPanel, Dock.Top);
@@ -693,6 +710,27 @@ internal sealed class SampleEditorView : UserControl
                 waveform.Selection = null;
             }
         }
+        document.CommitEdit(label, EditScope.Content, notifyCopilot: true);
+    }
+
+    private void ApplyAutotune()
+    {
+        if (FindTrack() is not var (track, _) || editedSample is null)
+        {
+            return;
+        }
+        var duration = EditedDuration;
+        var regionStart = Math.Clamp(selection?.Start ?? 0, 0, duration);
+        var regionEnd = Math.Clamp(selection?.End ?? duration, 0, duration);
+        if (regionEnd - regionStart <= MinimumRegionSeconds)
+        {
+            return;
+        }
+        var key = autotuneKeySelector.SelectedItem as string ?? PitchCorrector.ChromaticKey;
+        var style = SampleAutotuneOperations.Styles[Math.Clamp(autotuneStyleSelector.SelectedIndex, 0, SampleAutotuneOperations.Styles.Count - 1)];
+        var label = $"autotune to {key} ({style.Name.ToLowerInvariant()})";
+        document.BeginEdit(label);
+        SampleAutotuneOperations.Add(track, key, style.RetuneMilliseconds, regionStart, regionEnd);
         document.CommitEdit(label, EditScope.Content, notifyCopilot: true);
     }
 

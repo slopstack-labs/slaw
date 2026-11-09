@@ -13,7 +13,7 @@ internal static class SampleEditProcessor
 {
     public static readonly IReadOnlyList<string> OperationTypes = new[]
     {
-        "trim", "delete", "silence", "reverse", "gain", "normalize", "fadeIn", "fadeOut", "duplicate",
+        "trim", "delete", "silence", "reverse", "gain", "normalize", "fadeIn", "fadeOut", "duplicate", "autotune",
     };
 
     private const int MaximumCachedEntries = 48;
@@ -25,7 +25,7 @@ internal static class SampleEditProcessor
         editSettings is null || editSettings.Operations.Count == 0
             ? "original"
             : string.Join(';', editSettings.Operations.Select(operation => string.Create(CultureInfo.InvariantCulture,
-                $"{operation.Type}:{operation.StartSeconds:R}:{operation.EndSeconds:R}:{operation.Amount:R}")));
+                $"{operation.Type}:{operation.StartSeconds:R}:{operation.EndSeconds:R}:{operation.Amount:R}:{operation.Key}")));
 
     /// <summary>Blocking: the edited sample at the source file's own rate (for the editor).</summary>
     public static SampleData LoadProcessedNative(string samplePath, SampleEditSettings? editSettings)
@@ -85,6 +85,7 @@ internal static class SampleEditProcessor
         StartSeconds = operation.StartSeconds,
         EndSeconds = operation.EndSeconds,
         Amount = operation.Amount,
+        Key = operation.Key,
     };
 
     private static SampleData ProcessCached(SampleData sourceSample, SampleEditSettings? editSettings, string cacheKey)
@@ -167,6 +168,9 @@ internal static class SampleEditProcessor
                     Array.Copy(inputSamples, regionEnd, outputSamples, regionEnd + regionLength, inputSamples.Length - regionEnd);
                     return outputSamples;
                 }
+
+            case "autotune":
+                return PitchCorrector.Correct(inputSamples, sampleRate, regionStart, regionEnd, operation.Key, operation.Amount);
         }
 
         var editedSamples = (float[])inputSamples.Clone();

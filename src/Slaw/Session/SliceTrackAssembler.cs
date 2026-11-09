@@ -29,7 +29,7 @@ internal static class SliceTrackAssembler
 
         // Operations run in order, so a trim added last cuts exactly the audio the waveform showed.
         var operations = source.SampleEditing?.Operations
-            .Select(operation => new SampleEditOperation { Type = operation.Type, StartSeconds = operation.StartSeconds, EndSeconds = operation.EndSeconds, Amount = operation.Amount })
+            .Select(operation => new SampleEditOperation { Type = operation.Type, StartSeconds = operation.StartSeconds, EndSeconds = operation.EndSeconds, Amount = operation.Amount, Key = operation.Key })
             .ToList() ?? new List<SampleEditOperation>();
         operations.Add(new SampleEditOperation { Type = "trim", StartSeconds = startSeconds, EndSeconds = endSeconds });
         sliceTrack.SampleEditing = new SampleEditSettings { PlaybackMode = SampleEditSettings.PitchedMode, Operations = operations };

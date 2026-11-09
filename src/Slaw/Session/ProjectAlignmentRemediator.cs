@@ -506,6 +506,15 @@ internal static class ProjectAlignmentRemediator
             {
                 remediationLedger.Add($"{track.Name}: {hallucinatedOperationCount} unknown sample edit(s) discarded");
             }
+            foreach (var autotune in sampleEditing.Operations.Where(operation => operation.Type == "autotune"))
+            {
+                if (!PitchCorrector.IsValidKey(autotune.Key))
+                {
+                    remediationLedger.Add($"{track.Name}: autotune key \"{autotune.Key}\" is not a key; snapping to every semitone instead");
+                    autotune.Key = PitchCorrector.ChromaticKey;
+                }
+                autotune.Amount = double.IsFinite(autotune.Amount) ? Math.Clamp(autotune.Amount, 0, PitchCorrector.MaximumRetuneMilliseconds) : 0;
+            }
             if (sampleEditing.PlaybackMode is not (SampleEditSettings.PitchedMode or SampleEditSettings.SliceMode))
             {
                 sampleEditing.PlaybackMode = SampleEditSettings.PitchedMode;
