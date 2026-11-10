@@ -11,6 +11,9 @@ Every gesture the studio answers to.
 | Click a clip slot's ▶ | Launch the clip on the next bar |
 | Double-click an empty slot | Create a clip |
 | Right-click a scene | Place in arrangement at cursor / duplicate / delete |
+| Click / Shift+click a Groovebox pattern pad | Edit that pattern and, while playing, launch it on the next bar / edit it without launching |
+| Press a Groovebox track's name pad | Hear the track's sound and select it |
+| Right-click a Groovebox track's name pad | Pattern tools: Euclidean rhythm, dice, shift, double / halve, clear |
 | Click and hold a piano roll key | Audition the note on the track's instrument |
 | Drag along the piano roll keys | Glide between notes |
 | Click in the piano roll | Add a note or chord (previews while the mouse is held) |
@@ -41,6 +44,7 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 | Space | Play / stop. Session view launches the selected scene, Arrangement view plays the song from the cursor |
 | Shift+Space | Relaunch the selected scene right away (Arrangement: play from the cursor) |
 | Tab | Toggle Session / Arrangement (with two windows open: swap them) |
+| Ctrl+G | Groovebox mode on / off: the [Groovebox](Groovebox.md) takes the Session view's place |
 | Ctrl+Alt+B / Ctrl+Alt+L | Show / hide the browser / the clip and devices panel |
 | Ctrl+F | Search the browser: instruments, effects, plugins, samples (Esc clears it) |
 | Ctrl+Alt+M / Ctrl+Alt+I | Show / hide the Session view's mixer strips / the AI panel |
@@ -49,7 +53,7 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 | Ctrl+Shift+I | Import sounds |
 | F11 | Full screen for the focused window |
 | Enter / Shift+Enter | Launch the selected clip / scene |
-| ↑ ↓ ← → | Move the clip selection |
+| ↑ ↓ ← → | Move the clip selection (Groovebox: ↑ ↓ change track, ← → change pattern) |
 | Ctrl+D / Ctrl+Shift+D | Duplicate the selected clip into the next scene / duplicate the scene |
 | Delete / Backspace | Delete the selected clip (Arrangement: the selected clip, or the track whose header you clicked last) |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste a clip into the selected slot |

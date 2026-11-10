@@ -67,6 +67,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private readonly SessionGridView sessionView;
     private readonly ArrangementView arrangementView;
+    private readonly GrooveboxView grooveboxView;
     private readonly Button backToArrangementButton;
     private readonly DetailView detailView;
     private readonly CommandPalette commandPalette;
@@ -74,6 +75,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private readonly ContentControl aiPanelHost = new();
     private readonly ToggleButton sessionViewToggle = new() { Content = "Session", Padding = new Thickness(12, 5) };
     private readonly ToggleButton arrangementViewToggle = new() { Content = "Arrangement", Padding = new Thickness(12, 5) };
+    private readonly ToggleButton grooveboxViewToggle = new() { Content = "Groovebox", Padding = new Thickness(12, 5) };
     private readonly Button playButton;
     private readonly NumericUpDown tempoInput = new() { Minimum = 40, Maximum = 300, Increment = 1, FormatString = "0", Width = 112, FontSize = 13 };
     private readonly NumericUpDown swingInput = new()
@@ -159,6 +161,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         sessionView = new SessionGridView(document, this) { MixerStripsHidden = preferences.SessionMixerHidden };
         arrangementView = new ArrangementView(document, this);
+        grooveboxView = new GrooveboxView(document, this);
+        clipViewIsGroovebox = preferences.GrooveboxMode;
         detailView = new DetailView(document, this);
         mainPane = new StudioWorkspacePane(preferences.DetailPanelHeight);
         detailView.MinimumHeightRequested += requestedHeight => DetailPane.GrowDetailTo(requestedHeight);
@@ -276,7 +280,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         AddTransportControl(brandMark);
         // File, history and export live in the menu bar; the toolbar keeps what you touch while playing.
-        AddTransportControl(StudioUi.Row(0, sessionViewToggle, arrangementViewToggle));
+        AddTransportControl(StudioUi.Row(0, sessionViewToggle, grooveboxViewToggle, arrangementViewToggle));
         AddTransportControl(StudioUi.VerticalSeparator());
         AddTransportControl(playButton);
         AddTransportControl(StudioUi.Button("■", StopPlayback, "Stop", compact: false));
@@ -587,12 +591,14 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             {
                 sessionView.Rebuild();
                 arrangementView.Rebuild();
+                grooveboxView.Rebuild();
                 detailView.Rebuild();
             }
             else
             {
                 sessionView.RefreshContent();
                 arrangementView.RefreshContent();
+                grooveboxView.RefreshContent();
                 detailView.RefreshContent();
             }
             SynchronizeTransportControls();
@@ -602,19 +608,24 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         {
             sessionView.RefreshSelection();
             arrangementView.RefreshSelection();
+            grooveboxView.RefreshSelection();
             detailView.Rebuild();
         };
         document.TrackArrived += trackIndex =>
         {
             sessionView.RevealTrack(trackIndex);
             arrangementView.RevealTrack(trackIndex);
+            grooveboxView.RevealTrack(trackIndex);
         };
         document.Edited += RegisterEditForCopilot;
     }
 
     private void WireControls()
     {
-        sessionViewToggle.Click += (_, _) => SelectMainView(arrangementView: false);
+        ToolTip.SetTip(sessionViewToggle, "Session view (Tab) — clips by scene, to jam with and launch");
+        sessionViewToggle.Click += (_, _) => SelectMainView(arrangementView: false, groovebox: false);
+        ToolTip.SetTip(grooveboxViewToggle, "Groovebox mode (Ctrl+G) — scenes as pattern pads, every track as a row of steps");
+        grooveboxViewToggle.Click += (_, _) => SelectMainView(arrangementView: false, groovebox: true);
         StudioDragDrop.MakeDropTarget(arrangementViewToggle, this, () => new DropTarget(DropTargetKind.ArrangementEnd));
         ToolTip.SetTip(arrangementViewToggle, "Arrangement view (Tab) — the song as one timeline; drop a scene here to add it at the end");
         arrangementViewToggle.Click += (_, _) => SelectMainView(arrangementView: true);
@@ -692,12 +703,33 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         UpdateInferenceAvailability();
     }
 
-    private void SelectMainView(bool arrangementView)
+    /// <summary>
+    /// Shows the arrangement or the clip view in the main window. <paramref name="groovebox"/>, when
+    /// given, also picks which clip view that is: the Session grid or the Groovebox.
+    /// </summary>
+    private void SelectMainView(bool arrangementView, bool? groovebox = null)
     {
         mainWindowShowsArrangement = arrangementView;
+        if (groovebox is { } grooveboxRequested && grooveboxRequested != clipViewIsGroovebox)
+        {
+            clipViewIsGroovebox = grooveboxRequested;
+            preferences.GrooveboxMode = grooveboxRequested;
+            PersistWindowLayout();
+        }
         ArrangeWorkspaces();
-        sessionViewToggle.IsChecked = !arrangementView;
+        sessionViewToggle.IsChecked = !arrangementView && !clipViewIsGroovebox;
+        grooveboxViewToggle.IsChecked = !arrangementView && clipViewIsGroovebox;
         arrangementViewToggle.IsChecked = arrangementView;
+    }
+
+    /// <summary>Ctrl+G: into Groovebox mode from anywhere, and back to the Session grid from it.</summary>
+    private void ToggleGrooveboxMode()
+    {
+        var leaving = clipViewIsGroovebox && !mainWindowShowsArrangement;
+        SelectMainView(arrangementView: false, groovebox: !leaving);
+        SetStatus(StatusSeverity.Informational, leaving
+            ? "groovebox mode off. the session grid is back."
+            : "groovebox mode: scenes are patterns, tracks are rows of steps. tap a pad to switch patterns on the next bar.");
     }
 
     private void SynchronizeTransportControls()
@@ -797,6 +829,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var transportSnapshot = liveAudioSession.Engine.Transport;
         sessionView.UpdateTransport(transportSnapshot);
         arrangementView.UpdateTransport(transportSnapshot);
+        grooveboxView.UpdateTransport(transportSnapshot);
         // Lit while session clips play over the arrangement; pulses as "queued" until the bar.
         var arrangementOverridden = transportSnapshot.ArrangementOverridden || transportSnapshot.Tracks.Values.Any(trackState => trackState.QueuedScene is not null) && transportSnapshot.Mode == TransportMode.Timeline;
         backToArrangementButton.IsVisible = arrangementOverridden;

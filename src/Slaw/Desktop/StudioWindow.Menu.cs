@@ -129,9 +129,11 @@ internal sealed partial class StudioWindow
             Header = "_View",
             Items =
             {
-                ActionItem("_Session", () => SelectMainView(arrangementView: false)),
+                ActionItem("_Session", () => SelectMainView(arrangementView: false, groovebox: false)),
+                ActionItem("_Groovebox", () => SelectMainView(arrangementView: false, groovebox: true)),
                 ActionItem("_Arrangement", () => SelectMainView(arrangementView: true)),
                 CommandItem("Toggle Session / Arrangement", StudioCommand.SwitchView),
+                CheckedCommandItem("Groovebox Mode", StudioCommand.ToggleGroovebox, () => clipViewIsGroovebox),
                 new Separator(),
                 CommandItem("Computer MIDI _Keyboard", StudioCommand.ToggleComputerKeyboard),
                 new Separator(),

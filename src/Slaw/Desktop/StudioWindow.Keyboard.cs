@@ -230,6 +230,9 @@ internal sealed partial class StudioWindow
             case StudioCommand.SwitchView:
                 SelectMainView(arrangementView: !mainWindowShowsArrangement);
                 break;
+            case StudioCommand.ToggleGroovebox:
+                ToggleGrooveboxMode();
+                break;
             case StudioCommand.ToggleBrowser:
                 TogglePanel(() => preferences.BrowserHidden = !preferences.BrowserHidden);
                 break;
@@ -390,10 +393,13 @@ internal sealed partial class StudioWindow
         LaunchScene(document.SelectedSceneIndex);
     }
 
-    /// <summary>Arrows walk the grid the way it is drawn: scenes are rows in Session view, tracks are rows in Arrangement view.</summary>
+    /// <summary>
+    /// Arrows walk the grid the way it is drawn: scenes are rows in Session view; tracks are rows in
+    /// the Arrangement and the Groovebox, where left and right step through the patterns.
+    /// </summary>
     private void MoveSelection(int delta, bool vertical)
     {
-        var movesScenes = vertical != arrangementViewActive;
+        var movesScenes = vertical != (arrangementViewActive || grooveboxViewActive);
         var trackIndex = document.SelectedTrackIndex + (movesScenes ? 0 : delta);
         var sceneIndex = document.SelectedSceneIndex + (movesScenes ? delta : 0);
         document.Select(

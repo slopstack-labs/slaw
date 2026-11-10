@@ -91,6 +91,9 @@ internal sealed class StudioPreferences
     public bool DetailPanelHidden { get; set; }
     public bool SessionMixerHidden { get; set; }
 
+    /// <summary>Groovebox mode: the step-sequencer grid stands in for the Session view (Ctrl+G).</summary>
+    public bool GrooveboxMode { get; set; }
+
     /// <summary>Where the splitters were left. Clamped when applied, so a hand-edited file cannot hide a panel.</summary>
     public double BrowserPanelWidth { get; set; } = 196;
     public double AiPanelWidth { get; set; } = 300;
@@ -151,6 +154,7 @@ internal sealed class StudioPreferences
         otherPreferences.AiPanelHidden = AiPanelHidden;
         otherPreferences.DetailPanelHidden = DetailPanelHidden;
         otherPreferences.SessionMixerHidden = SessionMixerHidden;
+        otherPreferences.GrooveboxMode = GrooveboxMode;
         otherPreferences.BrowserPanelWidth = BrowserPanelWidth;
         otherPreferences.AiPanelWidth = AiPanelWidth;
         otherPreferences.DetailPanelHeight = DetailPanelHeight;

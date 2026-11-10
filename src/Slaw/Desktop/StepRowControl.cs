@@ -23,6 +23,7 @@ internal sealed class StepRowControl : Control
     private static readonly IPen PlayheadPen = new Pen(StudioTheme.Playhead, 2);
     private static readonly IPen HoverPen = new Pen(StudioTheme.TextMuted, 1);
     private static readonly IPen SelectionPen = new Pen(StudioTheme.Text, 2);
+    private static readonly IPen PastEndPen = new Pen(StudioTheme.CellEven, 1);
 
     /// <summary>Vertical pixels a drag on a hit needs before it counts as a velocity change rather than a click.</summary>
     private const double VelocityDragThreshold = 4;
@@ -30,6 +31,7 @@ internal sealed class StepRowControl : Control
 
     private int? playheadStep;
     private int hoveredStepIndex = -1;
+    private int firstStep;
 
     // Hit selection and the drag-a-hit-for-velocity gesture (only when selection is enabled).
     private int? selectedStepIndex;
@@ -106,6 +108,25 @@ internal sealed class StepRowControl : Control
     /// <summary>Raised before a pointer edit mutates the clip, so the host can snapshot for undo.</summary>
     public event Action? EditStarted;
 
+    /// <summary>
+    /// The pattern step drawn in the first cell: a groovebox page shows steps
+    /// <c>FirstStep</c> to <c>FirstStep + StepCount - 1</c>. Cells past the clip's end
+    /// are drawn as empty outlines and ignore the pointer.
+    /// </summary>
+    public int FirstStep
+    {
+        get => firstStep;
+        set
+        {
+            if (firstStep != value)
+            {
+                firstStep = Math.Max(0, value);
+                hoveredStepIndex = -1;
+                InvalidateVisual();
+            }
+        }
+    }
+
     public int? PlayheadStep
     {
         get => playheadStep;
@@ -122,20 +143,22 @@ internal sealed class StepRowControl : Control
     private double CellWidth =>
         Math.Max(8, (Bounds.Width - CellSpacing * (StepCount - 1) - GroupSpacing * ((StepCount - 1) / 4)) / StepCount);
 
-    private Rect CellRect(int stepIndex) => new(
-        stepIndex * (CellWidth + CellSpacing) + stepIndex / 4 * GroupSpacing,
+    /// <summary>The rectangle of a cell, counted from the first one drawn (not a pattern step).</summary>
+    private Rect CellRect(int cellIndex) => new(
+        cellIndex * (CellWidth + CellSpacing) + cellIndex / 4 * GroupSpacing,
         0,
         CellWidth,
         Bounds.Height);
 
+    /// <summary>The pattern step under the pointer, or -1.</summary>
     private int StepIndexAt(Point pointerPosition)
     {
-        for (var stepIndex = 0; stepIndex < StepCount; stepIndex++)
+        for (var cellIndex = 0; cellIndex < StepCount; cellIndex++)
         {
-            var cellRect = CellRect(stepIndex);
+            var cellRect = CellRect(cellIndex);
             if (pointerPosition.X >= cellRect.Left && pointerPosition.X < cellRect.Right + CellSpacing)
             {
-                return stepIndex;
+                return firstStep + cellIndex;
             }
         }
         return -1;
@@ -155,11 +178,18 @@ internal sealed class StepRowControl : Control
         var activeFill = Track.Muted ? StudioTheme.TextDim : percussiveInstrument ? StudioTheme.Drum : StudioTheme.Accent;
         var sustainFill = Track.Muted ? StudioTheme.CellOdd : percussiveInstrument ? StudioTheme.DrumSoft : StudioTheme.AccentSoft;
 
-        for (var stepIndex = 0; stepIndex < StepCount && stepIndex < EditedClip.Pattern.Count; stepIndex++)
+        for (var cellIndex = 0; cellIndex < StepCount; cellIndex++)
         {
-            var cellRect = CellRect(stepIndex);
+            var stepIndex = firstStep + cellIndex;
+            var cellRect = CellRect(cellIndex);
+            if (stepIndex >= EditedClip.Pattern.Count)
+            {
+                // Past the end of a shorter clip (a groovebox page wider than the loop).
+                drawingContext.DrawRectangle(null, PastEndPen, cellRect.Deflate(1.5), CellCornerRadius, CellCornerRadius);
+                continue;
+            }
             var stepEvent = NotationResolver.ResolveOrRest(EditedClip.Pattern[stepIndex]);
-            var restingFill = stepIndex / 4 % 2 == 0 ? StudioTheme.CellEven : StudioTheme.CellOdd;
+            var restingFill = cellIndex / 4 % 2 == 0 ? StudioTheme.CellEven : StudioTheme.CellOdd;
 
             switch (stepEvent.Kind)
             {
@@ -178,7 +208,7 @@ internal sealed class StepRowControl : Control
                     break;
                 case StepEventKind.Sustain:
                     // Bleed left into the gap so a held note reads as one bar.
-                    var bleedWidth = stepIndex % 4 == 0 ? CellSpacing + GroupSpacing : CellSpacing;
+                    var bleedWidth = cellIndex == 0 ? 0 : cellIndex % 4 == 0 ? CellSpacing + GroupSpacing : CellSpacing;
                     drawingContext.DrawRectangle(sustainFill, null,
                         new Rect(cellRect.X - bleedWidth, cellRect.Y + 8, cellRect.Width + bleedWidth, cellRect.Height - 16), 3, 3);
                     break;
@@ -224,11 +254,12 @@ internal sealed class StepRowControl : Control
 
     private void RenderRuler(DrawingContext drawingContext)
     {
-        for (var stepIndex = 0; stepIndex < StepCount; stepIndex++)
+        for (var cellIndex = 0; cellIndex < StepCount; cellIndex++)
         {
-            var cellRect = CellRect(stepIndex);
+            var stepIndex = firstStep + cellIndex;
+            var cellRect = CellRect(cellIndex);
             var labelBrush = playheadStep == stepIndex ? StudioTheme.Playhead
-                : stepIndex % 4 == 0 ? StudioTheme.TextMuted
+                : cellIndex % 4 == 0 ? StudioTheme.TextMuted
                 : StudioTheme.TextDim;
             var rulerLabel = playheadStep == stepIndex ? "▶" : (stepIndex + 1).ToString(CultureInfo.InvariantCulture);
             DrawCenteredLabel(drawingContext, rulerLabel, cellRect, labelBrush);
@@ -379,7 +410,7 @@ internal sealed class StepRowControl : Control
         var targetStepIndex = StepIndexAt(wheelEvent.GetPosition(this));
         // Some platforms turn shift+wheel into horizontal scrolling.
         var wheelDelta = wheelEvent.Delta.Y != 0 ? wheelEvent.Delta.Y : wheelEvent.Delta.X;
-        if (targetStepIndex < 0 || wheelDelta == 0)
+        if (targetStepIndex < 0 || targetStepIndex >= EditedClip.Pattern.Count || wheelDelta == 0)
         {
             return;
         }

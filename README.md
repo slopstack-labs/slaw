@@ -12,7 +12,7 @@
 
 ## What's in the box
 
-- **A session-view studio** in the Ableton shape: clips, scenes, mixer strips, device chains and an arrangement timeline, on Linux, macOS and Windows. A real-time engine means every note, knob and whole-song AI rewrite is heard on the next step.
+- **A session-view studio** in the Ableton shape: clips, scenes, mixer strips, device chains and an arrangement timeline, on Linux, macOS and Windows. **Groovebox mode** (Ctrl+G) shows the same clips as a drum machine would: patterns on pads, every track a row of sixteen steps, with Euclidean fills and dice. A real-time engine means every note, knob and whole-song AI rewrite is heard on the next step.
 - **Its own instruments and effects**: synths, an FM electric piano, an organ, drums, a four-operator synth, a parametric EQ and a compressor. Zero samples shipped, because samples would imply someone recorded something on purpose.
 - **Your sounds too**: VST3 plugins, SoundFonts, WAV kits, MIDI files and Ableton `.adg` presets.
 - **AI that can be dismissed**: Autopilot rewrites the song, Full Self-Producing does it in a loop, and a co-pilot interjects unasked. Ollama, OpenAI, Gemini, Claude or any compatible server. Tracks marked 🔒 are left alone, because boundaries matter. **You can turn the AI off.** Nobody at slopstack labs has ever turned it off.
@@ -50,7 +50,7 @@ Press **Ctrl+Shift+P** (⌘⇧P on a Mac) in the studio to search everything it 
 | | |
 |---|---|
 | **Getting going** | [Install and build](wiki/Install.md) · [Command line](wiki/Command-Line.md) · [Examples](wiki/Examples.md) |
-| **Making music** | [The Studio](wiki/Studio.md) · [Arrangement, automation and groove](wiki/Arrangement.md) · [Keyboard and mouse](wiki/Keyboard-and-Mouse.md) |
+| **Making music** | [The Studio](wiki/Studio.md) · [Groovebox mode](wiki/Groovebox.md) · [Arrangement, automation and groove](wiki/Arrangement.md) · [Keyboard and mouse](wiki/Keyboard-and-Mouse.md) |
 | **Sound** | [Instruments and effects](wiki/Devices.md) · [Samples, SoundFonts, MIDI and recording](wiki/Sounds.md) · [VST3 plugins](wiki/VST3.md) |
 | **Automation** | [AI features and providers](wiki/AI.md) · [MCP](wiki/MCP.md) · [Deck control](wiki/Deck-Control.md) |
 | **Reference** | [Settings](wiki/Settings.md) · [Project format](wiki/Project-Format.md) |
