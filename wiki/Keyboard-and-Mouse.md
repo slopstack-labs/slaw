@@ -38,7 +38,7 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 
 | Shortcut | Action |
 |----------|--------|
-| Space | Play / stop. Session view launches the selected scene, Arrangement view plays the song from the cursor |
+| Space | Play / stop. Session view launches the selected scene, Arrangement view plays the song from the cursor. Stop cuts sounding notes at once (a 10 ms fade, so nothing clicks); reverb and delay tails still decay |
 | Shift+Space | Relaunch the selected scene right away (Arrangement: play from the cursor) |
 | Tab | Toggle Session / Arrangement (with two windows open: swap them) |
 | Ctrl+Alt+B / Ctrl+Alt+L | Show / hide the browser / the clip and devices panel |

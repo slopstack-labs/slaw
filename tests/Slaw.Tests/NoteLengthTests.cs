@@ -72,4 +72,52 @@ public class NoteLengthTests
         Assert.True(midStep.Max(Math.Abs) > 0.01f, "the long note stopped early");
         Assert.True(late.Max(Math.Abs) < 0.001f, "something rang past its length");
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StopSilencesSoundingNotesInsteadOfLettingThemRingOut(bool arrangement)
+    {
+        const int sampleRate = 8000;
+        const int blockFrames = 100;
+        // One whole-bar note with a long release: left alone it would sound for well over two seconds.
+        var padTrack = new SlawTrack
+        {
+            Name = "Pad",
+            Instrument = "sine",
+            InstrumentParameters = new Dictionary<string, double> { ["release"] = 1500 },
+            Clips = new List<SlawClip?> { new() { Name = "held", Pattern = ["C4:16", .. EmptyClip(15)] } },
+        };
+        var project = new SlawProject { Bpm = 120, Scenes = new List<string> { "Jam" }, Tracks = new List<SlawTrack> { padTrack } };
+        project.Timeline.Add(new TimelineClip { TrackId = padTrack.Id, StartStep = 0, LengthSteps = 16, Clip = new SlawClip { Name = "held", Pattern = ["C4:16", .. EmptyClip(15)] } });
+        var engine = new SequencerEngine(sampleRate);
+        engine.PublishProject(project);
+        if (arrangement)
+        {
+            engine.PlayTimeline();
+        }
+        else
+        {
+            engine.LaunchScene(0);
+        }
+
+        float PeakOfNextBlocks(int blockCount)
+        {
+            var left = new float[blockFrames];
+            var right = new float[blockFrames];
+            var peak = 0f;
+            for (var blockIndex = 0; blockIndex < blockCount; blockIndex++)
+            {
+                engine.RenderBlock(left, right);
+                peak = Math.Max(peak, left.Max(Math.Abs));
+            }
+            return peak;
+        }
+
+        Assert.True(PeakOfNextBlocks(40) > 0.01f, "the note never sounded");
+        engine.Stop();
+        // The fade is 10 ms (80 frames), so the first block after Stop still carries its ramp; the next must be silent.
+        PeakOfNextBlocks(1);
+        Assert.True(PeakOfNextBlocks(20) < 1e-4f, "the note kept ringing after Stop");
+    }
 }

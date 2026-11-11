@@ -297,13 +297,29 @@ internal sealed class SequencerEngine
     public void StopTrack(string trackIdentifier) =>
         pendingTransportCommands.Enqueue(() => QueueClipLaunch(trackIdentifier, null));
 
+    /// <summary>
+    /// Stops the transport now: built-in voices fade out over <see cref="StopFadeSeconds"/> instead of
+    /// ringing to the end of their rendered tails, and plugin instruments get their note-offs. Effect
+    /// tails (reverb, delay) still decay. The arrangement running off its end lets notes ring instead.
+    /// </summary>
     public void Stop() => pendingTransportCommands.Enqueue(() =>
     {
         transportMode = TransportMode.Stopped;
         countInStartCommand = null;
         ReleaseAllSessionClips();
+        var stopFadeFrameCount = Math.Max(1, (int)(StopFadeSeconds * sampleRate));
+        foreach (var runtimeState in trackRuntimeStates.Values)
+        {
+            foreach (var activeVoice in runtimeState.ActiveVoices)
+            {
+                activeVoice.FadeOut(stopFadeFrameCount);
+            }
+        }
         PublishTransport();
     });
+
+    /// <summary>How long Stop takes to silence sounding voices: short enough to feel instant, long enough not to click.</summary>
+    internal const double StopFadeSeconds = 0.01;
 
     /// <summary>Plays a finished buffer (e.g. a hallucinated waveform) over the mix, resampled to the engine rate.</summary>
     public void PreviewBuffer(StereoBuffer previewBuffer)
@@ -1433,6 +1449,8 @@ internal sealed class SequencerEngine
         private readonly bool followsPitchEnvelope;
         private double position;
         private int startDelayFrames;
+        private int fadeOutFrameCount;
+        private int fadeOutFramesRemaining = -1;
 
         /// <param name="startDelayFrames">Frames of silence before the voice starts: a ratchet strike's offset inside its step.</param>
         public ActiveVoice(float[] samples, float gain, bool followsPitchEnvelope, int startDelayFrames = 0)
@@ -1448,8 +1466,22 @@ internal sealed class SequencerEngine
         /// <paramref name="playbackRate"/>, tape-style. A voice still waiting for its start
         /// offset only counts the block down (or starts partway into it). Returns true once the voice has finished.
         /// </summary>
+        /// <summary>Ramps the voice to silence over <paramref name="frameCount"/> frames, then ends it (Stop).</summary>
+        public void FadeOut(int frameCount)
+        {
+            if (fadeOutFramesRemaining < 0 || frameCount < fadeOutFramesRemaining)
+            {
+                fadeOutFrameCount = fadeOutFramesRemaining = Math.Max(1, frameCount);
+            }
+        }
+
         public bool MixInto(Span<float> trackBlock, double playbackRate, bool audible)
         {
+            if (fadeOutFramesRemaining >= 0)
+            {
+                // A ratchet strike that has not started yet never starts once it is fading.
+                return startDelayFrames > 0 || MixFadingInto(trackBlock, playbackRate, audible);
+            }
             if (startDelayFrames > 0)
             {
                 if (startDelayFrames >= trackBlock.Length)
@@ -1491,6 +1523,33 @@ internal sealed class SequencerEngine
                 position += playbackRate;
             }
             return position >= samples.Length;
+        }
+
+        /// <summary>As <see cref="MixInto"/>, with the Stop fade applied; returns true once the fade or the samples run out.</summary>
+        private bool MixFadingInto(Span<float> trackBlock, double playbackRate, bool audible)
+        {
+            if (!followsPitchEnvelope)
+            {
+                playbackRate = 1.0;
+            }
+            for (var frameIndex = 0; frameIndex < trackBlock.Length; frameIndex++)
+            {
+                var lowerFrame = (int)position;
+                if (fadeOutFramesRemaining <= 0 || lowerFrame >= samples.Length)
+                {
+                    return true;
+                }
+                if (audible)
+                {
+                    var upperFrame = Math.Min(lowerFrame + 1, samples.Length - 1);
+                    var interpolationWeight = (float)(position - lowerFrame);
+                    var sample = samples[lowerFrame] + (samples[upperFrame] - samples[lowerFrame]) * interpolationWeight;
+                    trackBlock[frameIndex] += sample * gain * fadeOutFramesRemaining / fadeOutFrameCount;
+                }
+                fadeOutFramesRemaining--;
+                position += playbackRate;
+            }
+            return fadeOutFramesRemaining <= 0 || position >= samples.Length;
         }
     }
 
