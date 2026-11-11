@@ -30,6 +30,9 @@ internal sealed partial class StudioWindow
     private readonly Control detailColumn;
     private StudioSecondWindow? secondWindow;
     private bool mainWindowShowsArrangement;
+
+    /// <summary>Groovebox mode: the Groovebox takes the Session view's place, in whichever window that is.</summary>
+    private bool clipViewIsGroovebox;
     private bool studioWindowClosed;
 
     /// <summary>The window the keyboard is talking to.</summary>
@@ -37,6 +40,14 @@ internal sealed partial class StudioWindow
 
     /// <summary>What Space, Enter and the arrows act on: the view in the window that has focus.</summary>
     private bool arrangementViewActive => secondWindow is { IsActive: true } ? !mainWindowShowsArrangement : mainWindowShowsArrangement;
+
+    /// <summary>The Groovebox is the view the keyboard is talking to.</summary>
+    private bool grooveboxViewActive => clipViewIsGroovebox && !arrangementViewActive;
+
+    /// <summary>The view that shows clips by scene: the Session grid, or the Groovebox in Groovebox mode.</summary>
+    private Control ClipView => clipViewIsGroovebox ? grooveboxView : sessionView;
+
+    private string ClipViewName => clipViewIsGroovebox ? "Groovebox" : "Session";
 
     private StudioWorkspacePane DetailPane => secondWindow is not null && preferences.DetailInSecondWindow ? secondWindow.Pane : mainPane;
 
@@ -133,8 +144,8 @@ internal sealed partial class StudioWindow
     /// <summary>Puts each view in the pane it belongs in. Avalonia wants a control out of its old parent first.</summary>
     private void ArrangeWorkspaces()
     {
-        Control mainWindowView = mainWindowShowsArrangement ? arrangementView : sessionView;
-        Control otherView = mainWindowShowsArrangement ? sessionView : arrangementView;
+        Control mainWindowView = mainWindowShowsArrangement ? arrangementView : ClipView;
+        Control otherView = mainWindowShowsArrangement ? ClipView : arrangementView;
         var secondPane = secondWindow?.Pane;
 
         if (mainPane.View != mainWindowView)
@@ -168,7 +179,7 @@ internal sealed partial class StudioWindow
             secondPane.View = otherView;
         }
         detailPane.Detail = detailColumn;
-        secondWindow?.Describe(mainWindowShowsArrangement ? "Session" : "Arrangement", preferences.DetailInSecondWindow);
+        secondWindow?.Describe(mainWindowShowsArrangement ? ClipViewName : "Arrangement", preferences.DetailInSecondWindow);
     }
 
     private void ToggleSecondWindow()

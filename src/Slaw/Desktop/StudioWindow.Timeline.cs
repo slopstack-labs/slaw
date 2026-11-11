@@ -89,6 +89,7 @@ internal sealed partial class StudioWindow
             return false;
         }
         var selectedTimelineClipId = document.SelectedTimelineClipId;
+        var hasTimelineSelection = document.SelectedTimelineClipIds.Count > 0 || selectedTimelineClipId is not null;
         switch (studioCommand)
         {
             case StudioCommand.TogglePlayback or StudioCommand.PlayFromSelection or StudioCommand.LaunchSelection:
@@ -103,17 +104,17 @@ internal sealed partial class StudioWindow
                         : arrangementView.CursorStep);
                 }
                 return true;
-            case StudioCommand.DeleteClip when selectedTimelineClipId is not null:
+            case StudioCommand.DeleteClip when hasTimelineSelection:
                 FreeTimelineCommands.Delete(document, selectedTimelineClipId);
                 return true;
             case StudioCommand.DeleteClip when arrangementView.TrackHeaderSelected:
                 DeleteTrack(document.SelectedTrackIndex);
                 return true;
-            case StudioCommand.CutClip when selectedTimelineClipId is not null:
+            case StudioCommand.CutClip when hasTimelineSelection:
                 CopySelectedClip();
                 FreeTimelineCommands.Delete(document, selectedTimelineClipId);
                 return true;
-            case StudioCommand.DuplicateClip when selectedTimelineClipId is not null:
+            case StudioCommand.DuplicateClip when hasTimelineSelection:
                 FreeTimelineCommands.DuplicateAfter(document, selectedTimelineClipId);
                 return true;
             case StudioCommand.PasteClip when copiedClipPayload is not null:

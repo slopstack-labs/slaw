@@ -224,8 +224,10 @@ internal sealed partial class StudioWindow
         var entries = StudioCommandTitles.All
             .Select(titled => new CommandPaletteEntry(titled.Title, GestureFor(titled.Command), () => ExecuteStudioCommand(titled.Command)))
             .ToList();
-        entries.Add(new CommandPaletteEntry("View: Session", null, () => SelectMainView(arrangementView: false)));
+        entries.Add(new CommandPaletteEntry("View: Session", null, () => SelectMainView(arrangementView: false, groovebox: false)));
+        entries.Add(new CommandPaletteEntry("View: Groovebox", null, () => SelectMainView(arrangementView: false, groovebox: true)));
         entries.Add(new CommandPaletteEntry("View: Arrangement", null, () => SelectMainView(arrangementView: true)));
+        AddGrooveboxPaletteEntries(entries);
         entries.Add(new CommandPaletteEntry("File: Import MIDI…", null, () => _ = ImportMidiFromPickerAsync()));
         entries.Add(new CommandPaletteEntry("Create: Audio Track (mic)", null, AddAudioTrack));
         foreach (var (countInBars, countInLabel) in MetronomeCountInChoices.All)

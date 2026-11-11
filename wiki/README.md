@@ -8,6 +8,7 @@
 | [Command line](Command-Line.md) | every command and flag, and the headless production modes |
 | [Examples](Examples.md) | the reference songs, and what to look at in each |
 | [The Studio](Studio.md) | the live engine, the window layout, note audition, drag and drop |
+| [Groovebox mode](Groovebox.md) | scenes as pattern pads, every track a row of steps, Euclid and dice |
 | [Keyboard and mouse](Keyboard-and-Mouse.md) | every shortcut and gesture |
 | [Arrangement, automation and groove](Arrangement.md) | the timeline, clip envelopes, swing and timing |
 | [Instruments and effects](Devices.md) | every instrument and effect, sidechains, the master chain |

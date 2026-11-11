@@ -9,6 +9,7 @@ internal enum StudioCommand
     TogglePlayback,
     PlayFromSelection,
     SwitchView,
+    ToggleGroovebox,
     ToggleBrowser,
     FocusBrowserSearch,
     ToggleDetailPanel,
@@ -88,6 +89,7 @@ internal static class StudioShortcutMap
         new(StudioCommand.TogglePlayback, Key.Space, KeyModifiers.None, "Play / stop", ShortcutReach.Global),
         new(StudioCommand.PlayFromSelection, Key.Space, KeyModifiers.Shift, "Play from the selected scene", ShortcutReach.Global),
         new(StudioCommand.SwitchView, Key.Tab, KeyModifiers.None, "Switch Session / Arrangement view (with two windows: swap them)", ShortcutReach.Global),
+        new(StudioCommand.ToggleGroovebox, Key.G, Command, "Groovebox mode on / off: patterns on pads, every track a row of steps", ShortcutReach.Global),
         // Global, not Everywhere: Ctrl+Alt is AltGr on many keyboards, and a text field may want that µ.
         new(StudioCommand.ToggleBrowser, Key.B, CommandAlt, "Show / hide the browser", ShortcutReach.Global),
         new(StudioCommand.FocusBrowserSearch, Key.F, Command, "Search the browser: instruments, effects, plugins, samples", ShortcutReach.Everywhere),
@@ -185,6 +187,7 @@ internal static class StudioCommandTitles
         (StudioCommand.LaunchSelection, "Launch: Selected Clip"),
         (StudioCommand.LaunchSelectedScene, "Launch: Selected Scene"),
         (StudioCommand.SwitchView, "View: Toggle Session / Arrangement"),
+        (StudioCommand.ToggleGroovebox, "View: Groovebox Mode On / Off"),
         (StudioCommand.ToggleBrowser, "View: Show / Hide Browser"),
         (StudioCommand.FocusBrowserSearch, "View: Search Browser"),
         (StudioCommand.ToggleDetailPanel, "View: Show / Hide Clip & Devices Panel"),
