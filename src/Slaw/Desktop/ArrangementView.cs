@@ -337,6 +337,7 @@ internal sealed class ArrangementView : UserControl
             },
         };
         // The delete button only shows while the pointer is over the header, so the column stays calm.
+        trackHeader.Cursor = new Cursor(StandardCursorType.Hand);
         trackHeader.PointerEntered += (_, _) => deleteButton.IsVisible = true;
         trackHeader.PointerExited += (_, _) => deleteButton.IsVisible = false;
         trackHeader.AddHandler(PointerPressedEvent, (_, _) =>
@@ -404,6 +405,9 @@ internal sealed class ArrangementCanvas : Control
     private static readonly IPen BeatLinePen = new Pen(new SolidColorBrush(Color.Parse("#2a2a3a"), 0.8), 1);
     private static readonly IPen RepetitionPen = new Pen(new SolidColorBrush(Colors.White, 0.25), 1, new DashStyle(new double[] { 2, 3 }, 0));
     private static readonly IPen CursorPen = new Pen(StudioTheme.Accent, 1.5);
+    // Made once: the hover code used to allocate a new Cursor on every pointer move over a clip.
+    private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+    private static readonly Cursor ResizeCursor = new(StandardCursorType.SizeWestEast);
     private static readonly IPen PlayheadPen = new Pen(StudioTheme.Playhead, 2);
     private static readonly IPen SelectedClipPen = new Pen(StudioTheme.Text, 2);
     private static readonly IBrush LoopBraceBrush = new SolidColorBrush(Color.Parse("#f59e0b"), 0.55);
@@ -1018,11 +1022,13 @@ internal sealed class ArrangementCanvas : Control
 
         if (gestureKind == GestureKind.None)
         {
+            // The ruler is all click targets (cursor, play, loop brace), and so is every clip; empty lanes are not.
             var onResizeHandle = false;
             var hoveredClip = pointerPosition.Y >= RulerHeight ? ClipAt(pointerPosition, out onResizeHandle) : null;
-            Cursor = hoveredClip is null
-                ? Cursor.Default
-                : new Cursor(onResizeHandle ? StandardCursorType.SizeWestEast : StandardCursorType.Hand);
+            Cursor = pointerPosition.Y < RulerHeight ? HandCursor
+                : hoveredClip is null ? Cursor.Default
+                : onResizeHandle ? ResizeCursor
+                : HandCursor;
             return;
         }
 

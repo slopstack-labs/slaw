@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -66,6 +67,21 @@ internal static class StudioStyles
         application.Styles.Add(new Style(selector => selector.OfType<Button>())
         {
             Setters = { new Setter(TemplatedControl.BorderThicknessProperty, new Thickness(1)) },
+        });
+
+        // Everything you can click shows the system's hand cursor, as Fluent does not: Is<> also takes in what
+        // derives from these (toggles, check boxes, radio buttons, switches, spinner arrows, combo box items).
+        // Controls that set their own cursor (knobs, resize edges, text boxes) keep it; a local value beats a style.
+        var clickableCursor = new Cursor(StandardCursorType.Hand);
+        application.Styles.Add(new Style(selector => Selectors.Or(
+            selector.Is<Button>(),
+            selector.Is<ComboBox>(),
+            selector.Is<ListBoxItem>(),
+            selector.Is<TabItem>(),
+            selector.Is<MenuItem>(),
+            selector.Is<Slider>()))
+        {
+            Setters = { new Setter(InputElement.CursorProperty, clickableCursor) },
         });
 
         // Icon-only buttons are square and centred.

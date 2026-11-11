@@ -66,6 +66,8 @@ internal sealed class PianoRollControl : Control
         this.lowestVisibleMidiNote = lowestVisibleMidiNote;
         VisibleNoteCount = Math.Max(1, visibleNoteCount);
         ClipToBounds = true;
+        // Every key plays and every cell adds or edits a note: all of it is clickable.
+        Cursor = new Cursor(StandardCursorType.Hand);
         ToolTip.SetTip(this, "keyboard: click and hold to hear a note (drag to glide) · grid: click: add note · drag right: sustain · click note: select (velocity slider above) · alt/ctrl+drag note up/down: velocity · double-click / right-click note: remove · wheel: scroll pitch (shift: octave)");
     }
 
