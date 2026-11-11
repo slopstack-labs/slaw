@@ -21,8 +21,15 @@ internal sealed partial class StudioWindow
             SetStatus(StatusSeverity.Warning, "the arrangement is empty. double-click a lane, drop a session clip or scene, or place a scene at the cursor.");
             return;
         }
+        var countInBars = RecordingCountInBars();
+        if (countInBars > 0)
+        {
+            liveAudioSession.Engine.PlayTimelineAfterCountIn(startStep, countInBars);
+            AnnounceCountIn(countInBars, $"the arrangement from {FreeTimeline.FormatPosition((int)startStep)}");
+            return;
+        }
         liveAudioSession.Engine.PlayTimeline(startStep, loop: true);
-        SetStatus(StatusSeverity.Informational, $"♪ playing the arrangement from {FreeTimeline.FormatPosition((int)startStep)} — launch session clips over it any time");
+        SetStatus(StatusSeverity.Informational, $"playing the arrangement from {FreeTimeline.FormatPosition((int)startStep)} — launch session clips over it any time");
     }
 
     /// <summary>Hands every track a session launch took over back to the arrangement, on the next bar.</summary>

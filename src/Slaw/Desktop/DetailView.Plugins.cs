@@ -106,7 +106,7 @@ internal sealed partial class DetailView
             pluginItem.Click += (_, _) => pluginPicked(plugin);
             menuItems.Add(pluginItem);
         }
-        var rescanItem = new MenuItem { Header = "↻ Rescan plugin folders" };
+        var rescanItem = new MenuItem { Header = "Rescan plugin folders", Icon = new StudioIconGlyph { Icon = StudioIcon.Refresh } };
         rescanItem.Click += (_, _) => _ = Task.Run(Vst3PluginCatalog.Rescan);
         menuItems.Add(rescanItem);
     }
@@ -120,14 +120,14 @@ internal sealed partial class DetailView
         var panel = new PluginParameterPanel();
         if (PluginInstancePool.Live?.LoadProblem(slotKey) is { } loadProblem)
         {
-            panel.AddHeader(WrappedPluginCaption($"⚠ {loadProblem}", StudioTheme.Failure));
+            panel.AddHeader(WrappedPluginCaption(loadProblem, StudioTheme.Failure));
         }
         var pluginParameters = Vst3ParameterDirectory.TryGet(pluginReference);
         if (pluginParameters is null)
         {
             if (Vst3ParameterDirectory.ProbeProblem(pluginReference) is { } probeProblem)
             {
-                panel.AddHeader(WrappedPluginCaption($"⚠ could not load {pluginReference.Name}: {probeProblem}", StudioTheme.Failure));
+                panel.AddHeader(WrappedPluginCaption($"could not load {pluginReference.Name}: {probeProblem}", StudioTheme.Failure));
                 return panel;
             }
             panel.AddHeader(StudioUi.Caption("asking the plugin about its knobs…", 10));

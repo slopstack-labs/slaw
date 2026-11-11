@@ -25,6 +25,10 @@ internal enum TransportMode
 internal readonly record struct TrackTransportState(int? PlayingScene, int? ClipStep, int? QueuedScene, string? TimelineClipId = null, bool OverridesArrangement = false, int? EnvelopeStep = null);
 
 /// <summary>An immutable picture of the transport, republished after every step.</summary>
+/// <param name="CountInStepsRemaining">
+/// Steps of metronome count-in left before the transport starts (the mode stays
+/// <see cref="TransportMode.Stopped"/> meanwhile), or 0 when no count-in runs.
+/// </param>
 internal sealed record TransportSnapshot(
     TransportMode Mode,
     IReadOnlyDictionary<string, TrackTransportState> Tracks,
@@ -32,8 +36,12 @@ internal sealed record TransportSnapshot(
     long PublishedTimestamp = 0,
     double StepDurationSeconds = 0,
     long TimelineStep = -1,
-    bool ReturnToArrangementQueued = false)
+    bool ReturnToArrangementQueued = false,
+    int CountInStepsRemaining = 0)
 {
+    /// <summary>True while the metronome counts in before the transport starts.</summary>
+    public bool CountingIn => CountInStepsRemaining > 0;
+
     public static readonly TransportSnapshot Idle = new(
         TransportMode.Stopped, new Dictionary<string, TrackTransportState>(), -1);
 
@@ -104,6 +112,16 @@ internal sealed class SequencerEngine
     private float[]? previewRight;
     private int previewPosition;
 
+    // The metronome. Only the live studio turns it on; offline engines never schedule a click.
+    private readonly MetronomeClickSubstrate metronomeClickSubstrate;
+    private volatile bool metronomeAudible;
+    private volatile float metronomeVolume = DefaultMetronomeVolume;
+
+    // A count-in holds a transport start back while the metronome counts the bars (audio thread only).
+    private Action? countInStartCommand;
+    private int countInLengthSteps;
+    private int countInStep;
+
     private readonly Random auditionEntropySource = new(0xA0D1);
     private readonly List<AuditionVoice> activeAuditions = new();
     private readonly Dictionary<string, HashSet<int>> pluginAuditionNotes = new();
@@ -119,6 +137,7 @@ internal sealed class SequencerEngine
         humanizationEntropySource = new Random(noiseSeed ^ 0x2A);
         grooveTimingEntropySource = new Random(noiseSeed ^ 0x7E1A);
         masterBusProcessor = new MasterBusProcessor(sampleRate);
+        metronomeClickSubstrate = new MetronomeClickSubstrate(sampleRate);
         pluginPool = new PluginInstancePool(sampleRate, offlinePluginHosting);
         feedsEqDisplays = !offlinePluginHosting;
     }
@@ -141,6 +160,22 @@ internal sealed class SequencerEngine
     /// <summary>True once a non-looping arrangement (a bounce) has played its final step.</summary>
     public bool ArrangementFinished { get; private set; }
 
+    public const float DefaultMetronomeVolume = 0.7f;
+
+    /// <summary>Whether the metronome clicks while the transport plays. Count-ins click regardless.</summary>
+    public bool MetronomeAudible => metronomeAudible;
+
+    /// <summary>
+    /// Turns the metronome on or off and sets its volume (0..1, a gain on the click). Any thread.
+    /// The click goes into this engine's output after the master chain; leave it off for anything
+    /// that is bounced or rendered.
+    /// </summary>
+    public void ConfigureMetronome(bool audible, double volume)
+    {
+        metronomeVolume = (float)Math.Clamp(volume, 0, 1);
+        metronomeAudible = audible;
+    }
+
     // ── Commands (any thread) ─────────────────────────────────────────────────
 
     /// <summary>
@@ -154,7 +189,17 @@ internal sealed class SequencerEngine
     /// wraps at the loop brace (or the end); bounces pass <paramref name="loop"/> false and stop
     /// at the end. Every track starts out following the arrangement.
     /// </summary>
-    public void PlayTimeline(long startStep = 0, bool loop = true) => pendingTransportCommands.Enqueue(() =>
+    public void PlayTimeline(long startStep = 0, bool loop = true) =>
+        pendingTransportCommands.Enqueue(() => StartTimeline(startStep, loop));
+
+    /// <summary>
+    /// <see cref="PlayTimeline"/> (looping) after <paramref name="countInBars"/> bars of metronome
+    /// clicks when the transport is stopped; at once when something is already playing.
+    /// </summary>
+    public void PlayTimelineAfterCountIn(long startStep, int countInBars) =>
+        EnqueueAfterCountIn(countInBars, () => StartTimeline(startStep, loop: true));
+
+    private void StartTimeline(long startStep, bool loop)
     {
         ReleaseAllSessionClips();
         transportMode = TransportMode.Timeline;
@@ -163,14 +208,23 @@ internal sealed class SequencerEngine
         timelineLoops = loop;
         ArrangementFinished = false;
         samplesUntilNextStep = 0;
-    });
+    }
 
     /// <summary>
     /// Launches every clip in a scene. Without an arrangement playing, tracks with an
     /// empty slot stop; over the arrangement, only the scene's clips take over their
     /// tracks and the rest keep following the arrangement.
     /// </summary>
-    public void LaunchScene(int sceneIndex) => pendingTransportCommands.Enqueue(() =>
+    public void LaunchScene(int sceneIndex) => pendingTransportCommands.Enqueue(() => StartScene(sceneIndex));
+
+    /// <summary>
+    /// <see cref="LaunchScene"/> after <paramref name="countInBars"/> bars of metronome clicks
+    /// when the transport is stopped; at once when something is already playing.
+    /// </summary>
+    public void LaunchSceneAfterCountIn(int sceneIndex, int countInBars) =>
+        EnqueueAfterCountIn(countInBars, () => StartScene(sceneIndex));
+
+    private void StartScene(int sceneIndex)
     {
         var project = Volatile.Read(ref publishedProject);
         if (project is null)
@@ -186,7 +240,7 @@ internal sealed class SequencerEngine
             }
             QueueClipLaunch(track.Id, sceneClip is null ? null : sceneIndex);
         }
-    });
+    }
 
     /// <summary>
     /// Hands every track that a session launch took over back to the arrangement,
@@ -211,12 +265,42 @@ internal sealed class SequencerEngine
     public void LaunchClip(string trackIdentifier, int sceneIndex) =>
         pendingTransportCommands.Enqueue(() => QueueClipLaunch(trackIdentifier, sceneIndex));
 
+    /// <summary>
+    /// <see cref="LaunchClip"/> after <paramref name="countInBars"/> bars of metronome clicks
+    /// when the transport is stopped; at once when something is already playing.
+    /// </summary>
+    public void LaunchClipAfterCountIn(string trackIdentifier, int sceneIndex, int countInBars) =>
+        EnqueueAfterCountIn(countInBars, () => QueueClipLaunch(trackIdentifier, sceneIndex));
+
+    /// <summary>
+    /// Runs <paramref name="startCommand"/> on the audio thread once the metronome has counted
+    /// <paramref name="countInBars"/> bars (16 steps each, at the project's tempo, downbeats accented)
+    /// from a stopped transport. The transport stays <see cref="TransportMode.Stopped"/> during the
+    /// count-in; <see cref="Stop"/> cancels it, and so does anything else that starts the transport.
+    /// </summary>
+    private void EnqueueAfterCountIn(int countInBars, Action startCommand) => pendingTransportCommands.Enqueue(() =>
+    {
+        if (countInBars <= 0 || transportMode != TransportMode.Stopped)
+        {
+            countInStartCommand = null;
+            startCommand();
+            return;
+        }
+        ReleaseAllSessionClips();
+        countInStartCommand = startCommand;
+        countInLengthSteps = countInBars * MetronomeClickSubstrate.StepsPerBar;
+        countInStep = -1;
+        samplesUntilNextStep = 0;
+        PublishTransport();
+    });
+
     public void StopTrack(string trackIdentifier) =>
         pendingTransportCommands.Enqueue(() => QueueClipLaunch(trackIdentifier, null));
 
     public void Stop() => pendingTransportCommands.Enqueue(() =>
     {
         transportMode = TransportMode.Stopped;
+        countInStartCommand = null;
         ReleaseAllSessionClips();
         PublishTransport();
     });
@@ -417,10 +501,23 @@ internal sealed class SequencerEngine
         var renderedFrameCount = 0;
         while (renderedFrameCount < leftChannel.Length)
         {
+            if (countInStartCommand is not null)
+            {
+                if (transportMode != TransportMode.Stopped)
+                {
+                    // Something else started the transport: the count-in is moot.
+                    countInStartCommand = null;
+                }
+                else if (samplesUntilNextStep <= 0)
+                {
+                    AdvanceCountIn(project, renderedFrameCount);
+                }
+            }
             if (transportMode != TransportMode.Stopped && samplesUntilNextStep <= 0)
             {
                 AdvanceStep(project);
                 samplesUntilNextStep += project.StepDurationSeconds * sampleRate;
+                ScheduleMetronomeClick(renderedFrameCount);
             }
             var chunkFrameCount = leftChannel.Length - renderedFrameCount;
             if (transportMode != TransportMode.Stopped)
@@ -432,6 +529,10 @@ internal sealed class SequencerEngine
                     chunkFrameCount = Math.Min(chunkFrameCount, AutomationChunkFrames);
                 }
             }
+            else if (countInStartCommand is not null)
+            {
+                chunkFrameCount = Math.Clamp((int)Math.Ceiling(samplesUntilNextStep), 1, chunkFrameCount);
+            }
             MixTracks(project,
                 leftChannel.Slice(renderedFrameCount, chunkFrameCount),
                 rightChannel.Slice(renderedFrameCount, chunkFrameCount));
@@ -440,8 +541,58 @@ internal sealed class SequencerEngine
         }
 
         masterBusProcessor.Process(leftChannel, rightChannel, project.Master, project.StepDurationSeconds);
+        // After the master chain, so master effects never compress or echo the click; before the hearing protection, like everything.
+        metronomeClickSubstrate.MixInto(leftChannel, rightChannel, metronomeVolume);
         MixPreview(leftChannel, rightChannel);
         masterBusProcessor.ProtectHearing(leftChannel, rightChannel);
+    }
+
+    /// <summary>A click on the beat the transport just stepped onto, if the metronome is on. Straight grid: swing never moves it.</summary>
+    private void ScheduleMetronomeClick(int frameOffset)
+    {
+        if (!metronomeAudible)
+        {
+            return;
+        }
+        var gridStep = transportMode switch
+        {
+            TransportMode.Session => sessionStep,
+            TransportMode.Timeline => timelineStep,
+            _ => -1,
+        };
+        if (MetronomeClickSubstrate.IsBeat(gridStep))
+        {
+            metronomeClickSubstrate.Schedule(frameOffset, MetronomeClickSubstrate.IsDownbeat(gridStep));
+        }
+    }
+
+    /// <summary>
+    /// One step of a count-in: a click on every beat, and once the last bar is counted, the held-back
+    /// start command. The step's fractional remainder carries over, so the first played step lands
+    /// exactly one step after the last counted one.
+    /// </summary>
+    private void AdvanceCountIn(SlawProject project, int frameOffset)
+    {
+        countInStep++;
+        if (countInStep >= countInLengthSteps)
+        {
+            var heldStartCommand = countInStartCommand!;
+            countInStartCommand = null;
+            var carriedSamples = samplesUntilNextStep;
+            heldStartCommand();
+            samplesUntilNextStep = carriedSamples;
+            if (transportMode == TransportMode.Stopped)
+            {
+                PublishTransport();
+            }
+            return;
+        }
+        if (MetronomeClickSubstrate.IsBeat(countInStep))
+        {
+            metronomeClickSubstrate.Schedule(frameOffset, MetronomeClickSubstrate.IsDownbeat(countInStep));
+        }
+        samplesUntilNextStep += project.StepDurationSeconds * sampleRate;
+        PublishTransport();
     }
 
     private void MixPreview(Span<float> leftChannel, Span<float> rightChannel)
@@ -1269,7 +1420,8 @@ internal sealed class SequencerEngine
             transportMode, trackStates, previewProgress,
             System.Diagnostics.Stopwatch.GetTimestamp(), project?.StepDurationSeconds ?? 0,
             transportMode == TransportMode.Timeline ? timelineStep : -1,
-            returnToArrangementQueued));
+            returnToArrangementQueued,
+            countInStartCommand is null ? 0 : countInLengthSteps - Math.Max(0, countInStep)));
     }
 
     // ── Runtime state ─────────────────────────────────────────────────────────

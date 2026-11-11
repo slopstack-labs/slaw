@@ -78,6 +78,25 @@ internal sealed partial class StudioWindow
 
         var undoItem = CommandItem("_Undo", StudioCommand.Undo);
         var redoItem = CommandItem("_Redo", StudioCommand.Redo);
+        var metronomeItem = CommandItem("_Metronome", StudioCommand.ToggleMetronome);
+        metronomeItem.ToggleType = MenuItemToggleType.CheckBox;
+        var metronomeOnlyWhileRecordingItem = ActionItem("Metronome Only While _Recording", () => SetMetronomeOnlyWhileRecording(!preferences.MetronomeOnlyWhileRecording));
+        metronomeOnlyWhileRecordingItem.ToggleType = MenuItemToggleType.CheckBox;
+        var countInItems = MetronomeCountInChoices.All
+            .Select(choice =>
+            {
+                var countInItem = ActionItem(choice.Label, () => SetMetronomeCountIn(choice.Bars));
+                countInItem.ToggleType = MenuItemToggleType.Radio;
+                countInItem.GroupName = "metronome-count-in";
+                return (choice.Bars, Item: countInItem);
+            })
+            .ToList();
+        var countInMenu = new MenuItem { Header = "Recording _Count-In" };
+        ToolTip.SetTip(countInMenu, "Bars of metronome clicks before a recording starts from a stopped transport");
+        foreach (var (_, countInItem) in countInItems)
+        {
+            countInMenu.Items.Add(countInItem);
+        }
         var editMenu = new MenuItem
         {
             Header = "_Edit",
@@ -92,6 +111,10 @@ internal sealed partial class StudioWindow
                 CommandItem("_Duplicate", StudioCommand.DuplicateClip),
                 CommandItem("Duplicate _Scene", StudioCommand.DuplicateScene),
                 CommandItem("De_lete", StudioCommand.DeleteClip),
+                new Separator(),
+                metronomeItem,
+                countInMenu,
+                metronomeOnlyWhileRecordingItem,
             },
         };
         editMenu.SubmenuOpened += (_, _) =>
@@ -99,6 +122,12 @@ internal sealed partial class StudioWindow
             undoItem.Header = document.UndoLabel is { } undoLabel ? $"_Undo {undoLabel}" : "_Undo";
             undoItem.IsEnabled = document.CanUndo;
             redoItem.IsEnabled = document.CanRedo;
+            metronomeItem.IsChecked = preferences.MetronomeEnabled;
+            metronomeOnlyWhileRecordingItem.IsChecked = preferences.MetronomeOnlyWhileRecording;
+            foreach (var (countInBars, countInItem) in countInItems)
+            {
+                countInItem.IsChecked = countInBars == preferences.MetronomeCountInBars;
+            }
         };
 
         var createMenu = new MenuItem

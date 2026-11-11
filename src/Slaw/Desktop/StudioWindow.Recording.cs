@@ -60,6 +60,12 @@ internal sealed partial class StudioWindow
         public double? AnchorPosition { get; set; }
         public long AnchorTimestamp { get; set; }
         public bool TransportSeenRunning { get; set; }
+
+        /// <summary>
+        /// A timeline take started from a stop begins no earlier than the step the transport starts on,
+        /// however long the input listened before it (a count-in): that audio is trimmed, not placed.
+        /// </summary>
+        public long? TimelineStartFloor { get; init; }
     }
 
     // ── IStudioHost ───────────────────────────────────────────────────────────
@@ -87,7 +93,7 @@ internal sealed partial class StudioWindow
             else
             {
                 var armedTrackName = document.Project.Tracks.FirstOrDefault(track => track.Id == trackIdentifier)?.Name ?? "track";
-                SetStatus(StatusSeverity.Informational, $"🎙 {armedTrackName} armed via {audioInputSource?.SubstrateName} — press ● Rec (F9) to record a take");
+                SetStatus(StatusSeverity.Informational, $"{armedTrackName} armed via {audioInputSource?.SubstrateName} — press Rec (F9) to record a take");
             }
         }
         RefreshInputMeterVisibility();
@@ -277,7 +283,7 @@ internal sealed partial class StudioWindow
             // Session clips launch on the bar; the take is pre-roll until then.
             liveAudioSession.Engine.LaunchClip(takeTrack.Id, sceneIndex);
         }
-        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into \"{project.Scenes[sceneIndex]}\" — stop the transport or ● Rec to end the take");
+        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into \"{project.Scenes[sceneIndex]}\" — stop the transport or press Rec to end the take");
     }
 
     private void FinishAudioTake()
@@ -302,8 +308,11 @@ internal sealed partial class StudioWindow
         // Where the first captured frame sat in the clip, as the performer heard it.
         var anchorSecondsAfterCapture = (finishedTake.AnchorTimestamp - capturedTake.FirstFrameTimestamp) / (double)Stopwatch.Frequency;
         var captureStartPosition = anchorPosition - anchorSecondsAfterCapture / finishedTake.StepSeconds;
-        var takePlacement = AudioTakeAssembler.Place(captureStartPosition, finishedTake.ClipWasRunning, finishedTake.ClipLength,
+        // Placed relative to where the transport started, so audio from before it (a count-in) is trimmed instead of placed earlier.
+        var placementOrigin = finishedTake.TimelineStartFloor ?? 0;
+        var takePlacement = AudioTakeAssembler.Place(captureStartPosition - placementOrigin, finishedTake.ClipWasRunning, finishedTake.ClipLength,
             finishedTake.StepSeconds, preferences.RecordingInputLatencyMilliseconds / 1000.0, capturedTake.SampleRate);
+        takePlacement = takePlacement with { StartStep = takePlacement.StartStep + (int)placementOrigin };
         var takeSamples = AudioTakeAssembler.TrimHead(capturedTake.Samples, takePlacement.TrimFrames);
         if (takeSamples.Length < MinimumTakeSeconds * capturedTake.SampleRate)
         {
@@ -374,12 +383,13 @@ internal sealed partial class StudioWindow
             ClipWasRunning = false,
             UndoLabel = undoLabel,
             StartedTimestamp = Stopwatch.GetTimestamp(),
+            TimelineStartFloor = transportPlaying ? null : Math.Max(0, arrangementView.CursorStep),
         };
         if (!transportPlaying)
         {
             PlayTimelineFrom(arrangementView.CursorStep);
         }
-        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into the arrangement — stop the transport or ● Rec to end the take");
+        SetStatus(StatusSeverity.Failure, $"● recording {takeTrack.Name} into the arrangement — stop the transport or press Rec to end the take");
     }
 
     /// <summary>
@@ -445,7 +455,8 @@ internal sealed partial class StudioWindow
             takeInProgress.AnchorPosition = heardPosition;
             takeInProgress.AnchorTimestamp = Stopwatch.GetTimestamp();
         }
-        takeInProgress.TransportSeenRunning |= transportPlaying;
+        // A count-in counts as running: stopping during it ends (and discards) the take.
+        takeInProgress.TransportSeenRunning |= transportPlaying || transportSnapshot.CountingIn;
         if (takeInProgress.TransportSeenRunning && transportSnapshot.Mode == TransportMode.Stopped)
         {
             FinishAudioTake();
@@ -456,9 +467,11 @@ internal sealed partial class StudioWindow
             lastRecordingStatusTimestamp = Stopwatch.GetTimestamp();
             var elapsed = Stopwatch.GetElapsedTime(takeInProgress.StartedTimestamp);
             var takeTrackName = document.Project.Tracks.FirstOrDefault(track => track.Id == takeInProgress.TrackId)?.Name ?? "track";
-            SetStatus(StatusSeverity.Failure, takeInProgress.AnchorPosition is null
-                ? $"● {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · {takeTrackName} · waiting for the {(takeInProgress.OnTimeline ? "timeline" : "clip")} to start…"
-                : $"● {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · recording {takeTrackName}");
+            SetStatus(StatusSeverity.Failure, transportSnapshot.CountingIn
+                ? $"counting in · {takeTrackName} · {CountInBeatsLeft(transportSnapshot)} beat(s) to go…"
+                : takeInProgress.AnchorPosition is null
+                ? $"recording {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · {takeTrackName} · waiting for the {(takeInProgress.OnTimeline ? "timeline" : "clip")} to start…"
+                : $"recording {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00} · {takeTrackName}");
         }
     }
 
@@ -467,7 +480,7 @@ internal sealed partial class StudioWindow
     private Control ComposeInputMeter()
     {
         inputMeter = StudioUi.Row(4,
-            StudioUi.Caption("🎙", 11),
+            new StudioIconGlyph { Icon = StudioIcon.Microphone, Width = 12, Height = 12, Brush = StudioTheme.TextMuted },
             new Border
             {
                 Width = InputMeterWidth,

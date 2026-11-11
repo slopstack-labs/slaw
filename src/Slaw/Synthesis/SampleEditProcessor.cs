@@ -13,25 +13,64 @@ internal static class SampleEditProcessor
 {
     public static readonly IReadOnlyList<string> OperationTypes = new[]
     {
-        "trim", "delete", "silence", "reverse", "gain", "normalize", "fadeIn", "fadeOut", "duplicate",
+        "trim", "delete", "silence", "reverse", "gain", "normalize", "fadeIn", "fadeOut", "duplicate", "autotune",
     };
 
     private const int MaximumCachedEntries = 48;
     private static readonly ConcurrentDictionary<string, SampleData> ProcessedCache = new();
     private static readonly ConcurrentDictionary<string, byte> PendingComputations = new();
+    private static readonly ConcurrentDictionary<string, Task> PendingNativeComputations = new();
+
+    /// <summary>Edits slow enough (seconds on a long take) that the UI must not wait for them.</summary>
+    public static bool HasSlowOperations(SampleEditSettings? editSettings) =>
+        editSettings?.Operations.Any(operation => operation.Type == "autotune") == true;
 
     /// <summary>A stable fingerprint of the edit list, for cache keys.</summary>
     public static string Fingerprint(SampleEditSettings? editSettings) =>
         editSettings is null || editSettings.Operations.Count == 0
             ? "original"
             : string.Join(';', editSettings.Operations.Select(operation => string.Create(CultureInfo.InvariantCulture,
-                $"{operation.Type}:{operation.StartSeconds:R}:{operation.EndSeconds:R}:{operation.Amount:R}")));
+                $"{operation.Type}:{operation.StartSeconds:R}:{operation.EndSeconds:R}:{operation.Amount:R}:{operation.Key}")));
 
     /// <summary>Blocking: the edited sample at the source file's own rate (for the editor).</summary>
     public static SampleData LoadProcessedNative(string samplePath, SampleEditSettings? editSettings)
     {
         var sourceSample = SampleLibrary.Load(samplePath);
         return ProcessCached(sourceSample, editSettings, $"native|{sourceSample.SourcePath}|{Fingerprint(editSettings)}");
+    }
+
+    /// <summary>
+    /// For the UI: the edited sample at the source file's own rate, or null while slow edits
+    /// (autotune) are still being applied in the background; <paramref name="whenReady"/> then
+    /// completes when a second call will return it. Decoding and fast edits still block, as
+    /// <see cref="LoadProcessedNative"/> does, and throw the same exceptions.
+    /// </summary>
+    public static SampleData? TryGetProcessedNative(string samplePath, SampleEditSettings? editSettings, out Task? whenReady)
+    {
+        whenReady = null;
+        if (!HasSlowOperations(editSettings))
+        {
+            return LoadProcessedNative(samplePath, editSettings);
+        }
+        var sourceSample = SampleLibrary.Load(samplePath);
+        var cacheKey = $"native|{sourceSample.SourcePath}|{Fingerprint(editSettings)}";
+        if (ProcessedCache.TryGetValue(cacheKey, out var processedSample))
+        {
+            return processedSample;
+        }
+        var operationsSnapshot = new SampleEditSettings { Operations = editSettings!.Operations.Select(CloneOperation).ToList() };
+        whenReady = PendingNativeComputations.GetOrAdd(cacheKey, _ => Task.Run(() =>
+        {
+            try
+            {
+                ProcessCached(sourceSample, operationsSnapshot, cacheKey);
+            }
+            finally
+            {
+                PendingNativeComputations.TryRemove(cacheKey, out Task? _);
+            }
+        }));
+        return null;
     }
 
     /// <summary>Blocking: the edited sample at <paramref name="targetSampleRate"/> (for bounces and auditions).</summary>
@@ -85,6 +124,7 @@ internal static class SampleEditProcessor
         StartSeconds = operation.StartSeconds,
         EndSeconds = operation.EndSeconds,
         Amount = operation.Amount,
+        Key = operation.Key,
     };
 
     private static SampleData ProcessCached(SampleData sourceSample, SampleEditSettings? editSettings, string cacheKey)
@@ -167,6 +207,9 @@ internal static class SampleEditProcessor
                     Array.Copy(inputSamples, regionEnd, outputSamples, regionEnd + regionLength, inputSamples.Length - regionEnd);
                     return outputSamples;
                 }
+
+            case "autotune":
+                return PitchCorrector.Correct(inputSamples, sampleRate, regionStart, regionEnd, operation.Key, operation.Amount);
         }
 
         var editedSamples = (float[])inputSamples.Clone();

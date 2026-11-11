@@ -86,9 +86,9 @@ internal sealed partial class DetailView
         }
         var titleRow = StudioUi.Row(2,
             enabledToggle,
-            StudioUi.Button("◀", () => MoveMasterEffect(-1), "Move left", compact: true),
-            StudioUi.Button("▶", () => MoveMasterEffect(1), "Move right", compact: true),
-            StudioUi.Button("✕", () => document.Edit($"removed the master {effectName}", _ => masterEffects.RemoveAt(effectIndex), EditScope.Structure),
+            StudioUi.Button(StudioIcon.ChevronLeft, null, () => MoveMasterEffect(-1), "Move left", compact: true),
+            StudioUi.Button(StudioIcon.ChevronRight, null, () => MoveMasterEffect(1), "Move right", compact: true),
+            StudioUi.Button(StudioIcon.Close, null, () => document.Edit($"removed the master {effectName}", _ => masterEffects.RemoveAt(effectIndex), EditScope.Structure),
                 "Remove device", compact: true));
         if (effectDevice.Type == DeviceTypes.Vst3 && effectDevice.Plugin is { } editablePlugin)
         {

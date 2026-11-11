@@ -111,7 +111,7 @@ internal sealed partial class SettingsWindow
             var instrumentCount = scannedPlugins.Count(plugin => plugin.IsInstrument);
             pluginScanResultTextBlock.Text =
                 $"✓ {instrumentCount} instrument(s), {scannedPlugins.Count - instrumentCount} effect(s)" +
-                (scanProblems.Count > 0 ? $"\n⚠ {string.Join("\n⚠ ", scanProblems)}" : string.Empty);
+                (scanProblems.Count > 0 ? $"\nproblems:\n{string.Join("\n", scanProblems)}" : string.Empty);
         });
     }
 

@@ -28,6 +28,8 @@ public class KeyboardShortcutTests
     [InlineData(Key.I, KeyModifiers.Control | KeyModifiers.Alt, nameof(StudioCommand.ToggleAiPanel))]
     [InlineData(Key.W, KeyModifiers.Control | KeyModifiers.Shift, nameof(StudioCommand.ToggleSecondWindow))]
     [InlineData(Key.F11, KeyModifiers.None, nameof(StudioCommand.ToggleFullScreen))]
+    [InlineData(Key.K, KeyModifiers.Control | KeyModifiers.Shift, nameof(StudioCommand.ToggleMetronome))]
+    [InlineData(Key.K, KeyModifiers.Meta | KeyModifiers.Shift, nameof(StudioCommand.ToggleMetronome))]
     public void ResolvesAbletonShapedShortcuts(Key key, KeyModifiers modifiers, string expectedCommand) =>
         Assert.Equal(expectedCommand, StudioShortcutMap.Resolve(key, modifiers)?.Command.ToString());
 

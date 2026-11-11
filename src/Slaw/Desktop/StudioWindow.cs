@@ -77,19 +77,21 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private readonly ToggleButton arrangementViewToggle = new() { Content = "Arrangement", Padding = new Thickness(12, 5) };
     private readonly ToggleButton grooveboxViewToggle = new() { Content = "Groovebox", Padding = new Thickness(12, 5) };
     private readonly Button playButton;
-    private readonly NumericUpDown tempoInput = new() { Minimum = 40, Maximum = 300, Increment = 1, FormatString = "0", Width = 112, FontSize = 13 };
+    private bool playButtonShowsStop;
+    private readonly NumericUpDown tempoInput = new() { Minimum = 40, Maximum = 300, Increment = 1, FormatString = "0", Width = 64, FontSize = 13 };
     private readonly NumericUpDown swingInput = new()
     {
         Minimum = (decimal)GrooveTiming.StraightSwing,
         Maximum = (decimal)GrooveTiming.MaximumSwing,
         Increment = 1,
         FormatString = "0.#",
-        Width = 112,
+        Width = 64,
         FontSize = 13,
     };
     private readonly TextBox projectNameInput = new() { Width = 150, Watermark = "song title", VerticalAlignment = VerticalAlignment.Center };
     private readonly ToggleSwitch aiFeaturesSwitch = new() { OnContent = "AI", OffContent = "AI off", VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock routingChip = new() { VerticalAlignment = VerticalAlignment.Center, FontSize = 11 };
+    private readonly Avalonia.Controls.Shapes.Ellipse routingChipDot = new() { Width = 7, Height = 7, VerticalAlignment = VerticalAlignment.Center };
     private readonly Border routingChipContainer;
     private readonly TextBlock statusText = new() { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
     private readonly TextBlock audioStatusText = new() { VerticalAlignment = VerticalAlignment.Center, FontSize = 11, Foreground = StudioTheme.TextMuted };
@@ -124,13 +126,13 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         Background = StudioTheme.Background;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
-        playButton = StudioUi.AccentButton("▶  Play", TogglePlayback, "Play / stop (Space)");
-        backToArrangementButton = StudioUi.Button("⤺ Back to Arrangement", BackToArrangement,
+        playButton = StudioUi.AccentButton(StudioIcon.Play, "Play", TogglePlayback, "Play / stop (Space)");
+        backToArrangementButton = StudioUi.Button(StudioIcon.Return, "Back to Arrangement", BackToArrangement,
             "Session clips are playing over the arrangement. Hand every track back to it on the next bar.", compact: false);
         backToArrangementButton.Foreground = StudioTheme.Warning;
         backToArrangementButton.BorderBrush = StudioTheme.Warning;
         backToArrangementButton.IsVisible = false;
-        cancelInferenceButton = StudioUi.Button("✕ Cancel", CancelActiveInference, "Stop waiting for the model", compact: true);
+        cancelInferenceButton = StudioUi.Button(StudioIcon.Close, "Cancel", CancelActiveInference, "Stop waiting for the model", compact: true);
         cancelInferenceButton.IsVisible = false;
         inferenceProgressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => RefreshInferenceProgress());
         routingChipContainer = new Border
@@ -139,7 +141,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             CornerRadius = new CornerRadius(999),
             Padding = new Thickness(10, 5),
             VerticalAlignment = VerticalAlignment.Center,
-            Child = routingChip,
+            Child = StudioUi.Row(7, routingChipDot, routingChip),
         };
         copilotTranscriptScroller = new ScrollViewer { Content = copilotTranscriptPanel, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         aiInstructionInput = new TextBox
@@ -227,15 +229,16 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             }
         }
         SynchronizeTransportControls();
+        ApplyMetronomePreference();
         RefreshChrome();
         liveAudioSession.Engine.PublishProject(document.Project.DeepClone());
 
         InitializeChat();
         if (preferences.AiFeaturesEnabled && inferenceProvider is null)
         {
-            AppendCopilotMessage("system", $"AI unavailable: {inferenceUnavailabilityReason}. Open ⚙ Settings to configure the inference substrate.");
+            AppendCopilotMessage("system", $"AI unavailable: {inferenceUnavailabilityReason}. Open Settings to configure the inference substrate.");
         }
-        SetStatus(StatusSeverity.Informational, "ready. launch a clip with its ▶, or press Space.");
+        SetStatus(StatusSeverity.Informational, "ready. launch a clip with its play button, or press Space.");
         _ = RescanSampleLibraryAsync();
     }
 
@@ -283,20 +286,21 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         AddTransportControl(StudioUi.Row(0, sessionViewToggle, grooveboxViewToggle, arrangementViewToggle));
         AddTransportControl(StudioUi.VerticalSeparator());
         AddTransportControl(playButton);
-        AddTransportControl(StudioUi.Button("■", StopPlayback, "Stop", compact: false));
+        AddTransportControl(StudioUi.Button(StudioIcon.Stop, null, StopPlayback, "Stop", compact: false));
         AddTransportControl(backToArrangementButton);
         AddTransportControl(ComposeRecordControls());
         AddTransportControl(ComposeComputerKeyboardControls());
-        AddTransportControl(StudioUi.Row(6, StudioUi.Caption("BPM", 12), tempoInput));
-        ToolTip.SetTip(swingInput, "Swing, % of an eighth note: 50 straight, 66 triplet shuffle, 75 dotted. Delays every second sixteenth; tracks can override it in their Groove device.");
-        AddTransportControl(StudioUi.Row(6, StudioUi.Caption("Swing", 12), swingInput));
+        AddTransportControl(StudioUi.Row(6, StudioUi.Caption("BPM", 12), StudioUi.CompactNumber(tempoInput)));
+        ToolTip.SetTip(tempoInput, "Tempo in BPM. Type a value, or scroll over it (Shift: steps of 10).");
+        ToolTip.SetTip(swingInput, "Swing, % of an eighth note: 50 straight, 66 triplet shuffle, 75 dotted. Delays every second sixteenth; tracks can override it in their Groove device. Scroll to change it.");
+        AddTransportControl(StudioUi.Row(6, StudioUi.Caption("Swing", 12), StudioUi.CompactNumber(swingInput)));
         ToolTip.SetTip(projectNameInput, "Song title");
         AddTransportControl(projectNameInput);
 
         var rightControls = StudioUi.Row(8,
             aiFeaturesSwitch,
             routingChipContainer,
-            StudioUi.Button("⚙", () => _ = OpenSettingsAsync(), "Settings (Ctrl+,)", compact: false));
+            StudioUi.Button(StudioIcon.Settings, null, () => _ = OpenSettingsAsync(), "Settings (Ctrl+,)", compact: false));
         DockPanel.SetDock(rightControls, Dock.Right);
 
         return new Border
@@ -333,12 +337,12 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private Control ComposeBrowser()
     {
-        var browserContent = new StackPanel { Spacing = 3, Margin = new Thickness(10, 4, 10, 10) };
+        var browserContent = new StackPanel { Spacing = 1, Margin = new Thickness(8, 2, 10, 12) };
         browserSections.Clear();
         browserSearchEntries.Clear();
         browserToolRows.Clear();
 
-        var instrumentsSection = AddCollapsibleBrowserSection(browserContent, "Instruments");
+        var instrumentsSection = AddCollapsibleBrowserSection(browserContent, "Instruments", StudioIcon.Piano);
         // "soundfont" gets its own entry below, which asks for the .sf2 straight away; a multisampler comes from the importer.
         foreach (var instrumentName in InstrumentVoiceSynthesizer.SupportedInstruments.Where(instrumentName => instrumentName is not ("soundfont" or "multisampler")))
         {
@@ -347,15 +351,15 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             StudioDragDrop.MakeDragSource(instrumentEntry, () => new DragPayload(DragPayloadKind.Instrument, instrumentName));
             instrumentsSection.Children.Add(Searchable(instrumentEntry, $"{DeviceCatalog.InstrumentDisplayName(instrumentName)} {instrumentName} instrument"));
         }
-        instrumentsSection.Children.Add(Searchable(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)"),
+        instrumentsSection.Children.Add(Searchable(BrowserEntry("Audio Track (mic)", AddAudioTrack, "Click to add an empty track armed for recording vocals (or anything else with a microphone)", StudioIcon.Microphone),
             "audio track mic microphone record vocals"));
-        instrumentsSection.Children.Add(Searchable(BrowserEntry("Ableton Preset… (.adg)", () => OpenSoundImportWindow(), "Import a Simpler or Sampler preset, or a Drum Rack, as a multisampler track"),
+        instrumentsSection.Children.Add(Searchable(BrowserEntry("Ableton Preset… (.adg)", () => OpenSoundImportWindow(), "Import a Simpler or Sampler preset, or a Drum Rack, as a multisampler track", StudioIcon.Import),
             "ableton preset adg rack drum simpler sampler operator import"));
         instrumentsSection.Children.Add(Searchable(BrowserEntry("SoundFont… (.sf2)", () => _ = AddSoundFontTrackFromPickerAsync(),
-            "Click to add a track playing a SoundFont preset (General MIDI banks, drum kits); you can also drop a .sf2 onto a track"),
+            "Click to add a track playing a SoundFont preset (General MIDI banks, drum kits); you can also drop a .sf2 onto a track", StudioIcon.Music),
             "soundfont sf2 general midi drum kit"));
 
-        var effectsSection = AddCollapsibleBrowserSection(browserContent, "Audio Effects");
+        var effectsSection = AddCollapsibleBrowserSection(browserContent, "Audio Effects", StudioIcon.Effect);
         foreach (var effectType in DeviceCatalog.EffectTypes)
         {
             var effectEntry = BrowserEntry(DeviceCatalog.EffectDisplayName(effectType), () =>
@@ -369,27 +373,27 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             effectsSection.Children.Add(Searchable(effectEntry, $"{DeviceCatalog.EffectDisplayName(effectType)} {effectType} effect"));
         }
 
-        var pluginsSection = AddCollapsibleBrowserSection(browserContent, "Plugins (VST3)", () => pluginMatchCount);
+        var pluginsSection = AddCollapsibleBrowserSection(browserContent, "Plugins (VST3)", StudioIcon.Plug, () => pluginMatchCount);
         pluginsSection.Children.Add(BrowserToolRow(StudioUi.Row(4,
             StudioUi.Button("Folders…", () => _ = OpenSettingsAsync(), "Add or remove VST3 plugin folders (Settings → Plugins)", compact: true),
-            StudioUi.Button("⟳", () => PopulatePluginEntries(rescan: true), "Rescan plugin folders", compact: true))));
+            StudioUi.Button(StudioIcon.Refresh, null, () => PopulatePluginEntries(rescan: true), "Rescan plugin folders", compact: true))));
         pluginsSection.Children.Add(Detached(pluginEntriesPanel));
         PopulatePluginEntries();
 
-        var samplesSection = AddCollapsibleBrowserSection(browserContent, "Samples", () => sampleMatchCount);
+        var samplesSection = AddCollapsibleBrowserSection(browserContent, "Samples", StudioIcon.Waveform, () => sampleMatchCount);
         samplesSection.Children.Add(BrowserToolRow(StudioUi.Row(4,
-            StudioUi.Button("⤓ Import…", () => OpenSoundImportWindow(), "Import a folder or files as a drum kit, tracks or library (Ctrl+Shift+I)", compact: true),
-            StudioUi.Button("+ Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV, AIFF or FLAC files to the browser", compact: true),
-            StudioUi.Button("⟳", () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true))));
+            StudioUi.Button(StudioIcon.Import, "Import…", () => OpenSoundImportWindow(), "Import a folder or files as a drum kit, tracks or library (Ctrl+Shift+I)", compact: true),
+            StudioUi.Button(StudioIcon.Plus, "Folder…", () => _ = AddSampleFolderAsync(), "Add a folder of WAV, AIFF or FLAC files to the browser", compact: true),
+            StudioUi.Button(StudioIcon.Refresh, null, () => _ = RescanSampleLibraryAsync(), "Rescan sample folders", compact: true))));
         samplesSection.Children.Add(Detached(sampleEntriesPanel));
         PopulateSampleEntries();
 
         if (AiFeaturesEnabled)
         {
-            var aiSection = AddCollapsibleBrowserSection(browserContent, "AI");
-            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("✨ Autopilot", () => LaunchAutopilot(aiInstructionInput.Text), "Let the AI edit the whole project", compact: false)), "ai autopilot"));
-            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("✨ Generate clip", () => GenerateClipWithAi(document.SelectedTrackIndex, document.SelectedSceneIndex), "Write the selected clip", compact: false)), "ai generate clip"));
-            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("✨ Vibe check", LaunchVibeCheck, "A world-renowned producer and LinkedIn thought leader reviews your song", compact: false)), "ai vibe check"));
+            var aiSection = AddCollapsibleBrowserSection(browserContent, "AI", StudioIcon.Sparkle);
+            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("Autopilot", () => LaunchAutopilot(aiInstructionInput.Text), "Let the AI edit the whole project", compact: false)), "ai autopilot"));
+            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("Generate clip", () => GenerateClipWithAi(document.SelectedTrackIndex, document.SelectedSceneIndex), "Write the selected clip", compact: false)), "ai generate clip"));
+            aiSection.Children.Add(Searchable(RegisterInference(StudioUi.AiButton("Vibe check", LaunchVibeCheck, "A world-renowned producer and LinkedIn thought leader reviews your song", compact: false)), "ai vibe check"));
             foreach (var aiBrowserButton in aiSection.Children.OfType<Button>())
             {
                 aiBrowserButton.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -398,7 +402,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         browserContent.Children.Add(Detached(browserNoMatchesCaption));
         ApplyBrowserSearch();
 
-        var searchBar = new Border { Padding = new Thickness(10, 10, 10, 4), Child = Detached(browserSearchInput) };
+        var searchBar = new Border { Padding = new Thickness(10, 10, 10, 8), Child = Detached(browserSearchInput) };
         ToolTip.SetTip(searchBar, "Search everything in the browser (Ctrl+F). Esc clears it.");
         DockPanel.SetDock(searchBar, Dock.Top);
         return new DockPanel { Children = { searchBar, new ScrollViewer { Content = browserContent } } };
@@ -408,21 +412,23 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     /// A browser section whose heading folds it away; which sections are folded
     /// is remembered across sessions. Returns the panel the section's entries go in.
     /// </summary>
-    private StackPanel AddCollapsibleBrowserSection(StackPanel browserContent, string sectionTitle, Func<int>? listedMatches = null)
+    private StackPanel AddCollapsibleBrowserSection(StackPanel browserContent, string sectionTitle, StudioIcon sectionIcon, Func<int>? listedMatches = null)
     {
-        var sectionEntries = new StackPanel { Spacing = 3, IsVisible = !preferences.CollapsedBrowserSections.Contains(sectionTitle) };
+        var sectionEntries = new StackPanel { Spacing = 1, Margin = new Thickness(0, 2, 0, 4), IsVisible = !preferences.CollapsedBrowserSections.Contains(sectionTitle) };
+        var chevron = new StudioIconGlyph { Width = 11, Height = 11, Brush = StudioTheme.TextMuted, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
+        var sectionGlyph = new StudioIconGlyph { Icon = sectionIcon, Width = 13, Height = 13, Brush = StudioTheme.Accent, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        var countText = new TextBlock { FontSize = 10, Foreground = StudioTheme.TextDim, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+        var titleText = new TextBlock { Text = sectionTitle.ToUpperInvariant(), FontSize = 10.5, FontWeight = FontWeight.Bold, LetterSpacing = 0.6, Foreground = StudioTheme.TextMuted, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         var sectionHeading = new Button
         {
-            Background = Brushes.Transparent,
-            Foreground = StudioTheme.TextMuted,
-            FontSize = 10,
-            FontWeight = FontWeight.Bold,
-            Padding = new Thickness(2, 3),
+            Content = new DockPanel { Children = { Docked(chevron, Dock.Left), Docked(sectionGlyph, Dock.Left), Docked(countText, Dock.Right), titleText } },
+            Padding = new Thickness(6, 6),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Margin = new Thickness(0, browserContent.Children.Count == 0 ? 0 : 8, 0, 0),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, browserContent.Children.Count == 0 ? 0 : 6, 0, 0),
+            Classes = { "browserRow" },
         };
-        var section = new BrowserSection(sectionTitle, sectionHeading, sectionEntries, listedMatches);
+        var section = new BrowserSection(sectionTitle, sectionHeading, sectionEntries, listedMatches, chevron, countText);
         browserSections.Add(section);
         ShowBrowserSectionFold(section);
         ToolTip.SetTip(sectionHeading, $"Show or hide {sectionTitle}");
@@ -446,20 +452,40 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         return sectionEntries;
     }
 
-    private static Button BrowserEntry(string caption, Action onClick, string toolTip)
+    /// <summary>A flat browser row: an optional muted icon, then the name, trimmed with an ellipsis when the column is narrow.</summary>
+    private static Button BrowserEntry(string caption, Action onClick, string toolTip, StudioIcon? icon = null)
     {
         var entryButton = new Button
         {
-            Content = caption,
+            Content = BrowserRowContent(icon, caption),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Background = Brushes.Transparent,
-            Padding = new Thickness(6, 4),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Foreground = StudioTheme.Text,
+            Padding = new Thickness(icon is null ? 25 : 23, 4, 6, 4),
             FontSize = 12,
+            Classes = { "browserRow" },
         };
         entryButton.Click += (_, _) => onClick();
         ToolTip.SetTip(entryButton, toolTip);
         return entryButton;
+    }
+
+    private static Control BrowserRowContent(StudioIcon? icon, string caption, double fontSize = 12)
+    {
+        var captionText = new TextBlock { Text = caption, FontSize = fontSize, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+        if (icon is null)
+        {
+            return captionText;
+        }
+        var glyph = new StudioIconGlyph { Icon = icon.Value, Width = fontSize, Height = fontSize, Brush = StudioTheme.TextMuted, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(-2, 0, 7, 0) };
+        return new DockPanel { Children = { Docked(glyph, Dock.Left), captionText } };
+    }
+
+    private static T Docked<T>(T dockedControl, Dock dock)
+        where T : Control
+    {
+        DockPanel.SetDock(dockedControl, dock);
+        return dockedControl;
     }
 
     private Control ComposeAiPanel()
@@ -470,7 +496,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             Margin = new Thickness(0, 0, 0, 8),
             Children =
             {
-                StudioUi.Caption("◆ AI Co-Pilot", 15, StudioTheme.Accent, FontWeight.Bold),
+                StudioUi.Row(8, new StudioIconGlyph { Icon = StudioIcon.Sparkle, Width = 16, Height = 16, Brush = StudioTheme.Accent }, StudioUi.Caption("AI Co-Pilot", 15, StudioTheme.Accent, FontWeight.Bold)),
                 StudioUi.Caption($"Interjects every {preferences.EditsBetweenCopilotInterjections} edits. You cannot stop it, only disable it.", 10),
                 Detached(unsolicitedAdviceToggle),
                 ComposeChatSessionBar(),
@@ -480,18 +506,18 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var quickActions = new WrapPanel { Orientation = Orientation.Horizontal };
         foreach (var quickAction in new[]
         {
-            RegisterInference(StudioUi.AiButton("✨ Vibe check", LaunchVibeCheck, "Get your song reviewed")),
-            RegisterInference(StudioUi.AiButton("✨ Tempo", LaunchTempoNegotiation, "Renegotiate the BPM")),
-            RegisterInference(StudioUi.AiButton("✨ Hallucinate", () => LaunchWaveformHallucination(aiInstructionInput.Text), "Ask the model for raw PCM, as hex, and play whatever comes back")),
+            RegisterInference(StudioUi.AiButton("Vibe check", LaunchVibeCheck, "Get your song reviewed")),
+            RegisterInference(StudioUi.AiButton("Tempo", LaunchTempoNegotiation, "Renegotiate the BPM")),
+            RegisterInference(StudioUi.AiButton("Hallucinate", () => LaunchWaveformHallucination(aiInstructionInput.Text), "Ask the model for raw PCM, as hex, and play whatever comes back")),
         })
         {
             quickAction.Margin = new Thickness(0, 0, 4, 4);
             quickActions.Children.Add(quickAction);
         }
 
-        var autopilotButton = RegisterInference(StudioUi.AiButton("✨ Autopilot", () => LaunchAutopilot(aiInstructionInput.Text),
+        var autopilotButton = RegisterInference(StudioUi.AiButton("Autopilot", () => LaunchAutopilot(aiInstructionInput.Text),
             "Send the whole project and your instruction to the model; it returns a full rewrite (undoable)", compact: false));
-        var composeButton = RegisterInference(StudioUi.AiButton("✨ Compose", () => LaunchComposition(aiInstructionInput.Text),
+        var composeButton = RegisterInference(StudioUi.AiButton("Compose", () => LaunchComposition(aiInstructionInput.Text),
             "Replace the project with a new AI arrangement of the vibe you typed (undoable)", compact: false));
         autopilotButton.HorizontalAlignment = HorizontalAlignment.Stretch;
         composeButton.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -509,7 +535,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
                     Children = { autopilotButton, PlaceInColumn(composeButton, 2) },
                 },
                 Detached(fullSelfProducingSwitch),
-                StudioUi.Caption("🔒 on a track's mixer strip protects it from every AI edit.", 10),
+                StudioUi.IconCaption(StudioIcon.Lock, "The lock on a track's mixer strip protects it from every AI edit.", 10),
             },
         };
 
@@ -821,6 +847,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         liveAudioSession.Dispose();
         liveAudioSession = CreateLiveAudioSession();
         liveAudioSession.Engine.PublishProject(document.Project.DeepClone());
+        ApplyMetronomeToEngine();
         StartLiveAudio();
     }
 
@@ -836,11 +863,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         backToArrangementButton.Opacity = transportSnapshot.ReturnToArrangementQueued ? 0.55 : 1;
         detailView.UpdateTransport(transportSnapshot);
         waveformScope.PlayheadFraction = transportSnapshot.PreviewProgress >= 0 ? transportSnapshot.PreviewProgress : null;
-        var nowPlaying = PlaybackToggle.IsAudiblyPlaying(transportSnapshot);
-        var playCaption = nowPlaying ? "■  Stop" : "▶  Play";
-        if (playButton.Content as string != playCaption)
+        var nowPlaying = PlaybackToggle.IsAudiblyPlaying(transportSnapshot) || transportSnapshot.CountingIn;
+        if (playButtonShowsStop != nowPlaying)
         {
-            playButton.Content = playCaption;
+            playButtonShowsStop = nowPlaying;
+            StudioUi.SetIconContent(playButton, nowPlaying ? StudioIcon.Stop : StudioIcon.Play, nowPlaying ? "Stop" : "Play");
         }
         AdvanceRecordingDisplay();
     }
@@ -848,7 +875,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private void TogglePlayback()
     {
         var transportSnapshot = liveAudioSession.Engine.Transport;
-        if (PlaybackToggle.IsAudiblyPlaying(transportSnapshot) || transportSnapshot.PreviewProgress >= 0)
+        if (PlaybackToggle.IsAudiblyPlaying(transportSnapshot) || transportSnapshot.PreviewProgress >= 0 || transportSnapshot.CountingIn)
         {
             StopPlayback();
             return;
@@ -880,16 +907,30 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         if (trackIndex >= 0 && trackIndex < document.Project.Tracks.Count)
         {
+            var countInBars = RecordingCountInBars();
+            if (countInBars > 0)
+            {
+                liveAudioSession.Engine.LaunchClipAfterCountIn(document.Project.Tracks[trackIndex].Id, sceneIndex, countInBars);
+                AnnounceCountIn(countInBars, $"into {document.Project.Tracks[trackIndex].Name}");
+                return;
+            }
             liveAudioSession.Engine.LaunchClip(document.Project.Tracks[trackIndex].Id, sceneIndex);
         }
     }
 
     public void LaunchScene(int sceneIndex)
     {
+        var countInBars = RecordingCountInBars();
+        if (countInBars > 0)
+        {
+            liveAudioSession.Engine.LaunchSceneAfterCountIn(sceneIndex, countInBars);
+            AnnounceCountIn(countInBars, sceneIndex >= 0 && sceneIndex < document.Project.Scenes.Count ? $"scene \"{document.Project.Scenes[sceneIndex]}\"" : "the scene");
+            return;
+        }
         liveAudioSession.Engine.LaunchScene(sceneIndex);
         if (sceneIndex >= 0 && sceneIndex < document.Project.Scenes.Count)
         {
-            SetStatus(StatusSeverity.Informational, $"♪ scene \"{document.Project.Scenes[sceneIndex]}\" launched — edits are live");
+            SetStatus(StatusSeverity.Informational, $"scene \"{document.Project.Scenes[sceneIndex]}\" launched — edits are live");
         }
     }
 
@@ -1178,6 +1219,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         ApplyMidiInputPreference();
         ApplyLaunchpadPreference();
         ApplyRecordingPreference();
+        ApplyMetronomePreference();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();
         if (audioSettingsChanged)
@@ -1217,8 +1259,10 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         {
             inferenceProvider = InferenceProviderFactory.Materialize(preferences.ToRoutingIntent());
             inferenceUnavailabilityReason = null;
-            routingChip.Text = $"●  {inferenceProvider.ModelIdentifier} via {inferenceProvider.ProviderDisplayName}";
+            routingChip.Text = $"{inferenceProvider.ModelIdentifier} via {inferenceProvider.ProviderDisplayName}";
             routingChip.Foreground = StudioTheme.Playhead;
+            routingChipDot.Fill = StudioTheme.Playhead;
+            routingChipDot.Stroke = null;
             if (announce)
             {
                 AppendCopilotMessage("system", $"Inference rerouted to {inferenceProvider.ModelIdentifier} via {inferenceProvider.ProviderDisplayName}. New brain, same personality.");
@@ -1228,8 +1272,11 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         {
             inferenceProvider = null;
             inferenceUnavailabilityReason = routingRemediationOpportunity.Message;
-            routingChip.Text = "○  AI offline";
+            routingChip.Text = "AI offline";
             routingChip.Foreground = StudioTheme.Failure;
+            routingChipDot.Fill = null;
+            routingChipDot.Stroke = StudioTheme.Failure;
+            routingChipDot.StrokeThickness = 1.5;
             if (announce)
             {
                 AppendCopilotMessage("system", $"Inference substrate misaligned: {routingRemediationOpportunity.Message}");
@@ -1363,7 +1410,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var targetTrack = document.Project.Tracks[trackIndex];
         if (targetTrack.AiLocked)
         {
-            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is protected from AI edits (🔒).");
+            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is locked against AI edits.");
             return;
         }
         var targetIdentifier = targetTrack.Id;
@@ -1402,7 +1449,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var targetTrack = document.Project.Tracks[trackIndex];
         if (targetTrack.AiLocked)
         {
-            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is protected from AI edits (🔒).");
+            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is locked against AI edits.");
             return;
         }
         LaunchInference($"rebranding {targetTrack.Name}", async (operationProvider, projectSnapshot, cancellationToken) =>
@@ -1431,7 +1478,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var targetTrack = document.Project.Tracks[trackIndex];
         if (targetTrack.AiLocked)
         {
-            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is protected from AI edits (🔒).");
+            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is locked against AI edits.");
             return;
         }
         var targetingInstrument = effectIndex < 0;
@@ -1726,21 +1773,24 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             IsVisible = unfoldedByFilter || preferences.ExpandedSampleFolders.Contains(folderGroup.FolderPath),
         };
         // Pack folders run long ("BPB Cassette 909 / cassette 1"): wrap rather than hide the count.
-        var folderHeadingText = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        var folderHeadingText = new TextBlock { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+        var folderChevron = new StudioIconGlyph { Width = 12, Height = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
+        var folderHeadingLayout = new DockPanel { Children = { Docked(folderChevron, Dock.Left), folderHeadingText } };
         var folderHeading = new Button
         {
-            Content = folderHeadingText,
-            Background = Brushes.Transparent,
+            Content = folderHeadingLayout,
             Foreground = StudioTheme.TextMuted,
             FontSize = 11,
             FontWeight = FontWeight.SemiBold,
-            Padding = new Thickness(2, 2),
+            Padding = new Thickness(6, 4),
+            Classes = { "browserRow" },
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Left,
         };
         void RefreshFolder()
         {
-            folderHeadingText.Text = $"{(folderEntries.IsVisible ? "▾" : "▸")} {folderGroup.Label}  ({listedSamplePaths.Count})";
+            folderChevron.Icon = folderEntries.IsVisible ? StudioIcon.ChevronDown : StudioIcon.ChevronRight;
+            folderHeadingText.Text = $"{folderGroup.Label}  ({listedSamplePaths.Count})";
             // Entries are built on first unfold, so a folded 2000-sample library costs one button per folder.
             if (folderEntries.IsVisible && folderEntries.Children.Count == 0)
             {
@@ -1779,12 +1829,13 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     {
         var sampleEntry = new Button
         {
-            Content = "♪ " + Path.GetFileNameWithoutExtension(samplePath),
+            Content = BrowserRowContent(StudioIcon.Waveform, Path.GetFileNameWithoutExtension(samplePath), 11),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Background = Brushes.Transparent,
-            Padding = new Thickness(6, 2),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Foreground = StudioTheme.Text,
+            Padding = new Thickness(23, 3, 6, 3),
             FontSize = 11,
+            Classes = { "browserRow" },
         };
         ToolTip.SetTip(sampleEntry, samplePath);
         StudioDragDrop.MakeDragSource(sampleEntry, () => new DragPayload(DragPayloadKind.Sample, samplePath));
@@ -1835,7 +1886,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             var previewBuffer = SampleLibrary.ToStereoBuffer(SampleLibrary.Load(samplePath));
             waveformScope.Present(previewBuffer, Path.GetFileName(samplePath), hallucinatedDeliverable: false);
             liveAudioSession.Engine.PreviewBuffer(previewBuffer);
-            SetStatus(StatusSeverity.Informational, $"♪ previewing {Path.GetFileName(samplePath)} — double-click to add it as a track");
+            SetStatus(StatusSeverity.Informational, $"previewing {Path.GetFileName(samplePath)} — double-click to add it as a track");
         }
         catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
         {
@@ -1859,7 +1910,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var targetTrack = document.Project.Tracks[trackIndex];
         if (targetTrack.AiLocked)
         {
-            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is protected from AI edits (🔒).");
+            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is locked against AI edits.");
             return;
         }
         if (targetTrack.Sample is null)
@@ -1941,7 +1992,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         var targetTrack = document.Project.Tracks[trackIndex];
         if (targetTrack.AiLocked)
         {
-            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is protected from AI edits (🔒).");
+            SetStatus(StatusSeverity.Warning, $"\"{targetTrack.Name}\" is locked against AI edits.");
             return;
         }
         var candidateSamplePaths = sampleLibraryFiles.Take(150).ToList();
@@ -2104,7 +2155,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
         public void OnAgentEdit(string clientName, string editDescription)
         {
-            studioWindow.SetStatus(StatusSeverity.Success, $"🔌 {clientName}: {editDescription}");
+            studioWindow.SetStatus(StatusSeverity.Success, $"{clientName}: {editDescription}");
             if (studioWindow.AiFeaturesEnabled)
             {
                 studioWindow.AppendCopilotMessage("mcp", $"{clientName} {editDescription}. I see we've brought in a consultant.");

@@ -22,7 +22,8 @@ internal sealed class SlawMcpToolset
         "- SESSION: a grid of loops, one clip slot per track per scene. Tools: set_clip, remove_scene, apply_patch tracks[].clips. Scenes are NOT the song order.\n" +
         "- ARRANGEMENT: the song. Clips placed on tracks along one timeline. render bounces it; Play in the studio plays it. " +
         "Tools: arrangement_place_clip, arrangement_edit_clip, arrangement_remove_clips, or apply_patch \"timeline\" for many clips at once. " +
-        "arrangement_place_audio puts a WAV (a vocal, a stem) on the arrangement at its original speed: set the tempo to the recording's tempo first.\n" +
+        "arrangement_place_audio puts a WAV (a vocal, a stem) on the arrangement at its original speed: set the tempo to the recording's tempo first. " +
+        "autotune then pitch-corrects that track's audio (or a recorded take) to a key, without changing the file or its timing.\n" +
         "UNITS: positions and lengths are sixteenth-note STEPS, 0-based: step 0 is the start of bar 1, 16 steps per bar, bar N starts at step (N-1)*16. " +
         "Arguments named start/length/step take steps; arguments named bar/bars take 1-based bars / bar counts. Listings print both, e.g. " +
         "\"bars 9.1–17.1 (start 128, length 128 steps = 8 bars, ends before step 256); pattern 64 steps ×2\". Ends are exclusive.\n" +
@@ -1008,6 +1009,161 @@ internal sealed class SlawMcpToolset
                         rangeLabels));
                 }
                 return renderReport.ToString();
+            });
+
+        Register("autotune",
+            "Pitch-correct the audio a sampler track plays (a recorded take, a WAV placed with arrangement_place_audio, a loaded sample): every sung or played pitch moves to the nearest note of a key. " +
+            "Non-destructive: it adds an \"autotune\" edit to the track's sample edit list, the WAV file is unchanged, and undo removes it. Length and timing do not change; breaths and silence pass through. " +
+            "Works on ONE voice or ONE lead line at a time (not chords or full mixes). " +
+            "key: \"A minor\", \"F# major\", \"Bbm\", or \"chromatic\" for every semitone; default: the key the song's written notes fit (as check_notes reports), or chromatic when there are none. " +
+            "style sets the retune time: Robot 0 ms (hard, stepped effect), Tight 20 ms, Natural 60 ms (keeps note starts and most vibrato), Gentle 150 ms; retuneMs (0..400) sets it directly. " +
+            "startSeconds/endSeconds limit it to part of the sample (seconds of the edited sample, default all of it). remove: true removes every autotune edit from the track instead. " +
+            "The result measures the pitched audio in the region: its average and largest distance from the key in cents, before and after. " +
+            "E.g. {\"track\": \"Lead Vocal\", \"key\": \"A minor\", \"style\": \"Natural\"}. render bounces the corrected audio.",
+            Schema(new JsonObject
+            {
+                ["track"] = AnyProperty(TrackReferenceDescription + " Must be a sampler track with a sample."),
+                ["key"] = Property("string", "Target key, e.g. \"A minor\", \"Am\", \"F# major\", or \"chromatic\". Default: the key of the song's written notes."),
+                ["style"] = EnumProperty("Retune time preset (default Robot).", SampleAutotuneOperations.Styles.Select(style => style.Name).ToArray()),
+                ["retuneMs"] = Property("number", "Retune time in ms, 0..400; overrides style. 0 snaps instantly."),
+                ["startSeconds"] = Property("number", "Optional start of the region, in seconds of the edited sample (default 0)."),
+                ["endSeconds"] = Property("number", "Optional end of the region, exclusive (default: the end of the sample)."),
+                ["remove"] = Property("boolean", "true removes every autotune edit from the track; the other arguments are ignored."),
+            }, "track"),
+            async (toolArguments, clientName, _) =>
+            {
+                var (samplePath, editSnapshot) = await host.InvokeAsync(() =>
+                {
+                    var (_, targetTrack) = ResolveTrack(toolArguments["track"]);
+                    if (targetTrack.Instrument != "sampler" || targetTrack.Sample is null)
+                    {
+                        throw new McpInvalidParamsException($"track \"{targetTrack.Name}\" is a {targetTrack.Instrument} track without a sample; autotune works on sampler tracks (recorded takes, arrangement_place_audio, loaded samples)");
+                    }
+                    // A copy of the edit list, so the sample can be measured off the UI thread.
+                    var editSnapshot = new SampleEditSettings
+                    {
+                        Operations = targetTrack.SampleEditing?.Operations
+                            .Select(operation => new SampleEditOperation { Type = operation.Type, StartSeconds = operation.StartSeconds, EndSeconds = operation.EndSeconds, Amount = operation.Amount, Key = operation.Key })
+                            .ToList() ?? new List<SampleEditOperation>(),
+                    };
+                    return (targetTrack.Sample, editSnapshot);
+                });
+                var removeRequested = toolArguments["remove"] is JsonValue removeValue && removeValue.TryGetValue<bool>(out var removeFlag) && removeFlag;
+                double sampleSeconds = 0;
+                SampleData? sampleBeforeTuning = null;
+                if (!removeRequested)
+                {
+                    try
+                    {
+                        sampleBeforeTuning = await Task.Run(() => SampleEditProcessor.LoadProcessedNative(samplePath, editSnapshot));
+                        sampleSeconds = sampleBeforeTuning.DurationSeconds;
+                    }
+                    catch (Exception loadRemediationOpportunity) when (loadRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException)
+                    {
+                        throw new McpInvalidParamsException($"cannot read {samplePath}: {loadRemediationOpportunity.Message}");
+                    }
+                }
+                SampleEditOperation? addedAutotune = null;
+                var resultText = await host.InvokeAsync(() =>
+                {
+                    var document = host.Document;
+                    var (_, targetTrack) = ResolveTrack(toolArguments["track"]);
+                    RejectLocked(targetTrack);
+                    if (removeRequested)
+                    {
+                        var removedCount = SampleAutotuneOperations.AutotuneEditsOf(targetTrack).Count();
+                        if (removedCount == 0)
+                        {
+                            return $"track \"{targetTrack.Name}\" (id {targetTrack.Id}) has no autotune edits; nothing changed.";
+                        }
+                        document.BeginEdit($"{clientName}: remove autotune");
+                        targetTrack.SampleEditing!.Operations.RemoveAll(operation => operation.Type == "autotune");
+                        document.Project.AiProvenance = $"{clientName} via MCP";
+                        document.CommitEdit($"{clientName} removed autotune from {targetTrack.Name}", EditScope.Content);
+                        host.OnAgentEdit(clientName, $"removed autotune from {targetTrack.Name}");
+                        return $"removed {removedCount} autotune edit(s) from track \"{targetTrack.Name}\" (id {targetTrack.Id}); it plays its audio as sung again.";
+                    }
+
+                    var warnings = new List<string>();
+                    string key;
+                    string keySource;
+                    if (ReadString(toolArguments["key"]) is { Length: > 0 } requestedKey)
+                    {
+                        if (!PitchCorrector.IsValidKey(requestedKey))
+                        {
+                            throw new McpInvalidParamsException($"\"{requestedKey}\" is not a key; write it like \"A minor\", \"Am\", \"F# major\" or \"chromatic\"");
+                        }
+                        key = requestedKey.Trim();
+                        keySource = "as requested";
+                    }
+                    else
+                    {
+                        key = SampleAutotuneOperations.DefaultKey(document.Project);
+                        keySource = key == PitchCorrector.ChromaticKey
+                            ? "no written notes to read a key from, so every semitone"
+                            : "the key the song's written notes fit";
+                    }
+
+                    var styleName = ReadString(toolArguments["style"]);
+                    var style = styleName is null
+                        ? SampleAutotuneOperations.Styles[0]
+                        : SampleAutotuneOperations.Styles.FirstOrDefault(candidate => string.Equals(candidate.Name, styleName, StringComparison.OrdinalIgnoreCase))
+                          ?? throw new McpInvalidParamsException($"unknown style \"{styleName}\"; use one of {string.Join(", ", SampleAutotuneOperations.Styles.Select(candidate => candidate.Name))}");
+                    var retuneMilliseconds = ReadDouble(toolArguments["retuneMs"]) ?? style.RetuneMilliseconds;
+                    if (!double.IsFinite(retuneMilliseconds) || retuneMilliseconds < 0 || retuneMilliseconds > PitchCorrector.MaximumRetuneMilliseconds)
+                    {
+                        var clamped = double.IsFinite(retuneMilliseconds) ? Math.Clamp(retuneMilliseconds, 0, PitchCorrector.MaximumRetuneMilliseconds) : 0;
+                        warnings.Add(FormattableString.Invariant($"retuneMs {retuneMilliseconds} is outside 0..{PitchCorrector.MaximumRetuneMilliseconds}; used {clamped}"));
+                        retuneMilliseconds = clamped;
+                    }
+
+                    var startSeconds = ReadDouble(toolArguments["startSeconds"]) ?? 0;
+                    var endSeconds = ReadDouble(toolArguments["endSeconds"]) ?? sampleSeconds;
+                    if (!double.IsFinite(startSeconds) || !double.IsFinite(endSeconds) || endSeconds <= startSeconds)
+                    {
+                        throw new McpInvalidParamsException(FormattableString.Invariant($"endSeconds must be after startSeconds (the sample is {sampleSeconds:0.00} s long)"));
+                    }
+                    if (startSeconds < 0 || endSeconds > sampleSeconds + 1e-6)
+                    {
+                        warnings.Add(FormattableString.Invariant($"the region {startSeconds:0.00}–{endSeconds:0.00} s reaches outside the {sampleSeconds:0.00} s sample; clamped to it"));
+                        startSeconds = Math.Clamp(startSeconds, 0, sampleSeconds);
+                        endSeconds = Math.Clamp(endSeconds, startSeconds, sampleSeconds);
+                    }
+
+                    document.BeginEdit($"{clientName}: autotune");
+                    var autotune = SampleAutotuneOperations.Add(targetTrack, key, retuneMilliseconds, startSeconds, endSeconds);
+                    addedAutotune = new SampleEditOperation { Type = autotune.Type, StartSeconds = autotune.StartSeconds, EndSeconds = autotune.EndSeconds, Amount = autotune.Amount, Key = autotune.Key };
+                    document.Project.AiProvenance = $"{clientName} via MCP";
+                    document.CommitEdit($"{clientName} autotuned {targetTrack.Name} to {key}", EditScope.Content);
+                    host.OnAgentEdit(clientName, $"autotuned {targetTrack.Name} to {key}");
+                    var earlierCount = SampleAutotuneOperations.AutotuneEditsOf(targetTrack).Count() - 1;
+                    return AppendWarnings(
+                        $"added {SampleAutotuneOperations.Describe(autotune)} to track \"{targetTrack.Name}\" (id {targetTrack.Id}); key: {keySource}. " +
+                        "The WAV is unchanged; undo or autotune {\"remove\": true} takes it off." +
+                        (earlierCount > 0 ? $" The track already had {earlierCount} autotune edit(s); they stack, so remove them first to start over." : string.Empty),
+                        warnings);
+                });
+                if (addedAutotune is null || sampleBeforeTuning is null)
+                {
+                    return resultText;
+                }
+                // Agents cannot hear the result, so measure it: how far the voiced audio sat from the key before, and after.
+                return resultText + "\n" + await Task.Run(() =>
+                {
+                    var sampleRate = sampleBeforeTuning.SampleRate;
+                    var regionStart = (int)Math.Round(addedAutotune.StartSeconds * sampleRate);
+                    var regionEnd = (int)Math.Round(addedAutotune.EndSeconds * sampleRate);
+                    var before = PitchCorrector.Measure(sampleBeforeTuning.Samples, sampleRate, regionStart, regionEnd, addedAutotune.Key);
+                    if (before.VoicedSeconds <= 0)
+                    {
+                        return "measured: no pitched audio found in the region (silence, noise or drums), so nothing moves.";
+                    }
+                    var tuned = PitchCorrector.Correct(sampleBeforeTuning.Samples, sampleRate, regionStart, regionEnd, addedAutotune.Key, addedAutotune.Amount);
+                    var after = PitchCorrector.Measure(tuned, sampleRate, regionStart, regionEnd, addedAutotune.Key);
+                    return FormattableString.Invariant(
+                        $"measured over {before.VoicedSeconds:0.0} s of pitched audio: before, {before.MeanCentsOff:0} cents from the nearest note of the key on average (largest {before.LargestCentsOff:0}); after, {after.MeanCentsOff:0} cents on average (largest {after.LargestCentsOff:0})") +
+                        ". 100 cents = 1 semitone; under about 10 sounds in tune. A slow style (Natural, Gentle) leaves the start of each note and vibrato partly uncorrected on purpose.";
+                });
             });
 
         Register("check_notes",

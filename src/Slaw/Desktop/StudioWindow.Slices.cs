@@ -29,8 +29,8 @@ internal sealed partial class StudioWindow
     private Control ComposeDetailColumn()
     {
         var actions = StudioUi.Row(6,
-            StudioUi.AccentButton("✂ Cut & play it →", () => takeBarAction?.Invoke(), "Open this take in the sample editor", compact: true),
-            StudioUi.Button("✕", HideTakeBar, "Dismiss", compact: true));
+            StudioUi.AccentButton(StudioIcon.Scissors, "Cut & play it", () => takeBarAction?.Invoke(), "Open this take in the sample editor", compact: true),
+            StudioUi.Button(StudioIcon.Close, null, HideTakeBar, "Dismiss", compact: true));
         DockPanel.SetDock(actions, Dock.Right);
         takeBar.Child = new DockPanel { Children = { actions, takeBarCaption } };
         DockPanel.SetDock(takeBar, Dock.Top);
@@ -52,7 +52,7 @@ internal sealed partial class StudioWindow
             }
             document.Select(takeTrackIndex, document.SelectedSceneIndex);
             detailView.ShowSampleTab();
-            SetStatus(StatusSeverity.Informational, "drag across the part you want, then press 🎹 Play on keys");
+            SetStatus(StatusSeverity.Informational, "drag across the part you want, then press Play on keys");
         };
         takeBar.IsVisible = true;
         takeBarTimer?.Stop();

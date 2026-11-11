@@ -9,15 +9,15 @@ What the models do, and which ones to blame.
 The left browser and right AI panel appear when the AI is on:
 
 - **Co-pilot**: greets you, then interjects unsolicited advice every N edits.
-- **Chats**: the AI panel is a conversation, and the model now remembers it. "Make the bass wobble", then "now darker", and it knows what "it" is: Autopilot, Compose, Vibe check and the co-pilot all get the last few turns of the active chat (kept short, because a 3B model's attention span is a finite resource). **＋ New chat** (Ctrl+Shift+N) starts over with a clean slate, and the switcher next to it reopens earlier chats. Every project keeps its own chats in your settings folder (`chats.json`), so reopening a project resumes the conversation about it. Institutional memory, finally.
+- **Chats**: the AI panel is a conversation, and the model now remembers it. "Make the bass wobble", then "now darker", and it knows what "it" is: Autopilot, Compose, Vibe check and the co-pilot all get the last few turns of the active chat (kept short, because a 3B model's attention span is a finite resource). **New chat** (Ctrl+Shift+N) starts over with a clean slate, and the switcher next to it reopens earlier chats. Every project keeps its own chats in your settings folder (`chats.json`), so reopening a project resumes the conversation about it. Institutional memory, finally.
 - **Autopilot**: type "Tell the AI what to change…" and it receives the *entire project* plus your instruction, then returns a full rewrite (tempo, scenes, clips, instruments, effects, mixer, arrangement, master). It posts a change summary ("tempo 124 → 128 BPM", "Bass: device chain → lowpass → vibe") and the whole thing is undoable.
-- **Protect from AI**: tracks with the 🔒 lock are restored verbatim even if the model ignored the rule. Trust, but verify, then overwrite.
+- **Protect from AI**: tracks with the lock on are restored verbatim even if the model ignored the rule. Trust, but verify, then overwrite.
 - **Full Self-Producing (Beta)**: re-runs the Autopilot in a loop until you turn it off. Nobody has yet.
-- **Everything else**: ✨ Generate/Rewrite clip, ✨ per-device sound design, ✨ AI master, ✨ Name, Vibe check, Negotiate tempo, Hallucinate waveform (plays the hallucinated 8-bit WAV through the live engine), and Compose new song.
+- **Everything else**: Generate/Rewrite clip, per-device sound design, AI master, Name, Vibe check, Negotiate tempo, Hallucinate waveform (plays the hallucinated 8-bit WAV through the live engine), and Compose new song.
 
 ## AI-off mode
 
-The toolbar has a master **AI** switch (also in Settings). With it off, slaw is a plain DAW: every ✨ button, the AI panel, and the co-pilot disappear, and no network calls are made. Nobody at slopstack labs has ever turned it off. We are told the option tests well with auditors.
+The toolbar has a master **AI** switch (also in Settings). With it off, slaw is a plain DAW: every sparkle-marked AI button, the AI panel, and the co-pilot disappear, and no network calls are made. Nobody at slopstack labs has ever turned it off. We are told the option tests well with auditors.
 
 ## Provider & Model Recommendations
 

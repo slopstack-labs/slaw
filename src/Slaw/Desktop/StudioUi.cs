@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using SlopstackLabs.Slaw.Synthesis;
@@ -97,13 +98,29 @@ internal interface IStudioHost
 /// <summary>Small factories for the controls every panel needs, styled consistently.</summary>
 internal static class StudioUi
 {
-    public static Button Button(string caption, Action onClick, string? toolTip = null, bool compact = false)
+    public static Button Button(string caption, Action onClick, string? toolTip = null, bool compact = false) =>
+        CreateButton(caption, onClick, toolTip, compact);
+
+    /// <summary>A button showing an icon, then the caption (or the icon alone when the caption is null).</summary>
+    public static Button Button(StudioIcon icon, string? caption, Action onClick, string? toolTip = null, bool compact = false)
+    {
+        var iconButton = CreateButton(StudioIcons.Content(icon, caption, compact ? 13 : 14), onClick, toolTip, compact);
+        if (string.IsNullOrEmpty(caption))
+        {
+            iconButton.Classes.Add("icon");
+            iconButton.Padding = compact ? new Thickness(5) : new Thickness(8, 7);
+        }
+        return iconButton;
+    }
+
+    private static Button CreateButton(object content, Action onClick, string? toolTip, bool compact)
     {
         var createdButton = new Button
         {
-            Content = caption,
+            Content = content,
             VerticalAlignment = VerticalAlignment.Center,
-            Padding = compact ? new Thickness(7, 3) : new Thickness(12, 5),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Padding = compact ? new Thickness(8, 3) : new Thickness(12, 5),
             FontSize = compact ? 12 : 13,
         };
         createdButton.Click += (_, _) => onClick();
@@ -114,21 +131,89 @@ internal static class StudioUi
         return createdButton;
     }
 
-    public static Button AccentButton(string caption, Action onClick, string? toolTip = null, bool compact = false)
+    /// <summary>Replaces a button's content with an icon and a caption (e.g. Play turning into Stop).</summary>
+    public static void SetIconContent(ContentControl target, StudioIcon icon, string? caption, double iconSize = 14) =>
+        target.Content = StudioIcons.Content(icon, caption, iconSize);
+
+    public static Button AccentButton(string caption, Action onClick, string? toolTip = null, bool compact = false) =>
+        Accented(Button(caption, onClick, toolTip, compact));
+
+    public static Button AccentButton(StudioIcon icon, string? caption, Action onClick, string? toolTip = null, bool compact = false) =>
+        Accented(Button(icon, caption, onClick, toolTip, compact));
+
+    private static Button Accented(Button accentButton)
     {
-        var accentButton = Button(caption, onClick, toolTip, compact);
         accentButton.Classes.Add("accent");
         accentButton.FontWeight = FontWeight.SemiBold;
         return accentButton;
     }
 
-    /// <summary>A button for something the AI does. Only ever built while AI features are enabled.</summary>
-    public static Button AiButton(string caption, Action onClick, string toolTip, bool compact = true)
+    /// <summary>
+    /// A button for something the AI does, marked with the sparkle icon. A null caption gives the icon alone.
+    /// Only ever built while AI features are enabled.
+    /// </summary>
+    public static Button AiButton(string? caption, Action onClick, string toolTip, bool compact = true)
     {
-        var aiButton = Button(caption, onClick, toolTip, compact);
+        var aiButton = Button(StudioIcon.Sparkle, caption, onClick, toolTip, compact);
+        aiButton.Classes.Add("ai");
         aiButton.Background = StudioTheme.AiGradient;
-        aiButton.Foreground = Brushes.White;
+        aiButton.Foreground = StudioTheme.OnAccent;
         return aiButton;
+    }
+
+    /// <summary>A toggle button showing only an icon.</summary>
+    public static ToggleButton IconToggle(StudioIcon icon, string toolTip, double iconSize = 12)
+    {
+        var iconToggle = new ToggleButton
+        {
+            Content = StudioIcons.Content(icon, null, iconSize),
+            Padding = new Thickness(6),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
+        iconToggle.Classes.Add("icon");
+        ToolTip.SetTip(iconToggle, toolTip);
+        return iconToggle;
+    }
+
+    /// <summary>An icon and a line of text, for warnings and results inside panels.</summary>
+    public static Control IconCaption(StudioIcon icon, string text, double fontSize = 11, IBrush? foreground = null)
+    {
+        var captionText = Caption(text, fontSize, foreground);
+        captionText.TextTrimming = TextTrimming.None;
+        captionText.TextWrapping = TextWrapping.Wrap;
+        var glyph = new StudioIconGlyph { Icon = icon, Width = fontSize + 2, Height = fontSize + 2, Brush = foreground ?? StudioTheme.TextMuted, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 0, 0) };
+        var layout = new DockPanel();
+        DockPanel.SetDock(glyph, Dock.Left);
+        glyph.Margin = new Thickness(0, 1, 6, 0);
+        layout.Children.Add(glyph);
+        layout.Children.Add(captionText);
+        return layout;
+    }
+
+    /// <summary>
+    /// Turns a NumericUpDown into a compact number field: no spinner arrows; the mouse wheel
+    /// steps it (Shift: ten steps), and typing replaces it.
+    /// </summary>
+    public static T CompactNumber<T>(T numberInput)
+        where T : NumericUpDown
+    {
+        numberInput.ShowButtonSpinner = false;
+        numberInput.HorizontalContentAlignment = HorizontalAlignment.Center;
+        numberInput.AddHandler(Avalonia.Input.InputElement.PointerWheelChangedEvent, (_, wheelEvent) =>
+        {
+            if (wheelEvent.Delta.Y == 0)
+            {
+                return;
+            }
+            var stepMultiplier = (wheelEvent.KeyModifiers & Avalonia.Input.KeyModifiers.Shift) != 0 ? 10 : 1;
+            var currentValue = numberInput.Value ?? numberInput.Minimum;
+            var nextValue = currentValue + Math.Sign(wheelEvent.Delta.Y) * numberInput.Increment * stepMultiplier;
+            numberInput.Value = Math.Clamp(nextValue, numberInput.Minimum, numberInput.Maximum);
+            wheelEvent.Handled = true;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        return numberInput;
     }
 
     public static TextBlock Caption(string text, double fontSize = 11, IBrush? foreground = null, FontWeight fontWeight = FontWeight.Normal) => new()

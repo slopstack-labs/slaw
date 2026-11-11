@@ -228,15 +228,19 @@ internal sealed class SampleEditSettings
     public bool IsNeutral => Operations.Count == 0 && SlicePointsSeconds.Count == 0 && !LoopEnabled && PlaybackMode == PitchedMode;
 }
 
-/// <summary>One non-destructive edit: trim, delete, silence, reverse, gain, normalize, fadeIn, fadeOut, or duplicate.</summary>
+/// <summary>One non-destructive edit: trim, delete, silence, reverse, gain, normalize, fadeIn, fadeOut, duplicate, or autotune.</summary>
 internal sealed class SampleEditOperation
 {
     public string Type { get; set; } = "gain";
     public double StartSeconds { get; set; }
     public double EndSeconds { get; set; }
 
-    /// <summary>Gain in dB for "gain"; target peak in dBFS for "normalize"; unused otherwise.</summary>
+    /// <summary>Gain in dB for "gain"; target peak in dBFS for "normalize"; retune time in ms for "autotune" (0 snaps instantly); unused otherwise.</summary>
     public double Amount { get; set; }
+
+    /// <summary>For "autotune": the key whose notes the pitch snaps to ("A minor", "F#"), or "chromatic" for every semitone.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Key { get; set; }
 }
 
 /// <summary>An audio effect in a track's device chain.</summary>

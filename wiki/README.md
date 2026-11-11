@@ -12,7 +12,7 @@
 | [Keyboard and mouse](Keyboard-and-Mouse.md) | every shortcut and gesture |
 | [Arrangement, automation and groove](Arrangement.md) | the timeline, clip envelopes, swing and timing |
 | [Instruments and effects](Devices.md) | every instrument and effect, sidechains, the master chain |
-| [Samples, SoundFonts, MIDI and recording](Sounds.md) | samples, sample editor, SoundFonts, MIDI, recording |
+| [Samples, SoundFonts, MIDI and recording](Sounds.md) | samples, sample editor, SoundFonts, MIDI, recording, metronome and count-in |
 | [VST3 plugins: third-party synergy](VST3.md) | hosting plugins, their editors and their state |
 | [MCP: let other AIs produce your song](MCP.md) | connecting AI agents, and every tool they get |
 | [Deck control: Stream Deck and friends](Deck-Control.md) | Stream Deck and Launchpad |

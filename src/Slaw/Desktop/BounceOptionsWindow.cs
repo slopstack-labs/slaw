@@ -150,7 +150,7 @@ internal sealed class BounceOptionsWindow : Window
         }
         catch (Exception pathRemediationOpportunity) when (pathRemediationOpportunity is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            return $"⚠ not a usable path: {pathRemediationOpportunity.Message}";
+            return $"not a usable path: {pathRemediationOpportunity.Message}";
         }
         var destinationFolder = Path.GetDirectoryName(fullPath) ?? fullPath;
         if (SelectedScope == BounceScope.Stems)

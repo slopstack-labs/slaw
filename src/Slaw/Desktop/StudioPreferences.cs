@@ -7,6 +7,20 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// <summary>A window's place on the desktop: position in screen pixels, size in layout units.</summary>
 internal sealed record StudioWindowBounds(int X, int Y, double Width, double Height);
 
+/// <summary>The count-in lengths the metronome offers, with the words the toolbar, menu, palette and Settings use for them.</summary>
+internal static class MetronomeCountInChoices
+{
+    public static readonly IReadOnlyList<(int Bars, string Label)> All = new[]
+    {
+        (0, "None"),
+        (1, "1 Bar"),
+        (2, "2 Bars"),
+    };
+
+    public static string LabelFor(int countInBars) =>
+        All.FirstOrDefault(choice => choice.Bars == countInBars).Label ?? "None";
+}
+
 /// <summary>
 /// Per-user studio settings, persisted as JSON in the platform's application
 /// data folder (~/.config/slaw on Linux). Command-line flags override them for
@@ -82,6 +96,20 @@ internal sealed class StudioPreferences
     /// </summary>
     public int RecordingInputLatencyMilliseconds { get; set; } = 20;
 
+    /// <summary>The metronome: a click on every beat of the live output (never in bounces or renders).</summary>
+    public bool MetronomeEnabled { get; set; }
+
+    /// <summary>Click only while ● Rec is engaged, so playback stays click-free.</summary>
+    public bool MetronomeOnlyWhileRecording { get; set; }
+
+    /// <summary>Click volume, 0..1.</summary>
+    public double MetronomeVolume { get; set; } = Synthesis.SequencerEngine.DefaultMetronomeVolume;
+
+    /// <summary>Bars the metronome counts (0, 1 or 2) before a recording starts from a stopped transport.</summary>
+    public int MetronomeCountInBars { get; set; }
+
+    public const int MaximumCountInBars = 2;
+
     /// <summary>Browser sections folded away by their heading ("Instruments", "Audio Effects", …).</summary>
     public List<string> CollapsedBrowserSections { get; set; } = new();
 
@@ -95,7 +123,7 @@ internal sealed class StudioPreferences
     public bool GrooveboxMode { get; set; }
 
     /// <summary>Where the splitters were left. Clamped when applied, so a hand-edited file cannot hide a panel.</summary>
-    public double BrowserPanelWidth { get; set; } = 196;
+    public double BrowserPanelWidth { get; set; } = 236;
     public double AiPanelWidth { get; set; } = 300;
     public double DetailPanelHeight { get; set; } = 330;
 
@@ -146,6 +174,25 @@ internal sealed class StudioPreferences
         var persistedPreferences = Load();
         CopyWindowLayoutTo(persistedPreferences);
         persistedPreferences.Save();
+    }
+
+    /// <summary>
+    /// Writes the metronome settings and nothing else, for the transport bar's Click
+    /// button and its menu, for the same reason as <see cref="SaveWindowLayout"/>.
+    /// </summary>
+    public void SaveMetronome()
+    {
+        var persistedPreferences = Load();
+        CopyMetronomeTo(persistedPreferences);
+        persistedPreferences.Save();
+    }
+
+    public void CopyMetronomeTo(StudioPreferences otherPreferences)
+    {
+        otherPreferences.MetronomeEnabled = MetronomeEnabled;
+        otherPreferences.MetronomeOnlyWhileRecording = MetronomeOnlyWhileRecording;
+        otherPreferences.MetronomeVolume = MetronomeVolume;
+        otherPreferences.MetronomeCountInBars = MetronomeCountInBars;
     }
 
     public void CopyWindowLayoutTo(StudioPreferences otherPreferences)

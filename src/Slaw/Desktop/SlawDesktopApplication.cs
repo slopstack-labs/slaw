@@ -48,6 +48,7 @@ internal sealed class SlawDesktopApplication : Application
             BaseHigh = Colors.White,
         };
         Styles.Add(fluentThemeSubstrate);
+        StudioStyles.Apply(this);
         RequestedThemeVariant = ThemeVariant.Dark;
         Name = "slaw";
     }

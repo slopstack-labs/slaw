@@ -35,7 +35,7 @@ internal sealed partial class SettingsWindow
         tabPanel.Children.Add(ControllerCaption("All optional. The studio works the same with none of this connected."));
         tabPanel.Children.Add(StudioUi.SectionHeading("Status"));
         tabPanel.Children.Add(controllerStatusPanel);
-        tabPanel.Children.Add(StudioUi.Button("⟳ Refresh", RefreshControllerStatus));
+        tabPanel.Children.Add(StudioUi.Button(StudioIcon.Refresh, "Refresh", RefreshControllerStatus));
 
         tabPanel.Children.Add(StudioUi.SectionHeading("Stream Deck"));
         tabPanel.Children.Add(ControllerCaption("A separate plugin for each kind of deck talks to the studio over a WebSocket on 127.0.0.1. Web pages from elsewhere are refused. The plugins expect port 47116."));

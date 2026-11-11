@@ -8,7 +8,7 @@ Every gesture the studio answers to.
 
 | Gesture | Action |
 |---------|--------|
-| Click a clip slot's ▶ | Launch the clip on the next bar |
+| Click a clip slot's play button | Launch the clip on the next bar |
 | Double-click an empty slot | Create a clip |
 | Right-click a scene | Place in arrangement at cursor / duplicate / delete |
 | Click / Shift+click a Groovebox pattern pad | Edit that pattern and, while playing, launch it on the next bar / edit it without launching |
@@ -61,6 +61,7 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 | Ctrl+T / Ctrl+I | Add a track / a scene |
 | M | Computer MIDI keyboard on / off |
 | F9 | Arm / disarm MIDI record |
+| Ctrl+Shift+K | Metronome on / off (right-click **Click** in the toolbar for volume, count-in and "only while recording") |
 | Esc | Stop held notes and hand the keyboard back from a text field |
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save as |
@@ -75,7 +76,7 @@ Shaped like the key map you already have in your fingers. **F1** (or Ctrl+/) sho
 
 **Text fields** keep their letters, arrows and Space while you type. Enter, Esc, or a click anywhere else hands the keyboard back to the transport. Buttons never take keyboard focus, so Space and Enter cannot re-press the last one you clicked.
 
-**Computer MIDI keyboard.** Press **M** (or **⌨ Keys** in the toolbar) and your keyboard plays the selected track, through the same path as a hardware keyboard, so **● Rec** records it too:
+**Computer MIDI keyboard.** Press **M** (or **Keys** in the toolbar) and your keyboard plays the selected track, through the same path as a hardware keyboard, so **Rec** records it too:
 
 - **Notes:** `A S D F G H J K L ;` are the white keys from C, `W E T Y U O P` the black ones. Keys are matched by position, so QWERTZ and AZERTY play the same shape.
 - **Octave / velocity:** Z / X and C / V. The toolbar shows the current octave and velocity.

@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using SlopstackLabs.Slaw.Session;
 using SlopstackLabs.Slaw.Synthesis;
 
@@ -41,6 +42,8 @@ internal sealed class SampleEditorView : UserControl
     private readonly WrapPanel sliceRow;
     private readonly Slider sensitivitySlider = new() { Minimum = 0, Maximum = 1, Value = 0.5, Width = 120, VerticalAlignment = VerticalAlignment.Center };
     private readonly List<(Button Button, bool NeedsSelection)> editButtons = new();
+    private readonly ComboBox autotuneKeySelector = new() { Width = 130, VerticalAlignment = VerticalAlignment.Center };
+    private readonly ComboBox autotuneStyleSelector = new() { Width = 150, VerticalAlignment = VerticalAlignment.Center };
     private readonly Border selectionToolbar = new()
     {
         IsVisible = false,
@@ -59,6 +62,7 @@ internal sealed class SampleEditorView : UserControl
     private SampleData? editedSample;
     private string? loadedSamplePath;
     private string? loadedFingerprint;
+    private string? tuningFingerprint;
     private string? loadFailureMessage;
     private (double Start, double End)? selection;
     private double? cursorSeconds;
@@ -131,10 +135,10 @@ internal sealed class SampleEditorView : UserControl
         headerRow.Children.Add(fileNameText);
         headerRow.Children.Add(fileDetailText);
         headerRow.Children.Add(StudioUi.Button("Load…", () => { if (FindTrack() is var (_, trackIndex)) { host.ChooseSampleFileForTrack(trackIndex); } }, "Replace the sample", compact: true));
-        headerRow.Children.Add(StudioUi.Button("▶ Selection", PreviewSelection, "Audition the selection (or the start–end region)", compact: true));
-        headerRow.Children.Add(StudioUi.Button("▶ All", PreviewAll, "Audition the whole edited sample", compact: true));
-        headerRow.Children.Add(StudioUi.Button("■", StopPreview, "Stop the audition", compact: true));
-        openLargeButton = StudioUi.Button("⤢ Open large", () => host.OpenSampleEditorWindow(trackIdentifier), "Open in its own window", compact: true);
+        headerRow.Children.Add(StudioUi.Button(StudioIcon.Play, "Selection", PreviewSelection, "Audition the selection (or the start–end region)", compact: true));
+        headerRow.Children.Add(StudioUi.Button(StudioIcon.Play, "All", PreviewAll, "Audition the whole edited sample", compact: true));
+        headerRow.Children.Add(StudioUi.Button(StudioIcon.Stop, null, StopPreview, "Stop the audition", compact: true));
+        openLargeButton = StudioUi.Button(StudioIcon.Expand, "Open large", () => host.OpenSampleEditorWindow(trackIdentifier), "Open in its own window", compact: true);
         openLargeButton.IsVisible = !hostedInWindow;
         headerRow.Children.Add(openLargeButton);
         headerRow.Children.Add(StudioUi.Button("Save as WAV…", () => _ = ExportAsync(bake: false), "Export the edited sample", compact: true));
@@ -154,6 +158,20 @@ internal sealed class SampleEditorView : UserControl
         revertButton = StudioUi.Button("Revert to original", RevertToOriginal, "Throw away every edit", compact: true);
         editRow.Children.Add(revertButton);
 
+        var autotuneRow = NewWrapRow();
+        autotuneKeySelector.ItemsSource = SampleAutotuneOperations.KeyChoices;
+        autotuneKeySelector.SelectedItem = SampleAutotuneOperations.DefaultKey(document.Project);
+        ToolTip.SetTip(autotuneKeySelector, "The key whose notes the pitch snaps to (starts on the key the song's notes fit); chromatic snaps to every semitone");
+        autotuneStyleSelector.ItemsSource = SampleAutotuneOperations.Styles
+            .Select(style => string.Create(CultureInfo.InvariantCulture, $"{style.Name} ({style.RetuneMilliseconds:0} ms)"))
+            .ToList();
+        autotuneStyleSelector.SelectedIndex = 0;
+        ToolTip.SetTip(autotuneStyleSelector, string.Join("\n", SampleAutotuneOperations.Styles.Select(style => $"{style.Name}: {style.Description}")));
+        autotuneRow.Children.Add(StudioUi.Caption("Autotune", 12, StudioTheme.Text, FontWeight.Bold));
+        autotuneRow.Children.Add(autotuneKeySelector);
+        autotuneRow.Children.Add(autotuneStyleSelector);
+        AddEditButton(autotuneRow, "Tune", false, ApplyAutotune, "Move the pitch of the selection (or everything) onto the key. For one voice or one lead line at a time; breaths and silence stay as they are.");
+
         var modeRow = NewWrapRow();
         modeRow.Children.Add(StudioUi.Row(0, pitchedButton, sliceButton));
         modeRow.Children.Add(StudioUi.VerticalSeparator());
@@ -164,6 +182,7 @@ internal sealed class SampleEditorView : UserControl
         topPanel.Children.Add(headerRow);
         topPanel.Children.Add(statusText);
         topPanel.Children.Add(editRow);
+        topPanel.Children.Add(autotuneRow);
         topPanel.Children.Add(modeRow);
         topPanel.Children.Add(sliceRow);
         DockPanel.SetDock(topPanel, Dock.Top);
@@ -177,8 +196,8 @@ internal sealed class SampleEditorView : UserControl
         DockPanel.SetDock(footerRow, Dock.Bottom);
 
         selectionToolbar.Child = StudioUi.Row(4,
-            StudioUi.Button("▶ Listen", PreviewSelection, "Hear the selection", compact: true),
-            StudioUi.AccentButton("🎹 Play on keys", PlaySelectionOnKeys, "Put the selection on a new track and play it on the keyboard, pitched. The original stays as it is.", compact: true),
+            StudioUi.Button(StudioIcon.Play, "Listen", PreviewSelection, "Hear the selection", compact: true),
+            StudioUi.AccentButton(StudioIcon.Piano, "Play on keys", PlaySelectionOnKeys, "Put the selection on a new track and play it on the keyboard, pitched. The original stays as it is.", compact: true),
             StudioUi.Button("Trim", () => ApplyOperation("trim", 0, "trim sample"), "Keep only the selection on this track", compact: true));
 
         waveform.MinHeight = 120;
@@ -226,8 +245,8 @@ internal sealed class SampleEditorView : UserControl
             return menuEntry;
         }
         var sliceMenu = new MenuFlyout();
-        sliceMenu.Items.Add(MenuEntry("🎹 Play this slice on keys", () => host.PlaySliceOnKeys(trackIdentifier, slice.Start, slice.End)));
-        sliceMenu.Items.Add(MenuEntry("▶ Listen to this slice", () => PreviewRegion(slice.Start, slice.End)));
+        sliceMenu.Items.Add(MenuEntry("Play this slice on keys", () => host.PlaySliceOnKeys(trackIdentifier, slice.Start, slice.End)));
+        sliceMenu.Items.Add(MenuEntry("Listen to this slice", () => PreviewRegion(slice.Start, slice.End)));
         if (sliceLineIndex is { } lineIndex)
         {
             sliceMenu.Items.Add(new Separator());
@@ -266,7 +285,7 @@ internal sealed class SampleEditorView : UserControl
         row.Children.Add(StudioUi.Button("Clear slices", ClearSlices, "Remove every slice point", compact: true));
         if (host.AiFeaturesEnabled)
         {
-            row.Children.Add(StudioUi.AiButton("✨ Auto-chop", () => { if (FindTrack() is var (_, trackIndex)) { host.AutoChopWithAi(trackIndex); } }, "Let the model choose slice points"));
+            row.Children.Add(StudioUi.AiButton("Auto-chop", () => { if (FindTrack() is var (_, trackIndex)) { host.AutoChopWithAi(trackIndex); } }, "Let the model choose slice points"));
         }
         row.Children.Add(sliceHintText);
         return row;
@@ -339,6 +358,11 @@ internal sealed class SampleEditorView : UserControl
         }
         if (editedSample is null)
         {
+            if (tuningFingerprint is not null)
+            {
+                ShowMessage("Autotuning the sample. The waveform appears when every note has been realigned.", showLoadButton: false, failure: false);
+                return;
+            }
             ShowMessage(loadFailureMessage ?? "The sample could not be loaded.", showLoadButton: true, failure: true);
             return;
         }
@@ -346,6 +370,10 @@ internal sealed class SampleEditorView : UserControl
         messagePanel.IsVisible = false;
         editorPanel.IsVisible = true;
         SynchronizeFromModel(track);
+        if (tuningFingerprint is not null)
+        {
+            fileDetailText.Text += " · autotuning…";
+        }
     }
 
     private void ReloadSample(SlawTrack track, string currentFingerprint)
@@ -357,7 +385,20 @@ internal sealed class SampleEditorView : UserControl
         previewRegion = null;
         try
         {
-            editedSample = SampleEditProcessor.LoadProcessedNative(track.Sample!, track.SampleEditing);
+            var processedSample = SampleEditProcessor.TryGetProcessedNative(track.Sample!, track.SampleEditing, out var whenReady);
+            if (processedSample is null)
+            {
+                // Autotune runs in the background; keep showing the previous waveform until it lands.
+                loadedFingerprint = null;
+                if (tuningFingerprint != currentFingerprint && whenReady is not null)
+                {
+                    tuningFingerprint = currentFingerprint;
+                    whenReady.ContinueWith(_ => Dispatcher.UIThread.Post(Refresh), TaskScheduler.Default);
+                }
+                return;
+            }
+            tuningFingerprint = null;
+            editedSample = processedSample;
             loadFailureMessage = null;
             waveform.SetWaveform(editedSample.Samples, editedSample.SampleRate);
             if (samplePathChanged || Math.Abs(previousDuration - editedSample.DurationSeconds) > 1e-6)
@@ -456,7 +497,8 @@ internal sealed class SampleEditorView : UserControl
         var hasSelection = selection is { } activeSelection && activeSelection.End - activeSelection.Start > MinimumRegionSeconds;
         foreach (var (editButton, needsSelection) in editButtons)
         {
-            editButton.IsEnabled = !needsSelection || hasSelection;
+            // While autotune runs in the background the waveform is the previous one; edits would aim at stale positions.
+            editButton.IsEnabled = tuningFingerprint is null && (!needsSelection || hasSelection);
         }
         revertButton.IsEnabled = FindTrack() is var (track, _) && track.SampleEditing is { Operations.Count: > 0 };
         PositionSelectionToolbar();
@@ -693,6 +735,27 @@ internal sealed class SampleEditorView : UserControl
                 waveform.Selection = null;
             }
         }
+        document.CommitEdit(label, EditScope.Content, notifyCopilot: true);
+    }
+
+    private void ApplyAutotune()
+    {
+        if (FindTrack() is not var (track, _) || editedSample is null)
+        {
+            return;
+        }
+        var duration = EditedDuration;
+        var regionStart = Math.Clamp(selection?.Start ?? 0, 0, duration);
+        var regionEnd = Math.Clamp(selection?.End ?? duration, 0, duration);
+        if (regionEnd - regionStart <= MinimumRegionSeconds)
+        {
+            return;
+        }
+        var key = autotuneKeySelector.SelectedItem as string ?? PitchCorrector.ChromaticKey;
+        var style = SampleAutotuneOperations.Styles[Math.Clamp(autotuneStyleSelector.SelectedIndex, 0, SampleAutotuneOperations.Styles.Count - 1)];
+        var label = $"autotune to {key} ({style.Name.ToLowerInvariant()})";
+        document.BeginEdit(label);
+        SampleAutotuneOperations.Add(track, key, style.RetuneMilliseconds, regionStart, regionEnd);
         document.CommitEdit(label, EditScope.Content, notifyCopilot: true);
     }
 

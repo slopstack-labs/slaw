@@ -224,6 +224,56 @@ public class McpServerTests
     }
 
     [Fact]
+    public async Task AutotuneTunesAPlacedVocalAndListsTheEdit()
+    {
+        var workingFolder = Directory.CreateTempSubdirectory("slaw-autotune-").FullName;
+        try
+        {
+            const int sampleRate = 44100;
+            var sharpTone = Enumerable.Range(0, 4 * sampleRate).Select(frame => (float)(0.5 * Math.Sin(2 * Math.PI * 452 * frame / sampleRate))).ToArray();
+            var wavePath = Path.Combine(workingFolder, "Vox.wav");
+            AudioTakeAssembler.WriteTakeWave(wavePath, sharpTone, sampleRate);
+            var (dispatcher, servedDocument) = CreateHeadlessServer();
+            await CallAsync(dispatcher, 1, "tools/call", new JsonObject { ["name"] = "arrangement_place_audio", ["arguments"] = new JsonObject { ["path"] = wavePath } });
+
+            string TextOf(JsonNode response) => response["result"]!["content"]![0]!["text"]!.GetValue<string>();
+            var notASampler = await CallAsync(dispatcher, 2, "tools/call", new JsonObject { ["name"] = "autotune", ["arguments"] = new JsonObject { ["track"] = "Synergy Kick" } });
+            Assert.True(notASampler["result"]!["isError"]!.GetValue<bool>());
+            Assert.Contains("sampler", TextOf(notASampler));
+            var badKey = await CallAsync(dispatcher, 3, "tools/call", new JsonObject { ["name"] = "autotune", ["arguments"] = new JsonObject { ["track"] = "Vox", ["key"] = "H lydian" } });
+            Assert.True(badKey["result"]!["isError"]!.GetValue<bool>());
+
+            var tuned = await CallAsync(dispatcher, 4, "tools/call", new JsonObject
+            {
+                ["name"] = "autotune",
+                ["arguments"] = new JsonObject { ["track"] = "Vox", ["key"] = "A minor", ["style"] = "natural", ["endSeconds"] = 9 },
+            });
+            var tunedText = TextOf(tuned);
+            Assert.False(tuned["result"]!["isError"]!.GetValue<bool>(), tunedText);
+            Assert.Contains("added autotune A minor, retune 60 ms, 0.00–4.00 s to track \"Vox\"", tunedText);
+            Assert.Contains("clamped", tunedText);
+            // 452 Hz is 47 cents above A4; the result measures that and how much is left.
+            var measured = System.Text.RegularExpressions.Regex.Match(tunedText, @"before, (\d+) cents .*after, (\d+) cents");
+            Assert.True(measured.Success, tunedText);
+            Assert.InRange(int.Parse(measured.Groups[1].Value), 40, 55);
+            Assert.InRange(int.Parse(measured.Groups[2].Value), 0, 10);
+            var autotune = Assert.Single(servedDocument.Project.Tracks.Single(track => track.Name == "Vox").SampleEditing!.Operations);
+            Assert.Equal(("autotune", "A minor", 60.0), (autotune.Type, autotune.Key, autotune.Amount));
+
+            var listing = TextOf(await CallAsync(dispatcher, 5, "tools/call", new JsonObject { ["name"] = "get_project" }));
+            Assert.Contains("[autotune A minor, retune 60 ms, 0.00–4.00 s]", listing);
+
+            var removed = await CallAsync(dispatcher, 6, "tools/call", new JsonObject { ["name"] = "autotune", ["arguments"] = new JsonObject { ["track"] = "Vox", ["remove"] = true } });
+            Assert.Contains("removed 1 autotune edit(s)", TextOf(removed));
+            Assert.Empty(servedDocument.Project.Tracks.Single(track => track.Name == "Vox").SampleEditing!.Operations);
+        }
+        finally
+        {
+            Directory.Delete(workingFolder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task OpenProjectRefusesToDropUnsavedWorkUnlessToldTo()
     {
         var workingFolder = Directory.CreateTempSubdirectory("slaw-open-project-").FullName;

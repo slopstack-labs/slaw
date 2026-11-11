@@ -45,7 +45,7 @@ internal sealed partial class StudioWindow
     {
         if (scannedPlugins.Count == 0)
         {
-            pluginEntriesPanel.Children.Add(StudioUi.Caption("No VST3 plugins found. Add a folder in ⚙ Settings → Plugins.", 10));
+            pluginEntriesPanel.Children.Add(StudioUi.Caption("No VST3 plugins found. Add a folder in Settings → Plugins.", 10));
             RefreshBrowserSections();
             return;
         }

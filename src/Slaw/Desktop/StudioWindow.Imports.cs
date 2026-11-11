@@ -190,6 +190,28 @@ internal sealed partial class StudioWindow
         ToolTip.SetTip(statusText, NoteKeyAnalysis.Describe(report));
     }
 
+    /// <summary>Autotunes a sampler's whole edited sample (a loaded sample or a recorded take), as one undoable edit.</summary>
+    private void AutotuneWholeSample(SlawTrack track, string key, AutotuneStyle style)
+    {
+        if (!document.Project.Tracks.Contains(track) || track.Sample is null)
+        {
+            return;
+        }
+        double durationSeconds;
+        try
+        {
+            durationSeconds = SampleEditProcessor.LoadProcessedNative(track.Sample, track.SampleEditing).DurationSeconds;
+        }
+        catch (Exception sampleRemediationOpportunity) when (sampleRemediationOpportunity is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            SetStatus(StatusSeverity.Failure, sampleRemediationOpportunity.Message);
+            return;
+        }
+        document.Edit($"autotune {track.Name} to {key} ({style.Name.ToLowerInvariant()})",
+            _ => SampleAutotuneOperations.Add(track, key, style.RetuneMilliseconds, 0, durationSeconds));
+        SetStatus(StatusSeverity.Success, $"autotuned {track.Name} to {key}, {style.Name.ToLowerInvariant()}. every note now reports to the same key, as the org chart intended.");
+    }
+
     private IReadOnlyList<CommandPaletteEntry> ComposePaletteEntries()
     {
         string? GestureFor(StudioCommand studioCommand) =>
@@ -208,6 +230,13 @@ internal sealed partial class StudioWindow
         AddGrooveboxPaletteEntries(entries);
         entries.Add(new CommandPaletteEntry("File: Import MIDI…", null, () => _ = ImportMidiFromPickerAsync()));
         entries.Add(new CommandPaletteEntry("Create: Audio Track (mic)", null, AddAudioTrack));
+        foreach (var (countInBars, countInLabel) in MetronomeCountInChoices.All)
+        {
+            entries.Add(new CommandPaletteEntry(countInBars == 0 ? "Metronome: No Count-In" : $"Metronome: Count-In {countInLabel} Before Recording", null, () => SetMetronomeCountIn(countInBars)));
+        }
+        entries.Add(new CommandPaletteEntry(preferences.MetronomeOnlyWhileRecording ? "Metronome: Click Always (Not Only While Recording)" : "Metronome: Click Only While Recording", null,
+            () => SetMetronomeOnlyWhileRecording(!preferences.MetronomeOnlyWhileRecording)));
+        entries.Add(new CommandPaletteEntry("Metronome: Set Volume and Count-In…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Audio: Choose Output Device…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Audio: Choose Input Device…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Audio: Test Output or Input…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
@@ -237,6 +266,15 @@ internal sealed partial class StudioWindow
             entries.Add(new CommandPaletteEntry(BrowserSearch.PluginTrackTitle(instrumentPlugin), null, () => AddPluginInstrumentTrack(instrumentPlugin)));
         }
         entries.Add(new CommandPaletteEntry("Analyze: Check Song Key and Out-of-Key Notes", null, CheckSongNotes));
+        if (document.SelectedTrack is { Instrument: "sampler", Sample: not null } autotuneTrack)
+        {
+            var songKey = SampleAutotuneOperations.DefaultKey(document.Project);
+            foreach (var autotuneStyle in SampleAutotuneOperations.Styles)
+            {
+                entries.Add(new CommandPaletteEntry($"Autotune {autotuneTrack.Name} to {songKey}: {autotuneStyle.Name}", null, () => AutotuneWholeSample(autotuneTrack, songKey, autotuneStyle)));
+            }
+            entries.Add(new CommandPaletteEntry($"Autotune {autotuneTrack.Name}: Choose Key in the Sample Editor…", null, () => OpenSampleEditorWindow(autotuneTrack.Id)));
+        }
         entries.Add(new CommandPaletteEntry("Plugins: Rescan VST3 Folders", null, () => PopulatePluginEntries(rescan: true)));
         entries.Add(new CommandPaletteEntry("Plugins: Manage VST3 Folders…", null, () => _ = OpenSettingsAsync()));
         if (document.SelectedTrack is { } selectedTrack)

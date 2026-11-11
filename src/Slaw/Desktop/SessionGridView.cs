@@ -227,7 +227,7 @@ internal sealed class SessionGridView : UserControl
             }
             if (host.AiFeaturesEnabled)
             {
-                AddMenuItem(slotMenu, clipExists ? "✨ Rewrite clip with AI" : "✨ Generate clip with AI", () => host.GenerateClipWithAi(trackIndex, sceneIndex));
+                AddMenuItem(slotMenu, clipExists ? "Rewrite clip with AI" : "Generate clip with AI", () => host.GenerateClipWithAi(trackIndex, sceneIndex));
             }
         };
         clipSlot.ContextMenu = slotMenu;
@@ -235,13 +235,13 @@ internal sealed class SessionGridView : UserControl
             ? null
             : new DragPayload(DragPayloadKind.Clip, TrackIndex: trackIndex, SceneIndex: sceneIndex));
         StudioDragDrop.MakeDropTarget(clipSlot, host, () => new DropTarget(DropTargetKind.ClipSlot, trackIndex, sceneIndex));
-        ToolTip.SetTip(clipSlot, "▶ launch · click: select · double-click: create/edit · drag: move (Ctrl: copy) · drop instruments, effects or samples here");
+        ToolTip.SetTip(clipSlot, "play button: launch · click: select · double-click: create/edit · drag: move (Ctrl: copy) · drop instruments, effects or samples here");
         return clipSlot;
     }
 
     private Control ComposeSceneLauncher(int sceneIndex)
     {
-        var launchButton = StudioUi.Button("▶", () => host.LaunchScene(sceneIndex), "Launch every clip in this scene", compact: true);
+        var launchButton = StudioUi.Button(StudioIcon.Play, null, () => host.LaunchScene(sceneIndex), "Launch every clip in this scene", compact: true);
         sceneLaunchButtons.Add(launchButton);
         var sceneNameInput = new TextBox
         {
@@ -296,7 +296,7 @@ internal sealed class SessionGridView : UserControl
 
     private Control ComposeMixerStrip(SlawTrack track, int trackIndex)
     {
-        var stopButton = StudioUi.Button("■", () => host.StopTrack(trackIndex), "Stop this track's clip", compact: true);
+        var stopButton = StudioUi.Button(StudioIcon.Stop, null, () => host.StopTrack(trackIndex), "Stop this track's clip", compact: true);
 
         var panSpecification = new ParameterSpecification("pan", "Pan", -1, 1, 0, "");
         var panKnob = StudioUi.Knob(panSpecification, track.Pan);
@@ -358,16 +358,18 @@ internal sealed class SessionGridView : UserControl
         if (track.Instrument == "sampler")
         {
             // Audio-capable tracks can be armed; the arm is a session state, not part of the song.
-            var recordArmToggle = new ToggleButton { Content = "●", IsChecked = host.IsArmedForRecording(track.Id), Padding = new Thickness(7, 3), FontSize = 12 };
+            var recordArmToggle = StudioUi.IconToggle(StudioIcon.Record, string.Empty, 11);
+            recordArmToggle.IsChecked = host.IsArmedForRecording(track.Id);
             recordArmToggle.Foreground = recordArmToggle.IsChecked == true ? StudioTheme.Failure : StudioTheme.TextMuted;
-            ToolTip.SetTip(recordArmToggle, "Arm for audio recording: ● Rec (F9) then records the microphone into this track");
+            ToolTip.SetTip(recordArmToggle, "Arm for audio recording: Rec (F9) then records the microphone into this track");
             recordArmToggle.Click += (_, _) => host.ToggleRecordArm(track.Id);
             toggleRow.Children.Add(recordArmToggle);
         }
 
         if (host.AiFeaturesEnabled)
         {
-            var aiLockToggle = new ToggleButton { Content = "🔒", IsChecked = track.AiLocked, Padding = new Thickness(6, 3), FontSize = 11 };
+            var aiLockToggle = StudioUi.IconToggle(StudioIcon.Lock, string.Empty, 12);
+            aiLockToggle.IsChecked = track.AiLocked;
             ToolTip.SetTip(aiLockToggle, "Protect this track from AI edits. The autopilot will leave it exactly as it is.");
             aiLockToggle.IsCheckedChanged += (_, _) =>
             {
@@ -380,10 +382,10 @@ internal sealed class SessionGridView : UserControl
         }
 
         var stripFooter = StudioUi.Row(4,
-            StudioUi.Button("✕", () => host.DeleteTrack(trackIndex), "Delete track", compact: true));
+            StudioUi.Button(StudioIcon.Close, null, () => host.DeleteTrack(trackIndex), "Delete track", compact: true));
         if (host.AiFeaturesEnabled)
         {
-            stripFooter.Children.Add(StudioUi.AiButton("✨ Name", () => host.RenameTrackWithAi(trackIndex), "Let the AI rebrand this track"));
+            stripFooter.Children.Add(StudioUi.AiButton("Name", () => host.RenameTrackWithAi(trackIndex), "Let the AI rebrand this track"));
         }
 
         var stripContent = new StackPanel
@@ -453,7 +455,7 @@ internal sealed class SessionGridView : UserControl
             Spacing = 6,
             Children =
             {
-                StudioUi.Button("■ Stop all clips", host.StopAll, "Stop every clip", compact: true),
+                StudioUi.Button(StudioIcon.Stop, "Stop all clips", host.StopAll, "Stop every clip", compact: true),
                 StudioUi.Caption("Master", 12, StudioTheme.Text, FontWeight.Bold),
                 masterFader,
                 gainReadout,

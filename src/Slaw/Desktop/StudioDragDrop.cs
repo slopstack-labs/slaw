@@ -250,16 +250,14 @@ internal static class StudioDragDrop
 
     private static readonly IBrush DropAreaTint = new SolidColorBrush(Color.Parse("#22c55e"), 0.08);
 
-    /// <summary>A small "⠿" handle for things that contain their own interactive controls (knobs, text boxes).</summary>
-    public static TextBlock DragGrip(string toolTip)
+    /// <summary>A small grip handle for things that contain their own interactive controls (knobs, text boxes).</summary>
+    public static Border DragGrip(string toolTip)
     {
-        var dragGrip = new TextBlock
+        var dragGrip = new Border
         {
-            Text = "⠿",
-            FontSize = 14,
-            Foreground = StudioTheme.TextMuted,
+            Child = new StudioIconGlyph { Icon = StudioIcon.Grip, Width = 14, Height = 14, Brush = StudioTheme.TextMuted },
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            Padding = new Thickness(2, 0),
+            Padding = new Thickness(1, 0),
             Background = Brushes.Transparent,
             Cursor = new Cursor(StandardCursorType.SizeAll),
         };

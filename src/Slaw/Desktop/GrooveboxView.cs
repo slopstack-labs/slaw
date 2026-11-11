@@ -357,7 +357,9 @@ internal sealed class GrooveboxView : UserControl
 
         var lengthButton = new Button
         {
-            Content = string.Create(CultureInfo.InvariantCulture, $"{shownClip.Pattern.Count} st ▾"),
+            Content = StudioUi.Row(4,
+                new TextBlock { Text = string.Create(CultureInfo.InvariantCulture, $"{shownClip.Pattern.Count} st"), FontSize = 11, VerticalAlignment = VerticalAlignment.Center },
+                new StudioIconGlyph { Icon = StudioIcon.ChevronDown, Width = 10, Height = 10, VerticalAlignment = VerticalAlignment.Center }),
             Padding = new Thickness(7, 3),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
@@ -371,7 +373,7 @@ internal sealed class GrooveboxView : UserControl
         }
         lengthButton.Flyout = lengthMenu;
 
-        var moreButton = new Button { Content = "⋯", Padding = new Thickness(8, 3), FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        var moreButton = new Button { Content = "…", Padding = new Thickness(8, 3), FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(moreButton, "Pattern tools: Euclidean rhythm, dice, double, halve, clear");
         var moreMenu = new MenuFlyout();
         moreMenu.Opening += (_, _) =>
