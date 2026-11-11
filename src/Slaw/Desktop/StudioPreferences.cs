@@ -110,6 +110,12 @@ internal sealed class StudioPreferences
 
     public const int MaximumCountInBars = 2;
 
+    /// <summary>
+    /// Alt+drag in the Arrangement copies clips (as Ctrl+drag does). Off is the classic mode:
+    /// Alt+drag frees the snap to single steps and only Ctrl (⌘ on a Mac) copies.
+    /// </summary>
+    public bool ArrangementAltDragCopies { get; set; } = true;
+
     /// <summary>Browser sections folded away by their heading ("Instruments", "Audio Effects", …).</summary>
     public List<string> CollapsedBrowserSections { get; set; } = new();
 
@@ -181,6 +187,14 @@ internal sealed class StudioPreferences
     {
         var persistedPreferences = Load();
         CopyMetronomeTo(persistedPreferences);
+        persistedPreferences.Save();
+    }
+
+    /// <summary>Writes the Alt+drag setting and nothing else, for the command palette's toggle, for the same reason as <see cref="SaveWindowLayout"/>.</summary>
+    public void SaveArrangementAltDrag()
+    {
+        var persistedPreferences = Load();
+        persistedPreferences.ArrangementAltDragCopies = ArrangementAltDragCopies;
         persistedPreferences.Save();
     }
 

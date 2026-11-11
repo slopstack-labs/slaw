@@ -26,6 +26,7 @@ internal sealed partial class SettingsWindow : Window
     private readonly CheckBox rememberApiKeyCheckBox;
     private CheckBox? mcpServerCheckBox;
     private CheckBox? midiInputCheckBox;
+    private CheckBox? altDragCopiesCheckBox;
     private NumericUpDown? mcpPortNumericUpDown;
     private CheckBox? launchpadCheckBox;
     private CheckBox? controlSurfaceCheckBox;
@@ -176,6 +177,7 @@ internal sealed partial class SettingsWindow : Window
                 new TabItem { Header = "Audio", Content = WrapInScrollViewer(BuildAudioTab()) },
                 new TabItem { Header = "Samples", Content = WrapInScrollViewer(BuildSamplesTab()) },
                 new TabItem { Header = "Plugins", Content = WrapInScrollViewer(BuildPluginsTab()) },
+                new TabItem { Header = "Editing", Content = WrapInScrollViewer(BuildEditingTab()) },
                 new TabItem { Header = "Controllers", Content = WrapInScrollViewer(BuildControllersTab()) },
                 new TabItem { Header = "Integrations", Content = WrapInScrollViewer(BuildIntegrationsTab()) },
                 new TabItem { Header = "About", Content = WrapInScrollViewer(BuildAboutTab()) },
@@ -353,6 +355,31 @@ internal sealed partial class SettingsWindow : Window
         tabPanel.Children.Add(restartCaption);
         tabPanel.Children.Add(recordingSettingsForm.Compose());
         return tabPanel;
+    }
+
+    /// <summary>Builds the Editing tab: how mouse gestures behave in the Arrangement.</summary>
+    private Control BuildEditingTab()
+    {
+        altDragCopiesCheckBox = new CheckBox
+        {
+            Content = "Alt+drag copies arrangement clips",
+            IsChecked = workingPreferences.ArrangementAltDragCopies,
+        };
+        var explanation = StudioUi.Caption(
+            "On: Alt+drag and Ctrl+drag both copy (⌘+drag on a Mac). Off is the classic mode: Alt+drag moves without the beat snap, " +
+            "one step at a time, and only Ctrl+drag copies. Either way, moves snap to beats, Shift+drag snaps to bars, and dragging empty lane space selects several clips.");
+        explanation.TextWrapping = TextWrapping.Wrap;
+        explanation.TextTrimming = TextTrimming.None;
+        return new StackPanel
+        {
+            Spacing = 10,
+            Children =
+            {
+                StudioUi.SectionHeading("Arrangement"),
+                altDragCopiesCheckBox,
+                explanation,
+            },
+        };
     }
 
     /// <summary>Builds the Samples tab: the list of folders slaw scans (recursively) for WAV files.</summary>
@@ -572,6 +599,7 @@ internal sealed partial class SettingsWindow : Window
             ? workingPreferences.ControlSurfacePort
             : ReadWholeNumber(controlSurfacePortNumericUpDown, workingPreferences.ControlSurfacePort);
         workingPreferences.MidiInputEnabled = midiInputCheckBox?.IsChecked != false;
+        workingPreferences.ArrangementAltDragCopies = altDragCopiesCheckBox?.IsChecked != false;
         workingPreferences.McpServerPort = mcpPortNumericUpDown is null
             ? workingPreferences.McpServerPort
             : ReadWholeNumber(mcpPortNumericUpDown, workingPreferences.McpServerPort);

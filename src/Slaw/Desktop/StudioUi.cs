@@ -16,6 +16,9 @@ internal interface IStudioHost
     /// <summary>The user wants AI features visible at all (the master switch).</summary>
     bool AiFeaturesEnabled { get; }
 
+    /// <summary>Alt+drag copies arrangement clips; false is the classic mode, where Alt frees the snap to single steps.</summary>
+    bool ArrangementAltDragCopies { get; }
+
     void LaunchClip(int trackIndex, int sceneIndex);
     void LaunchScene(int sceneIndex);
     void StopTrack(int trackIndex);

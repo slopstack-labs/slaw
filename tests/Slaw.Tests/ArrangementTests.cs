@@ -304,8 +304,8 @@ public class ArrangementTests
 
         document.Undo();
         Assert.Equal(3, document.Project.Timeline.Count);
-        Assert.Contains(document.Project.Timeline, c => c.Id == clip1.Id);
-        Assert.Contains(document.Project.Timeline, c => c.Id == clip3.Id);
+        Assert.Contains(document.Project.Timeline, timelineClip => timelineClip.Id == clip1.Id);
+        Assert.Contains(document.Project.Timeline, timelineClip => timelineClip.Id == clip3.Id);
     }
 
     [Fact]
@@ -324,7 +324,7 @@ public class ArrangementTests
         FreeTimelineCommands.DuplicateAfter(document, clipA.Id);
 
         Assert.Equal(4, document.Project.Timeline.Count);
-        var newClips = document.Project.Timeline.Where(c => c.Id != clipA.Id && c.Id != clipB.Id).OrderBy(c => c.StartStep).ToList();
+        var newClips = document.Project.Timeline.Where(timelineClip => timelineClip.Id != clipA.Id && timelineClip.Id != clipB.Id).OrderBy(timelineClip => timelineClip.StartStep).ToList();
         Assert.Equal(2, newClips.Count);
         // Overall span was 0 to 32 (length 32), so new clips should be shifted by 32:
         Assert.Equal(32, newClips[0].StartStep);
@@ -336,5 +336,75 @@ public class ArrangementTests
         Assert.Equal(2, document.SelectedTimelineClipIds.Count);
         Assert.True(document.IsTimelineClipSelected(newClips[0].Id));
         Assert.True(document.IsTimelineClipSelected(newClips[1].Id));
+    }
+
+    [Fact]
+    public void ReselectingTheSameClipsRaisesNoSelectionChange()
+    {
+        var document = new StudioDocument(TwoTrackProject(), filePath: null);
+        var clipIds = document.Project.Timeline.Select(timelineClip => timelineClip.Id).ToList();
+        var selectionChanges = 0;
+        document.SelectionChanged += () => selectionChanges++;
+
+        document.SelectTimelineClips(clipIds);
+        document.SelectTimelineClips(clipIds.AsEnumerable().Reverse());
+        document.SelectTimelineClips(Array.Empty<string>());
+        document.SelectTimelineClips(Array.Empty<string>());
+
+        // A marquee drag reselects on every pointer move: only real changes may rebuild the clip editor.
+        Assert.Equal(2, selectionChanges);
+        Assert.Null(document.SelectedTimelineClipId);
+    }
+
+    [Fact]
+    public void SelectingSeveralClipsKeepsTheEditedClipWhenItStaysSelected()
+    {
+        var document = new StudioDocument(TwoTrackProject(), filePath: null);
+        var leadClip = document.Project.Timeline[0];
+        var bassClip = document.Project.Timeline[1];
+        document.SelectTimelineClip(bassClip.Id);
+
+        document.SelectTimelineClips(new[] { leadClip.Id, bassClip.Id });
+
+        Assert.Equal(bassClip.Id, document.SelectedTimelineClipId);
+        Assert.Equal(1, document.SelectedTrackIndex);
+    }
+
+    [Fact]
+    public void PastingCopiedArrangementClipsKeepsTheirShape()
+    {
+        var document = new StudioDocument(TwoTrackProject(), filePath: null);
+        var leadClip = document.Project.Timeline[0];
+        var bassClip = document.Project.Timeline[1];
+        bassClip.StartStep = 16;
+        var copiedClips = new List<TimelineClip> { leadClip, bassClip };
+
+        document.Select(0, 0);
+        FreeTimelineCommands.Paste(document, copiedClips, cursorStep: 256);
+
+        var pastedClips = document.Project.Timeline.Skip(2).ToList();
+        Assert.Equal(2, pastedClips.Count);
+        Assert.Equal((document.Project.Tracks[0].Id, 256, 128), (pastedClips[0].TrackId, pastedClips[0].StartStep, pastedClips[0].LengthSteps));
+        Assert.Equal((document.Project.Tracks[1].Id, 272, 128), (pastedClips[1].TrackId, pastedClips[1].StartStep, pastedClips[1].LengthSteps));
+        Assert.DoesNotContain(pastedClips, pastedClip => pastedClip.Id == leadClip.Id || pastedClip.Id == bassClip.Id);
+        Assert.Equal(pastedClips.Select(pastedClip => pastedClip.Id).ToHashSet(), document.SelectedTimelineClipIds.ToHashSet());
+
+        // From the bottom track the group would run off the track list, so it stays on Lead and Bass.
+        document.Select(1, 0);
+        FreeTimelineCommands.Paste(document, copiedClips, cursorStep: 512);
+        var lowerPaste = document.Project.Timeline.Skip(4).ToList();
+        Assert.Equal(new[] { document.Project.Tracks[0].Id, document.Project.Tracks[1].Id }, lowerPaste.Select(pastedClip => pastedClip.TrackId));
+
+        document.Undo();
+        document.Undo();
+        Assert.Equal(2, document.Project.Timeline.Count);
+    }
+
+    [Fact]
+    public void AltDragCopiesByDefaultAndOlderPreferenceFilesKeepIt()
+    {
+        Assert.True(new StudioPreferences().ArrangementAltDragCopies);
+        var olderPreferences = System.Text.Json.JsonSerializer.Deserialize<StudioPreferences>("{\"MetronomeEnabled\": true}", ProjectSerializer.LenientSerializationOptions)!;
+        Assert.True(olderPreferences.ArrangementAltDragCopies);
     }
 }

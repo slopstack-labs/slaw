@@ -240,6 +240,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     public bool AiFeaturesEnabled => preferences.AiFeaturesEnabled;
 
+    public bool ArrangementAltDragCopies => preferences.ArrangementAltDragCopies;
+
     // ── Layout ────────────────────────────────────────────────────────────────
 
     private Control ComposeLayout()
@@ -1187,6 +1189,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         ApplyLaunchpadPreference();
         ApplyRecordingPreference();
         ApplyMetronomePreference();
+        arrangementView.RefreshGestureHint();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();
         if (audioSettingsChanged)

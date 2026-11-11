@@ -34,6 +34,12 @@ internal sealed partial class StudioWindow
     private readonly TextBlock computerKeyboardStatusText = new() { FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Foreground = StudioTheme.TextMuted, IsVisible = false };
     private ToggleButton? computerKeyboardToggle;
     private string? copiedClipPayload;
+
+    /// <summary>
+    /// The arrangement clips the last copy or cut took (placed clips: track, start, length), so pasting in
+    /// the Arrangement brings them all back in the same shape. Null when the last copy was a session clip.
+    /// </summary>
+    private string? copiedTimelineClipsPayload;
     private Window? shortcutCheatSheet;
 
     private bool ComputerKeyboardActive => computerKeyboardToggle?.IsChecked == true;
@@ -412,6 +418,7 @@ internal sealed partial class StudioWindow
         }
         // Serialized, so the copy carries every field a clip has now or grows later.
         copiedClipPayload = JsonSerializer.Serialize(selectedClip, ProjectSerializer.LenientSerializationOptions);
+        copiedTimelineClipsPayload = null;
         SetStatus(StatusSeverity.Informational, $"copied \"{selectedClip.Name}\"");
         return true;
     }

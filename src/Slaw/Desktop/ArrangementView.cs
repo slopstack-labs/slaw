@@ -28,6 +28,7 @@ internal sealed class ArrangementView : UserControl
     private readonly Button loopButton;
     private readonly Dictionary<string, Control> sessionOverrideIndicators = new();
     private bool synchronizingScrollBar;
+    private readonly TextBlock gestureHint;
 
     /// <summary>
     /// True when a track header was the last thing clicked here (and no arrangement clip
@@ -94,9 +95,9 @@ internal sealed class ArrangementView : UserControl
         timelineCanvas.VerticalAlignment = VerticalAlignment.Top;
         laneGrid.Children.Add(timelineCanvas);
 
-        var hint = new TextBlock
+        gestureHint = new TextBlock
         {
-            Text = "ruler: click sets the cursor · double-click plays · drag sets the loop · lanes: double-click adds a bar · drag moves (snaps to beats; Shift: bars) · drag the right edge to loop the pattern longer · Alt/Ctrl+drag copies · drag empty space / Shift+click multi-selects · right-click for more · Ctrl+wheel zooms · launch session clips while it plays to take a track over",
+            Text = GestureHintText(host.ArrangementAltDragCopies),
             FontSize = 10,
             Foreground = StudioTheme.TextMuted,
             TextWrapping = TextWrapping.Wrap,
@@ -110,10 +111,10 @@ internal sealed class ArrangementView : UserControl
         };
         var layout = new DockPanel();
         DockPanel.SetDock(toolbar, Dock.Top);
-        DockPanel.SetDock(hint, Dock.Bottom);
+        DockPanel.SetDock(gestureHint, Dock.Bottom);
         DockPanel.SetDock(horizontalScrollBar, Dock.Bottom);
         layout.Children.Add(toolbar);
-        layout.Children.Add(hint);
+        layout.Children.Add(gestureHint);
         layout.Children.Add(horizontalScrollBar);
         layout.Children.Add(verticalScroller);
         Content = layout;
@@ -160,6 +161,16 @@ internal sealed class ArrangementView : UserControl
         timelineCanvas.InvalidateVisual();
         SynchronizeScrollBar();
     }
+
+    /// <summary>Re-reads the Alt+drag setting into the hint under the lanes (after Settings closes).</summary>
+    public void RefreshGestureHint() => gestureHint.Text = GestureHintText(host.ArrangementAltDragCopies);
+
+    private static string GestureHintText(bool altDragCopies) =>
+        "ruler: click sets the cursor · double-click plays · drag sets the loop · lanes: double-click adds a bar · " +
+        (altDragCopies
+            ? "drag moves (snaps to beats; Shift: bars) · drag the right edge to loop the pattern longer · Alt/Ctrl+drag copies · "
+            : "drag moves (snaps to beats; Shift: bars, Alt: steps) · drag the right edge to loop the pattern longer · Ctrl+drag copies · ") +
+        "drag empty space / Shift+click multi-selects · right-click for more · Ctrl+wheel zooms · launch session clips while it plays to take a track over";
 
     public void RefreshSelection()
     {
@@ -210,9 +221,9 @@ internal sealed class ArrangementView : UserControl
             return;
         }
         // Default brace: the selected clips, or four bars from the cursor.
-        var selectedClips = document.Project.Timeline.Where(c => document.IsTimelineClipSelected(c.Id)).ToList();
+        var selectedClips = document.Project.Timeline.Where(timelineClip => document.IsTimelineClipSelected(timelineClip.Id)).ToList();
         var loopRegion = selectedClips.Count > 0
-            ? new TimelineLoopRegion { StartStep = selectedClips.Min(c => c.StartStep), EndStep = selectedClips.Max(c => c.EndStep) }
+            ? new TimelineLoopRegion { StartStep = selectedClips.Min(timelineClip => timelineClip.StartStep), EndStep = selectedClips.Max(timelineClip => timelineClip.EndStep) }
             : new TimelineLoopRegion { StartStep = (int)(timelineCanvas.CursorStep / 16 * 16), EndStep = (int)(timelineCanvas.CursorStep / 16 * 16) + 64 };
         document.Edit("set the timeline loop", editedProject => editedProject.TimelineLoop = loopRegion, EditScope.Structure);
     }
@@ -435,6 +446,9 @@ internal sealed class ArrangementCanvas : Control
     private readonly List<DraggingClipState> draggingClips = new();
     private readonly HashSet<string> initialMarqueeSelection = new();
     private bool clickedAlreadySelectedClipWithoutModifiers;
+    private bool deselectsPressedClipOnRelease;
+    private bool marqueeIsAdditive;
+    private int gestureTrackDelta;
 
     public ArrangementCanvas(StudioDocument document, IStudioHost host)
     {
@@ -558,9 +572,14 @@ internal sealed class ArrangementCanvas : Control
     private Rect ClipRect(TimelineClip timelineClip, int trackIndex) =>
         new(XAt(timelineClip.StartStep), LaneTop(trackIndex) + 1, Math.Max(2, timelineClip.LengthSteps * pixelsPerStep), LaneHeight - 2);
 
-    /// <summary>Snaps to a beat by default; Shift snaps to bars.</summary>
-    private static int SnapResolution(KeyModifiers keyModifiers) =>
-        keyModifiers.HasFlag(KeyModifiers.Shift) ? 16 : 4;
+    /// <summary>Snaps to a beat by default; Shift snaps to bars. In the classic Alt mode (Settings → Editing), Alt frees it to single steps.</summary>
+    private int SnapResolution(KeyModifiers keyModifiers) =>
+        keyModifiers.HasFlag(KeyModifiers.Alt) && !host.ArrangementAltDragCopies ? 1 : keyModifiers.HasFlag(KeyModifiers.Shift) ? 16 : 4;
+
+    /// <summary>Ctrl (⌘ on a Mac) always copies a dragged clip; Alt does too unless the classic Alt mode is set.</summary>
+    private bool CopiesWhileDragging(KeyModifiers keyModifiers) =>
+        keyModifiers.HasFlag(KeyModifiers.Control) || keyModifiers.HasFlag(KeyModifiers.Meta) ||
+        (keyModifiers.HasFlag(KeyModifiers.Alt) && host.ArrangementAltDragCopies);
 
     private static int Snap(double timelineStep, int resolution) => (int)Math.Max(0, Math.Round(timelineStep / resolution) * resolution);
 
@@ -814,45 +833,34 @@ internal sealed class ArrangementCanvas : Control
             return;
         }
 
-        var isShift = pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        var isCtrlOrCmd = pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Control) || pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Meta);
-        var isAlt = pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Alt);
-
-        if (isShift)
+        var keyModifiers = pointerEvent.KeyModifiers;
+        var addsToSelection = keyModifiers.HasFlag(KeyModifiers.Control) || keyModifiers.HasFlag(KeyModifiers.Meta);
+        var copiesWhenDragged = CopiesWhileDragging(keyModifiers);
+        clickedAlreadySelectedClipWithoutModifiers = false;
+        deselectsPressedClipOnRelease = false;
+        if (!document.IsTimelineClipSelected(pressedClip.Id))
         {
-            document.ToggleTimelineClipSelection(pressedClip.Id);
-            clickedAlreadySelectedClipWithoutModifiers = false;
-        }
-        else if (isCtrlOrCmd && !isAlt)
-        {
-            if (!document.IsTimelineClipSelected(pressedClip.Id))
+            if (keyModifiers.HasFlag(KeyModifiers.Shift) || addsToSelection)
             {
                 document.ToggleTimelineClipSelection(pressedClip.Id);
-            }
-            clickedAlreadySelectedClipWithoutModifiers = false;
-        }
-        else if (!isAlt)
-        {
-            if (document.IsTimelineClipSelected(pressedClip.Id))
-            {
-                clickedAlreadySelectedClipWithoutModifiers = true;
             }
             else
             {
                 document.SelectTimelineClip(pressedClip.Id);
-                clickedAlreadySelectedClipWithoutModifiers = false;
             }
+        }
+        else if (keyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            // Shift+click leaves the selection on release; Shift+drag moves the whole selection by bars.
+            deselectsPressedClipOnRelease = true;
         }
         else
         {
-            if (!document.IsTimelineClipSelected(pressedClip.Id))
-            {
-                document.SelectTimelineClip(pressedClip.Id);
-            }
-            clickedAlreadySelectedClipWithoutModifiers = false;
+            // A plain click inside a selection picks that clip alone on release, unless it becomes a drag of them all.
+            clickedAlreadySelectedClipWithoutModifiers = !addsToSelection && !copiesWhenDragged;
         }
 
-        BeginMoveGesture(pointerPosition, pressedClip, trackIndex, isAlt || isCtrlOrCmd);
+        BeginMoveGesture(pointerPosition, pressedClip, trackIndex, copiesWhenDragged);
         pointerEvent.Pointer.Capture(this);
     }
 
@@ -876,6 +884,7 @@ internal sealed class ArrangementCanvas : Control
         currentPointerPosition = origin;
         gestureStarted = false;
         gestureClip = null;
+        marqueeIsAdditive = isAdditive;
         draggingClips.Clear();
         initialMarqueeSelection.Clear();
         if (isAdditive)
@@ -895,86 +904,110 @@ internal sealed class ArrangementCanvas : Control
         gestureOriginalStart = pressedClip.StartStep;
         gestureOriginalLength = pressedClip.LengthSteps;
         gestureGrabOriginalTrackIndex = trackIndex;
+        gestureTrackDelta = 0;
         gestureGrabOffsetSteps = (int)Math.Floor(StepAt(pointerPosition.X)) - pressedClip.StartStep;
 
         draggingClips.Clear();
-        var selectedIds = document.SelectedTimelineClipIds;
-        var selectedTimelineClips = document.Project.Timeline.Where(c => selectedIds.Contains(c.Id)).ToList();
-        if (selectedTimelineClips.Count == 0 || !selectedIds.Contains(pressedClip.Id))
-        {
-            selectedTimelineClips = new List<TimelineClip> { pressedClip };
-        }
+        var selectedTimelineClipIds = document.SelectedTimelineClipIds;
+        var draggedTimelineClips = selectedTimelineClipIds.Contains(pressedClip.Id)
+            ? document.Project.Timeline.Where(timelineClip => selectedTimelineClipIds.Contains(timelineClip.Id)).ToList()
+            : new List<TimelineClip> { pressedClip };
 
-        foreach (var clip in selectedTimelineClips)
+        foreach (var draggedTimelineClip in draggedTimelineClips)
         {
-            var tIndex = document.Project.Tracks.FindIndex(t => t.Id == clip.TrackId);
-            if (tIndex >= 0)
+            var draggedTrackIndex = document.Project.Tracks.FindIndex(track => track.Id == draggedTimelineClip.TrackId);
+            if (draggedTrackIndex >= 0)
             {
                 draggingClips.Add(new DraggingClipState
                 {
-                    OriginalClip = clip,
-                    OriginalStartStep = clip.StartStep,
-                    OriginalLengthSteps = clip.LengthSteps,
-                    OriginalTrackId = clip.TrackId,
-                    OriginalTrackIndex = tIndex,
+                    OriginalClip = draggedTimelineClip,
+                    OriginalStartStep = draggedTimelineClip.StartStep,
+                    OriginalLengthSteps = draggedTimelineClip.LengthSteps,
+                    OriginalTrackId = draggedTimelineClip.TrackId,
+                    OriginalTrackIndex = draggedTrackIndex,
                 });
             }
         }
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-        UpdateCopyDuringMove(e.KeyModifiers);
-    }
-
-    protected override void OnKeyUp(KeyEventArgs e)
-    {
-        base.OnKeyUp(e);
-        UpdateCopyDuringMove(e.KeyModifiers);
-    }
-
-    private void UpdateCopyDuringMove(KeyModifiers keyModifiers)
+    /// <summary>
+    /// Switches a running drag between moving and copying when the copy modifier is pressed or let go
+    /// (seen on the next pointer move: the canvas never has keyboard focus): copying puts the originals
+    /// back and drags fresh copies; moving drops the copies again. Returns true if it switched.
+    /// </summary>
+    private bool UpdateCopyDuringMove(KeyModifiers keyModifiers)
     {
         if (gestureKind != GestureKind.Move || !gestureStarted || draggingClips.Count == 0)
         {
+            return false;
+        }
+        var shouldCopy = CopiesWhileDragging(keyModifiers);
+        if (shouldCopy == gestureCopies)
+        {
+            return false;
+        }
+        gestureCopies = shouldCopy;
+        if (gestureCopies)
+        {
+            foreach (var draggingClip in draggingClips)
+            {
+                draggingClip.OriginalClip.StartStep = draggingClip.OriginalStartStep;
+                draggingClip.OriginalClip.TrackId = draggingClip.OriginalTrackId;
+                draggingClip.CopiedClip = FreeTimeline.Copy(draggingClip.OriginalClip, draggingClip.OriginalStartStep);
+                document.Project.Timeline.Add(draggingClip.CopiedClip);
+            }
+            var primaryCopiedId = draggingClips.FirstOrDefault(draggingClip => draggingClip.OriginalClip == gestureClip)?.CopiedClip?.Id;
+            document.SelectTimelineClips(draggingClips.Select(draggingClip => draggingClip.CopiedClip!.Id), primaryCopiedId);
+        }
+        else
+        {
+            foreach (var draggingClip in draggingClips)
+            {
+                if (draggingClip.CopiedClip is not null)
+                {
+                    document.Project.Timeline.Remove(draggingClip.CopiedClip);
+                    draggingClip.CopiedClip = null;
+                }
+            }
+            document.SelectTimelineClips(draggingClips.Select(draggingClip => draggingClip.OriginalClip.Id), gestureClip?.Id);
+        }
+        InvalidateVisual();
+        return true;
+    }
+
+    /// <summary>
+    /// Places every dragged clip (or its copy) by the grabbed clip's snapped offset, clamped so none leaves
+    /// the timeline or the track list. Above or below the lanes the clips keep the last track offset.
+    /// </summary>
+    private void ApplyMovePositions(Point pointerPosition, KeyModifiers keyModifiers)
+    {
+        if (gestureClip is null || draggingClips.Count == 0)
+        {
             return;
         }
-        var shouldCopy = keyModifiers.HasFlag(KeyModifiers.Alt) ||
-                         keyModifiers.HasFlag(KeyModifiers.Control) ||
-                         keyModifiers.HasFlag(KeyModifiers.Meta);
-        if (shouldCopy != gestureCopies)
+        var targetGrabbedStartStep = Math.Min(FreeTimeline.MaximumStep, Snap(StepAt(pointerPosition.X) - gestureGrabOffsetSteps, SnapResolution(keyModifiers)));
+        var earliestStartStep = draggingClips.Min(draggingClip => draggingClip.OriginalStartStep);
+        var latestStartStep = draggingClips.Max(draggingClip => draggingClip.OriginalStartStep);
+        var stepDelta = Math.Clamp(targetGrabbedStartStep - gestureOriginalStart, -earliestStartStep, FreeTimeline.MaximumStep - latestStartStep);
+
+        if (TrackIndexAt(pointerPosition.Y) is >= 0 and var hoveredTrackIndex)
         {
-            gestureCopies = shouldCopy;
-            if (gestureCopies)
-            {
-                foreach (var item in draggingClips)
-                {
-                    item.OriginalClip.StartStep = item.OriginalStartStep;
-                    item.OriginalClip.TrackId = item.OriginalTrackId;
-                    if (item.CopiedClip is null)
-                    {
-                        item.CopiedClip = FreeTimeline.Copy(item.OriginalClip, item.OriginalStartStep);
-                        document.Project.Timeline.Add(item.CopiedClip);
-                    }
-                }
-                var primaryCopied = draggingClips.FirstOrDefault(c => c.OriginalClip == gestureClip)?.CopiedClip?.Id;
-                document.SelectTimelineClips(draggingClips.Select(c => c.CopiedClip!.Id), primaryCopied);
-            }
-            else
-            {
-                foreach (var item in draggingClips)
-                {
-                    if (item.CopiedClip is not null)
-                    {
-                        document.Project.Timeline.Remove(item.CopiedClip);
-                        item.CopiedClip = null;
-                    }
-                }
-                document.SelectTimelineClips(draggingClips.Select(c => c.OriginalClip.Id), gestureClip?.Id);
-            }
-            InvalidateVisual();
+            var topTrackIndex = draggingClips.Min(draggingClip => draggingClip.OriginalTrackIndex);
+            var bottomTrackIndex = draggingClips.Max(draggingClip => draggingClip.OriginalTrackIndex);
+            gestureTrackDelta = Math.Clamp(hoveredTrackIndex - gestureGrabOriginalTrackIndex, -topTrackIndex, document.Project.Tracks.Count - 1 - bottomTrackIndex);
         }
+
+        foreach (var draggingClip in draggingClips)
+        {
+            var placedClip = gestureCopies && draggingClip.CopiedClip is not null ? draggingClip.CopiedClip : draggingClip.OriginalClip;
+            placedClip.StartStep = draggingClip.OriginalStartStep + stepDelta;
+            var targetTrackIndex = draggingClip.OriginalTrackIndex + gestureTrackDelta;
+            if (targetTrackIndex >= 0 && targetTrackIndex < document.Project.Tracks.Count)
+            {
+                placedClip.TrackId = document.Project.Tracks[targetTrackIndex].Id;
+            }
+        }
+        InvalidateVisual();
     }
 
     protected override void OnPointerMoved(PointerEventArgs pointerEvent)
@@ -1001,26 +1034,24 @@ internal sealed class ArrangementCanvas : Control
             }
             gestureStarted = true;
             clickedAlreadySelectedClipWithoutModifiers = false;
+            deselectsPressedClipOnRelease = false;
 
             if (gestureKind == GestureKind.Move)
             {
-                var shouldCopy = pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Alt) ||
-                                 pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Control) ||
-                                 pointerEvent.KeyModifiers.HasFlag(KeyModifiers.Meta);
-                gestureCopies = shouldCopy;
+                gestureCopies = CopiesWhileDragging(pointerEvent.KeyModifiers);
                 document.BeginEdit(gestureCopies
                     ? (draggingClips.Count > 1 ? $"copy {draggingClips.Count} timeline clips" : "copy timeline clip")
                     : (draggingClips.Count > 1 ? $"move {draggingClips.Count} timeline clips" : "move timeline clip"));
 
                 if (gestureCopies)
                 {
-                    foreach (var item in draggingClips)
+                    foreach (var draggingClip in draggingClips)
                     {
-                        item.CopiedClip = FreeTimeline.Copy(item.OriginalClip, item.OriginalStartStep);
-                        document.Project.Timeline.Add(item.CopiedClip);
+                        draggingClip.CopiedClip = FreeTimeline.Copy(draggingClip.OriginalClip, draggingClip.OriginalStartStep);
+                        document.Project.Timeline.Add(draggingClip.CopiedClip);
                     }
-                    var primaryCopied = draggingClips.FirstOrDefault(c => c.OriginalClip == gestureClip)?.CopiedClip?.Id;
-                    document.SelectTimelineClips(draggingClips.Select(c => c.CopiedClip!.Id), primaryCopied);
+                    var primaryCopiedId = draggingClips.FirstOrDefault(draggingClip => draggingClip.OriginalClip == gestureClip)?.CopiedClip?.Id;
+                    document.SelectTimelineClips(draggingClips.Select(draggingClip => draggingClip.CopiedClip!.Id), primaryCopiedId);
                 }
             }
             else if (gestureKind == GestureKind.Resize)
@@ -1037,20 +1068,19 @@ internal sealed class ArrangementCanvas : Control
                 Math.Max(1, Math.Abs(pointerPosition.X - gestureOrigin.X)),
                 Math.Max(1, Math.Abs(pointerPosition.Y - gestureOrigin.Y)));
 
-            var newlySelectedIds = new HashSet<string>(initialMarqueeSelection);
-            for (var tIdx = 0; tIdx < document.Project.Tracks.Count; tIdx++)
+            var marqueeSelectedIds = new HashSet<string>(initialMarqueeSelection);
+            for (var laneTrackIndex = 0; laneTrackIndex < document.Project.Tracks.Count; laneTrackIndex++)
             {
-                var track = document.Project.Tracks[tIdx];
-                foreach (var clip in FreeTimeline.ClipsForTrack(document.Project, track.Id))
+                foreach (var laneClip in FreeTimeline.ClipsForTrack(document.Project, document.Project.Tracks[laneTrackIndex].Id))
                 {
-                    var clipRect = ClipRect(clip, tIdx);
-                    if (clipRect.Intersects(marqueeRect))
+                    if (ClipRect(laneClip, laneTrackIndex).Intersects(marqueeRect))
                     {
-                        newlySelectedIds.Add(clip.Id);
+                        marqueeSelectedIds.Add(laneClip.Id);
                     }
                 }
             }
-            document.SelectTimelineClips(newlySelectedIds);
+            // A no-op when the set is unchanged, so the clip editor is not rebuilt on every pointer move.
+            document.SelectTimelineClips(marqueeSelectedIds);
             InvalidateVisual();
             return;
         }
@@ -1067,35 +1097,9 @@ internal sealed class ArrangementCanvas : Control
                 document.Project.TimelineLoop = braceEnd > braceStart ? new TimelineLoopRegion { StartStep = braceStart, EndStep = braceEnd } : document.Project.TimelineLoop;
                 break;
 
-            case GestureKind.Move when gestureClip is not null && draggingClips.Count > 0:
+            case GestureKind.Move:
                 UpdateCopyDuringMove(pointerEvent.KeyModifiers);
-
-                var targetGrabbedStartStep = Math.Min(FreeTimeline.MaximumStep, Snap(pointerStep - gestureGrabOffsetSteps, resolution));
-                var targetStepDelta = targetGrabbedStartStep - gestureOriginalStart;
-
-                var minStartStep = draggingClips.Min(c => c.OriginalStartStep);
-                var maxStartStep = draggingClips.Max(c => c.OriginalStartStep);
-                var clampedStepDelta = Math.Clamp(targetStepDelta, -minStartStep, FreeTimeline.MaximumStep - maxStartStep);
-
-                var hoveredTrackIndex = TrackIndexAt(pointerPosition.Y);
-                var clampedTrackDelta = 0;
-                if (hoveredTrackIndex >= 0)
-                {
-                    var minTrackIndex = draggingClips.Min(c => c.OriginalTrackIndex);
-                    var maxTrackIndex = draggingClips.Max(c => c.OriginalTrackIndex);
-                    clampedTrackDelta = Math.Clamp(hoveredTrackIndex - gestureGrabOriginalTrackIndex, -minTrackIndex, document.Project.Tracks.Count - 1 - maxTrackIndex);
-                }
-
-                foreach (var item in draggingClips)
-                {
-                    var activeClip = gestureCopies && item.CopiedClip is not null ? item.CopiedClip : item.OriginalClip;
-                    activeClip.StartStep = item.OriginalStartStep + clampedStepDelta;
-                    var targetTrackIndex = item.OriginalTrackIndex + clampedTrackDelta;
-                    if (targetTrackIndex >= 0 && targetTrackIndex < document.Project.Tracks.Count)
-                    {
-                        activeClip.TrackId = document.Project.Tracks[targetTrackIndex].Id;
-                    }
-                }
+                ApplyMovePositions(pointerPosition, pointerEvent.KeyModifiers);
                 break;
 
             case GestureKind.Resize when gestureClip is not null:
@@ -1123,7 +1127,7 @@ internal sealed class ArrangementCanvas : Control
 
         if (finishedKind == GestureKind.Marquee)
         {
-            if (!wasStarted)
+            if (!wasStarted && !marqueeIsAdditive)
             {
                 var trackIndex = TrackIndexAt(pointerEvent.GetPosition(this).Y);
                 document.ClearTimelineClipSelection();
@@ -1142,6 +1146,10 @@ internal sealed class ArrangementCanvas : Control
             if (clickedAlreadySelectedClipWithoutModifiers && finishedClip is not null)
             {
                 document.SelectTimelineClip(finishedClip.Id);
+            }
+            else if (deselectsPressedClipOnRelease && finishedClip is not null)
+            {
+                document.ToggleTimelineClipSelection(finishedClip.Id);
             }
             draggingClips.Clear();
             return;
@@ -1162,8 +1170,8 @@ internal sealed class ArrangementCanvas : Control
                 break;
 
             case GestureKind.Move when draggingClips.Count > 0:
-                var finalClips = draggingClips.Select(c => wasCopies && c.CopiedClip is not null ? c.CopiedClip : c.OriginalClip).ToList();
-                var unchangedMove = !wasCopies && draggingClips.All(c => c.OriginalClip.StartStep == c.OriginalStartStep && c.OriginalClip.TrackId == c.OriginalTrackId);
+                var finalClips = draggingClips.Select(draggingClip => wasCopies && draggingClip.CopiedClip is not null ? draggingClip.CopiedClip : draggingClip.OriginalClip).ToList();
+                var unchangedMove = !wasCopies && draggingClips.All(draggingClip => draggingClip.OriginalClip.StartStep == draggingClip.OriginalStartStep && draggingClip.OriginalClip.TrackId == draggingClip.OriginalTrackId);
 
                 var description = unchangedMove ? "touched timeline clip(s)"
                     : wasCopies
@@ -1172,9 +1180,9 @@ internal sealed class ArrangementCanvas : Control
 
                 document.CommitEdit(description, EditScope.Structure);
                 var primaryFinalId = finishedClip is not null
-                    ? (wasCopies ? draggingClips.FirstOrDefault(c => c.OriginalClip == finishedClip)?.CopiedClip?.Id : finishedClip.Id)
+                    ? (wasCopies ? draggingClips.FirstOrDefault(draggingClip => draggingClip.OriginalClip == finishedClip)?.CopiedClip?.Id : finishedClip.Id)
                     : finalClips.FirstOrDefault()?.Id;
-                document.SelectTimelineClips(finalClips.Select(c => c.Id), primaryFinalId);
+                document.SelectTimelineClips(finalClips.Select(finalClip => finalClip.Id), primaryFinalId);
                 break;
         }
 
@@ -1228,12 +1236,12 @@ internal sealed class ArrangementCanvas : Control
         AddItem(isMultiple ? $"Loop {selectionCount} clips" : "Loop this clip", () =>
         {
             var clips = isMultiple
-                ? document.Project.Timeline.Where(c => document.IsTimelineClipSelected(c.Id)).ToList()
+                ? document.Project.Timeline.Where(selectedClip => document.IsTimelineClipSelected(selectedClip.Id)).ToList()
                 : new List<TimelineClip> { timelineClip };
             if (clips.Count > 0)
             {
-                var start = clips.Min(c => c.StartStep);
-                var end = clips.Max(c => c.EndStep);
+                var start = clips.Min(selectedClip => selectedClip.StartStep);
+                var end = clips.Max(selectedClip => selectedClip.EndStep);
                 document.Edit("set the timeline loop",
                     project => project.TimelineLoop = new TimelineLoopRegion { StartStep = start, EndStep = end }, EditScope.Structure);
             }
@@ -1375,7 +1383,7 @@ internal static class FreeTimelineCommands
                 ? new HashSet<string> { timelineClipId }
                 : document.SelectedTimelineClipIds.ToHashSet();
 
-        idsToDelete.IntersectWith(document.Project.Timeline.Select(c => c.Id));
+        idsToDelete.IntersectWith(document.Project.Timeline.Select(timelineClip => timelineClip.Id));
         if (idsToDelete.Count == 0)
         {
             return;
@@ -1421,6 +1429,31 @@ internal static class FreeTimelineCommands
             }, EditScope.Structure);
 
         document.SelectTimelineClips(newClips.Select(clip => clip.Id), newClips.FirstOrDefault()?.Id);
+    }
+
+    /// <summary>
+    /// Pastes copied arrangement clips at <paramref name="cursorStep"/> in the shape they were copied in:
+    /// the earliest lands on the cursor, the topmost on the selected track, and the rest keep their distance
+    /// (moved up as a group if they would run past the last track). A clip whose track is gone lands on the selected track.
+    /// </summary>
+    public static void Paste(StudioDocument document, IReadOnlyList<TimelineClip> copiedTimelineClips, long cursorStep)
+    {
+        if (document.SelectedTrack is null || copiedTimelineClips.Count == 0)
+        {
+            return;
+        }
+        var tracks = document.Project.Tracks;
+        var copiedTrackIndices = copiedTimelineClips.Select(copiedClip => tracks.FindIndex(track => track.Id == copiedClip.TrackId)).ToList();
+        var survivingTrackIndices = copiedTrackIndices.Where(copiedTrackIndex => copiedTrackIndex >= 0).DefaultIfEmpty(document.SelectedTrackIndex).ToList();
+        var trackDelta = Math.Clamp(document.SelectedTrackIndex - survivingTrackIndices.Min(), -survivingTrackIndices.Min(), tracks.Count - 1 - survivingTrackIndices.Max());
+        var stepDelta = cursorStep - copiedTimelineClips.Min(copiedClip => copiedClip.StartStep);
+
+        var pastedClips = copiedTimelineClips.Select((copiedClip, copiedIndex) => FreeTimeline.Copy(copiedClip,
+            (int)Math.Min(FreeTimeline.MaximumStep, copiedClip.StartStep + stepDelta),
+            copiedTrackIndices[copiedIndex] >= 0 ? tracks[copiedTrackIndices[copiedIndex] + trackDelta].Id : tracks[document.SelectedTrackIndex].Id)).ToList();
+        document.Edit(pastedClips.Count > 1 ? $"pasted {pastedClips.Count} clips into the arrangement" : $"pasted \"{pastedClips[0].Clip.Name}\" into the arrangement",
+            project => project.Timeline.AddRange(pastedClips), EditScope.Structure);
+        document.SelectTimelineClips(pastedClips.Select(pastedClip => pastedClip.Id), pastedClips[0].Id);
     }
 
     /// <summary>Pastes a copied clip onto the selected track at <paramref name="cursorStep"/>.</summary>

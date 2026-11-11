@@ -235,6 +235,9 @@ internal sealed partial class StudioWindow
         entries.Add(new CommandPaletteEntry(preferences.MetronomeOnlyWhileRecording ? "Metronome: Click Always (Not Only While Recording)" : "Metronome: Click Only While Recording", null,
             () => SetMetronomeOnlyWhileRecording(!preferences.MetronomeOnlyWhileRecording)));
         entries.Add(new CommandPaletteEntry("Metronome: Set Volume and Count-In…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
+        entries.Add(new CommandPaletteEntry(preferences.ArrangementAltDragCopies
+            ? "Arrangement: Alt+Drag Snaps to Single Steps (Classic; Ctrl+Drag Copies)"
+            : "Arrangement: Alt+Drag Copies Clips", null, () => SetArrangementAltDragCopies(!preferences.ArrangementAltDragCopies)));
         entries.Add(new CommandPaletteEntry("Audio: Choose Output Device…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Audio: Choose Input Device…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.Add(new CommandPaletteEntry("Audio: Test Output or Input…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));

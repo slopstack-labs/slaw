@@ -22,7 +22,7 @@ Every gesture the studio answers to.
 | Mouse wheel (piano roll) | Scroll octaves |
 | Click an arrangement clip | Select it and open it in the editor below (Shift- or Ctrl-click to select multiple) |
 | Drag empty space in arrangement lanes | Marquee-select multiple clips |
-| Drag an arrangement clip / its right edge | Move it / loop its pattern longer (drag and hold Alt or Ctrl to copy) |
+| Drag an arrangement clip / its right edge | Move it (the whole selection, if it is selected) / loop its pattern longer. Ctrl+drag copies; so does Alt+drag, unless Settings → Editing has the classic mode, where Alt+drag moves one step at a time |
 | Double-click an empty arrangement lane | Create a one-bar clip there |
 | Right-click an arrangement clip | Edit / duplicate / rename / delete |
 | Right-click a track header | Rename / duplicate / arm / delete the track |

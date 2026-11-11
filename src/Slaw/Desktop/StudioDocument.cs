@@ -243,20 +243,24 @@ internal sealed class StudioDocument
         SelectionChanged?.Invoke();
     }
 
-    /// <summary>Selects multiple arrangement clips at once.</summary>
+    /// <summary>
+    /// Selects several arrangement clips at once. The one opened in the editor is <paramref name="primaryClipId"/>,
+    /// else the one already open if it stays selected, else the earliest. Does nothing (and raises no
+    /// <see cref="SelectionChanged"/>) when that is what is already selected, so a marquee drag stays cheap.
+    /// </summary>
     public void SelectTimelineClips(IEnumerable<string> timelineClipIds, string? primaryClipId = null)
     {
-        selectedTimelineClipIds.Clear();
-        foreach (var id in timelineClipIds)
+        var requestedIds = timelineClipIds.Where(requestedId => Project.Timeline.Any(candidate => candidate.Id == requestedId)).ToHashSet();
+        var editedClipId = primaryClipId is not null && requestedIds.Contains(primaryClipId) ? primaryClipId
+            : SelectedTimelineClipId is not null && requestedIds.Contains(SelectedTimelineClipId) ? SelectedTimelineClipId
+            : Project.Timeline.Where(timelineClip => requestedIds.Contains(timelineClip.Id)).OrderBy(timelineClip => timelineClip.StartStep).FirstOrDefault()?.Id;
+        if (requestedIds.SetEquals(selectedTimelineClipIds) && editedClipId == SelectedTimelineClipId)
         {
-            if (Project.Timeline.Any(candidate => candidate.Id == id))
-            {
-                selectedTimelineClipIds.Add(id);
-            }
+            return;
         }
-        SelectedTimelineClipId = primaryClipId is not null && selectedTimelineClipIds.Contains(primaryClipId)
-            ? primaryClipId
-            : selectedTimelineClipIds.FirstOrDefault();
+        selectedTimelineClipIds.Clear();
+        selectedTimelineClipIds.UnionWith(requestedIds);
+        SelectedTimelineClipId = editedClipId;
         if (SelectedTimelineClip is { } selectedClip)
         {
             var trackIndex = Project.Tracks.FindIndex(track => track.Id == selectedClip.TrackId);

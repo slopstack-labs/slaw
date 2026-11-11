@@ -110,12 +110,21 @@ internal sealed partial class StudioWindow
             case StudioCommand.DeleteClip when arrangementView.TrackHeaderSelected:
                 DeleteTrack(document.SelectedTrackIndex);
                 return true;
+            case StudioCommand.CopyClip when hasTimelineSelection:
+                CopyTimelineSelection();
+                return true;
             case StudioCommand.CutClip when hasTimelineSelection:
-                CopySelectedClip();
+                CopyTimelineSelection();
                 FreeTimelineCommands.Delete(document, selectedTimelineClipId);
                 return true;
             case StudioCommand.DuplicateClip when hasTimelineSelection:
                 FreeTimelineCommands.DuplicateAfter(document, selectedTimelineClipId);
+                return true;
+            case StudioCommand.PasteClip when copiedTimelineClipsPayload is not null:
+                if (JsonSerializer.Deserialize<List<TimelineClip>>(copiedTimelineClipsPayload, ProjectSerializer.LenientSerializationOptions) is { Count: > 0 } copiedTimelineClips)
+                {
+                    FreeTimelineCommands.Paste(document, copiedTimelineClips, arrangementView.CursorStep);
+                }
                 return true;
             case StudioCommand.PasteClip when copiedClipPayload is not null:
                 if (JsonSerializer.Deserialize<SlawClip>(copiedClipPayload, ProjectSerializer.LenientSerializationOptions) is { Pattern.Count: > 0 } copiedClip)
@@ -129,5 +138,43 @@ internal sealed partial class StudioWindow
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Copies every selected arrangement clip for an arrangement paste. The clip being edited also goes
+    /// on the ordinary clipboard, so pasting into a session slot still works.
+    /// </summary>
+    private void CopyTimelineSelection()
+    {
+        var selectedTimelineClips = document.Project.Timeline.Where(timelineClip => document.IsTimelineClipSelected(timelineClip.Id)).ToList();
+        if (selectedTimelineClips.Count == 0)
+        {
+            return;
+        }
+        CopySelectedClip();
+        copiedTimelineClipsPayload = JsonSerializer.Serialize(selectedTimelineClips, ProjectSerializer.LenientSerializationOptions);
+        if (selectedTimelineClips.Count > 1)
+        {
+            SetStatus(StatusSeverity.Informational, $"copied {selectedTimelineClips.Count} arrangement clips");
+        }
+    }
+
+    /// <summary>Switches what Alt+drag does in the Arrangement (copy, or the classic single-step snap) and saves it.</summary>
+    private void SetArrangementAltDragCopies(bool altDragCopies)
+    {
+        preferences.ArrangementAltDragCopies = altDragCopies;
+        arrangementView.RefreshGestureHint();
+        try
+        {
+            preferences.SaveArrangementAltDrag();
+        }
+        catch (Exception persistenceRemediationOpportunity) when (persistenceRemediationOpportunity is IOException or UnauthorizedAccessException)
+        {
+            SetStatus(StatusSeverity.Warning, $"the Alt+drag setting could not be saved: {persistenceRemediationOpportunity.Message}");
+            return;
+        }
+        SetStatus(StatusSeverity.Informational, altDragCopies
+            ? "Alt+drag now copies arrangement clips. replication has been delegated to the left thumb."
+            : "Alt+drag now moves clips one step at a time; Ctrl+drag copies. classic mode, as the founders intended.");
     }
 }
