@@ -252,4 +252,89 @@ public class ArrangementTests
         Assert.True(emptyRender["isError"]!.GetValue<bool>());
         Assert.Contains("arrangement is empty", TextOf(emptyRender));
     }
+
+    [Fact]
+    public void MultiSelectTimelineClipsAndToggleSelection()
+    {
+        var document = new StudioDocument(TwoTrackProject(), filePath: null);
+        var clip1 = document.Project.Timeline[0];
+        var clip2 = document.Project.Timeline[1];
+
+        document.SelectTimelineClip(clip1.Id);
+        Assert.True(document.IsTimelineClipSelected(clip1.Id));
+        Assert.False(document.IsTimelineClipSelected(clip2.Id));
+        Assert.Equal(clip1.Id, document.SelectedTimelineClipId);
+        Assert.Single(document.SelectedTimelineClipIds);
+
+        document.ToggleTimelineClipSelection(clip2.Id);
+        Assert.True(document.IsTimelineClipSelected(clip1.Id));
+        Assert.True(document.IsTimelineClipSelected(clip2.Id));
+        Assert.Equal(2, document.SelectedTimelineClipIds.Count);
+
+        document.ToggleTimelineClipSelection(clip1.Id);
+        Assert.False(document.IsTimelineClipSelected(clip1.Id));
+        Assert.True(document.IsTimelineClipSelected(clip2.Id));
+        Assert.Equal(clip2.Id, document.SelectedTimelineClipId);
+        Assert.Single(document.SelectedTimelineClipIds);
+
+        document.ClearTimelineClipSelection();
+        Assert.Empty(document.SelectedTimelineClipIds);
+        Assert.Null(document.SelectedTimelineClipId);
+    }
+
+    [Fact]
+    public void DeleteSelectedRemovesMultipleTimelineClipsInSingleEdit()
+    {
+        var document = new StudioDocument(TwoTrackProject(), filePath: null);
+        var lead = document.Project.Tracks[0];
+        var clip3 = new TimelineClip { TrackId = lead.Id, StartStep = 128, LengthSteps = 16, Clip = new SlawClip { Name = "outro", Pattern = new List<string> { "C4" } } };
+        document.Project.Timeline.Add(clip3);
+        Assert.Equal(3, document.Project.Timeline.Count);
+
+        var clip1 = document.Project.Timeline[0];
+        var clip2 = document.Project.Timeline[1];
+
+        document.SelectTimelineClips(new[] { clip1.Id, clip3.Id });
+        Assert.Equal(2, document.SelectedTimelineClipIds.Count);
+
+        FreeTimelineCommands.Delete(document, clip1.Id);
+        Assert.Single(document.Project.Timeline);
+        Assert.Equal(clip2.Id, document.Project.Timeline[0].Id);
+        Assert.Empty(document.SelectedTimelineClipIds);
+
+        document.Undo();
+        Assert.Equal(3, document.Project.Timeline.Count);
+        Assert.Contains(document.Project.Timeline, c => c.Id == clip1.Id);
+        Assert.Contains(document.Project.Timeline, c => c.Id == clip3.Id);
+    }
+
+    [Fact]
+    public void DuplicateSelectedDuplicatesMultipleTimelineClipsShiftedBySpan()
+    {
+        var document = new StudioDocument(TwoTrackProject(), filePath: null);
+        document.Project.Timeline.Clear();
+
+        var track = document.Project.Tracks[0];
+        var clipA = new TimelineClip { TrackId = track.Id, StartStep = 0, LengthSteps = 16, Clip = new SlawClip { Name = "A", Pattern = new List<string> { "C4" } } };
+        var clipB = new TimelineClip { TrackId = track.Id, StartStep = 16, LengthSteps = 16, Clip = new SlawClip { Name = "B", Pattern = new List<string> { "E4" } } };
+        document.Project.Timeline.Add(clipA);
+        document.Project.Timeline.Add(clipB);
+
+        document.SelectTimelineClips(new[] { clipA.Id, clipB.Id });
+        FreeTimelineCommands.DuplicateAfter(document, clipA.Id);
+
+        Assert.Equal(4, document.Project.Timeline.Count);
+        var newClips = document.Project.Timeline.Where(c => c.Id != clipA.Id && c.Id != clipB.Id).OrderBy(c => c.StartStep).ToList();
+        Assert.Equal(2, newClips.Count);
+        // Overall span was 0 to 32 (length 32), so new clips should be shifted by 32:
+        Assert.Equal(32, newClips[0].StartStep);
+        Assert.Equal(48, newClips[1].StartStep);
+        Assert.Equal("A", newClips[0].Clip.Name);
+        Assert.Equal("B", newClips[1].Clip.Name);
+
+        // Duplicated clips should now be selected
+        Assert.Equal(2, document.SelectedTimelineClipIds.Count);
+        Assert.True(document.IsTimelineClipSelected(newClips[0].Id));
+        Assert.True(document.IsTimelineClipSelected(newClips[1].Id));
+    }
 }
