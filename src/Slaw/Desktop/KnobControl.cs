@@ -28,7 +28,7 @@ internal sealed class KnobControl : Control
     private const double CaptionFontSize = 10;
 
     private static readonly IBrush TrackBrush = StudioTheme.CellOdd;
-    private static readonly IBrush HoveredTrackBrush = new SolidColorBrush(Color.Parse("#34344a"));
+    private static readonly IBrush HoveredTrackBrush = StudioTheme.BorderStrong;
     private static readonly IPen PointerPen = new Pen(StudioTheme.Text, 2, lineCap: PenLineCap.Round);
 
     private readonly string label;

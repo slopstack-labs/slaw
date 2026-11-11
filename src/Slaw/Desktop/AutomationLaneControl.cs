@@ -21,8 +21,8 @@ internal sealed class AutomationLaneControl : Control
     private const double SnapResolutionSteps = 0.25;
 
     private static readonly Typeface ValueTypeface = new(StudioTheme.MonospaceFont, FontStyle.Normal, FontWeight.SemiBold);
-    private static readonly IPen StepLinePen = new Pen(new SolidColorBrush(Color.Parse("#2a2a3a"), 0.6), 1);
-    private static readonly IPen BeatLinePen = new Pen(new SolidColorBrush(Color.Parse("#4a4a5e"), 0.9), 1);
+    private static readonly IPen StepLinePen = new Pen(StudioTheme.Tint(StudioThemeSlots.Border, 0.6), 1);
+    private static readonly IPen BeatLinePen = new Pen(StudioTheme.Tint(StudioThemeSlots.TextDim, 0.9), 1);
     private static readonly IPen BaseValuePen = new Pen(StudioTheme.TextDim, 1, new DashStyle(new double[] { 3, 3 }, 0));
     private static readonly IPen PlayheadPen = new Pen(StudioTheme.Playhead, 1.5);
 

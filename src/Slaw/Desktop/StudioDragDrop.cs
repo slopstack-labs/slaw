@@ -248,7 +248,7 @@ internal static class StudioDragDrop
     /// <summary>Whether a control is currently highlighted as a drop target (for custom-drawn controls).</summary>
     public static bool IsDropHovered(Control control) => control.Classes.Contains(DropHoverClass);
 
-    private static readonly IBrush DropAreaTint = new SolidColorBrush(Color.Parse("#22c55e"), 0.08);
+    private static readonly IBrush DropAreaTint = StudioTheme.Tint(StudioThemeSlots.Playhead, 0.08);
 
     /// <summary>A small grip handle for things that contain their own interactive controls (knobs, text boxes).</summary>
     public static Border DragGrip(string toolTip)

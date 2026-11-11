@@ -28,7 +28,7 @@ internal sealed class EqDisplayControl : Control
     private static readonly IPen GridPen = new Pen(StudioTheme.Border, 1);
     private static readonly IPen CurvePen = new Pen(StudioTheme.Violet, 1.5);
     private static readonly IBrush PlotBrush = StudioTheme.Background;
-    private static readonly IBrush SpectrumBrush = new SolidColorBrush(StudioTheme.AccentColor, 0.3);
+    private static readonly IBrush SpectrumBrush = StudioTheme.Tint(StudioThemeSlots.Accent, 0.3);
 
     private readonly Func<Dictionary<string, double>> parameterTable;
     private readonly string owner;

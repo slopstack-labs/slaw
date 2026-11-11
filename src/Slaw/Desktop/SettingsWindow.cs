@@ -27,6 +27,10 @@ internal sealed partial class SettingsWindow : Window
     private CheckBox? mcpServerCheckBox;
     private CheckBox? midiInputCheckBox;
     private CheckBox? altDragCopiesCheckBox;
+    private ComboBox? themeComboBox;
+    private IReadOnlyList<StudioThemeDefinition> availableThemes = StudioThemeCatalog.BuiltIn;
+    private readonly TextBlock themeStatusTextBlock = new() { FontSize = 11, TextWrapping = TextWrapping.Wrap };
+    private readonly string themeOnOpen;
     private NumericUpDown? mcpPortNumericUpDown;
     private CheckBox? launchpadCheckBox;
     private CheckBox? controlSurfaceCheckBox;
@@ -62,6 +66,7 @@ internal sealed partial class SettingsWindow : Window
     {
         this.describeControllers = describeControllers;
         workingPreferences = currentPreferences.Clone();
+        themeOnOpen = StudioTheme.Current.Name;
         workingSampleFolders = new ObservableCollection<string>(workingPreferences.SampleFolders ?? new List<string>());
         sampleFoldersListBox = new ListBox
         {
@@ -163,7 +168,15 @@ internal sealed partial class SettingsWindow : Window
         testOutputButton = StudioUi.Button("Test output", () => _ = RunOutputTestAsync());
         audioLatencyNumericUpDown = BuildNumericUpDown(workingPreferences.AudioLatencyMilliseconds, OperatingSystem.IsWindows() ? WindowsWaveDeviceDirectory.MinimumLatencyMilliseconds : 20, 500);
         recordingSettingsForm = new RecordingSettingsForm(workingPreferences);
-        Closed += (_, _) => recordingSettingsForm.StopInputTest();
+        Closed += (_, _) =>
+        {
+            recordingSettingsForm.StopInputTest();
+            // Picking a theme previews it at once; leaving without Save puts the old one back.
+            if (Result is null && !string.Equals(StudioTheme.Current.Name, themeOnOpen, StringComparison.OrdinalIgnoreCase))
+            {
+                SlawDesktopApplication.ApplyTheme(StudioThemeCatalog.Find(StudioThemeCatalog.Load().Themes, themeOnOpen));
+            }
+        };
 
         providerComboBox.SelectionChanged += (_, _) => RefreshDefaultModelCaption();
         aiFeaturesToggle.IsCheckedChanged += (_, _) => RefreshAiDependentEnablement();
@@ -177,6 +190,7 @@ internal sealed partial class SettingsWindow : Window
                 new TabItem { Header = "Audio", Content = WrapInScrollViewer(BuildAudioTab()) },
                 new TabItem { Header = "Samples", Content = WrapInScrollViewer(BuildSamplesTab()) },
                 new TabItem { Header = "Plugins", Content = WrapInScrollViewer(BuildPluginsTab()) },
+                new TabItem { Header = "Appearance", Content = WrapInScrollViewer(BuildAppearanceTab()) },
                 new TabItem { Header = "Editing", Content = WrapInScrollViewer(BuildEditingTab()) },
                 new TabItem { Header = "Controllers", Content = WrapInScrollViewer(BuildControllersTab()) },
                 new TabItem { Header = "Integrations", Content = WrapInScrollViewer(BuildIntegrationsTab()) },
@@ -355,6 +369,102 @@ internal sealed partial class SettingsWindow : Window
         tabPanel.Children.Add(restartCaption);
         tabPanel.Children.Add(recordingSettingsForm.Compose());
         return tabPanel;
+    }
+
+    /// <summary>Builds the Appearance tab: the theme picker (previewed live), and the way to make your own.</summary>
+    private Control BuildAppearanceTab()
+    {
+        themeComboBox = new ComboBox { MinWidth = 260 };
+        themeComboBox.SelectionChanged += (_, _) =>
+        {
+            if (themeComboBox.SelectedIndex >= 0 && themeComboBox.SelectedIndex < availableThemes.Count)
+            {
+                SlawDesktopApplication.ApplyTheme(availableThemes[themeComboBox.SelectedIndex]);
+            }
+        };
+        ReloadThemeChoices(workingPreferences.ThemeName);
+
+        var explanation = StudioUi.Caption(
+            "A theme is a JSON file in the themes folder: a name, a base (dark or light), and any colours you want to change; " +
+            "every colour left out comes from the base. \"New theme from this one\" writes the selected theme with every colour spelled out, " +
+            "ready to edit. Changes to a file show up after Reload. Picking a theme previews it; Cancel puts the old one back.");
+        explanation.TextWrapping = TextWrapping.Wrap;
+        explanation.TextTrimming = TextTrimming.None;
+        var folderCaption = new SelectableTextBlock { Text = StudioThemeCatalog.ThemesFolder, FontFamily = StudioTheme.MonospaceFont, FontSize = 11, Foreground = StudioTheme.TextMuted, TextWrapping = TextWrapping.Wrap };
+
+        return new StackPanel
+        {
+            Spacing = 10,
+            Children =
+            {
+                StudioUi.SectionHeading("Theme"),
+                themeComboBox,
+                StudioUi.Row(8,
+                    StudioUi.Button(StudioIcon.Plus, "New theme from this one", CreateThemeFromSelection, "Write the selected theme to a new file in the themes folder, every colour spelled out"),
+                    StudioUi.Button(StudioIcon.Folder, "Open themes folder", OpenThemesFolder),
+                    StudioUi.Button("Reload", () => ReloadThemeChoices(SelectedThemeName()), "Read the theme files again")),
+                themeStatusTextBlock,
+                explanation,
+                folderCaption,
+            },
+        };
+    }
+
+    private string SelectedThemeName() =>
+        themeComboBox is { SelectedIndex: >= 0 } && themeComboBox.SelectedIndex < availableThemes.Count
+            ? availableThemes[themeComboBox.SelectedIndex].Name
+            : workingPreferences.ThemeName;
+
+    /// <summary>Reads the themes again and selects <paramref name="themeName"/> (the default if it is gone); reports files that had problems.</summary>
+    private void ReloadThemeChoices(string themeName)
+    {
+        var (themes, problems) = StudioThemeCatalog.Load();
+        availableThemes = themes;
+        var selectedTheme = StudioThemeCatalog.Find(themes, themeName);
+        themeComboBox!.ItemsSource = themes.Select(theme => theme.IsBuiltIn ? $"{theme.Name} (built in)" : theme.Name).ToList();
+        themeComboBox.SelectedIndex = themes.ToList().IndexOf(selectedTheme);
+        themeStatusTextBlock.Foreground = problems.Count > 0 ? StudioTheme.Warning : StudioTheme.TextMuted;
+        themeStatusTextBlock.Text = problems.Count > 0
+            ? string.Join(Environment.NewLine, problems)
+            : themes.Count(theme => !theme.IsBuiltIn) is var themeFileCount and > 0
+                ? $"{themeFileCount} theme file{(themeFileCount == 1 ? string.Empty : "s")} in the themes folder."
+                : "No theme files yet. \"New theme from this one\" starts one.";
+    }
+
+    private void CreateThemeFromSelection()
+    {
+        var sourceTheme = StudioThemeCatalog.Find(availableThemes, SelectedThemeName());
+        try
+        {
+            var themeFile = StudioThemeCatalog.WriteTemplate(sourceTheme, $"{sourceTheme.Name} (mine)");
+            ReloadThemeChoices(Path.GetFileNameWithoutExtension(themeFile));
+            themeStatusTextBlock.Foreground = StudioTheme.Playhead;
+            themeStatusTextBlock.Text = $"wrote {themeFile}. edit it, then Reload.";
+        }
+        catch (Exception writeRemediationOpportunity) when (writeRemediationOpportunity is IOException or UnauthorizedAccessException)
+        {
+            themeStatusTextBlock.Foreground = StudioTheme.Failure;
+            themeStatusTextBlock.Text = $"could not write the theme: {writeRemediationOpportunity.Message}";
+        }
+    }
+
+    private void OpenThemesFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(StudioThemeCatalog.ThemesFolder);
+        }
+        catch (Exception folderRemediationOpportunity) when (folderRemediationOpportunity is IOException or UnauthorizedAccessException)
+        {
+            themeStatusTextBlock.Foreground = StudioTheme.Failure;
+            themeStatusTextBlock.Text = $"could not create {StudioThemeCatalog.ThemesFolder}: {folderRemediationOpportunity.Message}";
+            return;
+        }
+        if (!Surfaces.ControllerDirectory.TryOpenInOwningApp(StudioThemeCatalog.ThemesFolder, out var failureReason))
+        {
+            themeStatusTextBlock.Foreground = StudioTheme.Failure;
+            themeStatusTextBlock.Text = $"could not open the folder ({failureReason}); it is {StudioThemeCatalog.ThemesFolder}";
+        }
     }
 
     /// <summary>Builds the Editing tab: how mouse gestures behave in the Arrangement.</summary>
@@ -600,6 +710,7 @@ internal sealed partial class SettingsWindow : Window
             : ReadWholeNumber(controlSurfacePortNumericUpDown, workingPreferences.ControlSurfacePort);
         workingPreferences.MidiInputEnabled = midiInputCheckBox?.IsChecked != false;
         workingPreferences.ArrangementAltDragCopies = altDragCopiesCheckBox?.IsChecked != false;
+        workingPreferences.ThemeName = SelectedThemeName();
         workingPreferences.McpServerPort = mcpPortNumericUpDown is null
             ? workingPreferences.McpServerPort
             : ReadWholeNumber(mcpPortNumericUpDown, workingPreferences.McpServerPort);

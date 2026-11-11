@@ -17,6 +17,7 @@
 | [Deck control: Stream Deck and friends](Deck-Control.md) | Stream Deck and Launchpad |
 | [AI features and providers](AI.md) | the co-pilot, Autopilot, turning it off, providers and models |
 | [Settings](Settings.md) | every setting, in one table |
+| [Themes](Themes.md) | the built-in themes, making your own, every colour slot |
 | [Project format](Project-Format.md) | the `.slaw` file and pattern notation |
 
 Also: the [Circle of Fifths of Inevitability](../ROADMAP.md), the [Contributor Excellence Framework](../CONTRIBUTING.md), and the [Stream Deck plugins' protocol](../integrations/README.md).

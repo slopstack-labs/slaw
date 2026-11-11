@@ -23,10 +23,10 @@ internal sealed class PianoRollControl : Control
     private static readonly IBrush WhiteKeyBrush = StudioTheme.SurfaceRaised;
     private static readonly IBrush BlackKeyBrush = StudioTheme.Background;
     private static readonly IBrush NoteTopEdgeBrush = new SolidColorBrush(Colors.White, 0.35);
-    private static readonly IBrush PlayheadOverlayBrush = new SolidColorBrush(Color.Parse("#22c55e"), 0.22);
-    private static readonly IPen RowLinePen = new Pen(new SolidColorBrush(Color.Parse("#2a2a3a"), 0.5), 1);
-    private static readonly IPen StepLinePen = new Pen(new SolidColorBrush(Color.Parse("#2a2a3a"), 0.6), 1);
-    private static readonly IPen BeatLinePen = new Pen(new SolidColorBrush(Color.Parse("#4a4a5e"), 0.9), 1);
+    private static readonly IBrush PlayheadOverlayBrush = StudioTheme.Tint(StudioThemeSlots.Playhead, 0.22);
+    private static readonly IPen RowLinePen = new Pen(StudioTheme.Tint(StudioThemeSlots.Border, 0.5), 1);
+    private static readonly IPen StepLinePen = new Pen(StudioTheme.Tint(StudioThemeSlots.Border, 0.6), 1);
+    private static readonly IPen BeatLinePen = new Pen(StudioTheme.Tint(StudioThemeSlots.TextDim, 0.9), 1);
     private static readonly IPen OctaveLinePen = new Pen(StudioTheme.Border, 1);
     private static readonly IPen HoverPen = new Pen(StudioTheme.TextMuted, 1);
     private static readonly IPen SelectionPen = new Pen(StudioTheme.Text, 1.5);

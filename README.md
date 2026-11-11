@@ -53,7 +53,7 @@ Press **Ctrl+Shift+P** (⌘⇧P on a Mac) in the studio to search everything it 
 | **Making music** | [The Studio](wiki/Studio.md) · [Arrangement, automation and groove](wiki/Arrangement.md) · [Keyboard and mouse](wiki/Keyboard-and-Mouse.md) |
 | **Sound** | [Instruments and effects](wiki/Devices.md) · [Samples, SoundFonts, MIDI and recording](wiki/Sounds.md) · [VST3 plugins](wiki/VST3.md) |
 | **Automation** | [AI features and providers](wiki/AI.md) · [MCP](wiki/MCP.md) · [Deck control](wiki/Deck-Control.md) |
-| **Reference** | [Settings](wiki/Settings.md) · [Project format](wiki/Project-Format.md) |
+| **Reference** | [Settings](wiki/Settings.md) · [Themes](wiki/Themes.md) · [Project format](wiki/Project-Format.md) |
 
 The [Circle of Fifths of Inevitability](ROADMAP.md) says where this is going. The [Contributor Excellence Framework](CONTRIBUTING.md) says how to help it get there.
 

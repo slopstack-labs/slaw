@@ -111,6 +111,12 @@ internal sealed class StudioPreferences
     public const int MaximumCountInBars = 2;
 
     /// <summary>
+    /// The studio's colours, by theme name: a built-in one or a JSON file in the themes folder beside this
+    /// file (<see cref="StudioThemeCatalog.ThemesFolder"/>). An unknown name falls back to the default.
+    /// </summary>
+    public string ThemeName { get; set; } = StudioThemeCatalog.DefaultThemeName;
+
+    /// <summary>
     /// Alt+drag in the Arrangement copies clips (as Ctrl+drag does). Off is the classic mode:
     /// Alt+drag frees the snap to single steps and only Ctrl (⌘ on a Mac) copies.
     /// </summary>
@@ -187,6 +193,14 @@ internal sealed class StudioPreferences
     {
         var persistedPreferences = Load();
         CopyMetronomeTo(persistedPreferences);
+        persistedPreferences.Save();
+    }
+
+    /// <summary>Writes the theme choice and nothing else, for the command palette, for the same reason as <see cref="SaveWindowLayout"/>.</summary>
+    public void SaveTheme()
+    {
+        var persistedPreferences = Load();
+        persistedPreferences.ThemeName = ThemeName;
         persistedPreferences.Save();
     }
 

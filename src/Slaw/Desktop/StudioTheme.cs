@@ -5,75 +5,139 @@ namespace SlopstackLabs.Slaw.Desktop;
 /// <summary>
 /// The slaw visual identity substrate: near-black surfaces, a magenta accent
 /// for anything the AI touched, and cyan for drums because drums are cold.
+/// <para>
+/// Every brush here is one object for the whole run. <see cref="Apply"/> recolours them in place,
+/// so a theme switch reaches every control, pen and Fluent resource that holds one, without
+/// rebuilding anything. Code that needs a see-through variant asks <see cref="Tint"/>, which
+/// is recoloured the same way; a <c>Color.Parse</c> outside the themes would not follow a theme.
+/// </para>
 /// </summary>
 internal static class StudioTheme
 {
-    public static readonly Color BackgroundColor = Color.Parse("#0b0b10");
-    public static readonly Color SurfaceColor = Color.Parse("#13131b");
-    public static readonly Color SurfaceRaisedColor = Color.Parse("#1c1c28");
-    public static readonly Color AccentColor = Color.Parse("#d946ef");
+    private static readonly Dictionary<string, SolidColorBrush> SlotBrushes = new();
+    private static readonly List<(SolidColorBrush Brush, string Slot)> Tints = new();
+    private static readonly Dictionary<int, (SolidColorBrush Full, SolidColorBrush Dimmed)> TrackBrushes = new();
+    private static Color[] trackColorPalette = StudioThemeCatalog.Default.TrackColors.ToArray();
 
-    public static readonly IBrush Background = new SolidColorBrush(BackgroundColor);
-    public static readonly IBrush Surface = new SolidColorBrush(SurfaceColor);
-    public static readonly IBrush SurfaceRaised = new SolidColorBrush(SurfaceRaisedColor);
-    public static readonly IBrush SurfaceHover = new SolidColorBrush(Color.Parse("#262634"));
-    public static readonly IBrush SurfacePressed = new SolidColorBrush(Color.Parse("#181822"));
-    public static readonly IBrush Border = new SolidColorBrush(Color.Parse("#2a2a3a"));
-    public static readonly IBrush BorderStrong = new SolidColorBrush(Color.Parse("#3a3a4e"));
+    /// <summary>The theme the brushes carry now.</summary>
+    public static StudioThemeDefinition Current { get; private set; } = StudioThemeCatalog.Default;
+
+    /// <summary>Raised after <see cref="Apply"/> has recoloured everything.</summary>
+    public static event Action? Changed;
+
+    private static SolidColorBrush Slot(string slot)
+    {
+        var brush = new SolidColorBrush(StudioThemeCatalog.Default.Colors[slot]);
+        SlotBrushes[slot] = brush;
+        return brush;
+    }
+
+    public static Color BackgroundColor => ((SolidColorBrush)Background).Color;
+    public static Color SurfaceColor => ((SolidColorBrush)Surface).Color;
+    public static Color SurfaceRaisedColor => ((SolidColorBrush)SurfaceRaised).Color;
+    public static Color AccentColor => ((SolidColorBrush)Accent).Color;
+    public static Color TextColor => ((SolidColorBrush)Text).Color;
+
+    public static readonly IBrush Background = Slot(StudioThemeSlots.Background);
+    public static readonly IBrush Surface = Slot(StudioThemeSlots.Surface);
+    public static readonly IBrush SurfaceRaised = Slot(StudioThemeSlots.SurfaceRaised);
+    public static readonly IBrush SurfaceHover = Slot(StudioThemeSlots.SurfaceHover);
+    public static readonly IBrush SurfacePressed = Slot(StudioThemeSlots.SurfacePressed);
+    public static readonly IBrush Border = Slot(StudioThemeSlots.Border);
+    public static readonly IBrush BorderStrong = Slot(StudioThemeSlots.BorderStrong);
     /// <summary>Text and icons drawn on the accent colour or the AI gradient.</summary>
-    public static readonly IBrush OnAccent = Brushes.White;
-    public static readonly IBrush Text = new SolidColorBrush(Color.Parse("#ededf2"));
-    public static readonly IBrush TextMuted = new SolidColorBrush(Color.Parse("#8a8aa3"));
-    public static readonly IBrush TextDim = new SolidColorBrush(Color.Parse("#4a4a5e"));
-    public static readonly IBrush Accent = new SolidColorBrush(AccentColor);
-    public static readonly IBrush AccentSoft = new SolidColorBrush(Color.Parse("#5b1e66"));
-    public static readonly IBrush Violet = new SolidColorBrush(Color.Parse("#8b5cf6"));
-    public static readonly IBrush Drum = new SolidColorBrush(Color.Parse("#22d3ee"));
-    public static readonly IBrush DrumSoft = new SolidColorBrush(Color.Parse("#0e4a55"));
-    public static readonly IBrush Playhead = new SolidColorBrush(Color.Parse("#22c55e"));
-    public static readonly IBrush Warning = new SolidColorBrush(Color.Parse("#f59e0b"));
-    public static readonly IBrush Failure = new SolidColorBrush(Color.Parse("#ef4444"));
-    public static readonly IBrush CellEven = new SolidColorBrush(Color.Parse("#1a1a25"));
-    public static readonly IBrush CellOdd = new SolidColorBrush(Color.Parse("#22222f"));
+    public static readonly IBrush OnAccent = Slot(StudioThemeSlots.OnAccent);
+    public static readonly IBrush Text = Slot(StudioThemeSlots.Text);
+    public static readonly IBrush TextMuted = Slot(StudioThemeSlots.TextMuted);
+    public static readonly IBrush TextDim = Slot(StudioThemeSlots.TextDim);
+    public static readonly IBrush Accent = Slot(StudioThemeSlots.Accent);
+    public static readonly IBrush AccentSoft = Slot(StudioThemeSlots.AccentSoft);
+    public static readonly IBrush Violet = Slot(StudioThemeSlots.Violet);
+    public static readonly IBrush Drum = Slot(StudioThemeSlots.Drum);
+    public static readonly IBrush DrumSoft = Slot(StudioThemeSlots.DrumSoft);
+    public static readonly IBrush Playhead = Slot(StudioThemeSlots.Playhead);
+    public static readonly IBrush Warning = Slot(StudioThemeSlots.Warning);
+    public static readonly IBrush Failure = Slot(StudioThemeSlots.Failure);
+    public static readonly IBrush CellEven = Slot(StudioThemeSlots.CellEven);
+    public static readonly IBrush CellOdd = Slot(StudioThemeSlots.CellOdd);
+
+    private static readonly GradientStop AiGradientStart = new(StudioThemeCatalog.Default.Colors[StudioThemeSlots.AiGradientStart], 0);
+    private static readonly GradientStop AiGradientEnd = new(StudioThemeCatalog.Default.Colors[StudioThemeSlots.AiGradientEnd], 1);
+    private static readonly GradientStop AiGradientHoverStart = new(StudioThemeCatalog.Default.Colors[StudioThemeSlots.AiGradientHoverStart], 0);
+    private static readonly GradientStop AiGradientHoverEnd = new(StudioThemeCatalog.Default.Colors[StudioThemeSlots.AiGradientHoverEnd], 1);
 
     public static readonly IBrush AiGradient = new LinearGradientBrush
     {
         StartPoint = new Avalonia.RelativePoint(0, 0, Avalonia.RelativeUnit.Relative),
         EndPoint = new Avalonia.RelativePoint(1, 1, Avalonia.RelativeUnit.Relative),
-        GradientStops =
-        {
-            new GradientStop(Color.Parse("#a21caf"), 0),
-            new GradientStop(Color.Parse("#6d28d9"), 1),
-        },
+        GradientStops = { AiGradientStart, AiGradientEnd },
     };
 
     public static readonly IBrush AiGradientHover = new LinearGradientBrush
     {
         StartPoint = new Avalonia.RelativePoint(0, 0, Avalonia.RelativeUnit.Relative),
         EndPoint = new Avalonia.RelativePoint(1, 1, Avalonia.RelativeUnit.Relative),
-        GradientStops =
-        {
-            new GradientStop(Color.Parse("#c026d3"), 0),
-            new GradientStop(Color.Parse("#7c3aed"), 1),
-        },
+        GradientStops = { AiGradientHoverStart, AiGradientHoverEnd },
     };
 
-    private static readonly Color[] TrackColorPalette =
+    /// <summary>
+    /// A see-through brush in a theme colour (grid lines, overlays, shades), kept in step with the theme.
+    /// Make it once (a static field) rather than per frame: each one is remembered for recolouring.
+    /// </summary>
+    public static SolidColorBrush Tint(string slot, double opacity)
     {
-        Color.Parse("#ff5d8f"), Color.Parse("#ff9f43"), Color.Parse("#ffd93d"), Color.Parse("#6bcB77"),
-        Color.Parse("#2ed8c3"), Color.Parse("#4d96ff"), Color.Parse("#9b72ff"), Color.Parse("#f06bd0"),
-    };
-
-    /// <summary>Each track gets a colour by position, the way every DAW since 2001 has done it.</summary>
-    public static Color TrackColor(int trackIndex) => TrackColorPalette[((trackIndex % TrackColorPalette.Length) + TrackColorPalette.Length) % TrackColorPalette.Length];
-
-    public static IBrush TrackBrush(int trackIndex) => new SolidColorBrush(TrackColor(trackIndex));
-
-    public static IBrush TrackBrushDimmed(int trackIndex)
-    {
-        var trackColor = TrackColor(trackIndex);
-        return new SolidColorBrush(Color.FromArgb(0x55, trackColor.R, trackColor.G, trackColor.B));
+        var tint = new SolidColorBrush(Current.Colors[slot], opacity);
+        Tints.Add((tint, slot));
+        return tint;
     }
 
+    /// <summary>Each track gets a colour by position, the way every DAW since 2001 has done it.</summary>
+    public static Color TrackColor(int trackIndex) => trackColorPalette[((trackIndex % trackColorPalette.Length) + trackColorPalette.Length) % trackColorPalette.Length];
+
+    /// <summary>The track's colour as a brush that follows theme changes (one per track position).</summary>
+    public static IBrush TrackBrush(int trackIndex) => TrackBrushPair(trackIndex).Full;
+
+    public static IBrush TrackBrushDimmed(int trackIndex) => TrackBrushPair(trackIndex).Dimmed;
+
+    private static (SolidColorBrush Full, SolidColorBrush Dimmed) TrackBrushPair(int trackIndex)
+    {
+        if (!TrackBrushes.TryGetValue(trackIndex, out var pair))
+        {
+            pair = (new SolidColorBrush(TrackColor(trackIndex)), new SolidColorBrush(Dimmed(TrackColor(trackIndex))));
+            TrackBrushes[trackIndex] = pair;
+        }
+        return pair;
+    }
+
+    private static Color Dimmed(Color trackColor) => Color.FromArgb(0x55, trackColor.R, trackColor.G, trackColor.B);
+
     public static readonly FontFamily MonospaceFont = new("JetBrains Mono, Cascadia Mono, Consolas, DejaVu Sans Mono, monospace");
+
+    /// <summary>
+    /// Recolours every brush, tint, gradient and track colour to <paramref name="theme"/>. Fluent's own palette
+    /// and the light/dark variant are the application's part (<see cref="SlawDesktopApplication.ApplyTheme"/>).
+    /// </summary>
+    public static void Apply(StudioThemeDefinition theme)
+    {
+        Current = theme;
+        foreach (var (slot, brush) in SlotBrushes)
+        {
+            brush.Color = theme.Colors[slot];
+        }
+        foreach (var (tint, slot) in Tints)
+        {
+            tint.Color = theme.Colors[slot];
+        }
+        AiGradientStart.Color = theme.Colors[StudioThemeSlots.AiGradientStart];
+        AiGradientEnd.Color = theme.Colors[StudioThemeSlots.AiGradientEnd];
+        AiGradientHoverStart.Color = theme.Colors[StudioThemeSlots.AiGradientHoverStart];
+        AiGradientHoverEnd.Color = theme.Colors[StudioThemeSlots.AiGradientHoverEnd];
+        trackColorPalette = theme.TrackColors.ToArray();
+        foreach (var (trackIndex, (full, dimmed)) in TrackBrushes)
+        {
+            full.Color = TrackColor(trackIndex);
+            dimmed.Color = Dimmed(TrackColor(trackIndex));
+        }
+        Changed?.Invoke();
+    }
 }

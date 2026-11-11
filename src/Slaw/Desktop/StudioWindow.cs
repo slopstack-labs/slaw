@@ -114,6 +114,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     public StudioWindow(StudioLaunchParameters launchParameters)
     {
         preferences = launchParameters.Preferences;
+        ApplyThemeAtStartup();
         document = new StudioDocument(launchParameters.Project, launchParameters.ProjectFilePath);
         liveAudioSession = CreateLiveAudioSession();
 
@@ -235,6 +236,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             AppendCopilotMessage("system", $"AI unavailable: {inferenceUnavailabilityReason}. Open Settings to configure the inference substrate.");
         }
         SetStatus(StatusSeverity.Informational, "ready. launch a clip with its play button, or press Space.");
+        AnnouncePendingThemeNotice();
         _ = RescanSampleLibraryAsync();
     }
 
@@ -1169,7 +1171,12 @@ internal sealed partial class StudioWindow : Window, IStudioHost
     private async Task OpenSettingsAsync(bool openAudioTab = false, bool openControllersTab = false)
     {
         var settingsWindow = new SettingsWindow(preferences, openAudioTab, openControllersTab, DescribeControllers);
+        var themeBeforeSettings = StudioTheme.Current.Name;
         await settingsWindow.ShowDialog(this);
+        if (StudioTheme.Current.Name != themeBeforeSettings)
+        {
+            RefreshAfterThemeChange();
+        }
         if (settingsWindow.Result is not { } revisedPreferences)
         {
             return;

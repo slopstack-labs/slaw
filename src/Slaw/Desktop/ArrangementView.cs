@@ -401,8 +401,8 @@ internal sealed class ArrangementCanvas : Control
     private const double MaximumPixelsPerStep = 48;
 
     private static readonly Typeface LabelTypeface = new(StudioTheme.MonospaceFont, FontStyle.Normal, FontWeight.SemiBold);
-    private static readonly IPen BarLinePen = new Pen(new SolidColorBrush(Color.Parse("#4a4a5e"), 0.9), 1);
-    private static readonly IPen BeatLinePen = new Pen(new SolidColorBrush(Color.Parse("#2a2a3a"), 0.8), 1);
+    private static readonly IPen BarLinePen = new Pen(StudioTheme.Tint(StudioThemeSlots.TextDim, 0.9), 1);
+    private static readonly IPen BeatLinePen = new Pen(StudioTheme.Tint(StudioThemeSlots.Border, 0.8), 1);
     private static readonly IPen RepetitionPen = new Pen(new SolidColorBrush(Colors.White, 0.25), 1, new DashStyle(new double[] { 2, 3 }, 0));
     private static readonly IPen CursorPen = new Pen(StudioTheme.Accent, 1.5);
     // Made once: the hover code used to allocate a new Cursor on every pointer move over a clip.
@@ -410,9 +410,9 @@ internal sealed class ArrangementCanvas : Control
     private static readonly Cursor ResizeCursor = new(StandardCursorType.SizeWestEast);
     private static readonly IPen PlayheadPen = new Pen(StudioTheme.Playhead, 2);
     private static readonly IPen SelectedClipPen = new Pen(StudioTheme.Text, 2);
-    private static readonly IBrush LoopBraceBrush = new SolidColorBrush(Color.Parse("#f59e0b"), 0.55);
-    private static readonly IBrush LoopShadeBrush = new SolidColorBrush(Color.Parse("#f59e0b"), 0.06);
-    private static readonly IBrush MarqueeFillBrush = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+    private static readonly IBrush LoopBraceBrush = StudioTheme.Tint(StudioThemeSlots.Warning, 0.55);
+    private static readonly IBrush LoopShadeBrush = StudioTheme.Tint(StudioThemeSlots.Warning, 0.06);
+    private static readonly IBrush MarqueeFillBrush = StudioTheme.Tint(StudioThemeSlots.Text, 0.16);
     private static readonly IPen MarqueePen = new Pen(StudioTheme.Text, 1, new DashStyle(new double[] { 3, 3 }, 0));
 
     private readonly StudioDocument document;
@@ -494,7 +494,8 @@ internal sealed class ArrangementCanvas : Control
         }
     }
 
-    private static readonly IBrush SessionOverrideShade = new SolidColorBrush(StudioTheme.BackgroundColor, 0.6);
+    private static readonly IBrush MutedClipShade = StudioTheme.Tint(StudioThemeSlots.Background, 0.55);
+    private static readonly IBrush SessionOverrideShade = StudioTheme.Tint(StudioThemeSlots.Background, 0.6);
     private IReadOnlySet<string> overriddenTrackIds = new HashSet<string>();
 
     /// <summary>Tracks playing session material over the arrangement right now; their lanes are dimmed.</summary>
@@ -720,7 +721,7 @@ internal sealed class ArrangementCanvas : Control
         }
         if (track.Muted)
         {
-            drawingContext.DrawRectangle(new SolidColorBrush(StudioTheme.BackgroundColor, 0.55), null, clipRect, 3, 3);
+            drawingContext.DrawRectangle(MutedClipShade, null, clipRect, 3, 3);
         }
     }
 

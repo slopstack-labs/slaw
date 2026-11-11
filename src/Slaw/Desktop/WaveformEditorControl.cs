@@ -35,12 +35,11 @@ internal sealed class WaveformEditorControl : Control
     private static readonly double[] CandidateTickStepsSeconds =
         [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60];
 
-    private static readonly Color WarningColor = Color.Parse("#f59e0b");
     private static readonly Typeface LabelTypeface = new(StudioTheme.MonospaceFont, FontStyle.Normal, FontWeight.SemiBold);
 
     private static readonly IPen WaveformPen = new Pen(StudioTheme.Accent, 1);
     private static readonly IPen WaveformPolylinePen = new Pen(StudioTheme.Accent, 1.25, lineJoin: PenLineJoin.Round);
-    private static readonly IPen CenterLinePen = new Pen(new SolidColorBrush(Color.Parse("#4a4a5e"), 0.8), 1);
+    private static readonly IPen CenterLinePen = new Pen(StudioTheme.Tint(StudioThemeSlots.TextDim, 0.8), 1);
     private static readonly IPen OverviewPen = new Pen(StudioTheme.TextDim, 1);
     private static readonly IPen OverviewWindowPen = new Pen(StudioTheme.TextMuted, 1);
     private static readonly IPen RulerMajorPen = new Pen(StudioTheme.TextMuted, 1);
@@ -51,12 +50,12 @@ internal sealed class WaveformEditorControl : Control
     private static readonly IPen LoopMarkerPen = new Pen(StudioTheme.Warning, 1.5);
     private static readonly IPen SliceMarkerPen = new Pen(StudioTheme.Violet, 1.25);
     private static readonly IPen PlayheadPen = new Pen(StudioTheme.Playhead, 2);
-    private static readonly IPen SelectionEdgePen = new Pen(new SolidColorBrush(Colors.White, 0.55), 1);
+    private static readonly IPen SelectionEdgePen = new Pen(StudioTheme.Tint(StudioThemeSlots.Text, 0.55), 1);
 
-    private static readonly IBrush DimOverlayBrush = new SolidColorBrush(StudioTheme.BackgroundColor, 0.62);
-    private static readonly IBrush SelectionBrush = new SolidColorBrush(Colors.White, 0.12);
-    private static readonly IBrush LoopRegionBrush = new SolidColorBrush(WarningColor, 0.08);
-    private static readonly IBrush OverviewWindowBrush = new SolidColorBrush(Colors.White, 0.14);
+    private static readonly IBrush DimOverlayBrush = StudioTheme.Tint(StudioThemeSlots.Background, 0.62);
+    private static readonly IBrush SelectionBrush = StudioTheme.Tint(StudioThemeSlots.Text, 0.12);
+    private static readonly IBrush LoopRegionBrush = StudioTheme.Tint(StudioThemeSlots.Warning, 0.08);
+    private static readonly IBrush OverviewWindowBrush = StudioTheme.Tint(StudioThemeSlots.Text, 0.14);
 
     private enum PointerInteractionMode
     {
