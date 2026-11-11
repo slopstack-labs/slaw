@@ -46,12 +46,21 @@ internal sealed class StudioDocument
     public SlawTrack? SelectedTrack =>
         SelectedTrackIndex >= 0 && SelectedTrackIndex < Project.Tracks.Count ? Project.Tracks[SelectedTrackIndex] : null;
 
+    private readonly HashSet<string> selectedTimelineClipIds = new();
+
     /// <summary>
     /// The arrangement clip being edited, if any. While set, <see cref="SelectedClip"/>
     /// is that clip and <see cref="SelectedTrackIndex"/> its track, so every clip editor
     /// works on it unchanged; selecting a scene slot clears it.
     /// </summary>
     public string? SelectedTimelineClipId { get; private set; }
+
+    /// <summary>All arrangement clip IDs currently selected.</summary>
+    public IReadOnlySet<string> SelectedTimelineClipIds => selectedTimelineClipIds;
+
+    /// <summary>Whether the given timeline clip is currently selected.</summary>
+    public bool IsTimelineClipSelected(string? timelineClipId) =>
+        timelineClipId is not null && selectedTimelineClipIds.Contains(timelineClipId);
 
     public TimelineClip? SelectedTimelineClip =>
         SelectedTimelineClipId is { } timelineClipId ? Project.Timeline.FirstOrDefault(timelineClip => timelineClip.Id == timelineClipId) : null;
@@ -119,6 +128,7 @@ internal sealed class StudioDocument
         {
             return null;
         }
+        selectedTimelineClipIds.Clear();
         SelectedTimelineClipId = null;
         SelectedTrackIndex = arrivedTrackIndex;
         return arrivedTrackIndex;
@@ -191,10 +201,11 @@ internal sealed class StudioDocument
 
     public void Select(int trackIndex, int sceneIndex)
     {
-        if (trackIndex == SelectedTrackIndex && sceneIndex == SelectedSceneIndex && SelectedTimelineClipId is null)
+        if (trackIndex == SelectedTrackIndex && sceneIndex == SelectedSceneIndex && SelectedTimelineClipId is null && selectedTimelineClipIds.Count == 0)
         {
             return;
         }
+        selectedTimelineClipIds.Clear();
         SelectedTimelineClipId = null;
         SelectedTrackIndex = trackIndex;
         SelectedSceneIndex = sceneIndex;
@@ -205,20 +216,97 @@ internal sealed class StudioDocument
     /// <summary>Selects an arrangement clip (and its track) for editing; null clears the timeline selection.</summary>
     public void SelectTimelineClip(string? timelineClipId)
     {
-        var timelineClip = timelineClipId is null ? null : Project.Timeline.FirstOrDefault(candidate => candidate.Id == timelineClipId);
+        if (timelineClipId is null)
+        {
+            if (selectedTimelineClipIds.Count == 0 && SelectedTimelineClipId is null)
+            {
+                return;
+            }
+            selectedTimelineClipIds.Clear();
+            SelectedTimelineClipId = null;
+            ClampSelection();
+            SelectionChanged?.Invoke();
+            return;
+        }
+
+        var timelineClip = Project.Timeline.FirstOrDefault(candidate => candidate.Id == timelineClipId);
         var trackIndex = timelineClip is null ? SelectedTrackIndex : Project.Tracks.FindIndex(track => track.Id == timelineClip.TrackId);
-        if (timelineClip?.Id == SelectedTimelineClipId && trackIndex == SelectedTrackIndex)
+        if (selectedTimelineClipIds.Count == 1 && selectedTimelineClipIds.Contains(timelineClipId) && SelectedTimelineClipId == timelineClipId && trackIndex == SelectedTrackIndex)
         {
             return;
         }
+        selectedTimelineClipIds.Clear();
+        selectedTimelineClipIds.Add(timelineClipId);
         SelectedTimelineClipId = timelineClip?.Id;
         SelectedTrackIndex = Math.Max(0, trackIndex);
         ClampSelection();
         SelectionChanged?.Invoke();
     }
 
+    /// <summary>Selects multiple arrangement clips at once.</summary>
+    public void SelectTimelineClips(IEnumerable<string> timelineClipIds, string? primaryClipId = null)
+    {
+        selectedTimelineClipIds.Clear();
+        foreach (var id in timelineClipIds)
+        {
+            if (Project.Timeline.Any(candidate => candidate.Id == id))
+            {
+                selectedTimelineClipIds.Add(id);
+            }
+        }
+        SelectedTimelineClipId = primaryClipId is not null && selectedTimelineClipIds.Contains(primaryClipId)
+            ? primaryClipId
+            : selectedTimelineClipIds.FirstOrDefault();
+        if (SelectedTimelineClip is { } selectedClip)
+        {
+            var trackIndex = Project.Tracks.FindIndex(track => track.Id == selectedClip.TrackId);
+            if (trackIndex >= 0)
+            {
+                SelectedTrackIndex = trackIndex;
+            }
+        }
+        ClampSelection();
+        SelectionChanged?.Invoke();
+    }
+
+    /// <summary>Toggles selection of an arrangement clip.</summary>
+    public void ToggleTimelineClipSelection(string timelineClipId)
+    {
+        if (selectedTimelineClipIds.Contains(timelineClipId))
+        {
+            selectedTimelineClipIds.Remove(timelineClipId);
+            if (SelectedTimelineClipId == timelineClipId)
+            {
+                SelectedTimelineClipId = selectedTimelineClipIds.FirstOrDefault();
+            }
+        }
+        else if (Project.Timeline.Any(candidate => candidate.Id == timelineClipId))
+        {
+            selectedTimelineClipIds.Add(timelineClipId);
+            SelectedTimelineClipId = timelineClipId;
+        }
+        if (SelectedTimelineClip is { } selectedClip)
+        {
+            var trackIndex = Project.Tracks.FindIndex(track => track.Id == selectedClip.TrackId);
+            if (trackIndex >= 0)
+            {
+                SelectedTrackIndex = trackIndex;
+            }
+        }
+        ClampSelection();
+        SelectionChanged?.Invoke();
+    }
+
+    /// <summary>Clears the arrangement clip selection.</summary>
+    public void ClearTimelineClipSelection() => SelectTimelineClip(null);
+
     private void ClampSelection()
     {
+        selectedTimelineClipIds.RemoveWhere(id => !Project.Timeline.Any(timelineClip => timelineClip.Id == id));
+        if (SelectedTimelineClipId is not null && !selectedTimelineClipIds.Contains(SelectedTimelineClipId))
+        {
+            SelectedTimelineClipId = selectedTimelineClipIds.FirstOrDefault();
+        }
         if (SelectedTimelineClip is { } selectedTimelineClip)
         {
             // The clip may have moved to another track (or the tracks were reordered).

@@ -23,8 +23,9 @@ Every gesture the studio answers to.
 | Double-click or right-click a note | Delete it |
 | Drag a drum hit up/down | Change its velocity (Shift+click selects a hit without toggling it) |
 | Mouse wheel (piano roll) | Scroll octaves |
-| Click an arrangement clip | Select it and open it in the editor below |
-| Drag an arrangement clip / its right edge | Move it / loop its pattern longer (Ctrl copies) |
+| Click an arrangement clip | Select it and open it in the editor below (Shift- or Ctrl-click to select multiple) |
+| Drag empty space in arrangement lanes | Marquee-select multiple clips |
+| Drag an arrangement clip / its right edge | Move it / loop its pattern longer (drag and hold Alt or Ctrl to copy) |
 | Double-click an empty arrangement lane | Create a one-bar clip there |
 | Right-click an arrangement clip | Edit / duplicate / rename / delete |
 | Right-click a track header | Rename / duplicate / arm / delete the track |
