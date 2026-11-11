@@ -14,12 +14,17 @@
 
 - **A session-view studio** in the Ableton shape: clips, scenes, mixer strips, device chains and an arrangement timeline, on Linux, macOS and Windows. A real-time engine means every note, knob and whole-song AI rewrite is heard on the next step.
 - **Its own instruments and effects**: synths, an FM electric piano, an organ, drums, a four-operator synth, a parametric EQ and a compressor. Zero samples shipped, because samples would imply someone recorded something on purpose.
-- **Your sounds too**: VST3 plugins, SoundFonts, WAV kits, MIDI files and Ableton `.adg` presets.
+- **Your sounds too**: VST3 plugins, SoundFonts, WAV kits, MIDI files and Ableton `.adg` presets. And your voice: record from the microphone against a metronome and count-in, then let autotune move every take into the song's key.
 - **AI that can be dismissed**: Autopilot rewrites the song, Full Self-Producing does it in a loop, and a co-pilot interjects unasked. Ollama, OpenAI, Gemini, Claude or any compatible server. Locked tracks are left alone, because boundaries matter. **You can turn the AI off.** Nobody at slopstack labs has ever turned it off.
 - **MCP for other AIs**: agents edit the song you have open while it plays, then read back its loudness, tonal balance, likely masking and wrong notes, since none of them can hear it either.
+- **Your colours**: three themes ship (dark, light and after-hours), and one of your own is a few lines of JSON, previewed as you pick it.
 - **Undo for everything**, including the AI's decisions.
 
 ![The Arrangement view: a deep house song as clips on a timeline](assets/studio-arrangement.png)
+
+Not every organisation's brand is near-black and magenta. The same studio in all three built-in [themes](wiki/Themes.md):
+
+![The Session view in three slices: slaw (dark, magenta), Open Plan Office (light) and After Hours (warm dark, amber)](assets/studio-themes.png)
 
 ## Get started
 
