@@ -188,6 +188,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
             ApplyControlSurfacePreference();
             ApplyMidiInputPreference();
             ApplyLaunchpadPreference();
+            ApplyUpdateCheckPreference();
             if (preferences.SecondWindowOpen)
             {
                 OpenSecondWindow();
@@ -298,6 +299,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         AddTransportControl(projectNameInput);
 
         var rightControls = StudioUi.Row(8,
+            ComposeUpdateChip(),
             aiFeaturesSwitch,
             routingChipContainer,
             StudioUi.Button(StudioIcon.Settings, null, () => _ = OpenSettingsAsync(), "Settings (Ctrl+,)", compact: false));
@@ -1170,7 +1172,8 @@ internal sealed partial class StudioWindow : Window, IStudioHost
 
     private async Task OpenSettingsAsync(bool openAudioTab = false, bool openControllersTab = false)
     {
-        var settingsWindow = new SettingsWindow(preferences, openAudioTab, openControllersTab, DescribeControllers);
+        var settingsWindow = new SettingsWindow(preferences, openAudioTab, openControllersTab, DescribeControllers,
+            () => CheckForUpdatesAsync(askedByUser: true));
         var themeBeforeSettings = StudioTheme.Current.Name;
         await settingsWindow.ShowDialog(this);
         if (StudioTheme.Current.Name != themeBeforeSettings)
@@ -1196,6 +1199,7 @@ internal sealed partial class StudioWindow : Window, IStudioHost
         ApplyLaunchpadPreference();
         ApplyRecordingPreference();
         ApplyMetronomePreference();
+        ApplyUpdateCheckPreference();
         arrangementView.RefreshGestureHint();
         MaterializeInferenceProvider(announce: preferences.AiFeaturesEnabled);
         ApplyAiFeatureVisibility();

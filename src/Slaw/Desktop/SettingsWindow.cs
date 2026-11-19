@@ -62,9 +62,12 @@ internal sealed partial class SettingsWindow : Window
     public StudioPreferences? Result { get; private set; }
 
     /// <param name="describeControllers">Asks the studio what is connected right now; null shows the list as disconnected.</param>
-    public SettingsWindow(StudioPreferences currentPreferences, bool openAudioTab = false, bool openControllersTab = false, Func<Surfaces.ControllerSnapshot>? describeControllers = null)
+    /// <param name="checkForUpdates">Runs the studio's update check for the About tab's button; null disables the button.</param>
+    public SettingsWindow(StudioPreferences currentPreferences, bool openAudioTab = false, bool openControllersTab = false, Func<Surfaces.ControllerSnapshot>? describeControllers = null,
+        Func<Task<Updates.UpdateCheckOutcome?>>? checkForUpdates = null)
     {
         this.describeControllers = describeControllers;
+        this.checkForUpdates = checkForUpdates;
         workingPreferences = currentPreferences.Clone();
         themeOnOpen = StudioTheme.Current.Name;
         workingSampleFolders = new ObservableCollection<string>(workingPreferences.SampleFolders ?? new List<string>());
@@ -289,7 +292,7 @@ internal sealed partial class SettingsWindow : Window
         var tabPanel = new StackPanel { Spacing = 10 };
         tabPanel.Children.Add(aiFeaturesToggle);
         var masterCaption = StudioUi.Caption(
-            "Off: slaw is a plain step-sequencing DAW. No AI buttons, no co-pilot, no network traffic. Nobody at slopstack labs has ever turned it off.");
+            "Off: slaw is a plain step-sequencing DAW. No AI buttons, no co-pilot, no calls to a model. Nobody at slopstack labs has ever turned it off.");
         masterCaption.TextWrapping = TextWrapping.Wrap;
         masterCaption.TextTrimming = TextTrimming.None;
         tabPanel.Children.Add(masterCaption);
@@ -615,9 +618,12 @@ internal sealed partial class SettingsWindow : Window
         }
     }
 
-    private static Control BuildAboutTab()
+    private Control BuildAboutTab()
     {
-        var versionText = typeof(SettingsWindow).Assembly.GetName().Version?.ToString() ?? "unversioned (very agile)";
+        // The full version, label included: 0.2.0-beta.7 and 0.2.0-beta.8 are different builds.
+        var versionText = Updates.RunningBuild.CommitAbbreviation is { } commitAbbreviation
+            ? $"{Updates.RunningBuild.DisplayVersion} (commit {commitAbbreviation})"
+            : Updates.RunningBuild.DisplayVersion;
         var tabPanel = new StackPanel { Spacing = 8 };
         tabPanel.Children.Add(new TextBlock
         {
@@ -628,6 +634,7 @@ internal sealed partial class SettingsWindow : Window
         });
         tabPanel.Children.Add(StudioUi.Caption("beyond deterministic production", 13, StudioTheme.Text));
         tabPanel.Children.Add(StudioUi.Caption($"version {versionText}", 12));
+        tabPanel.Children.Add(BuildUpdatesSection());
         tabPanel.Children.Add(StudioUi.SectionHeading("Settings file"));
         tabPanel.Children.Add(new SelectableTextBlock
         {
@@ -710,6 +717,7 @@ internal sealed partial class SettingsWindow : Window
             : ReadWholeNumber(controlSurfacePortNumericUpDown, workingPreferences.ControlSurfacePort);
         workingPreferences.MidiInputEnabled = midiInputCheckBox?.IsChecked != false;
         workingPreferences.ArrangementAltDragCopies = altDragCopiesCheckBox?.IsChecked != false;
+        workingPreferences.UpdateCheckEnabled = updateCheckCheckBox?.IsChecked != false;
         workingPreferences.ThemeName = SelectedThemeName();
         workingPreferences.McpServerPort = mcpPortNumericUpDown is null
             ? workingPreferences.McpServerPort

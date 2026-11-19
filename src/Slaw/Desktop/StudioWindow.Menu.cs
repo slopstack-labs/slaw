@@ -190,6 +190,8 @@ internal sealed partial class StudioWindow
             {
                 CommandItem("_Command Palette…", StudioCommand.ShowCommandPalette),
                 CommandItem("_Keyboard Shortcuts", StudioCommand.ShowShortcuts),
+                new Separator(),
+                ActionItem("Check for _Updates", () => _ = CheckForUpdatesAsync(askedByUser: true)),
             },
         };
 

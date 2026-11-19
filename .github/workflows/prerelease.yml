@@ -33,9 +33,14 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Build
+        env:
+          VERSION_TAG: ${{ github.event.inputs.version }}
         run: |
+          # The tag is stamped into the binary: the studio's update check compares it with the releases
+          # on GitHub, and an unstamped build would call itself 0.1.0 and see an update forever.
           dotnet publish src/Slaw/Slaw.csproj -c Release -r ${{ matrix.rid }} --self-contained \
             -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None \
+            -p:Version="${VERSION_TAG#v}" \
             -o publish/${{ matrix.rid }}
           mv publish/${{ matrix.rid }}/slaw${{ matrix.suffix }} slaw-${{ matrix.rid }}${{ matrix.suffix }}
 

@@ -30,10 +30,17 @@ internal sealed class StudioPreferences
 {
     /// <summary>
     /// The master switch. Off, slaw is a plain step-sequencing DAW: no AI
-    /// buttons, no co-pilot, no network traffic. Nobody at slopstack labs has
+    /// buttons, no co-pilot, no calls to a model. Nobody at slopstack labs has
     /// ever turned it off.
     /// </summary>
     public bool AiFeaturesEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Ask GitHub when the studio opens, at most once a day, whether a newer slaw has
+    /// been released. Independent of <see cref="AiFeaturesEnabled"/>: it is the one
+    /// network call slaw makes with AI off, which is why it has a switch of its own.
+    /// </summary>
+    public bool UpdateCheckEnabled { get; set; } = true;
 
     public string ProviderName { get; set; } = "local";
     public string? ModelIdentifier { get; set; }
@@ -209,6 +216,14 @@ internal sealed class StudioPreferences
     {
         var persistedPreferences = Load();
         persistedPreferences.ArrangementAltDragCopies = ArrangementAltDragCopies;
+        persistedPreferences.Save();
+    }
+
+    /// <summary>Writes the update check's switch and nothing else, for the command palette's toggle, for the same reason as <see cref="SaveWindowLayout"/>.</summary>
+    public void SaveUpdateCheck()
+    {
+        var persistedPreferences = Load();
+        persistedPreferences.UpdateCheckEnabled = UpdateCheckEnabled;
         persistedPreferences.Save();
     }
 
