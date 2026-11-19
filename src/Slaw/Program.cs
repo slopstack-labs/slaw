@@ -111,8 +111,8 @@ internal static class Program
 
     private static int PrintVersion()
     {
-        var informationalVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
-        Console.WriteLine($"slaw {informationalVersion} — beyond deterministic production");
+        // The label too: "0.2.0" would not tell a beta.7 from a beta.8, and the update check compares exactly that.
+        Console.WriteLine($"slaw {Updates.RunningBuild.DisplayVersion} — beyond deterministic production");
         return 0;
     }
 

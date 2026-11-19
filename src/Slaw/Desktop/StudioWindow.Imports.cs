@@ -236,6 +236,7 @@ internal sealed partial class StudioWindow
             () => SetMetronomeOnlyWhileRecording(!preferences.MetronomeOnlyWhileRecording)));
         entries.Add(new CommandPaletteEntry("Metronome: Set Volume and Count-In…", null, () => _ = OpenSettingsAsync(openAudioTab: true)));
         entries.AddRange(ComposeThemePaletteEntries());
+        entries.AddRange(ComposeUpdatePaletteEntries());
         entries.Add(new CommandPaletteEntry(preferences.ArrangementAltDragCopies
             ? "Arrangement: Alt+Drag Snaps to Single Steps (Classic; Ctrl+Drag Copies)"
             : "Arrangement: Alt+Drag Copies Clips", null, () => SetArrangementAltDragCopies(!preferences.ArrangementAltDragCopies)));

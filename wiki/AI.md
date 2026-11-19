@@ -17,7 +17,7 @@ The left browser and right AI panel appear when the AI is on:
 
 ## AI-off mode
 
-The toolbar has a master **AI** switch (also in Settings). With it off, slaw is a plain DAW: every sparkle-marked AI button, the AI panel, and the co-pilot disappear, and no network calls are made. Nobody at slopstack labs has ever turned it off. We are told the option tests well with auditors.
+The toolbar has a master **AI** switch (also in Settings). With it off, slaw is a plain DAW: every sparkle-marked AI button, the AI panel, and the co-pilot disappear, and no model is called. (The [update check](Install.md#updates) is a separate switch under Settings → About.) Nobody at slopstack labs has ever turned it off. We are told the option tests well with auditors.
 
 ## Provider & Model Recommendations
 

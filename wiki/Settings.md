@@ -13,6 +13,6 @@ The Settings button (top right of the toolbar) or Ctrl+, opens the Settings dial
 | Editing | **Alt+drag copies arrangement clips** (on by default). Off is the classic mode: Alt+drag moves clips one step at a time, free of the beat snap, and only Ctrl+drag copies. The command palette toggles it too (search "Alt+Drag") |
 | Controllers | What is connected right now, **Deck control** (on/off and port, 47116 by default; the plugins expect 47116), install buttons for the Stream Deck plugins, **Launchpad MK2** on/off, every layout explained |
 | Integrations | MIDI input on/off, the MCP server (on/off and port) |
-| About | Provenance |
+| About | Provenance, the full version with its commit, and **Updates**: *Check for updates at startup* (on by default) and **Check now**, which asks GitHub straight away and offers the release page if there is news. See [Updates](Install.md#updates) |
 
 Settings persist in the per-user config folder (`~/.config/slaw/settings.json` on Linux). CLI flags override them for one session.

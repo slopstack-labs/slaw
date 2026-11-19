@@ -4,7 +4,7 @@
 
 | Page | What's in it |
 |------|--------------|
-| [Install and build](Install.md) | platforms, requirements, building, installers |
+| [Install and build](Install.md) | platforms, requirements, building, installers, update notices |
 | [Command line](Command-Line.md) | every command and flag, and the headless production modes |
 | [Examples](Examples.md) | the reference songs, and what to look at in each |
 | [The Studio](Studio.md) | the live engine, the window layout, note audition, drag and drop |

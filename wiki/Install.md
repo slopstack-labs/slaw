@@ -83,3 +83,18 @@ installer/macos/build-dmg.sh osx-arm64 v0.2.0 out/macos
 ```
 
 The app is ad-hoc signed, not notarized, because notarization costs a subscription and slaw's revenue model is still in remediation. The first launch therefore needs **System Settings → Privacy & Security → Open Anyway** (or `xattr -dr com.apple.quarantine /Applications/slaw.app`). Live playback goes straight to Core Audio, so there is nothing else to install. If you pick sox `play` under Settings → Audio instead, the app also looks for it in `/opt/homebrew/bin` and `/usr/local/bin`, because Finder starts apps with a bare `PATH`. For `slaw` on the command line, link the binary inside the bundle: `ln -s /Applications/slaw.app/Contents/MacOS/slaw /usr/local/bin/slaw`.
+
+## Updates
+
+slaw does not update itself. It tells you, and the rest is a human-in-the-loop workflow.
+
+When the studio opens it asks GitHub for the list of [releases](https://github.com/slopstack-labs/slaw/releases), in the background and at most once a day (the answer is remembered in `update-check.json` beside `settings.json`). If a newer version is out, a **`v… available`** button appears in the toolbar; clicking it opens that release's page in your browser. Nothing is downloaded or installed, and a check that fails says nothing.
+
+| Your build | Hears about |
+|------------|-------------|
+| A release (`0.2.0`) | newer releases |
+| A prerelease (`0.2.0-beta.8`) | newer prereleases and releases |
+
+- **Help → Check for Updates** (also in the command palette, and **Check now** under Settings → About) asks straight away, whatever the schedule, and reports to the status bar.
+- **Settings → About → Check for updates at startup** turns the automatic check off. It is separate from the AI switch, because it is the one request slaw makes with AI off. The request names the client (`slaw-update-check`) and carries nothing about you, your machine or your project.
+- Versions are compared with the one stamped into the build (`slaw --version`, or Settings → About). Every release workflow stamps its tag; a build from source calls itself `0.1.0` and will therefore be told about every release, which is technically correct.
